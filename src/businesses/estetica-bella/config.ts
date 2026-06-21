@@ -1,0 +1,96 @@
+/**
+ * Negocio de ejemplo: "Estética Bella" (rubro estética/belleza).
+ *
+ * Esto es SOLO datos. Demuestra el eje de personalización por rubro: para vender
+ * a otro negocio se copia `_template`, se ajustan estos valores y se registra el
+ * slug — sin tocar `core/`.
+ */
+
+import type { BusinessConfig } from "@/core/types";
+
+export const esteticaBella: BusinessConfig = {
+  slug: "estetica-bella",
+  name: "Estética Bella",
+  currency: "COP",
+  locale: "es-CO",
+
+  services: [
+    {
+      id: "limpieza-facial",
+      name: "Limpieza facial",
+      description:
+        "Limpieza profunda: limpieza, exfoliación, extracción, mascarilla y protección final.",
+      price: 120000,
+      durationMinutes: 60,
+      keywords: ["facial", "limpieza", "piel", "cara"],
+    },
+    {
+      id: "unas",
+      name: "Uñas",
+      description: "Manicure semipermanente con esmaltado de larga duración.",
+      price: 60000,
+      durationMinutes: 45,
+      keywords: ["unas", "manicure", "esmaltado", "semipermanente"],
+    },
+    {
+      id: "pestanas",
+      name: "Pestañas",
+      description: "Lifting de pestañas para una mirada definida y natural.",
+      price: 90000,
+      durationMinutes: 75,
+      keywords: ["pestanas", "lifting", "extensiones", "mirada"],
+    },
+    {
+      id: "depilacion",
+      name: "Depilación",
+      description: "Depilación con cera de alta calidad, por zonas.",
+      price: 45000,
+      durationMinutes: 30,
+      keywords: ["depilacion", "cera", "wax"],
+    },
+  ],
+
+  messages: {
+    welcome:
+      "¡Hola! Gracias por escribirnos 💜 ¿Qué servicio te interesa?\n" +
+      "1. Limpieza facial\n2. Uñas\n3. Pestañas\n4. Depilación",
+    askName:
+      "¡Perfecto! Para ayudarte mejor, ¿cuál es tu nombre? 😊",
+    askDate: "Genial {{nombre}} 💜 ¿Qué día te gustaría agendar?",
+    serviceInfo:
+      "Nuestra {{servicio}} incluye: {{descripcion}}\n" +
+      "Duración: {{duracion}}.\nPrecio: {{precio}}.",
+    captured:
+      "¡Listo {{nombre}}! 💜 Anotamos tu interés en {{servicio}} para {{fecha}}.\n" +
+      "En breve te confirmamos disponibilidad. {{agenda}}",
+    fallback:
+      "Disculpa, no te entendí 😅. ¿Qué servicio te interesa?\n" +
+      "1. Limpieza facial\n2. Uñas\n3. Pestañas\n4. Depilación",
+  },
+
+  followUps: [
+    {
+      threshold: "2h",
+      afterMinutes: 120,
+      message:
+        "Hola {{nombre}}, vi que estabas interesada en {{servicio}}. " +
+        "¿Quieres que te comparta horarios disponibles para esta semana?",
+    },
+    {
+      threshold: "1d",
+      afterMinutes: 1440,
+      message:
+        "Tenemos algunos cupos disponibles esta semana para {{servicio}}. " +
+        "También puedes separar tu cita con un anticipo 💜",
+    },
+    {
+      threshold: "3d",
+      afterMinutes: 4320,
+      message:
+        "Último mensaje para no molestarte 😊 ¿Te gustaría que te avisemos " +
+        "cuando haya promoción de {{servicio}}?",
+    },
+  ],
+
+  // bookingUrl: "https://calendly.com/estetica-bella", // opcional
+};

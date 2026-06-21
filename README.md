@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# client-automation-bot
 
-## Getting Started
+**Mini-fábrica de atención y ventas para negocios pequeños.** Un bot que recibe
+interesados por WhatsApp, les responde al instante, captura sus datos, los organiza
+por estado y calcula el seguimiento — para que el negocio no pierda clientes por no
+responder a tiempo.
 
-First, run the development server:
+> Rubro demo: estética/belleza. La arquitectura permite revenderlo a cualquier rubro
+> (y a otras plataformas como Instagram) **sin tocar el core**.
+
+## Características (MVP)
+
+- 💬 Respuesta automática por WhatsApp con menú de servicios.
+- 📝 Captura de datos del cliente (nombre, servicio, fecha tentativa).
+- 🗂️ Leads organizados por estado: nuevo · interesado · agendado · pagado · perdido · recurrente.
+- ⏰ Cálculo de seguimientos (2h / 1 día / 3 días) — "la parte más valiosa".
+- 🖥️ Panel `/admin` de solo lectura para ver los leads.
+- 🧪 Simulador offline: prueba toda la conversación **sin Meta, sin tokens, sin red**.
+
+## Arranque rápido
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+pnpm sim "Hola, quiero info de limpieza facial"   # probar el bot offline
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Para levantar la app web (panel + webhook):
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+pnpm dev        # http://localhost:3000  (panel en /admin)
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Scripts
 
-## Learn More
+| Script | Qué hace |
+|--------|----------|
+| `pnpm dev` | Servidor de desarrollo (http://localhost:3000). |
+| `pnpm build` | Build de producción. |
+| `pnpm lint` | ESLint. |
+| `pnpm test` | Tests del core (Vitest). |
+| `pnpm sim "mensaje"` | Simulador offline del bot. Acepta varios mensajes y `--business <slug>`. |
 
-To learn more about Next.js, take a look at the following resources:
+Ejemplo de conversación completa con el simulador:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm sim "Hola" "limpieza facial" "Laura Pérez" "el viernes"
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Estructura
 
-## Deploy on Vercel
+```
+src/
+  core/         # GENÉRICO: motor, canales, almacenamiento (no toca por cliente/plataforma)
+  businesses/   # PERSONALIZACIÓN por rubro: un archivo de config por negocio
+  app/          # Capa Next.js: webhook, ruta de simulación, panel /admin
+scripts/        # Simulador CLI (pnpm sim)
+docs/           # Documentación (overview, git flow, arquitectura, onboarding, WhatsApp)
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Los dos ejes de personalización (sin tocar `core/`):
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Rubro** → `src/businesses/<slug>/config.ts` (servicios, precios, mensajes).
+- **Plataforma** → `src/core/channels/<plataforma>/` (WhatsApp hoy; Instagram mañana).
+
+## WhatsApp
+
+Las respuestas reales por WhatsApp requieren credenciales de Meta. Copia las variables
+y síguelas en la guía:
+
+```bash
+cp .env.example .env.local   # y rellena las 4 variables de WhatsApp
+```
+
+Ver [`docs/05-whatsapp-setup.md`](./docs/05-whatsapp-setup.md).
+
+## Documentación
+
+- [`docs/00-overview.md`](./docs/00-overview.md) — visión general.
+- [`docs/01-git-flow.md`](./docs/01-git-flow.md) — flujo de trabajo Git/GitHub.
+- [`docs/02-architecture.md`](./docs/02-architecture.md) — cómo está construido.
+- [`docs/03-team-guide.md`](./docs/03-team-guide.md) — guía de equipo.
+- [`docs/04-add-new-business.md`](./docs/04-add-new-business.md) — agregar un negocio.
+- [`docs/05-whatsapp-setup.md`](./docs/05-whatsapp-setup.md) — conectar WhatsApp.
+
+## Stack
+
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 · Vitest · **pnpm**.
+
+> Usa siempre `pnpm` (nunca npm/yarn): el lockfile es `pnpm-lock.yaml`.
+
+## Fuera de alcance (fase 2)
+
+Recordatorios y postventa automáticos (cron + plantillas aprobadas de Meta), agenda con
+reserva en vivo, reporte semanal, adaptador de Instagram, almacenamiento en Google
+Sheets/Airtable y despliegue en producción.
