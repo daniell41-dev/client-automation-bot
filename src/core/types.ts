@@ -30,6 +30,16 @@ export type ConversationStage =
 /** Plataforma por la que llega/sale un mensaje. */
 export type Channel = "whatsapp" | "instagram" | "mock";
 
+/** Persona (tono/voz) que usa el bot en un canal concreto. */
+export interface PersonaConfig {
+  /** Nombre del bot (p. ej. "Isabella"). */
+  name: string;
+  /** Descripción del tono para el prompt de IA (en inglés o español). */
+  tone: string;
+  /** Idioma / variedad (p. ej. "español colombiano informal"). */
+  language: string;
+}
+
 /** Umbrales de seguimiento soportados en el MVP. */
 export type FollowUpThreshold = "2h" | "1d" | "3d";
 
@@ -96,6 +106,8 @@ export interface BusinessConfig {
   followUps: FollowUpConfig[];
   /** Link de agenda opcional (Calendly, Google Calendar…). */
   bookingUrl?: string;
+  /** Persona del bot por canal. Si un canal no está, se omite la IA para ese canal. */
+  personas?: Partial<Record<Channel, PersonaConfig>>;
 }
 
 /** Mensaje entrante ya normalizado (independiente de la plataforma). */
@@ -146,6 +158,22 @@ export interface Lead {
   /** Umbrales de seguimiento ya enviados (para no repetir). */
   followUpsSent: FollowUpThreshold[];
   notes?: string;
+}
+
+/** Un turno en el historial de conversación (para memoria de sesión). */
+export interface ConversationTurn {
+  role: "user" | "assistant";
+  text: string;
+  timestamp: string;
+}
+
+/** Memoria de sesión de un contacto (historial de los últimos N mensajes). */
+export interface SessionMemory {
+  contact: string;
+  businessSlug: string;
+  channel: Channel;
+  history: ConversationTurn[];
+  updatedAt: string;
 }
 
 /** Un seguimiento pendiente calculado por el motor (el envío real es fase 2). */
