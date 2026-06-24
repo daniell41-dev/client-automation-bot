@@ -14,6 +14,8 @@
 import { getBusinessBySlug, listBusinesses } from "@/businesses/registry";
 import { handleIncoming } from "@/core/handle";
 import { nextAction } from "@/core/engine/lead-state";
+import { createGeminiProvider } from "@/core/ai/gemini";
+import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
 import type { IncomingMessage, Lead } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
 
@@ -75,6 +77,14 @@ async function main() {
   console.log(`\n🏭 Simulando conversación con: ${business.name} (${business.slug})\n`);
 
   const repo = new MemoryRepo();
+  const llm = createGeminiProvider();
+  const sessionRepo = llm ? new SessionJsonRepository() : undefined;
+
+  if (llm) {
+    const persona = business.personas?.mock ?? business.personas?.whatsapp;
+    console.log(`✨ IA habilitada (Gemini)${persona ? ` · Persona: ${persona.name}` : ""}\n`);
+  }
+
   const from = "57300000000";
 
   for (const text of messages) {
@@ -86,7 +96,14 @@ async function main() {
       text,
       timestamp: new Date().toISOString(),
     };
-    const replies = await handleIncoming(message, business, repo);
+    const replies = await handleIncoming(
+      message,
+      business,
+      repo,
+      new Date(),
+      llm ?? undefined,
+      sessionRepo,
+    );
     for (const reply of replies) {
       console.log(`🤖 Bot: ${reply.text}`);
       if (reply.options?.length) {

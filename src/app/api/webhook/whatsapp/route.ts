@@ -16,6 +16,8 @@ import { parseInbound } from "@/core/channels/whatsapp/parse";
 import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
 import { getBusinessByPhoneNumberId } from "@/businesses/registry";
 import { JsonLeadRepository } from "@/core/storage/adapters/json";
+import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
+import { createGeminiProvider } from "@/core/ai/gemini";
 import { handleIncoming } from "@/core/handle";
 import type { IncomingMessage } from "@/core/types";
 
@@ -64,6 +66,8 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const repo = new JsonLeadRepository();
+  const llm = createGeminiProvider();
+  const sessionRepo = llm ? new SessionJsonRepository() : undefined;
 
   try {
     for (const parsed of parseInbound(payload)) {
@@ -79,7 +83,14 @@ export async function POST(request: Request): Promise<Response> {
         contactName: parsed.contactName,
       };
 
-      const replies = await handleIncoming(message, business, repo);
+      const replies = await handleIncoming(
+        message,
+        business,
+        repo,
+        new Date(),
+        llm ?? undefined,
+        sessionRepo,
+      );
 
       if (accessToken) {
         const channel = new WhatsAppChannel({

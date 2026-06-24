@@ -14,6 +14,8 @@
 
 import { getBusinessBySlug } from "@/businesses/registry";
 import { JsonLeadRepository } from "@/core/storage/adapters/json";
+import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
+import { createGeminiProvider } from "@/core/ai/gemini";
 import { handleIncoming } from "@/core/handle";
 import type { IncomingMessage } from "@/core/types";
 
@@ -52,6 +54,9 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const repo = new JsonLeadRepository();
+  const llm = createGeminiProvider();
+  const sessionRepo = llm ? new SessionJsonRepository() : undefined;
+
   const message: IncomingMessage = {
     channel: "mock",
     businessSlug: slug,
@@ -60,7 +65,14 @@ export async function POST(request: Request): Promise<Response> {
     timestamp: new Date().toISOString(),
   };
 
-  const replies = await handleIncoming(message, business, repo);
+  const replies = await handleIncoming(
+    message,
+    business,
+    repo,
+    new Date(),
+    llm ?? undefined,
+    sessionRepo,
+  );
   const lead = await repo.findByContact(slug, from);
 
   return Response.json({ replies, lead });

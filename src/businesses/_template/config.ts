@@ -54,4 +54,19 @@ export const plantilla: BusinessConfig = {
   ],
 
   // bookingUrl: "https://calendly.com/tu-negocio", // opcional
+
+  // Personalización por canal (opcional). Sin esto las respuestas usan las
+  // plantillas directamente, sin pasar por IA.
+  // personas: {
+  //   whatsapp: {
+  //     name: "Sofia",
+  //     tone: "Friendly and professional. Use light emojis. Address by name.",
+  //     language: "español colombiano informal",
+  //   },
+  //   instagram: {
+  //     name: "Sofi",
+  //     tone: "Fun and trendy. More emojis. Use 'amiga' with female clients.",
+  //     language: "español colombiano informal y juvenil",
+  //   },
+  // },
 };
