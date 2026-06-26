@@ -34,7 +34,8 @@ export async function handleIncoming(
 
   if (!llm || !sessionRepo || !config.personas) return messages;
 
-  const persona = config.personas[message.channel];
+  // Para canales sin persona propia (ej. "mock"), se usa la de whatsapp como fallback.
+  const persona = config.personas[message.channel] ?? config.personas.whatsapp;
   if (!persona) return messages;
 
   const session = await sessionRepo.getOrCreate(

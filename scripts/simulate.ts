@@ -58,6 +58,16 @@ function parseArgs(argv: string[]): { businessSlug: string; messages: string[] }
 }
 
 async function main() {
+  // Carga .env.local si existe (las vars de entorno aún no las inyecta tsx).
+  try {
+    const { readFileSync } = await import("node:fs");
+    const raw = readFileSync(".env.local", "utf-8");
+    for (const line of raw.split("\n")) {
+      const m = line.match(/^([^#=\s][^=]*)=(.*)$/);
+      if (m) process.env[m[1].trim()] ??= m[2].trim();
+    }
+  } catch { /* .env.local no existe, continuar sin ella */ }
+
   const { businessSlug, messages } = parseArgs(process.argv.slice(2));
 
   const business = getBusinessBySlug(businessSlug);
