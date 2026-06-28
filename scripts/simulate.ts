@@ -14,8 +14,9 @@
 import { getBusinessBySlug, listBusinesses } from "@/businesses/registry";
 import { handleIncoming } from "@/core/handle";
 import { nextAction } from "@/core/engine/lead-state";
-import { createGeminiProvider } from "@/core/ai/gemini";
+import { createGroqProvider } from "@/core/ai/groq";
 import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
+import { loadEnvLocal } from "./load-env";
 import type { IncomingMessage, Lead } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
 
@@ -59,14 +60,7 @@ function parseArgs(argv: string[]): { businessSlug: string; messages: string[] }
 
 async function main() {
   // Carga .env.local si existe (las vars de entorno aún no las inyecta tsx).
-  try {
-    const { readFileSync } = await import("node:fs");
-    const raw = readFileSync(".env.local", "utf-8");
-    for (const line of raw.split("\n")) {
-      const m = line.match(/^([^#=\s][^=]*)=(.*)$/);
-      if (m) process.env[m[1].trim()] ??= m[2].trim();
-    }
-  } catch { /* .env.local no existe, continuar sin ella */ }
+  loadEnvLocal();
 
   const { businessSlug, messages } = parseArgs(process.argv.slice(2));
 
@@ -87,12 +81,16 @@ async function main() {
   console.log(`\n🏭 Simulando conversación con: ${business.name} (${business.slug})\n`);
 
   const repo = new MemoryRepo();
-  const llm = createGeminiProvider();
+  const llm = createGroqProvider();
   const sessionRepo = llm ? new SessionJsonRepository() : undefined;
 
   if (llm) {
     const persona = business.personas?.mock ?? business.personas?.whatsapp;
-    console.log(`✨ IA habilitada (Gemini)${persona ? ` · Persona: ${persona.name}` : ""}\n`);
+    console.log(
+      `✨ IA habilitada (Groq · ${llm.model})${persona ? ` · Persona: ${persona.name}` : ""}\n`,
+    );
+  } else {
+    console.log("ℹ️  IA desactivada (sin GROQ_API_KEY) — usando plantillas.\n");
   }
 
   const from = "57300000000";

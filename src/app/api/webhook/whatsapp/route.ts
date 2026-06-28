@@ -17,7 +17,7 @@ import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
 import { getBusinessByPhoneNumberId } from "@/businesses/registry";
 import { JsonLeadRepository } from "@/core/storage/adapters/json";
 import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
-import { createGeminiProvider } from "@/core/ai/gemini";
+import { createGroqProvider } from "@/core/ai/groq";
 import { handleIncoming } from "@/core/handle";
 import type { IncomingMessage } from "@/core/types";
 
@@ -66,7 +66,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const repo = new JsonLeadRepository();
-  const llm = createGeminiProvider();
+  const llm = createGroqProvider();
   const sessionRepo = llm ? new SessionJsonRepository() : undefined;
 
   try {

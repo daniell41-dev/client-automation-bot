@@ -15,9 +15,9 @@
 import { getBusinessBySlug } from "@/businesses/registry";
 import { JsonLeadRepository } from "@/core/storage/adapters/json";
 import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
-import { createGeminiProvider } from "@/core/ai/gemini";
+import { createGroqProvider } from "@/core/ai/groq";
 import { handleIncoming } from "@/core/handle";
-import type { IncomingMessage } from "@/core/types";
+import type { Channel, IncomingMessage } from "@/core/types";
 
 export const runtime = "nodejs";
 
@@ -25,7 +25,7 @@ interface SimulateBody {
   message?: string;
   business?: string;
   from?: string;
-  channel?: string;
+  channel?: Channel;
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -55,7 +55,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const repo = new JsonLeadRepository();
-  const llm = createGeminiProvider();
+  const llm = createGroqProvider();
   const sessionRepo = llm ? new SessionJsonRepository() : undefined;
 
   const message: IncomingMessage = {
@@ -76,5 +76,9 @@ export async function POST(request: Request): Promise<Response> {
   );
   const lead = await repo.findByContact(slug, from);
 
-  return Response.json({ replies, lead, _debug: { gemini_active: !!llm } });
+  return Response.json({
+    replies,
+    lead,
+    _debug: { ai_active: !!llm, model: llm?.model ?? null },
+  });
 }
