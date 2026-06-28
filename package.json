@@ -10,7 +10,8 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "sim": "tsx scripts/simulate.ts",
-    "ai:doctor": "tsx scripts/ai-doctor.ts"
+    "ai:doctor": "tsx scripts/ai-doctor.ts",
+    "sheets:doctor": "tsx scripts/sheets-doctor.ts"
   },
   "dependencies": {
     "googleapis": "^173.0.0",
