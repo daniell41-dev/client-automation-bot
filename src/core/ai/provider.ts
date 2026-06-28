@@ -1,7 +1,7 @@
 /**
  * Interfaz intercambiable de proveedor LLM.
  * El core depende solo de esta interfaz; el adaptador concreto
- * (Gemini, OpenAI…) lo inyecta la capa de aplicación.
+ * (Groq, OpenAI…) lo inyecta la capa de aplicación.
  */
 
 import type { PersonaConfig, ConversationTurn } from "@/core/types";
