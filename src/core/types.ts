@@ -111,6 +111,11 @@ export interface BusinessConfig {
   bookingUrl?: string;
   /** Persona del bot por canal. Si un canal no está, se omite la IA para ese canal. */
   personas?: Partial<Record<Channel, PersonaConfig>>;
+  /** Almacenamiento propio del negocio (multi-tenant). Sin esto cae a JSON local. */
+  storage?: {
+    /** ID de la planilla de Google Sheets de este negocio. */
+    spreadsheetId?: string;
+  };
 }
 
 /** Mensaje entrante ya normalizado (independiente de la plataforma). */

@@ -56,6 +56,14 @@ export const plantilla: BusinessConfig = {
 
   // bookingUrl: "https://calendly.com/tu-negocio", // opcional
 
+  // Planilla de Google Sheets propia del negocio (modelo multi-tenant).
+  // 1. Creá una planilla nueva en Google Sheets.
+  // 2. Compartila (Editor) con el GOOGLE_SERVICE_ACCOUNT_EMAIL del .env.local.
+  // 3. Pegá el ID que aparece en la URL: /spreadsheets/d/<ID>/edit
+  // storage: {
+  //   spreadsheetId: "", // ← pegá el ID acá
+  // },
+
   // Personalización por canal (opcional). Sin esto las respuestas usan las
   // plantillas directamente, sin pasar por IA.
   // personas: {

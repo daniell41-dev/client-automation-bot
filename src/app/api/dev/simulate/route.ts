@@ -56,9 +56,9 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const repo = createLeadRepository();
+  const repo = createLeadRepository(business);
   const llm = createGroqProvider();
-  const sessionRepo = llm ? createSessionRepository() : undefined;
+  const sessionRepo = llm ? createSessionRepository(business) : undefined;
 
   const message: IncomingMessage = {
     channel: body.channel ?? "whatsapp",

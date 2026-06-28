@@ -110,4 +110,8 @@ export const esteticaBella: BusinessConfig = {
       language: "español colombiano informal y juvenil",
     },
   },
+
+  storage: {
+    spreadsheetId: "1QKcZUaYzhK_98ZyhEDOz3JwTcNR4lyQM9FMj1fjQRco",
+  },
 };

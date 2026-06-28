@@ -67,14 +67,15 @@ export async function POST(request: Request): Promise<Response> {
     return new Response("Bad Request", { status: 400 });
   }
 
-  const repo = createLeadRepository();
   const llm = createGroqProvider();
-  const sessionRepo = llm ? createSessionRepository() : undefined;
 
   try {
     for (const parsed of parseInbound(payload)) {
       const business = getBusinessByPhoneNumberId(parsed.phoneNumberId);
       if (!business) continue; // negocio no registrado → ignorar
+
+      const repo = createLeadRepository(business);
+      const sessionRepo = llm ? createSessionRepository(business) : undefined;
 
       const message: IncomingMessage = {
         channel: "whatsapp",
