@@ -37,7 +37,11 @@ interface SheetsConfig {
 export function sheetsConfigFromEnv(): SheetsConfig | null {
   const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY
+    ?.replace(/\\n/g, "\n")  // literal \n → LF (loadEnvLocal no convierte)
+    ?.replace(/\r\n/g, "\n") // CRLF → LF (Windows)
+    ?.replace(/\r/g, "\n")   // CR suelto → LF
+    ?.replace(/^["']/, "");  // dotenv deja comilla inicial si no hay cierre matching
   if (!spreadsheetId || !email || !privateKey) return null;
   return { spreadsheetId, email, privateKey };
 }
