@@ -15,7 +15,7 @@ import { getBusinessBySlug, listBusinesses } from "@/businesses/registry";
 import { handleIncoming } from "@/core/handle";
 import { nextAction } from "@/core/engine/lead-state";
 import { createGroqProvider } from "@/core/ai/groq";
-import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
+import { SessionMemoryRepository } from "@/core/storage/adapters/session-memory";
 import { loadEnvLocal } from "./load-env";
 import type { IncomingMessage, Lead } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
@@ -82,7 +82,9 @@ async function main() {
 
   const repo = new MemoryRepo();
   const llm = createGroqProvider();
-  const sessionRepo = llm ? new SessionJsonRepository() : undefined;
+  // Sesión en memoria: el contexto vive solo durante este run (no se filtra
+  // entre ejecuciones como pasaba con la sesión persistida en disco).
+  const sessionRepo = llm ? new SessionMemoryRepository() : undefined;
 
   if (llm) {
     const persona = business.personas?.mock ?? business.personas?.whatsapp;
