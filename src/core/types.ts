@@ -25,7 +25,8 @@ export type ConversationStage =
   | "info_enviada" // se dio info del servicio, esperando que pida datos/agendar
   | "esperando_nombre" // se le pidió el nombre
   | "esperando_fecha" // se le pidió la fecha tentativa
-  | "datos_completos"; // ya tenemos nombre + servicio + fecha
+  | "esperando_confirmacion" // se le pidió confirmar la cita (Sí/cambiar fecha)
+  | "datos_completos"; // ya tenemos nombre + servicio + fecha y la cita está agendada
 
 /** Plataforma por la que llega/sale un mensaje. */
 export type Channel = "whatsapp" | "instagram" | "mock";
@@ -76,9 +77,11 @@ export interface MessageTemplates {
   askName: string;
   /** Pedir la fecha tentativa. */
   askDate: string;
+  /** Pedir confirmación de la cita. Variables: {{nombre}} {{servicio}} {{fecha}}. */
+  askConfirm: string;
   /** Info de un servicio. Variables: {{servicio}} {{descripcion}} {{precio}} {{duracion}}. */
   serviceInfo: string;
-  /** Confirmación tras capturar todos los datos. Variables: {{nombre}} {{servicio}} {{fecha}}. */
+  /** Mensaje final cuando la cita queda agendada. Variables: {{nombre}} {{servicio}} {{fecha}} {{agenda}}. */
   captured: string;
   /** Respuesta cuando no se entendió el mensaje. */
   fallback: string;

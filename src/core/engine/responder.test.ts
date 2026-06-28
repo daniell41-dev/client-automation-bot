@@ -29,8 +29,9 @@ const config: BusinessConfig = {
     welcome: "¡Hola! ¿Qué servicio te interesa?",
     askName: "¿Cuál es tu nombre?",
     askDate: "¿Qué día te gustaría agendar?",
+    askConfirm: "¿Confirmo tu cita de {{servicio}} para {{fecha}}?",
     serviceInfo: "{{servicio}}: {{descripcion}}. Precio {{precio}}, dura {{duracion}}.",
-    captured: "Perfecto {{nombre}}, anotamos {{servicio}} para {{fecha}}.",
+    captured: "Perfecto {{nombre}}, tu cita de {{servicio}} para {{fecha}} quedó agendada.",
     fallback: "No te entendí 😅. ¿Qué servicio te interesa?",
   },
   followUps: [],
@@ -78,7 +79,7 @@ describe("respond — primer contacto", () => {
 });
 
 describe("respond — flujo completo de captura", () => {
-  it("captura servicio → nombre → fecha y confirma", () => {
+  it("captura servicio → nombre → fecha → confirmación y agenda", () => {
     // 1) Elige servicio
     let r = respond(null, msg("limpieza facial"), config, now);
     expect(r.lead.stage).toBe("esperando_nombre");
@@ -89,14 +90,34 @@ describe("respond — flujo completo de captura", () => {
     expect(r.lead.stage).toBe("esperando_fecha");
     expect(r.messages[0].text).toContain("¿Qué día");
 
-    // 3) Responde la fecha
+    // 3) Responde la fecha → el bot pide confirmación (aún interesado)
     r = respond(r.lead, msg("el viernes"), config, now);
     expect(r.lead.tentativeDate).toBe("el viernes");
-    expect(r.lead.stage).toBe("datos_completos");
+    expect(r.lead.stage).toBe("esperando_confirmacion");
     expect(r.lead.state).toBe("interesado");
-    expect(r.messages[0].text).toContain("Laura Pérez");
     expect(r.messages[0].text).toContain("Limpieza facial");
     expect(r.messages[0].text).toContain("el viernes");
+    expect(r.messages[0].options).toEqual(["Sí, confirmar", "Cambiar fecha"]);
+
+    // 4) Confirma → cita agendada
+    r = respond(r.lead, msg("sí"), config, now);
+    expect(r.lead.stage).toBe("datos_completos");
+    expect(r.lead.state).toBe("agendado");
+    expect(r.messages[0].text).toContain("Laura Pérez");
+    expect(r.messages[0].text).toContain("agendada");
+  });
+
+  it("si declina la confirmación, vuelve a pedir la fecha sin agendar", () => {
+    let r = respond(null, msg("limpieza facial"), config, now);
+    r = respond(r.lead, msg("Laura Pérez"), config, now);
+    r = respond(r.lead, msg("el viernes"), config, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+
+    // Cualquier cosa que no sea "sí" → cambiar fecha
+    r = respond(r.lead, msg("Cambiar fecha"), config, now);
+    expect(r.lead.stage).toBe("esperando_fecha");
+    expect(r.lead.state).toBe("interesado");
+    expect(r.messages[0].text).toContain("¿Qué día");
   });
 
   it("selección por número de menú funciona tras el menú", () => {

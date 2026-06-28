@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { isGreeting, matchService, normalize } from "@/core/engine/intake";
+import {
+  isAffirmative,
+  isGreeting,
+  matchService,
+  normalize,
+} from "@/core/engine/intake";
 import type { Service } from "@/core/types";
 
 const services: Service[] = [
@@ -35,6 +40,26 @@ describe("isGreeting", () => {
 
   it("no marca como saludo un texto cualquiera", () => {
     expect(isGreeting("quiero precio")).toBe(false);
+  });
+});
+
+describe("isAffirmative", () => {
+  it("reconoce confirmaciones comunes", () => {
+    expect(isAffirmative("sí")).toBe(true);
+    expect(isAffirmative("Si, confirmar")).toBe(true);
+    expect(isAffirmative("dale")).toBe(true);
+    expect(isAffirmative("perfecto, confirmo")).toBe(true);
+  });
+
+  it("no confunde palabras que contienen 'si'", () => {
+    expect(isAffirmative("siempre")).toBe(false);
+    expect(isAffirmative("sin problema")).toBe(false);
+  });
+
+  it("trata cualquier otra cosa como no-confirmación", () => {
+    expect(isAffirmative("Cambiar fecha")).toBe(false);
+    expect(isAffirmative("no")).toBe(false);
+    expect(isAffirmative("mejor el lunes")).toBe(false);
   });
 });
 

@@ -45,6 +45,7 @@ const config: BusinessConfig = {
     welcome: "¿Qué servicio?",
     askName: "¿Nombre?",
     askDate: "¿Fecha?",
+    askConfirm: "¿Confirmas {{servicio}} para {{fecha}}?",
     serviceInfo: "{{servicio}} {{precio}}",
     captured: "Listo {{nombre}}",
     fallback: "no entendí",

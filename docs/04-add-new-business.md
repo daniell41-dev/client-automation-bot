@@ -21,7 +21,9 @@ Ajusta los datos del negocio:
 - **Identidad**: `slug`, `name`, mensaje de bienvenida.
 - **Servicios**: lista de `Service` (nombre, descripción, precio, duración). El menú y la
   info por servicio salen de aquí.
-- **Mensajes**: plantillas con variables `{{nombre}}`, `{{servicio}}`, etc.
+- **Mensajes**: plantillas con variables `{{nombre}}`, `{{servicio}}`, etc. Incluye
+  `askConfirm` (la pregunta de confirmación antes de agendar) y `captured` (el mensaje cuando la
+  cita queda agendada).
 - **Seguimientos**: los textos para 2h / 1 día / 3 días.
 - **Agenda** (opcional): `bookingUrl` (Calendly/agenda) que el bot comparte al cerrar.
 

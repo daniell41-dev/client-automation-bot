@@ -64,7 +64,9 @@ Gracias a esto:
 - `BusinessConfig` — toda la personalización de un negocio (servicios, mensajes, tiempos
   de seguimiento, link de agenda opcional…).
 - `Lead` — un interesado: contacto, servicio de interés, **estado**, fechas, etc.
-- `LeadState` — `nuevo | interesado | agendado | pagado | perdido | recurrente`.
+- `LeadState` — `nuevo | interesado | agendado | pagado | perdido | recurrente`. El funnel de
+  conversación captura servicio → nombre → fecha → **confirmación**; al confirmar, el lead pasa de
+  `interesado` a `agendado`.
 - `IncomingMessage` / `OutgoingMessage` — mensajes normalizados (agnósticos de plataforma).
 - `FollowUp` — un seguimiento pendiente calculado por el motor.
 

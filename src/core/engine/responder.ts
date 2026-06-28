@@ -16,7 +16,8 @@ import type {
   Service,
 } from "@/core/types";
 import { render, type TemplateVars } from "@/core/engine/templating";
-import { matchService, isGreeting } from "@/core/engine/intake";
+import { matchService, isGreeting, isAffirmative } from "@/core/engine/intake";
+import { transition } from "@/core/engine/lead-state";
 
 export interface RespondResult {
   /** Lead creado o actualizado tras procesar el mensaje. */
@@ -24,6 +25,9 @@ export interface RespondResult {
   /** Mensajes a enviar al cliente, en orden. */
   messages: OutgoingMessage[];
 }
+
+/** Respuestas rápidas para el paso de confirmación de cita. */
+const CONFIRM_OPTIONS = ["Sí, confirmar", "Cambiar fecha"];
 
 /** Crea un lead nuevo a partir del primer mensaje. */
 function createLead(message: IncomingMessage, now: Date): Lead {
@@ -108,11 +112,11 @@ export function respond(
   /** Une dos fragmentos en un solo mensaje (info del servicio + pregunta). */
   const joinParts = (...parts: string[]) => parts.filter(Boolean).join("\n\n");
 
-  /** Cierra la captura: marca datos completos y devuelve el texto de confirmación. */
-  const captureCompleteText = (): string => {
-    lead.stage = "datos_completos";
+  /** Pide confirmar la cita: pasa a `esperando_confirmacion` y devuelve la pregunta. */
+  const askConfirmText = (): string => {
+    lead.stage = "esperando_confirmacion";
     if (lead.state === "nuevo") lead.state = "interesado";
-    return render(config.messages.captured, leadVars(lead, config));
+    return render(config.messages.askConfirm, leadVars(lead, config));
   };
 
   // 1) Etapas de captura de datos (tienen prioridad sobre todo lo demás).
@@ -122,14 +126,27 @@ export function respond(
       lead.stage = "esperando_fecha";
       reply(render(config.messages.askDate, leadVars(lead, config)));
     } else {
-      reply(captureCompleteText());
+      reply(askConfirmText(), CONFIRM_OPTIONS);
     }
     return { lead, messages };
   }
 
   if (lead.stage === "esperando_fecha") {
     lead.tentativeDate = message.text.trim();
-    reply(captureCompleteText());
+    reply(askConfirmText(), CONFIRM_OPTIONS);
+    return { lead, messages };
+  }
+
+  // 1b) Confirmación de la cita: "sí" agenda; cualquier otra cosa re-pregunta la fecha.
+  if (lead.stage === "esperando_confirmacion") {
+    if (isAffirmative(message.text)) {
+      lead.state = transition(lead.state, "agendado");
+      lead.stage = "datos_completos";
+      reply(render(config.messages.captured, leadVars(lead, config)));
+    } else {
+      lead.stage = "esperando_fecha";
+      reply(render(config.messages.askDate, leadVars(lead, config)));
+    }
     return { lead, messages };
   }
 
@@ -148,7 +165,7 @@ export function respond(
       lead.stage = "esperando_fecha";
       reply(joinParts(info, render(config.messages.askDate, leadVars(lead, config))));
     } else {
-      reply(joinParts(info, captureCompleteText()));
+      reply(joinParts(info, askConfirmText()), CONFIRM_OPTIONS);
     }
     return { lead, messages };
   }

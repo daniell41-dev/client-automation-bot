@@ -57,12 +57,14 @@ export const esteticaBella: BusinessConfig = {
     askName:
       "¡Perfecto! Para ayudarte mejor, ¿cuál es tu nombre? 😊",
     askDate: "Genial {{nombre}} 💜 ¿Qué día te gustaría agendar?",
+    askConfirm:
+      "¿Te confirmo tu cita de {{servicio}} para {{fecha}}, {{nombre}}? 💜",
     serviceInfo:
       "Nuestra {{servicio}} incluye: {{descripcion}}\n" +
       "Duración: {{duracion}}.\nPrecio: {{precio}}.",
     captured:
-      "¡Listo {{nombre}}! 💜 Anotamos tu interés en {{servicio}} para {{fecha}}.\n" +
-      "En breve te confirmamos disponibilidad. {{agenda}}",
+      "¡Listo {{nombre}}! ✨ Tu cita de {{servicio}} para {{fecha}} quedó agendada.\n" +
+      "Te esperamos 💜 {{agenda}}",
     fallback:
       "Disculpa, no te entendí 😅. ¿Qué servicio te interesa?\n" +
       "1. Limpieza facial\n2. Uñas\n3. Pestañas\n4. Depilación",

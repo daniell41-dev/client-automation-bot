@@ -36,6 +36,40 @@ export function isGreeting(text: string): boolean {
   return GREETING_WORDS.some((w) => n.includes(w));
 }
 
+/** Palabras que cuentan como un "sí" para confirmar (normalizadas, sin tildes). */
+const AFFIRMATIVE_WORDS = [
+  "si",
+  "sip",
+  "claro",
+  "dale",
+  "ok",
+  "oka",
+  "okay",
+  "listo",
+  "confirmo",
+  "confirmar",
+  "confirmado",
+  "perfecto",
+  "de una",
+  "correcto",
+  "obvio",
+];
+
+/**
+ * ¿El mensaje es una afirmación/confirmación?
+ *
+ * Se usa en el paso de confirmación de cita: cualquier cosa que NO sea un "sí"
+ * se interpreta como "cambiar fecha" (declinar). Coincide por palabra completa
+ * para que "si" no dispare dentro de "siempre" o "sin".
+ */
+export function isAffirmative(text: string): boolean {
+  const n = normalize(text);
+  const words = n.split(/\s+/);
+  return AFFIRMATIVE_WORDS.some((w) =>
+    w.includes(" ") ? n.includes(w) : words.includes(w),
+  );
+}
+
 /**
  * Resuelve el servicio al que se refiere el cliente.
  *

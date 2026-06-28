@@ -19,6 +19,7 @@ const config: BusinessConfig = {
     welcome: "",
     askName: "",
     askDate: "",
+    askConfirm: "",
     serviceInfo: "",
     captured: "",
     fallback: "",

@@ -40,10 +40,11 @@ export const plantilla: BusinessConfig = {
     welcome: "¡Hola! ¿Qué servicio te interesa?",
     askName: "Para ayudarte mejor, ¿cuál es tu nombre?",
     askDate: "{{nombre}}, ¿qué día te gustaría agendar?",
+    askConfirm: "¿Te confirmo tu cita de {{servicio}} para {{fecha}}, {{nombre}}?",
     serviceInfo:
       "{{servicio}}: {{descripcion}}\nDuración: {{duracion}}.\nPrecio: {{precio}}.",
     captured:
-      "¡Listo {{nombre}}! Anotamos {{servicio}} para {{fecha}}. {{agenda}}",
+      "¡Listo {{nombre}}! Tu cita de {{servicio}} para {{fecha}} quedó agendada. {{agenda}}",
     fallback: "No te entendí 😅. ¿Qué servicio te interesa?",
   },
 
