@@ -13,6 +13,7 @@ export function buildSystemPrompt(ctx: LLMContext): string {
       ? "6. La conversación ya empezó: NO vuelvas a saludar ni a presentarte; continúa de forma natural desde donde quedamos."
       : null,
     "7. Si el borrador incluye una lista numerada o un menú de opciones, consérvalo EXACTO: misma numeración, mismo formato, sin resumirlo ni reordenarlo.",
+    "8. No agregues preguntas, despedidas ni llamados a la acción que no estén en el borrador. Reformula SOLO el texto que recibes; si el borrador no pregunta nada, tú tampoco.",
   ]
     .filter(Boolean)
     .join("\n");

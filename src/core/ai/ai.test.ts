@@ -70,4 +70,8 @@ describe("buildSystemPrompt — reglas adicionales", () => {
   it("siempre incluye instrucción de conservar menús numerados", () => {
     expect(buildSystemPrompt(ctx)).toMatch(/lista numerada|menú/i);
   });
+
+  it("instruye a no agregar preguntas ni llamados a la acción fuera del borrador", () => {
+    expect(buildSystemPrompt(ctx)).toMatch(/No agregues preguntas/i);
+  });
 });

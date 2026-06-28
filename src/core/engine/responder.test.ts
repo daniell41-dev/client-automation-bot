@@ -58,18 +58,19 @@ describe("respond — primer contacto", () => {
     expect(lead.stage).toBe("menu_enviado");
   });
 
-  it("si el primer mensaje ya menciona un servicio, da info y pide el nombre", () => {
+  it("si el primer mensaje ya menciona un servicio, da info y pide el nombre en un solo mensaje", () => {
     const { lead, messages } = respond(
       null,
       msg("Hola, quiero info de limpieza facial"),
       config,
       now,
     );
-    expect(messages).toHaveLength(2);
+    // Info del servicio + pregunta del nombre van en UNA sola burbuja.
+    expect(messages).toHaveLength(1);
     expect(messages[0].text).toContain("Limpieza facial");
     expect(messages[0].text).toContain("120.000");
     expect(messages[0].text).toContain("60 minutos");
-    expect(messages[1].text).toContain("¿Cuál es tu nombre?");
+    expect(messages[0].text).toContain("¿Cuál es tu nombre?");
     expect(lead.state).toBe("interesado");
     expect(lead.serviceId).toBe("limpieza-facial");
     expect(lead.stage).toBe("esperando_nombre");

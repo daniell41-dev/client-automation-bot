@@ -105,10 +105,14 @@ export function respond(
   const reply = (text: string, options?: string[]) =>
     messages.push({ to: message.from, text, options });
 
-  const finishCapture = () => {
+  /** Une dos fragmentos en un solo mensaje (info del servicio + pregunta). */
+  const joinParts = (...parts: string[]) => parts.filter(Boolean).join("\n\n");
+
+  /** Cierra la captura: marca datos completos y devuelve el texto de confirmación. */
+  const captureCompleteText = (): string => {
     lead.stage = "datos_completos";
     if (lead.state === "nuevo") lead.state = "interesado";
-    reply(render(config.messages.captured, leadVars(lead, config)));
+    return render(config.messages.captured, leadVars(lead, config));
   };
 
   // 1) Etapas de captura de datos (tienen prioridad sobre todo lo demás).
@@ -118,14 +122,14 @@ export function respond(
       lead.stage = "esperando_fecha";
       reply(render(config.messages.askDate, leadVars(lead, config)));
     } else {
-      finishCapture();
+      reply(captureCompleteText());
     }
     return { lead, messages };
   }
 
   if (lead.stage === "esperando_fecha") {
     lead.tentativeDate = message.text.trim();
-    finishCapture();
+    reply(captureCompleteText());
     return { lead, messages };
   }
 
@@ -134,16 +138,17 @@ export function respond(
   if (service) {
     lead.serviceId = service.id;
     if (lead.state === "nuevo") lead.state = "interesado";
-    reply(render(config.messages.serviceInfo, serviceVars(service, config)));
+    const info = render(config.messages.serviceInfo, serviceVars(service, config));
 
+    // Un solo mensaje: info del servicio + la siguiente pregunta del funnel.
     if (!lead.name) {
       lead.stage = "esperando_nombre";
-      reply(render(config.messages.askName, leadVars(lead, config)));
+      reply(joinParts(info, render(config.messages.askName, leadVars(lead, config))));
     } else if (!lead.tentativeDate) {
       lead.stage = "esperando_fecha";
-      reply(render(config.messages.askDate, leadVars(lead, config)));
+      reply(joinParts(info, render(config.messages.askDate, leadVars(lead, config))));
     } else {
-      finishCapture();
+      reply(joinParts(info, captureCompleteText()));
     }
     return { lead, messages };
   }
