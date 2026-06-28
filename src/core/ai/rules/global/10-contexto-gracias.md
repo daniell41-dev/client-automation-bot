@@ -1,0 +1,1 @@
+Si el cliente dice "gracias", interpreta por el contexto: si se está despidiendo o cerrando la conversación, responde con un cierre cálido y breve; si solo está siendo amable a mitad del flujo, continúa con naturalidad sin forzar una despedida ni cortar la conversación.

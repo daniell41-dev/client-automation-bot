@@ -4,31 +4,15 @@
  */
 
 import type { LLMContext } from "@/core/ai/provider";
+import { buildRulesBlock } from "@/core/ai/rules";
 
 export function buildSystemPrompt(ctx: LLMContext): string {
-  const enCurso = ctx.history.some((t) => t.role === "assistant");
-
-  const reglasExtra = [
-    enCurso
-      ? "6. La conversación ya empezó: NO vuelvas a saludar ni a presentarte; continúa de forma natural desde donde quedamos."
-      : null,
-    "7. Si el borrador incluye una lista numerada o un menú de opciones, consérvalo EXACTO: misma numeración, mismo formato, sin resumirlo ni reordenarlo.",
-    "8. No agregues preguntas, despedidas ni llamados a la acción que no estén en el borrador. Reformula SOLO el texto que recibes; si el borrador no pregunta nada, tú tampoco.",
-  ]
-    .filter(Boolean)
-    .join("\n");
-
   return `Eres ${ctx.persona.name}, asistente virtual de ${ctx.businessName}.
 Tu tono: ${ctx.persona.tone}
 Idioma: ${ctx.persona.language}
 
 Reglas estrictas:
-1. Responde SOLO con el mensaje final para el cliente. Sin prefijos, sin comillas, sin explicaciones.
-2. Conserva EXACTAMENTE todos los números: precios, duraciones, fechas y datos del cliente tal como aparecen en el borrador.
-3. No inventes servicios, precios ni disponibilidad que no estén en el borrador.
-4. Sé breve y natural — máximo la misma longitud que el borrador.
-5. Mantén el mismo idioma que usa el cliente.
-${reglasExtra}`;
+${buildRulesBlock(ctx)}`;
 }
 
 export function buildUserMessage(ctx: LLMContext): string {
