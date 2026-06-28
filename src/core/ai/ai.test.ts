@@ -49,3 +49,25 @@ describe("buildUserMessage", () => {
     expect(buildUserMessage(ctx)).toContain("$120.000");
   });
 });
+
+describe("buildSystemPrompt — reglas adicionales", () => {
+  it("no incluye instrucción de no-saludo cuando el historial no tiene turno assistant", () => {
+    const prompt = buildSystemPrompt(ctx);
+    expect(prompt).not.toMatch(/NO vuelvas a saludar/i);
+  });
+
+  it("incluye instrucción de no-saludo cuando el historial ya tiene turno assistant", () => {
+    const ctxEnCurso: LLMContext = {
+      ...ctx,
+      history: [
+        { role: "user", text: "Hola", timestamp: "" },
+        { role: "assistant", text: "¡Hola! Soy Isabella.", timestamp: "" },
+      ],
+    };
+    expect(buildSystemPrompt(ctxEnCurso)).toMatch(/NO vuelvas a saludar/i);
+  });
+
+  it("siempre incluye instrucción de conservar menús numerados", () => {
+    expect(buildSystemPrompt(ctx)).toMatch(/lista numerada|menú/i);
+  });
+});

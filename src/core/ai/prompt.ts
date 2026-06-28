@@ -6,6 +6,17 @@
 import type { LLMContext } from "@/core/ai/provider";
 
 export function buildSystemPrompt(ctx: LLMContext): string {
+  const enCurso = ctx.history.some((t) => t.role === "assistant");
+
+  const reglasExtra = [
+    enCurso
+      ? "6. La conversación ya empezó: NO vuelvas a saludar ni a presentarte; continúa de forma natural desde donde quedamos."
+      : null,
+    "7. Si el borrador incluye una lista numerada o un menú de opciones, consérvalo EXACTO: misma numeración, mismo formato, sin resumirlo ni reordenarlo.",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   return `Eres ${ctx.persona.name}, asistente virtual de ${ctx.businessName}.
 Tu tono: ${ctx.persona.tone}
 Idioma: ${ctx.persona.language}
@@ -15,7 +26,8 @@ Reglas estrictas:
 2. Conserva EXACTAMENTE todos los números: precios, duraciones, fechas y datos del cliente tal como aparecen en el borrador.
 3. No inventes servicios, precios ni disponibilidad que no estén en el borrador.
 4. Sé breve y natural — máximo la misma longitud que el borrador.
-5. Mantén el mismo idioma que usa el cliente.`;
+5. Mantén el mismo idioma que usa el cliente.
+${reglasExtra}`;
 }
 
 export function buildUserMessage(ctx: LLMContext): string {
