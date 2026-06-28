@@ -1,7 +1,7 @@
 /**
  * Adaptador Google Gemini Flash para ILLMProvider.
  *
- * Usa gemini-2.0-flash-lite (el más rápido y económico del tier gratuito).
+ * Usa gemini-2.0-flash (rápido y económico del tier gratuito).
  * Solo se instancia si GEMINI_API_KEY está presente.
  */
 
@@ -12,7 +12,7 @@ import { buildSystemPrompt, buildUserMessage } from "@/core/ai/prompt";
 export class GeminiProvider implements ILLMProvider {
   private model: ReturnType<GoogleGenerativeAI["getGenerativeModel"]>;
 
-  constructor(apiKey: string, modelName = "gemini-2.0-flash-lite") {
+  constructor(apiKey: string, modelName = "gemini-2.0-flash") {
     const genAI = new GoogleGenerativeAI(apiKey);
     this.model = genAI.getGenerativeModel({ model: modelName });
   }
@@ -32,8 +32,8 @@ export class GeminiProvider implements ILLMProvider {
       });
       const text = result.response.text().trim();
       return text || ctx.draftResponse;
-    } catch {
-      // Si falla la IA, devolvemos el borrador original sin romper el flujo.
+    } catch (err) {
+      console.error("[Gemini] enhance falló, usando borrador:", err);
       return ctx.draftResponse;
     }
   }
