@@ -16,6 +16,7 @@ import { parseInbound } from "@/core/channels/whatsapp/parse";
 import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
 import { getBusinessByPhoneNumberId } from "@/businesses/registry";
 import {
+  createCalendar,
   createLeadRepository,
   createSessionRepository,
 } from "@/core/storage/factory";
@@ -76,6 +77,7 @@ export async function POST(request: Request): Promise<Response> {
 
       const repo = createLeadRepository(business);
       const sessionRepo = llm ? createSessionRepository(business) : undefined;
+      const calendar = createCalendar(business) ?? undefined;
 
       const message: IncomingMessage = {
         channel: "whatsapp",
@@ -93,6 +95,7 @@ export async function POST(request: Request): Promise<Response> {
         new Date(),
         llm ?? undefined,
         sessionRepo,
+        calendar,
       );
 
       if (accessToken) {

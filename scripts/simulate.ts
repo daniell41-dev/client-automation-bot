@@ -27,6 +27,7 @@ import { getBusinessBySlug, listBusinesses } from "@/businesses/registry";
 import { handleIncoming } from "@/core/handle";
 import { nextAction } from "@/core/engine/lead-state";
 import { createGroqProvider } from "@/core/ai/groq";
+import { createCalendar } from "@/core/storage/factory";
 import { SessionMemoryRepository } from "@/core/storage/adapters/session-memory";
 import { JsonLeadRepository } from "@/core/storage/adapters/json";
 import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
@@ -129,6 +130,7 @@ async function sendMessage(
     text,
     timestamp: new Date().toISOString(),
   };
+  const calendar = createCalendar(business) ?? undefined;
   const replies = await handleIncoming(
     message,
     business,
@@ -136,6 +138,7 @@ async function sendMessage(
     new Date(),
     llm ?? undefined,
     sessionRepo,
+    calendar,
   );
   for (const reply of replies) {
     console.log(`🤖 Bot: ${reply.text}`);

@@ -109,13 +109,31 @@ export interface BusinessConfig {
   followUps: FollowUpConfig[];
   /** Link de agenda opcional (Calendly, Google Calendar…). */
   bookingUrl?: string;
+  /** Zona horaria IANA del negocio (p. ej. "America/Bogota"). Default America/Bogota. */
+  timezone?: string;
   /** Persona del bot por canal. Si un canal no está, se omite la IA para ese canal. */
   personas?: Partial<Record<Channel, PersonaConfig>>;
   /** Almacenamiento propio del negocio (multi-tenant). Sin esto cae a JSON local. */
   storage?: {
     /** ID de la planilla de Google Sheets de este negocio. */
     spreadsheetId?: string;
+    /** ID del Google Calendar del negocio (su email o un id @group.calendar.google.com). */
+    calendarId?: string;
   };
+}
+
+/** Evento de calendario normalizado, independiente del proveedor (Google, etc.). */
+export interface CalendarEvent {
+  /** Título visible del evento (p. ej. "Limpieza facial - Laura"). */
+  summary: string;
+  /** Detalle opcional (texto original de la fecha, contacto, etc.). */
+  description?: string;
+  /** Inicio en ISO 8601 con offset (p. ej. "2026-06-30T15:00:00-05:00"). */
+  startISO: string;
+  /** Fin en ISO 8601 (inicio + duración del servicio). */
+  endISO: string;
+  /** Zona horaria IANA del evento (p. ej. "America/Bogota"). */
+  timezone: string;
 }
 
 /** Mensaje entrante ya normalizado (independiente de la plataforma). */
