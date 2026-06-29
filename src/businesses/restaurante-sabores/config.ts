@@ -102,6 +102,6 @@ export const restauranteSabores: BusinessConfig = {
   storage: {
     // Reemplazá este valor con el ID de la planilla de Google Sheets del restaurante.
     // El ID está en la URL: https://docs.google.com/spreadsheets/d/<ESTE_ID>/edit
-    spreadsheetId: "PENDIENTE_REEMPLAZAR_CON_ID_DE_SHEETS",
+    spreadsheetId: "1_Qq9WzFogsRZ6ZhQ6upgP1RqwLFCQSnyNE6UqnsTagI",
   },
 };
