@@ -14,7 +14,7 @@ import {
 } from "@/core/channels/whatsapp/verify";
 import { parseInbound } from "@/core/channels/whatsapp/parse";
 import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
-import { getBusinessByPhoneNumberId } from "@/businesses/registry";
+import { resolveBusinessByPhoneNumberId } from "@/businesses/resolve";
 import {
   createLeadRepository,
   createSessionRepository,
@@ -73,8 +73,9 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     for (const parsed of parseInbound(payload)) {
-      const business = getBusinessByPhoneNumberId(parsed.phoneNumberId);
-      if (!business) continue; // negocio no registrado → ignorar
+      const resolved = await resolveBusinessByPhoneNumberId(parsed.phoneNumberId);
+      if (!resolved) continue; // negocio no registrado → ignorar
+      const business = resolved.config;
 
       const message: IncomingMessage = {
         channel: "whatsapp",

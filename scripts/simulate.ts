@@ -23,7 +23,8 @@ import { createInterface } from "node:readline/promises";
 import { join } from "node:path";
 import { stdin as input, stdout as output } from "node:process";
 
-import { getBusinessBySlug, listBusinesses } from "@/businesses/registry";
+import { listBusinesses } from "@/businesses/registry";
+import { resolveBusinessBySlug } from "@/businesses/resolve";
 import { handleIncoming } from "@/core/handle";
 import { nextAction } from "@/core/engine/lead-state";
 import { createGroqProvider } from "@/core/ai/groq";
@@ -236,14 +237,16 @@ async function main() {
 
   const { businessSlug, messages, reset } = parseArgs(process.argv.slice(2));
 
-  const business = getBusinessBySlug(businessSlug);
-  if (!business) {
+  const resolved = await resolveBusinessBySlug(businessSlug);
+  if (!resolved) {
     console.error(`❌ Negocio "${businessSlug}" no encontrado.`);
     console.error(
-      `   Disponibles: ${listBusinesses().map((b) => b.slug).join(", ")}`,
+      `   Disponibles en código: ${listBusinesses().map((b) => b.slug).join(", ")}` +
+        " (con Supabase configurado también busca en la tabla negocios)",
     );
     process.exit(1);
   }
+  const business = resolved.config;
 
   console.log(`\n🏭 Simulando conversación con: ${business.name} (${business.slug})\n`);
 

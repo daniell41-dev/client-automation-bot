@@ -2,14 +2,14 @@
  * Panel /admin (solo lectura).
  *
  * Muestra los leads guardados y sus estados, para que el negocio vea todo de un
- * vistazo. Es un Server Component: lee directo del repositorio JSON en el
- * servidor. No edita nada (la edición es fase 2).
+ * vistazo. Es un Server Component: lee del backend configurado (Supabase,
+ * Sheets o JSON) vía el factory. No edita nada (la edición vive en el portal).
  */
 
-import { JsonLeadRepository } from "@/core/storage/adapters/json";
-import { getBusinessBySlug } from "@/businesses/registry";
+import { createLeadRepository } from "@/core/storage/factory";
+import { resolveBusinessBySlug } from "@/businesses/resolve";
 import { nextAction } from "@/core/engine/lead-state";
-import type { Lead, LeadState } from "@/core/types";
+import type { BusinessConfig, Lead, LeadState } from "@/core/types";
 
 // Lee el archivo de leads en cada request (no prerenderizar en build).
 export const dynamic = "force-dynamic";
@@ -23,8 +23,8 @@ const STATE_STYLES: Record<LeadState, string> = {
   perdido: "bg-red-100 text-red-700",
 };
 
-function serviceName(lead: Lead): string {
-  const business = getBusinessBySlug(lead.businessSlug);
+function serviceName(lead: Lead, configs: Map<string, BusinessConfig>): string {
+  const business = configs.get(lead.businessSlug);
   return business?.services.find((s) => s.id === lead.serviceId)?.name ?? "—";
 }
 
@@ -37,8 +37,15 @@ function formatDate(iso: string): string {
 }
 
 export default async function AdminPage() {
-  const repo = new JsonLeadRepository();
+  const repo = createLeadRepository();
   const leads = await repo.list();
+
+  // Resuelve la config una sola vez por negocio (no por fila).
+  const configs = new Map<string, BusinessConfig>();
+  for (const slug of new Set(leads.map((l) => l.businessSlug))) {
+    const resolved = await resolveBusinessBySlug(slug);
+    if (resolved) configs.set(slug, resolved.config);
+  }
 
   return (
     <main className="mx-auto max-w-5xl p-6">
@@ -79,7 +86,9 @@ export default async function AdminPage() {
                   <td className="px-4 py-3 font-medium text-slate-800">
                     {lead.name ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{serviceName(lead)}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {serviceName(lead, configs)}
+                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATE_STYLES[lead.state]}`}

@@ -12,7 +12,7 @@
  *     -d '{"message":"Hola, quiero info de limpieza facial"}'
  */
 
-import { getBusinessBySlug } from "@/businesses/registry";
+import { resolveBusinessBySlug } from "@/businesses/resolve";
 import {
   createLeadRepository,
   createSessionRepository,
@@ -48,13 +48,14 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: "Falta 'message'" }, { status: 400 });
   }
 
-  const business = getBusinessBySlug(slug);
-  if (!business) {
+  const resolved = await resolveBusinessBySlug(slug);
+  if (!resolved) {
     return Response.json(
       { error: `Negocio "${slug}" no encontrado` },
       { status: 400 },
     );
   }
+  const business = resolved.config;
 
   const repo = createLeadRepository();
   const llm = createGroqProvider();
