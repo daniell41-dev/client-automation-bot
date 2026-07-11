@@ -1,10 +1,11 @@
 /**
- * Ruta de simulación SOLO para desarrollo.
+ * Ruta de simulación del bot.
  *
  * Permite probar el bot desde el navegador / un fetch, sin Meta. Persiste el
- * lead en el repositorio JSON, así el panel `/admin` muestra el resultado.
+ * lead en el backend configurado (Supabase / Sheets / JSON).
  *
- * Deshabilitada en producción (responde 404).
+ * En desarrollo acepta cualquier negocio. En producción SOLO los negocios de
+ * demostración (`es_demo = true`): es lo que usa el chat público de /demo.
  *
  * Ejemplo:
  *   curl -X POST http://localhost:3000/api/dev/simulate \
@@ -31,10 +32,6 @@ interface SimulateBody {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  if (process.env.NODE_ENV === "production") {
-    return new Response("Not found", { status: 404 });
-  }
-
   let body: SimulateBody;
   try {
     body = (await request.json()) as SimulateBody;
@@ -54,6 +51,11 @@ export async function POST(request: Request): Promise<Response> {
       { error: `Negocio "${slug}" no encontrado` },
       { status: 400 },
     );
+  }
+
+  // En producción solo se permite chatear con negocios de demostración.
+  if (process.env.NODE_ENV === "production" && !resolved.esDemo) {
+    return new Response("Not found", { status: 404 });
   }
   const business = resolved.config;
 
