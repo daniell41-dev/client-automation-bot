@@ -1,10 +1,11 @@
 /**
- * Ruta de simulación SOLO para desarrollo.
+ * Ruta de simulación del bot.
  *
  * Permite probar el bot desde el navegador / un fetch, sin Meta. Persiste el
- * lead en el repositorio JSON, así el panel `/admin` muestra el resultado.
+ * lead en el backend configurado (Supabase / Sheets / JSON).
  *
- * Deshabilitada en producción (responde 404).
+ * En desarrollo acepta cualquier negocio. En producción SOLO los negocios de
+ * demostración (`es_demo = true`): es lo que usa el chat público de /demo.
  *
  * Ejemplo:
  *   curl -X POST http://localhost:3000/api/dev/simulate \
@@ -12,7 +13,7 @@
  *     -d '{"message":"Hola, quiero info de limpieza facial"}'
  */
 
-import { getBusinessBySlug } from "@/businesses/registry";
+import { resolveBusinessBySlug } from "@/businesses/resolve";
 import {
   createLeadRepository,
   createSessionRepository,
@@ -31,10 +32,6 @@ interface SimulateBody {
 }
 
 export async function POST(request: Request): Promise<Response> {
-  if (process.env.NODE_ENV === "production") {
-    return new Response("Not found", { status: 404 });
-  }
-
   let body: SimulateBody;
   try {
     body = (await request.json()) as SimulateBody;
@@ -48,13 +45,19 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json({ error: "Falta 'message'" }, { status: 400 });
   }
 
-  const business = getBusinessBySlug(slug);
-  if (!business) {
+  const resolved = await resolveBusinessBySlug(slug);
+  if (!resolved) {
     return Response.json(
       { error: `Negocio "${slug}" no encontrado` },
       { status: 400 },
     );
   }
+
+  // En producción solo se permite chatear con negocios de demostración.
+  if (process.env.NODE_ENV === "production" && !resolved.esDemo) {
+    return new Response("Not found", { status: 404 });
+  }
+  const business = resolved.config;
 
   const repo = createLeadRepository();
   const llm = createGroqProvider();
