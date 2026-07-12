@@ -11,7 +11,9 @@
     "test:watch": "vitest",
     "sim": "tsx scripts/simulate.ts",
     "ai:doctor": "tsx scripts/ai-doctor.ts",
-    "seed:supabase": "tsx scripts/seed-supabase.ts"
+    "seed:supabase": "tsx scripts/seed-supabase.ts",
+    "sheets:doctor": "tsx scripts/sheets-doctor.ts",
+    "calendar:doctor": "tsx scripts/calendar-doctor.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

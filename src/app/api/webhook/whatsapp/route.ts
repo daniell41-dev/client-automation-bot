@@ -16,6 +16,7 @@ import { parseInbound } from "@/core/channels/whatsapp/parse";
 import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
 import { resolveBusinessByPhoneNumberId } from "@/businesses/resolve";
 import {
+  createCalendar,
   createLeadRepository,
   createSessionRepository,
 } from "@/core/storage/factory";
@@ -67,15 +68,17 @@ export async function POST(request: Request): Promise<Response> {
     return new Response("Bad Request", { status: 400 });
   }
 
-  const repo = createLeadRepository();
   const llm = createGroqProvider();
-  const sessionRepo = llm ? createSessionRepository() : undefined;
 
   try {
     for (const parsed of parseInbound(payload)) {
       const resolved = await resolveBusinessByPhoneNumberId(parsed.phoneNumberId);
       if (!resolved) continue; // negocio no registrado → ignorar
       const business = resolved.config;
+
+      const repo = createLeadRepository(business);
+      const sessionRepo = llm ? createSessionRepository(business) : undefined;
+      const calendar = createCalendar(business) ?? undefined;
 
       const message: IncomingMessage = {
         channel: "whatsapp",
@@ -93,6 +96,7 @@ export async function POST(request: Request): Promise<Response> {
         new Date(),
         llm ?? undefined,
         sessionRepo,
+        calendar,
       );
 
       if (accessToken) {

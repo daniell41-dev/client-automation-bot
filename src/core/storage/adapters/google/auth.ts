@@ -5,12 +5,14 @@
  * operaciones que usan los adaptadores. Así los repositorios de leads/sesiones
  * se testean inyectando un fake, sin red ni credenciales.
  *
- * Credenciales (en `.env.local`, NUNCA commiteadas):
- *   GOOGLE_SHEETS_SPREADSHEET_ID  — id de la hoja de cálculo
+ * Credenciales globales (en `.env.local`, NUNCA commiteadas):
  *   GOOGLE_SERVICE_ACCOUNT_EMAIL  — email de la cuenta de servicio
  *   GOOGLE_PRIVATE_KEY            — clave privada (los `\n` se normalizan)
  *
- * La hoja debe estar compartida con el email de la cuenta de servicio.
+ * El spreadsheetId es POR NEGOCIO (en BusinessConfig.storage.spreadsheetId).
+ * Como fallback se lee GOOGLE_SHEETS_SPREADSHEET_ID del entorno (migración suave).
+ *
+ * La hoja de cada negocio debe estar compartida con el email de la cuenta de servicio.
  */
 
 import { google } from "googleapis";
@@ -27,19 +29,39 @@ export interface SheetsApi {
   ensureSheet(title: string, headers: string[]): Promise<void>;
 }
 
-interface SheetsConfig {
-  spreadsheetId: string;
+interface ServiceAccountCreds {
   email: string;
   privateKey: string;
 }
 
-/** Lee la config de Sheets del entorno, o `null` si falta algo. */
-export function sheetsConfigFromEnv(): SheetsConfig | null {
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+interface SheetsConfig extends ServiceAccountCreds {
+  spreadsheetId: string;
+}
+
+/**
+ * Lee las credenciales globales de la service account del entorno.
+ * No incluye spreadsheetId — ese es por negocio.
+ */
+export function serviceAccountFromEnv(): ServiceAccountCreds | null {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
-  if (!spreadsheetId || !email || !privateKey) return null;
-  return { spreadsheetId, email, privateKey };
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY
+    ?.replace(/\\n/g, "\n")
+    ?.replace(/\r\n/g, "\n")
+    ?.replace(/\r/g, "\n")
+    ?.replace(/^["']/, "");
+  if (!email || !privateKey) return null;
+  return { email, privateKey };
+}
+
+/**
+ * @deprecated Usar serviceAccountFromEnv() + createSheetsApi(spreadsheetId).
+ * Se mantiene solo para compatibilidad con scripts que lo llamen directamente.
+ */
+export function sheetsConfigFromEnv(): (ServiceAccountCreds & { spreadsheetId: string }) | null {
+  const creds = serviceAccountFromEnv();
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+  if (!creds || !spreadsheetId) return null;
+  return { ...creds, spreadsheetId };
 }
 
 /** Implementación real sobre la API de Google Sheets. */
@@ -105,16 +127,24 @@ class GoogleSheetsApi implements SheetsApi {
   }
 }
 
-/** Cache del cliente (la config no cambia en runtime). */
-let cached: SheetsApi | null | undefined;
+/** Cache por spreadsheetId: un cliente por planilla, compartiendo la service account. */
+const cache = new Map<string, SheetsApi | null>();
 
 /**
- * Devuelve un cliente de Sheets autenticado, o `null` si no hay credenciales
- * configuradas (el sistema cae entonces a los adaptadores JSON).
+ * Devuelve un cliente de Sheets para la planilla indicada, o `null` si no hay
+ * credenciales de service account configuradas.
+ *
+ * @param spreadsheetId  ID de la planilla del negocio. Si se omite, cae al
+ *                       GOOGLE_SHEETS_SPREADSHEET_ID global (compatibilidad).
  */
-export function createSheetsApi(): SheetsApi | null {
-  if (cached !== undefined) return cached;
-  const config = sheetsConfigFromEnv();
-  cached = config ? new GoogleSheetsApi(config) : null;
-  return cached;
+export function createSheetsApi(spreadsheetId?: string): SheetsApi | null {
+  const id = spreadsheetId || process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+  if (!id) return null;
+
+  if (cache.has(id)) return cache.get(id)!;
+
+  const creds = serviceAccountFromEnv();
+  const instance = creds ? new GoogleSheetsApi({ ...creds, spreadsheetId: id }) : null;
+  cache.set(id, instance);
+  return instance;
 }

@@ -49,11 +49,19 @@ export const businessConfigSchema = z.object({
   messages: messagesSchema,
   followUps: z.array(followUpSchema),
   bookingUrl: z.string().optional(),
+  timezone: z.string().optional(),
   personas: z
     .object({
       whatsapp: personaSchema.optional(),
       instagram: personaSchema.optional(),
       mock: personaSchema.optional(),
+    })
+    .optional(),
+  // Almacenamiento propio del negocio (multi-tenant sin Supabase).
+  storage: z
+    .object({
+      spreadsheetId: z.string().optional(),
+      calendarId: z.string().optional(),
     })
     .optional(),
 });

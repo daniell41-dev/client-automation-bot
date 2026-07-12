@@ -95,6 +95,7 @@ export const esteticaBella: BusinessConfig = {
   ],
 
   // bookingUrl: "https://calendly.com/estetica-bella", // opcional
+  timezone: "America/Bogota",
 
   personas: {
     whatsapp: {
@@ -109,5 +110,13 @@ export const esteticaBella: BusinessConfig = {
         "Fun, trendy and energetic. Use emojis more freely (💅✨🌸💖). Short sentences. Use 'amiga' when addressing female clients. Keep it fresh and youthful.",
       language: "español colombiano informal y juvenil",
     },
+  },
+
+  storage: {
+    spreadsheetId: "1QKcZUaYzhK_98ZyhEDOz3JwTcNR4lyQM9FMj1fjQRco",
+    // Calendar ID de la dueña (su calendario principal). El calendario está
+    // compartido con el GOOGLE_SERVICE_ACCOUNT_EMAIL con permiso
+    // "Hacer cambios en los eventos".
+    calendarId: "daniellvalero41@gmail.com",
   },
 };

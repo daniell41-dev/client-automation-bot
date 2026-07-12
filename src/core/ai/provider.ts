@@ -17,6 +17,16 @@ export interface LLMContext {
   stage: string;
 }
 
+/** Entrada para extraer una fecha/hora exacta de texto libre del cliente. */
+export interface DateExtractionInput {
+  /** Texto libre del cliente (p. ej. "el viernes a las 3"). */
+  text: string;
+  /** Momento actual en ISO 8601, para resolver fechas relativas ("mañana"). */
+  nowISO: string;
+  /** Zona horaria IANA del negocio (p. ej. "America/Bogota"). */
+  timezone: string;
+}
+
 export interface ILLMProvider {
   /**
    * Recibe el borrador de respuesta del motor y lo reformula con
@@ -24,4 +34,11 @@ export interface ILLMProvider {
    * Preserva todos los datos factuales (precios, duraciones, fechas).
    */
   enhance(context: LLMContext): Promise<string>;
+
+  /**
+   * Extrae una fecha/hora exacta del texto libre del cliente y la devuelve en
+   * ISO 8601 con offset (p. ej. "2026-06-30T15:00:00-05:00"), o `null` si es
+   * ambigua o no incluye hora. Usado para agendar la cita en el calendario.
+   */
+  extractDateTime(input: DateExtractionInput): Promise<string | null>;
 }

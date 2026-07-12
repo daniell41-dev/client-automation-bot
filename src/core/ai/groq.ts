@@ -9,8 +9,16 @@
  */
 
 import Groq from "groq-sdk";
-import type { ILLMProvider, LLMContext } from "@/core/ai/provider";
+import type {
+  DateExtractionInput,
+  ILLMProvider,
+  LLMContext,
+} from "@/core/ai/provider";
 import { buildSystemPrompt, buildUserMessage } from "@/core/ai/prompt";
+import {
+  buildDateExtractionPrompt,
+  parseExtractedDateTime,
+} from "@/core/ai/date-extraction";
 
 /** Modelo por defecto: buena calidad en español. Configurable con GROQ_MODEL. */
 const DEFAULT_MODEL = "llama-3.3-70b-versatile";
@@ -42,6 +50,26 @@ export class GroqProvider implements ILLMProvider {
       // El flujo no se rompe: caemos al borrador del motor.
       console.error("[Groq] enhance falló, usando borrador. Error:", err);
       return ctx.draftResponse;
+    }
+  }
+
+  async extractDateTime(input: DateExtractionInput): Promise<string | null> {
+    try {
+      const completion = await this.client.chat.completions.create({
+        model: this.model,
+        temperature: 0, // determinista: queremos UNA fecha, no creatividad.
+        max_tokens: 40,
+        messages: [
+          { role: "system", content: buildDateExtractionPrompt(input) },
+          { role: "user", content: input.text },
+        ],
+      });
+      const raw = completion.choices[0]?.message?.content ?? "";
+      return parseExtractedDateTime(raw);
+    } catch (err) {
+      // No se rompe el flujo: sin fecha válida, no se agenda en calendario.
+      console.error("[Groq] extractDateTime falló:", err);
+      return null;
     }
   }
 }

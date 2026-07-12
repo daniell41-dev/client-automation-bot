@@ -15,6 +15,7 @@
 
 import { resolveBusinessBySlug } from "@/businesses/resolve";
 import {
+  createCalendar,
   createLeadRepository,
   createSessionRepository,
 } from "@/core/storage/factory";
@@ -59,9 +60,10 @@ export async function POST(request: Request): Promise<Response> {
   }
   const business = resolved.config;
 
-  const repo = createLeadRepository();
+  const repo = createLeadRepository(business);
   const llm = createGroqProvider();
-  const sessionRepo = llm ? createSessionRepository() : undefined;
+  const sessionRepo = llm ? createSessionRepository(business) : undefined;
+  const calendar = createCalendar(business) ?? undefined;
 
   const message: IncomingMessage = {
     channel: body.channel ?? "whatsapp",
@@ -78,6 +80,7 @@ export async function POST(request: Request): Promise<Response> {
     new Date(),
     llm ?? undefined,
     sessionRepo,
+    calendar,
   );
   const lead = await repo.findByContact(slug, from);
 
