@@ -15,6 +15,8 @@ export interface LLMContext {
   draftResponse: string;
   /** Etapa actual del funnel (para que la IA sepa en qué punto está). */
   stage: string;
+  /** Información del negocio (conocimiento configurado en "Respuestas y flujos"). */
+  knowledge?: string;
 }
 
 /** Entrada para extraer una fecha/hora exacta de texto libre del cliente. */

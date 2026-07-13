@@ -16,6 +16,29 @@ const serviceSchema = z.object({
   price: z.number().nonnegative(),
   durationMinutes: z.number().positive(),
   keywords: z.array(z.string()).optional(),
+  categoria: z.string().optional(),
+  disponible: z.boolean().optional(),
+  reservable: z.boolean().optional(),
+});
+
+const quickRuleSchema = z.object({
+  keywords: z.array(z.string().min(1)).min(1),
+  respuesta: z.string().min(1),
+});
+
+const aiSchema = z.object({
+  enabled: z.boolean(),
+  knowledge: z.string().optional(),
+  reglas: z.array(quickRuleSchema).optional(),
+  botonesMenu: z.array(z.string()).optional(),
+  derivarHumano: z.boolean().optional(),
+});
+
+const hoursSchema = z.object({
+  dia: z.string().min(1),
+  desde: z.string(),
+  hasta: z.string(),
+  abierto: z.boolean(),
 });
 
 const messagesSchema = z.object({
@@ -50,6 +73,11 @@ export const businessConfigSchema = z.object({
   followUps: z.array(followUpSchema),
   bookingUrl: z.string().optional(),
   timezone: z.string().optional(),
+  direccion: z.string().optional(),
+  botActivo: z.boolean().optional(),
+  plan: z.enum(["free", "pro"]).optional(),
+  horarios: z.array(hoursSchema).optional(),
+  ai: aiSchema.optional(),
   personas: z
     .object({
       whatsapp: personaSchema.optional(),

@@ -58,6 +58,46 @@ export interface Service {
   durationMinutes: number;
   /** Palabras clave para detectar el servicio en texto libre del cliente. */
   keywords?: string[];
+  /** Categoría visible en el catálogo (p. ej. "Entradas", "Faciales"). */
+  categoria?: string;
+  /** Si es `false`, el bot no lo ofrece en el menú ni lo reconoce. Default `true`. */
+  disponible?: boolean;
+  /** Si es `true`, aparece en "Servicios reservables" (citas/turnos). */
+  reservable?: boolean;
+}
+
+/** Una regla rápida del bot: si el mensaje contiene una keyword, responde exacto. */
+export interface QuickRule {
+  /** Palabras clave que disparan la regla (se comparan normalizadas). */
+  keywords: string[];
+  /** Respuesta exacta que envía el bot. Tiene prioridad sobre la IA. */
+  respuesta: string;
+}
+
+/** Configuración del "cerebro" del bot: IA + reglas + fallback. */
+export interface BotAIConfig {
+  /** Si es `false`, no se reformula con IA (solo plantillas y reglas). */
+  enabled: boolean;
+  /** Información del negocio con la que responde la IA (conocimiento). */
+  knowledge?: string;
+  /** Reglas rápidas keyword → respuesta. Tienen prioridad sobre la IA. */
+  reglas?: QuickRule[];
+  /** Accesos rápidos que se muestran como botones de menú en el chat. */
+  botonesMenu?: string[];
+  /** Si el bot no entiende, ¿derivar a una persona? */
+  derivarHumano?: boolean;
+}
+
+/** Horario de atención de un día (o rango de días). */
+export interface BusinessHours {
+  /** Etiqueta visible (p. ej. "Lunes a viernes", "Sábado"). */
+  dia: string;
+  /** Hora de apertura "HH:MM". */
+  desde: string;
+  /** Hora de cierre "HH:MM". */
+  hasta: string;
+  /** Si es `false`, ese día está cerrado. */
+  abierto: boolean;
 }
 
 /** Configuración de un seguimiento (cuándo y con qué mensaje). */
@@ -111,6 +151,16 @@ export interface BusinessConfig {
   bookingUrl?: string;
   /** Zona horaria IANA del negocio (p. ej. "America/Bogota"). Default America/Bogota. */
   timezone?: string;
+  /** Dirección física del negocio (visible en Configuración del portal). */
+  direccion?: string;
+  /** Si es `false`, el bot está en pausa y no responde mensajes. Default `true`. */
+  botActivo?: boolean;
+  /** Plan comercial (pill del back office). Default "free". */
+  plan?: "free" | "pro";
+  /** Horarios de atención (los usa el bot y la sección Citas del portal). */
+  horarios?: BusinessHours[];
+  /** Cerebro del bot: IA (knowledge) + reglas rápidas + fallback/derivación. */
+  ai?: BotAIConfig;
   /** Persona del bot por canal. Si un canal no está, se omite la IA para ese canal. */
   personas?: Partial<Record<Channel, PersonaConfig>>;
   /** Almacenamiento propio del negocio (multi-tenant). Sin esto cae a JSON local. */

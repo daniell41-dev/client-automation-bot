@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  availableServices,
   isAffirmative,
   isGreeting,
+  matchRule,
   matchService,
   normalize,
 } from "@/core/engine/intake";
@@ -86,5 +88,56 @@ describe("matchService", () => {
 
   it("devuelve undefined si no hay coincidencia", () => {
     expect(matchService("hola que tal", services)).toBeUndefined();
+  });
+});
+
+describe("availableServices y disponibilidad", () => {
+  const conApagado: Service[] = [
+    ...services,
+    {
+      id: "apagado",
+      name: "Servicio apagado",
+      description: "No se ofrece",
+      price: 1000,
+      durationMinutes: 30,
+      keywords: ["apagado"],
+      disponible: false,
+    },
+  ];
+
+  it("excluye los servicios con disponible: false", () => {
+    const ids = availableServices(conApagado).map((s) => s.id);
+    expect(ids).toEqual(["limpieza-facial", "unas"]);
+  });
+
+  it("matchService no reconoce un servicio no disponible", () => {
+    expect(matchService("quiero el servicio apagado", conApagado)).toBeUndefined();
+  });
+
+  it("la selección por número usa el índice del menú visible", () => {
+    // El menú muestra 2 opciones; "2" es Uñas aunque haya 3 servicios en total.
+    expect(matchService("2", conApagado)?.id).toBe("unas");
+  });
+});
+
+describe("matchRule", () => {
+  const reglas = [
+    { keywords: ["horario", "abren"], respuesta: "De 9 a 20 h." },
+    { keywords: ["envio", "delivery"], respuesta: "Enviamos a toda la ciudad." },
+  ];
+
+  it("encuentra la regla por keyword (sin tildes, dentro de una frase)", () => {
+    expect(matchRule("¿Cuál es el horarió de atención?", reglas)?.respuesta).toBe(
+      "De 9 a 20 h.",
+    );
+    expect(matchRule("hacen envíos?", reglas)?.respuesta).toBe(
+      "Enviamos a toda la ciudad.",
+    );
+  });
+
+  it("devuelve undefined sin coincidencia o sin reglas", () => {
+    expect(matchRule("hola", reglas)).toBeUndefined();
+    expect(matchRule("horario", undefined)).toBeUndefined();
+    expect(matchRule("horario", [])).toBeUndefined();
   });
 });

@@ -48,7 +48,10 @@ export async function handleIncoming(
 
   await repo.save(lead);
 
-  if (!llm || !sessionRepo || !config.personas) return messages;
+  // Con el "cerebro con IA" apagado no se reformula (solo plantillas y reglas).
+  if (!llm || !sessionRepo || !config.personas || config.ai?.enabled === false) {
+    return messages;
+  }
 
   // Para canales sin persona propia (ej. "mock"), se usa la de whatsapp como fallback.
   const persona = config.personas[message.channel] ?? config.personas.whatsapp;
@@ -74,6 +77,7 @@ export async function handleIncoming(
       history: session.history,
       draftResponse: msg.text,
       stage: lead.stage,
+      knowledge: config.ai?.knowledge,
     });
     enhanced.push({ ...msg, text });
     session.history.push({

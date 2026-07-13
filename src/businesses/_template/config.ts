@@ -32,6 +32,9 @@ export const plantilla: BusinessConfig = {
       price: 100000,
       durationMinutes: 60,
       keywords: ["palabra1", "palabra2"], // para detectarlo en texto libre
+      categoria: "General", // categoría visible en el catálogo del portal
+      disponible: true, // en false, el bot no lo ofrece (toggle del portal)
+      reservable: true, // aparece en "Servicios reservables" (citas)
     },
     // Agrega más servicios aquí…
   ],
@@ -55,6 +58,27 @@ export const plantilla: BusinessConfig = {
   ],
 
   // bookingUrl: "https://calendly.com/tu-negocio", // opcional
+  // direccion: "Calle 1 #2-34, Ciudad", // visible en Configuración del portal
+  // botActivo: true, // en false el bot queda en pausa (toggle de la topbar)
+
+  // Horarios de atención (sección "Citas y reservas" del portal).
+  // horarios: [
+  //   { dia: "Lunes a viernes", desde: "09:00", hasta: "20:00", abierto: true },
+  //   { dia: "Sábado", desde: "09:00", hasta: "13:00", abierto: true },
+  //   { dia: "Domingo", desde: "00:00", hasta: "00:00", abierto: false },
+  // ],
+
+  // Cerebro del bot (sección "Respuestas y flujos" del portal).
+  // Las reglas rápidas responden EXACTO por palabra clave, antes que la IA.
+  // ai: {
+  //   enabled: true,
+  //   knowledge: "Describe el negocio: qué vende, cómo cobra, si hace envíos…",
+  //   reglas: [
+  //     { keywords: ["horario", "abren"], respuesta: "Atendemos de 9 a 20 h." },
+  //   ],
+  //   botonesMenu: ["Ver servicios", "Agendar"],
+  //   derivarHumano: true,
+  // },
 
   // Planilla de Google Sheets propia del negocio (modelo multi-tenant).
   // 1. Creá una planilla nueva en Google Sheets.

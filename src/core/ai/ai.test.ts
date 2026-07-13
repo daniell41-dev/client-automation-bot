@@ -75,3 +75,18 @@ describe("buildSystemPrompt — reglas adicionales", () => {
     expect(buildSystemPrompt(ctx)).toMatch(/No agregues preguntas/i);
   });
 });
+
+describe("buildSystemPrompt — knowledge del negocio", () => {
+  it("incluye la información del negocio cuando está configurada", () => {
+    const prompt = buildSystemPrompt({
+      ...ctx,
+      knowledge: "Parrilla en el centro. Aceptamos tarjetas y hacemos envíos.",
+    });
+    expect(prompt).toContain("Información del negocio");
+    expect(prompt).toContain("Aceptamos tarjetas");
+  });
+
+  it("no agrega el bloque cuando no hay knowledge", () => {
+    expect(buildSystemPrompt(ctx)).not.toContain("Información del negocio");
+  });
+});

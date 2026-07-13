@@ -23,6 +23,9 @@ export const esteticaBella: BusinessConfig = {
       price: 120000,
       durationMinutes: 60,
       keywords: ["facial", "limpieza", "piel", "cara"],
+      categoria: "Faciales",
+      disponible: true,
+      reservable: true,
     },
     {
       id: "unas",
@@ -31,6 +34,9 @@ export const esteticaBella: BusinessConfig = {
       price: 60000,
       durationMinutes: 45,
       keywords: ["unas", "manicure", "esmaltado", "semipermanente"],
+      categoria: "Manos y pies",
+      disponible: true,
+      reservable: true,
     },
     {
       id: "pestanas",
@@ -39,6 +45,8 @@ export const esteticaBella: BusinessConfig = {
       price: 90000,
       durationMinutes: 75,
       keywords: ["pestanas", "lifting", "extensiones", "mirada"],
+      categoria: "Mirada",
+      reservable: true,
     },
     {
       id: "depilacion",
@@ -47,6 +55,8 @@ export const esteticaBella: BusinessConfig = {
       price: 45000,
       durationMinutes: 30,
       keywords: ["depilacion", "cera", "wax"],
+      categoria: "Depilación",
+      reservable: true,
     },
   ],
 
@@ -96,6 +106,35 @@ export const esteticaBella: BusinessConfig = {
 
   // bookingUrl: "https://calendly.com/estetica-bella", // opcional
   timezone: "America/Bogota",
+  direccion: "Calle 45 #12-30, Bogotá",
+  botActivo: true,
+  plan: "pro",
+
+  horarios: [
+    { dia: "Lunes a viernes", desde: "09:00", hasta: "19:00", abierto: true },
+    { dia: "Sábado", desde: "09:00", hasta: "14:00", abierto: true },
+    { dia: "Domingo", desde: "00:00", hasta: "00:00", abierto: false },
+  ],
+
+  ai: {
+    enabled: true,
+    knowledge:
+      "Salón de estética en Bogotá especializado en faciales, uñas, pestañas y " +
+      "depilación. Aceptamos tarjetas y transferencias. Atendemos con cita previa.",
+    reglas: [
+      {
+        keywords: ["horario", "abren", "cierran"],
+        respuesta:
+          "Atendemos de lunes a viernes de 9:00 a 19:00 y sábados de 9:00 a 14:00 💜",
+      },
+      {
+        keywords: ["direccion", "ubicacion", "donde quedan"],
+        respuesta: "Estamos en Calle 45 #12-30, Bogotá. ¡Te esperamos! 💜",
+      },
+    ],
+    botonesMenu: ["Ver servicios", "Agendar cita", "Horarios"],
+    derivarHumano: true,
+  },
 
   personas: {
     whatsapp: {

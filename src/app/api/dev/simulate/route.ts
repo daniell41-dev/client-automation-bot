@@ -60,6 +60,15 @@ export async function POST(request: Request): Promise<Response> {
   }
   const business = resolved.config;
 
+  // Bot en pausa → no procesa el mensaje (igual que el webhook real).
+  if (business.botActivo === false) {
+    return Response.json({
+      replies: [],
+      lead: null,
+      _debug: { bot_paused: true },
+    });
+  }
+
   const repo = createLeadRepository(business);
   const llm = createGroqProvider();
   const sessionRepo = llm ? createSessionRepository(business) : undefined;
