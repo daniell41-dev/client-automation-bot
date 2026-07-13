@@ -1,17 +1,14 @@
 "use client";
 
 /**
- * Chat de demostración: burbujas cliente/bot contra /api/dev/simulate.
- * Cada visita usa un contacto aleatorio (sessionStorage) para no cruzar
- * conversaciones entre visitantes.
+ * Chat público de demostración: el PhonePreview compartido con mensajes
+ * reales del bot (via /api/dev/simulate). Cada visita usa un contacto
+ * aleatorio (sessionStorage) para no cruzar conversaciones.
  */
 
-import { useEffect, useRef, useState } from "react";
-
-interface Bubble {
-  role: "user" | "bot";
-  text: string;
-}
+import { useState } from "react";
+import { Send } from "lucide-react";
+import { PhonePreview, type PreviewMessage } from "@/components/phone-preview";
 
 function getVisitorId(): string {
   const key = "demo-visitor-id";
@@ -24,20 +21,15 @@ function getVisitorId(): string {
 }
 
 export function DemoChat({ businessSlug }: { businessSlug: string }) {
-  const [bubbles, setBubbles] = useState<Bubble[]>([]);
+  const [messages, setMessages] = useState<PreviewMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [bubbles]);
 
   async function send() {
     const text = input.trim();
     if (!text || sending) return;
     setInput("");
-    setBubbles((b) => [...b, { role: "user", text }]);
+    setMessages((prev) => [...prev, { role: "in", text }]);
     setSending(true);
 
     try {
@@ -52,14 +44,14 @@ export function DemoChat({ businessSlug }: { businessSlug: string }) {
       });
       if (!res.ok) throw new Error(await res.text());
       const data = (await res.json()) as { replies: { text: string }[] };
-      setBubbles((b) => [
-        ...b,
-        ...data.replies.map((r) => ({ role: "bot" as const, text: r.text })),
+      setMessages((prev) => [
+        ...prev,
+        ...data.replies.map((r) => ({ role: "out" as const, text: r.text })),
       ]);
     } catch {
-      setBubbles((b) => [
-        ...b,
-        { role: "bot", text: "⚠️ No pude responder; intenta de nuevo." },
+      setMessages((prev) => [
+        ...prev,
+        { role: "out", text: "⚠️ No pude responder; intentá de nuevo." },
       ]);
     } finally {
       setSending(false);
@@ -67,60 +59,38 @@ export function DemoChat({ businessSlug }: { businessSlug: string }) {
   }
 
   return (
-    <div className="flex flex-1 flex-col rounded-xl border border-slate-200 bg-white">
-      <div className="flex-1 space-y-3 overflow-y-auto p-4">
-        {bubbles.length === 0 && (
-          <p className="py-10 text-center text-sm text-slate-400">
-            Escribe &quot;Hola&quot; para empezar 👋
-          </p>
-        )}
-        {bubbles.map((bubble, i) => (
-          <div
-            key={i}
-            className={bubble.role === "user" ? "flex justify-end" : "flex justify-start"}
-          >
-            <div
-              className={
-                bubble.role === "user"
-                  ? "max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-br-sm bg-green-600 px-4 py-2 text-sm text-white"
-                  : "max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-slate-100 px-4 py-2 text-sm text-slate-800"
-              }
-            >
-              {bubble.text}
-            </div>
-          </div>
-        ))}
-        {sending && (
-          <div className="flex justify-start">
-            <div className="rounded-2xl bg-slate-100 px-4 py-2 text-sm text-slate-400">
-              escribiendo…
-            </div>
-          </div>
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          void send();
-        }}
-        className="flex gap-2 border-t border-slate-200 p-3"
-      >
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Escribe un mensaje…"
-          className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none"
-        />
-        <button
-          type="submit"
-          disabled={sending || !input.trim()}
-          className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+    <PhonePreview
+      botName="Isabella"
+      messages={
+        messages.length > 0
+          ? messages
+          : [{ role: "out", text: 'Escribí "Hola" para empezar 👋' }]
+      }
+      className="min-h-[540px] w-[320px]"
+      footer={
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void send();
+          }}
+          className="flex items-center gap-2 bg-surface-2 px-2.5 py-2"
         >
-          Enviar
-        </button>
-      </form>
-    </div>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={sending ? "El bot está escribiendo…" : "Escribí un mensaje…"}
+            className="flex-1 rounded-full bg-white px-3.5 py-2 text-[13px] text-ink outline-none placeholder:text-ink-soft"
+          />
+          <button
+            type="submit"
+            disabled={sending || !input.trim()}
+            aria-label="Enviar"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-wa-header text-white disabled:opacity-50"
+          >
+            <Send className="h-4 w-4" />
+          </button>
+        </form>
+      }
+    />
   );
 }
