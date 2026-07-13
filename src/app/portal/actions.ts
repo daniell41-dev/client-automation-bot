@@ -112,6 +112,69 @@ export async function actualizarConfig(
   return { ok: "Configuración guardada. El bot ya responde con estos cambios." };
 }
 
+/** Claves de la config que los editores del portal pueden modificar. */
+const PATCH_KEYS = [
+  "services",
+  "horarios",
+  "ai",
+  "direccion",
+  "personas",
+  "messages",
+] as const;
+
+/**
+ * Guarda una sección de la config del negocio (catálogo, citas, respuestas,
+ * configuración). Recibe un patch JSON con un subconjunto de claves permitidas,
+ * lo mezcla sobre la config actual y valida el resultado completo con Zod.
+ */
+export async function guardarConfigParcial(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const me = await getUserRole();
+  if (!me) return { error: "No autorizado." };
+
+  const slug = String(formData.get("slug") ?? "");
+  const patchJson = String(formData.get("patch") ?? "");
+  if (!slug) return { error: "Falta el negocio." };
+
+  let patch: Record<string, unknown>;
+  try {
+    patch = JSON.parse(patchJson) as Record<string, unknown>;
+  } catch {
+    return { error: "Los cambios no son JSON válido." };
+  }
+
+  const supabase = await createUserClient();
+  const { data: negocio } = await supabase
+    .from("negocios")
+    .select("config")
+    .eq("slug", slug)
+    .maybeSingle();
+  const actual = parseBusinessConfig(negocio?.config);
+  if (!actual) return { error: "Negocio no encontrado o config inválida." };
+
+  const merged: Record<string, unknown> = { ...actual };
+  for (const key of PATCH_KEYS) {
+    if (key in patch) merged[key] = patch[key];
+  }
+
+  const config = parseBusinessConfig(merged);
+  if (!config) return { error: "Los cambios no cumplen la forma esperada." };
+  config.slug = slug; // el slug del motor nunca cambia desde los editores
+
+  const { data, error } = await supabase
+    .from("negocios")
+    .update({ config, updated_at: new Date().toISOString() })
+    .eq("slug", slug)
+    .select("id");
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+  if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
+
+  revalidatePath(`/portal/negocios/${slug}`, "layout");
+  return { ok: "Guardado. El bot ya responde con estos cambios." };
+}
+
 /** Toggle "Bot activo / Pausa" de la topbar del panel. */
 export async function toggleBotActivo(formData: FormData): Promise<void> {
   const me = await getUserRole();
