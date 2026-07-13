@@ -112,6 +112,33 @@ export async function actualizarConfig(
   return { ok: "Configuración guardada. El bot ya responde con estos cambios." };
 }
 
+/** Toggle "Bot activo / Pausa" de la topbar del panel. */
+export async function toggleBotActivo(formData: FormData): Promise<void> {
+  const me = await getUserRole();
+  if (!me) return;
+
+  const slug = String(formData.get("slug") ?? "");
+  const next = String(formData.get("next") ?? "") === "true";
+  if (!slug) return;
+
+  const supabase = await createUserClient();
+  const { data: negocio } = await supabase
+    .from("negocios")
+    .select("config")
+    .eq("slug", slug)
+    .maybeSingle();
+  const config = parseBusinessConfig(negocio?.config);
+  if (!config) return;
+
+  config.botActivo = next;
+  await supabase
+    .from("negocios")
+    .update({ config, updated_at: new Date().toISOString() })
+    .eq("slug", slug);
+
+  revalidatePath(`/portal/negocios/${slug}`, "layout");
+}
+
 export async function actualizarWhatsapp(
   _prev: ActionState,
   formData: FormData,
