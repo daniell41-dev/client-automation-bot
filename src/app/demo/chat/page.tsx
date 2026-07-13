@@ -1,12 +1,13 @@
 /**
- * /demo/chat — chat público contra el negocio de demostración.
- * El server component resuelve el slug demo; el chat es un client component
- * que habla con /api/dev/simulate (permitido en producción solo para demos).
+ * /demo/chat — chat público contra el negocio de demostración,
+ * usando el PhonePreview compartido con mensajes reales del bot.
  */
 
 import Link from "next/link";
 import { createAnonClient } from "@/lib/supabase/anon";
+import { Logo } from "@/components/logo";
 import { DemoChat } from "./demo-chat";
+import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -25,19 +26,27 @@ export default async function DemoChatPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col p-6">
-      <header className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-900">Prueba el bot</h1>
-          <p className="text-sm text-slate-500">
-            Escríbele como si fueras un cliente por WhatsApp
-          </p>
+    <div className="flex min-h-screen flex-col bg-canvas">
+      <header className="border-b border-line bg-surface">
+        <div className="mx-auto flex max-w-[860px] items-center justify-between px-6 py-3.5">
+          <Logo />
+          <Link
+            href="/demo"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-mid hover:text-ink"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver a la demo
+          </Link>
         </div>
-        <Link href="/demo" className="text-sm text-blue-600 hover:underline">
-          ← Volver
-        </Link>
       </header>
-      <DemoChat businessSlug={slug} />
-    </main>
+
+      <main className="flex flex-1 flex-col items-center px-6 py-8 fade-up">
+        <h1 className="text-[22px] font-extrabold text-ink">Probá el bot</h1>
+        <p className="mb-6 mt-1 text-sm text-ink-mid">
+          Escribile como si fueras un cliente por WhatsApp.
+        </p>
+        <DemoChat businessSlug={slug} />
+      </main>
+    </div>
   );
 }

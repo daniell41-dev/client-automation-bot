@@ -1,69 +1,104 @@
 /**
- * Back office · Negocios: vista global de todos los negocios creados.
+ * Back office · Negocios: stats de la plataforma + tabla global.
  */
 
 import { createUserClient } from "@/lib/supabase/server";
+import { parseBusinessConfig } from "@/core/config-schema";
+import { DataTable } from "@/components/data-table";
+import { Pill, StatCard } from "@/components/ui";
+import { RubroTile } from "@/components/rubro-visual";
 
 export const dynamic = "force-dynamic";
 
-interface NegocioRowView {
+interface NegocioRow {
   id: string;
   slug: string;
-  es_demo: boolean;
+  config: unknown;
   whatsapp_phone_number_id: string | null;
-  updated_at: string;
   profiles: { email: string } | null;
   rubros: { nombre: string } | null;
 }
 
 export default async function NegociosPage() {
   const supabase = await createUserClient();
-  const { data: negocios } = await supabase
-    .from("negocios")
-    .select(
-      "id, slug, es_demo, whatsapp_phone_number_id, updated_at, profiles(email), rubros(nombre)",
-    )
-    .order("updated_at", { ascending: false });
 
-  const rows = (negocios ?? []) as unknown as NegocioRowView[];
+  const hoy = new Date();
+  hoy.setHours(0, 0, 0, 0);
+
+  const [{ data: negocios }, { data: clientes }, { count: rubrosCount }, leadsRes, leadsHoyRes] =
+    await Promise.all([
+      supabase
+        .from("negocios")
+        .select("id, slug, config, whatsapp_phone_number_id, profiles(email), rubros(nombre)")
+        .order("updated_at", { ascending: false }),
+      supabase.from("profiles").select("id").eq("role", "cliente"),
+      supabase.from("rubros").select("id", { count: "exact", head: true }),
+      supabase.from("leads").select("business_slug"),
+      supabase
+        .from("leads")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", hoy.toISOString()),
+    ]);
+
+  const rows = (negocios ?? []) as unknown as NegocioRow[];
+  const leadsPorNegocio = new Map<string, number>();
+  for (const l of leadsRes.data ?? []) {
+    leadsPorNegocio.set(
+      l.business_slug,
+      (leadsPorNegocio.get(l.business_slug) ?? 0) + 1,
+    );
+  }
+
+  const parsed = rows.map((n) => ({
+    row: n,
+    config: parseBusinessConfig(n.config),
+  }));
+  const activos = parsed.filter(({ config }) => config?.botActivo !== false).length;
 
   return (
-    <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-semibold">Negocios</h1>
-        <p className="text-sm text-slate-500">{rows.length} negocios en total</p>
-      </header>
-
-      <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-        <table className="w-full border-collapse text-left text-sm">
-          <thead className="bg-slate-50 text-slate-600">
-            <tr>
-              <th className="px-4 py-3 font-medium">Slug</th>
-              <th className="px-4 py-3 font-medium">Dueño</th>
-              <th className="px-4 py-3 font-medium">Rubro</th>
-              <th className="px-4 py-3 font-medium">WhatsApp</th>
-              <th className="px-4 py-3 font-medium">Demo</th>
-              <th className="px-4 py-3 font-medium">Actualizado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((n) => (
-              <tr key={n.id} className="border-t border-slate-100">
-                <td className="px-4 py-3 font-medium text-slate-800">{n.slug}</td>
-                <td className="px-4 py-3 text-slate-600">{n.profiles?.email ?? "—"}</td>
-                <td className="px-4 py-3 text-slate-600">{n.rubros?.nombre ?? "—"}</td>
-                <td className="px-4 py-3 text-slate-600">
-                  {n.whatsapp_phone_number_id ?? "—"}
-                </td>
-                <td className="px-4 py-3 text-slate-600">{n.es_demo ? "Sí" : "—"}</td>
-                <td className="px-4 py-3 text-slate-600">
-                  {new Date(n.updated_at).toLocaleDateString("es-CO")}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="mx-auto max-w-[980px] space-y-5 fade-up">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard label="Negocios activos" value={String(activos)} />
+        <StatCard label="Clientes" value={String(clientes?.length ?? 0)} />
+        <StatCard label="Rubros" value={String(rubrosCount ?? 0)} />
+        <StatCard label="Leads hoy" value={String(leadsHoyRes.count ?? 0)} />
       </div>
+
+      <DataTable
+        headers={["Negocio", "Rubro", "Cliente", "Estado", "Leads", "Plan"]}
+        emptyText="Todavía no hay negocios creados."
+        rows={parsed.map(({ row, config }) => ({
+          key: row.id,
+          cells: [
+            <span key="n" className="flex items-center gap-2.5">
+              <RubroTile rubroNombre={row.rubros?.nombre} size="sm" />
+              <span className="max-w-[160px] truncate font-bold text-ink">
+                {config?.name ?? row.slug}
+              </span>
+            </span>,
+            <span key="r" className="text-ink-mid">
+              {row.rubros?.nombre ?? "—"}
+            </span>,
+            <span key="c" className="text-ink-mid">
+              {row.profiles?.email ?? "—"}
+            </span>,
+            <Pill key="e" tone={config?.botActivo !== false ? "success" : "warn"} dot>
+              {config?.botActivo !== false ? "Activo" : "Pausado"}
+            </Pill>,
+            <span key="l" className="font-display font-bold text-ink">
+              {leadsPorNegocio.get(row.slug) ?? 0}
+            </span>,
+            <Pill key="p" tone={config?.plan === "pro" ? "info" : "neutral"}>
+              {config?.plan === "pro" ? "Pro" : "Free"}
+            </Pill>,
+          ],
+        }))}
+      />
+
+      <p className="text-xs text-ink-soft">
+        Los negocios los crea cada cliente desde su portal a partir de un rubro
+        asignado (Usuarios → Asignar rubros).
+      </p>
     </div>
   );
 }

@@ -136,3 +136,58 @@ describe("respond — fallback", () => {
     expect(r.messages[0].options).toEqual(["Limpieza facial", "Uñas"]);
   });
 });
+
+describe("respond — reglas rápidas y disponibilidad", () => {
+  const configConReglas: BusinessConfig = {
+    ...config,
+    services: [
+      ...config.services,
+      {
+        id: "apagado",
+        name: "Servicio apagado",
+        description: "No disponible",
+        price: 1000,
+        durationMinutes: 30,
+        disponible: false,
+      },
+    ],
+    ai: {
+      enabled: true,
+      reglas: [
+        { keywords: ["horario", "abren"], respuesta: "Atendemos de 9 a 20 h." },
+      ],
+    },
+  };
+
+  it("una keyword de regla responde EXACTO la regla (prioridad sobre el fallback)", () => {
+    const inicial = respond(null, msg("Hola"), configConReglas, now).lead;
+    const { lead, messages } = respond(
+      inicial,
+      msg("¿a qué hora abren?"),
+      configConReglas,
+      now,
+    );
+    expect(messages).toHaveLength(1);
+    expect(messages[0].text).toBe("Atendemos de 9 a 20 h.");
+    // La regla no altera el funnel.
+    expect(lead.stage).toBe("menu_enviado");
+  });
+
+  it("la regla también responde en el primer contacto (antes que el menú)", () => {
+    const { messages } = respond(null, msg("horario?"), configConReglas, now);
+    expect(messages[0].text).toBe("Atendemos de 9 a 20 h.");
+  });
+
+  it("la captura de datos tiene prioridad sobre las reglas", () => {
+    const paso1 = respond(null, msg("limpieza facial"), configConReglas, now).lead;
+    // El lead está en esperando_nombre: "horario" se toma como su nombre, no
+    // como regla (las etapas de captura van primero).
+    const { lead } = respond(paso1, msg("Horario"), configConReglas, now);
+    expect(lead.name).toBe("Horario");
+  });
+
+  it("el menú de bienvenida no ofrece servicios no disponibles", () => {
+    const { messages } = respond(null, msg("Hola"), configConReglas, now);
+    expect(messages[0].options).toEqual(["Limpieza facial", "Uñas"]);
+  });
+});

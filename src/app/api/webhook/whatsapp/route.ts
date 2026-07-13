@@ -75,6 +75,7 @@ export async function POST(request: Request): Promise<Response> {
       const resolved = await resolveBusinessByPhoneNumberId(parsed.phoneNumberId);
       if (!resolved) continue; // negocio no registrado → ignorar
       const business = resolved.config;
+      if (business.botActivo === false) continue; // bot en pausa → no responder
 
       const repo = createLeadRepository(business);
       const sessionRepo = llm ? createSessionRepository(business) : undefined;

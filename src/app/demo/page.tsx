@@ -1,93 +1,111 @@
 /**
- * /demo — vista pública de demostración (sin login).
- *
- * Usa el cliente anónimo: RLS solo le deja leer las filas `es_demo = true`.
- * Muestra el rubro y el negocio de ejemplo, y enlaza al chat de prueba.
+ * /demo — vista pública de demostración (sin login), estilo Nexo.
+ * Cliente anónimo: RLS solo deja leer las filas `es_demo = true`.
  */
 
 import Link from "next/link";
 import { createAnonClient } from "@/lib/supabase/anon";
 import { parseBusinessConfig } from "@/core/config-schema";
+import { Logo } from "@/components/logo";
+import { EmptyState, Pill } from "@/components/ui";
+import { RubroTile } from "@/components/rubro-visual";
+import { ArrowRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function DemoPage() {
   const supabase = createAnonClient();
 
-  if (!supabase) {
-    return (
-      <main className="mx-auto max-w-3xl p-8">
-        <div className="rounded-lg border border-dashed border-slate-300 p-10 text-center text-slate-500">
-          <p className="font-medium">Demo no disponible.</p>
-          <p className="text-sm">Supabase no está configurado en este entorno.</p>
-        </div>
-      </main>
-    );
-  }
-
-  const [{ data: rubros }, { data: negocios }] = await Promise.all([
-    supabase.from("rubros").select("nombre, descripcion").eq("es_demo", true),
-    supabase
-      .from("negocios")
-      .select("slug, config")
-      .eq("es_demo", true)
-      .limit(1),
-  ]);
+  const [{ data: rubros }, { data: negocios }] = supabase
+    ? await Promise.all([
+        supabase.from("rubros").select("nombre, descripcion").eq("es_demo", true),
+        supabase.from("negocios").select("slug, config").eq("es_demo", true).limit(1),
+      ])
+    : [{ data: null }, { data: null }];
 
   const negocio = negocios?.[0];
   const config = negocio ? parseBusinessConfig(negocio.config) : null;
 
   return (
-    <main className="mx-auto max-w-3xl space-y-8 p-8">
-      <header>
-        <h1 className="text-3xl font-semibold text-slate-900">
-          Demo del bot de WhatsApp
-        </h1>
-        <p className="mt-2 text-slate-600">
-          Así se ve un negocio configurado en la plataforma. Puedes probar el bot
-          como si fueras un cliente escribiendo por WhatsApp.
-        </p>
+    <div className="min-h-screen bg-canvas">
+      <header className="border-b border-line bg-surface">
+        <div className="mx-auto flex max-w-[860px] items-center justify-between px-6 py-3.5">
+          <Logo />
+          <Link
+            href="/login"
+            className="rounded-[10px] bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-hover"
+          >
+            Iniciar sesión
+          </Link>
+        </div>
       </header>
 
-      {(rubros ?? []).length > 0 && (
-        <section>
-          <h2 className="mb-3 text-sm font-semibold text-slate-800">
-            Rubro de ejemplo
-          </h2>
-          {(rubros ?? []).map((r) => (
-            <div key={r.nombre} className="rounded-xl border border-slate-200 bg-white p-5">
-              <h3 className="font-medium text-slate-800">{r.nombre}</h3>
-              <p className="mt-1 text-sm text-slate-500">
-                {r.descripcion ?? "Plantilla vertical lista para personalizar."}
-              </p>
-            </div>
-          ))}
-        </section>
-      )}
+      <main className="mx-auto max-w-[860px] space-y-8 px-6 py-10 fade-up">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">
+            Demo
+          </p>
+          <h1 className="mt-1 text-[32px] font-extrabold leading-tight text-ink">
+            Así se ve un negocio en Nexo
+          </h1>
+          <p className="mt-2 max-w-xl text-[15px] text-ink-mid">
+            Este es un negocio de ejemplo configurado en la plataforma. Podés
+            probar el bot como si fueras un cliente escribiéndole por WhatsApp.
+          </p>
+        </div>
 
-      {config ? (
-        <>
-          <section>
-            <h2 className="mb-3 text-sm font-semibold text-slate-800">
-              Negocio de ejemplo: {config.name}
-            </h2>
-            <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        {!supabase || !config ? (
+          <EmptyState
+            title="Aún no hay negocio de demostración."
+            subtitle={
+              supabase
+                ? "Corré el seed: pnpm seed:supabase"
+                : "Supabase no está configurado en este entorno."
+            }
+          />
+        ) : (
+          <>
+            {(rubros ?? []).map((r) => (
+              <div
+                key={r.nombre}
+                className="flex items-center gap-4 rounded-2xl border border-line bg-surface p-5 shadow-card"
+              >
+                <RubroTile rubroNombre={r.nombre} size="lg" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-[17px] font-bold text-ink">{config.name}</h2>
+                    <Pill tone="success" dot>
+                      Bot activo
+                    </Pill>
+                  </div>
+                  <p className="mt-0.5 text-sm text-ink-mid">
+                    {r.nombre} · {r.descripcion ?? "Negocio de ejemplo"}
+                  </p>
+                </div>
+              </div>
+            ))}
+
+            {/* Catálogo de ejemplo */}
+            <div className="overflow-x-auto rounded-2xl border border-line bg-surface shadow-card">
               <table className="w-full border-collapse text-left text-sm">
-                <thead className="bg-slate-50 text-slate-600">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Servicio</th>
-                    <th className="px-4 py-3 font-medium">Duración</th>
-                    <th className="px-4 py-3 font-medium">Precio</th>
+                <thead>
+                  <tr className="bg-surface-3">
+                    {["Servicio", "Duración", "Precio"].map((h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.08em] text-ink-soft"
+                      >
+                        {h}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {config.services.map((s) => (
-                    <tr key={s.id} className="border-t border-slate-100">
-                      <td className="px-4 py-3 font-medium text-slate-800">{s.name}</td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {s.durationMinutes} min
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
+                    <tr key={s.id} className="border-t border-line">
+                      <td className="px-4 py-3 font-bold text-ink">{s.name}</td>
+                      <td className="px-4 py-3 text-ink-mid">{s.durationMinutes} min</td>
+                      <td className="px-4 py-3 text-ink-mid">
                         {new Intl.NumberFormat(config.locale ?? "es-CO", {
                           style: "currency",
                           currency: config.currency,
@@ -99,25 +117,19 @@ export default async function DemoPage() {
                 </tbody>
               </table>
             </div>
-          </section>
 
-          <div className="text-center">
-            <Link
-              href="/demo/chat"
-              className="inline-block rounded-lg bg-slate-800 px-6 py-3 text-sm font-medium text-white hover:bg-slate-700"
-            >
-              Probar el bot →
-            </Link>
-          </div>
-        </>
-      ) : (
-        <div className="rounded-lg border border-dashed border-slate-300 p-10 text-center text-slate-500">
-          <p className="font-medium">Aún no hay negocio de demostración.</p>
-          <p className="text-sm">
-            Corre el seed: <code className="rounded bg-slate-100 px-1.5 py-0.5">pnpm seed:supabase</code>
-          </p>
-        </div>
-      )}
-    </main>
+            <div className="text-center">
+              <Link
+                href="/demo/chat"
+                className="inline-flex items-center gap-2 rounded-[10px] bg-primary px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-primary-hover"
+              >
+                Probar el bot
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </>
+        )}
+      </main>
+    </div>
   );
 }

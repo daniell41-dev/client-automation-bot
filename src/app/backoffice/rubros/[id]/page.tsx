@@ -14,8 +14,8 @@ import { plantilla } from "@/businesses/_template/config";
 export const dynamic = "force-dynamic";
 
 const inputCls =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none";
-const labelCls = "mb-1 block text-sm font-medium text-slate-700";
+  "input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft";
+const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
 
 export default async function EditarRubroPage({
   params,
@@ -40,14 +40,16 @@ export default async function EditarRubroPage({
   };
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-[860px] space-y-6 fade-up">
       <header>
-        <h1 className="text-2xl font-semibold">Rubro: {rubro.nombre}</h1>
-        <p className="text-sm text-slate-500">slug: {rubro.slug}</p>
+        <h1 className="text-[22px] font-extrabold text-ink">
+          Rubro: {rubro.nombre}
+        </h1>
+        <p className="text-sm text-ink-soft">slug: {rubro.slug}</p>
       </header>
 
-      <section className="rounded-xl border border-slate-200 bg-white p-5">
-        <h2 className="mb-4 text-sm font-semibold text-slate-800">Datos del rubro</h2>
+      <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
+        <h2 className="mb-4 text-[15px] font-bold text-ink">Datos del rubro</h2>
         <ActionForm action={actualizarRubroMeta} submitLabel="Guardar datos">
           <input type="hidden" name="id" value={rubro.id} />
           <div className="grid gap-3 sm:grid-cols-2">
@@ -68,7 +70,7 @@ export default async function EditarRubroPage({
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-slate-800">
+        <h2 className="mb-3 text-[15px] font-bold text-ink">
           Plantilla del bot (lo que hereda cada negocio creado desde este rubro)
         </h2>
         <ConfigForm

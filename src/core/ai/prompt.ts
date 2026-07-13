@@ -7,9 +7,13 @@ import type { LLMContext } from "@/core/ai/provider";
 import { buildRulesBlock } from "@/core/ai/rules";
 
 export function buildSystemPrompt(ctx: LLMContext): string {
+  const knowledgeBlock = ctx.knowledge?.trim()
+    ? `\n\nInformación del negocio (usa SOLO esto como contexto adicional; no inventes más):\n${ctx.knowledge.trim()}`
+    : "";
+
   return `Eres ${ctx.persona.name}, asistente virtual de ${ctx.businessName}.
 Tu tono: ${ctx.persona.tone}
-Idioma: ${ctx.persona.language}
+Idioma: ${ctx.persona.language}${knowledgeBlock}
 
 Reglas estrictas:
 ${buildRulesBlock(ctx)}`;

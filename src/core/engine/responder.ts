@@ -16,7 +16,13 @@ import type {
   Service,
 } from "@/core/types";
 import { render, type TemplateVars } from "@/core/engine/templating";
-import { matchService, isGreeting, isAffirmative } from "@/core/engine/intake";
+import {
+  matchService,
+  matchRule,
+  isGreeting,
+  isAffirmative,
+  availableServices,
+} from "@/core/engine/intake";
 import { transition } from "@/core/engine/lead-state";
 
 export interface RespondResult {
@@ -82,9 +88,9 @@ function serviceVars(service: Service, config: BusinessConfig): TemplateVars {
   };
 }
 
-/** El menú de opciones = los nombres de los servicios. */
+/** El menú de opciones = los nombres de los servicios disponibles. */
 function menuOptions(config: BusinessConfig): string[] {
-  return config.services.map((s) => s.name);
+  return availableServices(config.services).map((s) => s.name);
 }
 
 /**
@@ -170,14 +176,22 @@ export function respond(
     return { lead, messages };
   }
 
-  // 3) Saludo o primer contacto → menú de bienvenida.
+  // 3) Reglas rápidas del negocio (keyword → respuesta exacta). Tienen
+  // prioridad sobre el saludo/fallback y sobre la IA; no alteran el funnel.
+  const rule = matchRule(message.text, config.ai?.reglas);
+  if (rule) {
+    reply(rule.respuesta);
+    return { lead, messages };
+  }
+
+  // 4) Saludo o primer contacto → menú de bienvenida.
   if (lead.stage === "inicio" || isGreeting(message.text)) {
     reply(render(config.messages.welcome, leadVars(lead, config)), menuOptions(config));
     lead.stage = "menu_enviado";
     return { lead, messages };
   }
 
-  // 4) No se entendió → fallback con el menú.
+  // 5) No se entendió → fallback con el menú.
   reply(render(config.messages.fallback, leadVars(lead, config)), menuOptions(config));
   return { lead, messages };
 }
