@@ -80,6 +80,20 @@ export const plantilla: BusinessConfig = {
   //   derivarHumano: true,
   // },
 
+  // Modalidad de pedido (p. ej. restaurantes): agrega un paso extra entre el
+  // nombre y la fecha para preguntar cómo se entrega. Deja `{{entrega}}`
+  // disponible en `askConfirm`/`captured` si querés mencionarla ahí.
+  // pedidos: {
+  //   enabled: true,
+  //   pregunta: "¿Vas a retirar tu pedido o prefieres comer en el local?",
+  //   opciones: ["Retirar en el local", "Comer en el local"],
+  // },
+
+  // WhatsApp personal del dueño/a: si lo configurás, el bot le avisa por
+  // WhatsApp (mismo número de WhatsApp Business) cuando se confirma una
+  // cita o pedido. Formato E.164 sin "+".
+  // notifyPhoneNumber: "573001234567",
+
   // Planilla de Google Sheets propia del negocio (modelo multi-tenant).
   // 1. Creá una planilla nueva en Google Sheets.
   // 2. Compartila (Editor) con el GOOGLE_SERVICE_ACCOUNT_EMAIL del .env.local.

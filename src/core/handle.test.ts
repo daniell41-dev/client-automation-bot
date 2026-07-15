@@ -162,3 +162,77 @@ describe("handleIncoming — agendar en calendario al confirmar", () => {
     expect(repo.leads[0].stage).toBe("datos_completos");
   });
 });
+
+/** Notifier falso: registra los mensajes enviados. */
+function fakeNotifier(): { sent: { to: string; text: string }[]; send: (m: { to: string; text: string }) => Promise<void> } {
+  const sent: { to: string; text: string }[] = [];
+  return {
+    sent,
+    async send(m) {
+      sent.push(m);
+    },
+  };
+}
+
+const configConNotify: BusinessConfig = {
+  ...config,
+  notifyPhoneNumber: "573009998888",
+};
+
+describe("handleIncoming — avisa a la dueña por WhatsApp al confirmar", () => {
+  it("le envía un mensaje al notifyPhoneNumber cuando se confirma", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+    await handleIncoming(msg("limpieza facial"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("Laura"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("mañana a las 3"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+
+    await handleIncoming(msg("sí"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+
+    expect(notifier.sent).toHaveLength(1);
+    expect(notifier.sent[0].to).toBe("573009998888");
+    expect(notifier.sent[0].text).toContain("Laura");
+    expect(notifier.sent[0].text).toContain("Limpieza facial");
+  });
+
+  it("NO avisa si el negocio no configuró notifyPhoneNumber", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+    await handleIncoming(msg("limpieza facial"), config, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("Laura"), config, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("mañana a las 3"), config, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("sí"), config, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+
+    expect(notifier.sent).toHaveLength(0);
+  });
+
+  it("NO avisa una segunda vez si el cliente escribe después de confirmar", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+    await handleIncoming(msg("limpieza facial"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("Laura"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("mañana a las 3"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("sí"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+
+    await handleIncoming(msg("gracias!"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+
+    expect(notifier.sent).toHaveLength(1);
+  });
+
+  it("no rompe la conversación si el envío de la notificación falla", async () => {
+    const repo = new InMemoryRepo();
+    const failingNotifier = {
+      async send(): Promise<void> {
+        throw new Error("network down");
+      },
+    };
+    await handleIncoming(msg("limpieza facial"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, failingNotifier);
+    await handleIncoming(msg("Laura"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, failingNotifier);
+    await handleIncoming(msg("mañana a las 3"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, failingNotifier);
+
+    const replies = await handleIncoming(msg("sí"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, failingNotifier);
+
+    expect(replies.length).toBeGreaterThan(0);
+    expect(repo.leads[0].stage).toBe("datos_completos");
+  });
+});

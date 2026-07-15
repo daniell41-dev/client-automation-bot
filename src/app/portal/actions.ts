@@ -120,6 +120,8 @@ const PATCH_KEYS = [
   "direccion",
   "personas",
   "messages",
+  "pedidos",
+  "notifyPhoneNumber",
 ] as const;
 
 /**

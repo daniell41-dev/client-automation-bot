@@ -81,6 +81,12 @@ export async function POST(request: Request): Promise<Response> {
       const sessionRepo = llm ? createSessionRepository(business) : undefined;
       const calendar = createCalendar(business) ?? undefined;
 
+      // Mismo canal para responderle al cliente y para avisarle a la dueña
+      // (es el número de WhatsApp Business del negocio en ambos casos).
+      const channel = accessToken
+        ? new WhatsAppChannel({ phoneNumberId: parsed.phoneNumberId, accessToken })
+        : undefined;
+
       const message: IncomingMessage = {
         channel: "whatsapp",
         businessSlug: business.slug,
@@ -98,13 +104,10 @@ export async function POST(request: Request): Promise<Response> {
         llm ?? undefined,
         sessionRepo,
         calendar,
+        channel,
       );
 
-      if (accessToken) {
-        const channel = new WhatsAppChannel({
-          phoneNumberId: parsed.phoneNumberId,
-          accessToken,
-        });
+      if (channel) {
         for (const reply of replies) {
           await channel.send(reply);
         }

@@ -33,3 +33,34 @@ describe("parseBusinessConfig", () => {
     expect(parseBusinessConfig(42)).toBeNull();
   });
 });
+
+describe("parseBusinessConfig — pedidos y notifyPhoneNumber", () => {
+  it("acepta pedidos válido (enabled + pregunta + 2-4 opciones)", () => {
+    const config = {
+      ...JSON.parse(JSON.stringify(esteticaBella)),
+      pedidos: {
+        enabled: true,
+        pregunta: "¿Retirás o comés acá?",
+        opciones: ["Retirar", "Comer aquí"],
+      },
+      notifyPhoneNumber: "573001234567",
+    };
+    const parsed = parseBusinessConfig(config);
+    expect(parsed?.pedidos?.opciones).toEqual(["Retirar", "Comer aquí"]);
+    expect(parsed?.notifyPhoneNumber).toBe("573001234567");
+  });
+
+  it("rechaza pedidos con menos de 2 opciones", () => {
+    const config = {
+      ...JSON.parse(JSON.stringify(esteticaBella)),
+      pedidos: { enabled: true, pregunta: "¿Y?", opciones: ["Solo una"] },
+    };
+    expect(parseBusinessConfig(config)).toBeNull();
+  });
+
+  it("sin pedidos ni notifyPhoneNumber la config sigue siendo válida (opcionales)", () => {
+    const parsed = parseBusinessConfig(JSON.parse(JSON.stringify(esteticaBella)));
+    expect(parsed?.pedidos).toBeUndefined();
+    expect(parsed?.notifyPhoneNumber).toBeUndefined();
+  });
+});

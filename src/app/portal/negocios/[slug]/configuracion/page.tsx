@@ -34,6 +34,7 @@ export default async function ConfiguracionPage({
       rubro={(negocio.rubros as unknown as { nombre: string } | null)?.nombre ?? "Negocio"}
       whatsappId={negocio.whatsapp_phone_number_id ?? ""}
       direccion={config.direccion ?? ""}
+      notifyPhoneNumber={config.notifyPhoneNumber ?? ""}
       persona={
         config.personas?.whatsapp ?? {
           name: "Asistente",
