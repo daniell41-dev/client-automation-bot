@@ -3,6 +3,7 @@ import {
   availableServices,
   isAffirmative,
   isGreeting,
+  matchEntrega,
   matchRule,
   matchService,
   normalize,
@@ -139,5 +140,26 @@ describe("matchRule", () => {
     expect(matchRule("hola", reglas)).toBeUndefined();
     expect(matchRule("horario", undefined)).toBeUndefined();
     expect(matchRule("horario", [])).toBeUndefined();
+  });
+});
+
+describe("matchEntrega", () => {
+  const opciones = ["Retirar en el local", "Comer en el restaurante"];
+
+  it("encuentra la opción por texto contenido", () => {
+    expect(matchEntrega("prefiero retirar", opciones)).toBe("Retirar en el local");
+    expect(matchEntrega("Quiero comer en el restaurante", opciones)).toBe(
+      "Comer en el restaurante",
+    );
+  });
+
+  it("encuentra la opción por número de la lista", () => {
+    expect(matchEntrega("1", opciones)).toBe("Retirar en el local");
+    expect(matchEntrega("la 2", opciones)).toBe("Comer en el restaurante");
+  });
+
+  it("devuelve undefined si no coincide con nada", () => {
+    expect(matchEntrega("no sé", opciones)).toBeUndefined();
+    expect(matchEntrega("5", opciones)).toBeUndefined();
   });
 });

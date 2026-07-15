@@ -19,6 +19,7 @@ import { render, type TemplateVars } from "@/core/engine/templating";
 import {
   matchService,
   matchRule,
+  matchEntrega,
   isGreeting,
   isAffirmative,
   availableServices,
@@ -72,6 +73,7 @@ function leadVars(lead: Lead, config: BusinessConfig): TemplateVars {
     nombre: lead.name ?? "",
     servicio: service?.name ?? "",
     fecha: lead.tentativeDate ?? "",
+    entrega: lead.entrega ?? "",
     negocio: config.name,
     agenda: config.bookingUrl ?? "",
   };
@@ -125,9 +127,36 @@ export function respond(
     return render(config.messages.askConfirm, leadVars(lead, config));
   };
 
+  /**
+   * Decide el siguiente paso una vez que ya tenemos el nombre: preguntar la
+   * modalidad de entrega (solo si el negocio la activó y aún no la eligió),
+   * si no pedir la fecha, si no pasar a confirmación.
+   */
+  const nextAfterName = (): { text: string; options?: string[] } => {
+    if (config.pedidos?.enabled && !lead.entrega) {
+      lead.stage = "esperando_entrega";
+      return { text: config.pedidos.pregunta, options: config.pedidos.opciones };
+    }
+    if (!lead.tentativeDate) {
+      lead.stage = "esperando_fecha";
+      return { text: render(config.messages.askDate, leadVars(lead, config)) };
+    }
+    return { text: askConfirmText(), options: CONFIRM_OPTIONS };
+  };
+
   // 1) Etapas de captura de datos (tienen prioridad sobre todo lo demás).
   if (lead.stage === "esperando_nombre") {
     lead.name = message.text.trim();
+    const next = nextAfterName();
+    reply(next.text, next.options);
+    return { lead, messages };
+  }
+
+  // 1a) Modalidad de entrega (retirar / comer en el local, etc.) — solo
+  // existe este stage si el negocio activó `pedidos`.
+  if (lead.stage === "esperando_entrega") {
+    const opciones = config.pedidos?.opciones ?? [];
+    lead.entrega = matchEntrega(message.text, opciones) ?? message.text.trim();
     if (!lead.tentativeDate) {
       lead.stage = "esperando_fecha";
       reply(render(config.messages.askDate, leadVars(lead, config)));
@@ -167,11 +196,9 @@ export function respond(
     if (!lead.name) {
       lead.stage = "esperando_nombre";
       reply(joinParts(info, render(config.messages.askName, leadVars(lead, config))));
-    } else if (!lead.tentativeDate) {
-      lead.stage = "esperando_fecha";
-      reply(joinParts(info, render(config.messages.askDate, leadVars(lead, config))));
     } else {
-      reply(joinParts(info, askConfirmText()), CONFIRM_OPTIONS);
+      const next = nextAfterName();
+      reply(joinParts(info, next.text), next.options);
     }
     return { lead, messages };
   }

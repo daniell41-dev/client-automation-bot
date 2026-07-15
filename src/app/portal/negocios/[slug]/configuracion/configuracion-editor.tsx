@@ -42,6 +42,7 @@ export function ConfiguracionEditor({
   rubro,
   whatsappId,
   direccion: direccionInicial,
+  notifyPhoneNumber: notifyPhoneNumberInicial,
   persona,
   personas,
 }: {
@@ -50,10 +51,12 @@ export function ConfiguracionEditor({
   rubro: string;
   whatsappId: string;
   direccion: string;
+  notifyPhoneNumber: string;
   persona: PersonaConfig;
   personas: BusinessConfig["personas"];
 }) {
   const [direccion, setDireccion] = useState(direccionInicial);
+  const [notifyPhoneNumber, setNotifyPhoneNumber] = useState(notifyPhoneNumberInicial);
   const [botName, setBotName] = useState(persona.name);
   const [tono, setTono] = useState<Tono>(tonoActual(persona.tone));
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
@@ -63,6 +66,7 @@ export function ConfiguracionEditor({
 
   const patch = {
     direccion: direccion || undefined,
+    notifyPhoneNumber: notifyPhoneNumber.trim() || undefined,
     personas: {
       ...personas,
       whatsapp: { ...persona, name: botName || "Asistente", tone: TONOS[tono] },
@@ -119,6 +123,26 @@ export function ConfiguracionEditor({
             />
           </div>
         </ActionForm>
+      </Card>
+
+      {/* Notificaciones */}
+      <Card
+        title="Notificaciones"
+        subtitle="Tu WhatsApp personal: te avisamos ahí cuando el bot confirme una cita o un pedido."
+      >
+        <div className="max-w-sm">
+          <label className={labelCls}>Tu número de WhatsApp</label>
+          <input
+            className={inputCls}
+            value={notifyPhoneNumber}
+            onChange={(e) => setNotifyPhoneNumber(e.target.value)}
+            placeholder="573001234567"
+          />
+          <p className="mt-1.5 text-xs text-ink-soft">
+            Formato internacional sin espacios ni + (ej. 573001234567). Dejalo
+            vacío para no recibir avisos.
+          </p>
+        </div>
       </Card>
 
       {/* El bot */}

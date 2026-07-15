@@ -6,8 +6,8 @@
  */
 
 import { useActionState, useState } from "react";
-import { CalendarDays } from "lucide-react";
-import type { BusinessHours, Service } from "@/core/types";
+import { CalendarDays, Plus, X } from "lucide-react";
+import type { BusinessHours, PedidosConfig, Service } from "@/core/types";
 import { guardarConfigParcial, type ActionState } from "@/app/portal/actions";
 import { Card, EmptyState, Pill, Toggle } from "@/components/ui";
 import { PhonePreview } from "@/components/phone-preview";
@@ -21,11 +21,15 @@ export interface ProximaReserva {
 
 const timeCls =
   "input-nexo w-[74px] px-2 py-1 text-center text-[13px] text-ink";
+const inputCls =
+  "input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft";
+const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
 
 export function CitasEditor({
   slug,
   initialServices,
   initialHorarios,
+  initialPedidos,
   reservas,
   botName,
   botActivo,
@@ -33,16 +37,24 @@ export function CitasEditor({
   slug: string;
   initialServices: Service[];
   initialHorarios: BusinessHours[];
+  initialPedidos: PedidosConfig;
   reservas: ProximaReserva[];
   botName: string;
   botActivo: boolean;
 }) {
   const [services, setServices] = useState<Service[]>(initialServices);
   const [horarios, setHorarios] = useState<BusinessHours[]>(initialHorarios);
+  const [pedidos, setPedidos] = useState<PedidosConfig>(initialPedidos);
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     guardarConfigParcial,
     {},
   );
+
+  const patchOpcion = (i: number, value: string) =>
+    setPedidos((prev) => ({
+      ...prev,
+      opciones: prev.opciones.map((o, j) => (j === i ? value : o)),
+    }));
 
   const toggleReservable = (id: string, next: boolean) =>
     setServices((prev) =>
@@ -88,6 +100,80 @@ export function CitasEditor({
               </div>
             ))}
           </div>
+        </Card>
+
+        {/* Modalidad de pedido */}
+        <Card
+          title="Modalidad de pedido"
+          subtitle="Para negocios donde el cliente puede retirar o consumir en el local (p. ej. restaurantes)."
+          action={
+            <Toggle
+              checked={pedidos.enabled}
+              onChange={(next) => setPedidos((prev) => ({ ...prev, enabled: next }))}
+              label="Preguntar modalidad de entrega"
+            />
+          }
+        >
+          {pedidos.enabled && (
+            <div className="space-y-3">
+              <div>
+                <label className={labelCls}>Pregunta del bot</label>
+                <input
+                  className={inputCls}
+                  value={pedidos.pregunta}
+                  onChange={(e) =>
+                    setPedidos((prev) => ({ ...prev, pregunta: e.target.value }))
+                  }
+                  placeholder="¿Vas a retirar tu pedido o prefieres comer en el local?"
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Opciones (2 a 4)</label>
+                <div className="space-y-2">
+                  {pedidos.opciones.map((opcion, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <input
+                        className={inputCls}
+                        value={opcion}
+                        onChange={(e) => patchOpcion(i, e.target.value)}
+                        placeholder="Retirar en el local"
+                      />
+                      {pedidos.opciones.length > 2 && (
+                        <button
+                          type="button"
+                          aria-label="Quitar opción"
+                          onClick={() =>
+                            setPedidos((prev) => ({
+                              ...prev,
+                              opciones: prev.opciones.filter((_, j) => j !== i),
+                            }))
+                          }
+                          className="text-ink-soft hover:text-warn-ink"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {pedidos.opciones.length < 4 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPedidos((prev) => ({
+                        ...prev,
+                        opciones: [...prev.opciones, ""],
+                      }))
+                    }
+                    className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Agregar opción
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </Card>
 
         {/* Horarios de atención */}
@@ -164,7 +250,15 @@ export function CitasEditor({
           <input
             type="hidden"
             name="patch"
-            value={JSON.stringify({ services, horarios })}
+            value={JSON.stringify({
+              services,
+              horarios,
+              pedidos: {
+                ...pedidos,
+                pregunta: pedidos.pregunta.trim(),
+                opciones: pedidos.opciones.map((o) => o.trim()).filter(Boolean),
+              },
+            })}
           />
           {state.error && (
             <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-sm text-warn-ink">
@@ -186,23 +280,39 @@ export function CitasEditor({
         </form>
       </div>
 
-      {/* ── Preview: flujo de reserva ── */}
+      {/* ── Preview: flujo de reserva (+ modalidad si está activa) ── */}
       <PhonePreview
         botName={botName}
         online={botActivo}
-        messages={[
-          { role: "in", text: "Hola, quiero reservar un turno" },
-          {
-            role: "out",
-            text: reservables.length
-              ? "¡Claro! ¿Para cuál de estos servicios?"
-              : "Por ahora no tenemos turnos disponibles 🙏",
-          },
-        ]}
+        messages={
+          pedidos.enabled
+            ? [
+                { role: "in", text: "Hola, quiero hacer un pedido" },
+                {
+                  role: "out",
+                  text: reservables.length
+                    ? "¡Dale! ¿Cuál te gustaría?"
+                    : "Contame qué se te antoja 😊",
+                },
+                { role: "in", text: reservables[0]?.name ?? "Bife de chorizo" },
+                { role: "out", text: pedidos.pregunta || "¿Retirás o comés acá?" },
+              ]
+            : [
+                { role: "in", text: "Hola, quiero reservar un turno" },
+                {
+                  role: "out",
+                  text: reservables.length
+                    ? "¡Claro! ¿Para cuál de estos servicios?"
+                    : "Por ahora no tenemos turnos disponibles 🙏",
+                },
+              ]
+        }
         quickReplies={
-          reservables.length
-            ? reservables.slice(0, 3).map((s) => s.name)
-            : undefined
+          pedidos.enabled
+            ? pedidos.opciones.filter(Boolean)
+            : reservables.length
+              ? reservables.slice(0, 3).map((s) => s.name)
+              : undefined
         }
       />
     </div>

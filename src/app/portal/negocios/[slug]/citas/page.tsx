@@ -54,6 +54,13 @@ export default async function CitasPage({
           { dia: "Domingo", desde: "00:00", hasta: "00:00", abierto: false },
         ]
       }
+      initialPedidos={
+        config.pedidos ?? {
+          enabled: false,
+          pregunta: "¿Vas a retirar tu pedido o prefieres comer en el local?",
+          opciones: ["Retirar en el local", "Comer en el local"],
+        }
+      }
       reservas={reservas}
       botName={config.personas?.whatsapp?.name ?? "Asistente"}
       botActivo={config.botActivo !== false}

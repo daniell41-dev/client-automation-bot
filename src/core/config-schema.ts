@@ -41,6 +41,12 @@ const hoursSchema = z.object({
   abierto: z.boolean(),
 });
 
+const pedidosSchema = z.object({
+  enabled: z.boolean(),
+  pregunta: z.string().min(1),
+  opciones: z.array(z.string().min(1)).min(2).max(4),
+});
+
 const messagesSchema = z.object({
   welcome: z.string(),
   askName: z.string(),
@@ -78,6 +84,8 @@ export const businessConfigSchema = z.object({
   plan: z.enum(["free", "pro"]).optional(),
   horarios: z.array(hoursSchema).optional(),
   ai: aiSchema.optional(),
+  pedidos: pedidosSchema.optional(),
+  notifyPhoneNumber: z.string().optional(),
   personas: z
     .object({
       whatsapp: personaSchema.optional(),

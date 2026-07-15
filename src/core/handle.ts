@@ -25,6 +25,15 @@ import { buildCalendarEvent } from "@/core/engine/calendar-event";
 
 const DEFAULT_TIMEZONE = "America/Bogota";
 
+/**
+ * Lo mínimo que necesita `handleIncoming` para avisarle a la dueña por
+ * WhatsApp. `WhatsAppChannel` ya cumple esta forma (mismo `send`), así que el
+ * webhook puede pasar el mismo canal que usa para responderle al cliente.
+ */
+export interface OwnerNotifier {
+  send(message: OutgoingMessage): Promise<void>;
+}
+
 export async function handleIncoming(
   message: IncomingMessage,
   config: BusinessConfig,
@@ -33,17 +42,23 @@ export async function handleIncoming(
   llm?: ILLMProvider,
   sessionRepo?: SessionRepository,
   calendar?: CalendarApi,
+  notifier?: OwnerNotifier,
 ): Promise<OutgoingMessage[]> {
   const existing = await repo.findByContact(message.businessSlug, message.from);
   const { lead, messages } = respond(existing, message, config, now);
 
-  // Side-effect: al CONFIRMAR la cita (transición a datos_completos) se agenda
-  // en el calendario del negocio. Se detecta la transición, no el estado, para
-  // no re-crear el evento en mensajes posteriores.
+  // Side-effects al CONFIRMAR (transición a datos_completos): agendar en el
+  // calendario del negocio y avisarle a la dueña por WhatsApp. Se detecta la
+  // transición, no el estado, para no repetirlos en mensajes posteriores.
   const justConfirmed =
     existing?.stage !== "datos_completos" && lead.stage === "datos_completos";
-  if (justConfirmed && calendar && llm) {
-    await scheduleConfirmedAppointment(lead, config, now, llm, calendar);
+  if (justConfirmed) {
+    if (calendar && llm) {
+      await scheduleConfirmedAppointment(lead, config, now, llm, calendar);
+    }
+    if (notifier && config.notifyPhoneNumber) {
+      await notifyOwner(lead, config, notifier);
+    }
   }
 
   await repo.save(lead);
@@ -124,5 +139,31 @@ async function scheduleConfirmedAppointment(
   } catch (err) {
     console.error("[Calendar] no se pudo agendar la cita:", err);
     lead.notes = `Error al agendar "${lead.tentativeDate}" en el calendario. Revisar manualmente.`;
+  }
+}
+
+/**
+ * Le avisa a la dueña/o por WhatsApp que se confirmó una cita/pedido.
+ * No usa IA (mensaje interno, no de cara al cliente); si falla el envío no
+ * rompe la conversación con el cliente, solo se registra el error.
+ */
+async function notifyOwner(
+  lead: Lead,
+  config: BusinessConfig,
+  notifier: OwnerNotifier,
+): Promise<void> {
+  const service = config.services.find((s) => s.id === lead.serviceId);
+  const lines = [
+    `🔔 ${config.name}: confirmación nueva`,
+    `Cliente: ${lead.name ?? lead.contact}`,
+    service ? `${config.pedidos?.enabled ? "Pedido" : "Servicio"}: ${service.name}` : null,
+    lead.entrega ? `Modalidad: ${lead.entrega}` : null,
+    lead.tentativeDate ? `Fecha/hora: ${lead.tentativeDate}` : null,
+  ].filter((line): line is string => Boolean(line));
+
+  try {
+    await notifier.send({ to: config.notifyPhoneNumber!, text: lines.join("\n") });
+  } catch (err) {
+    console.error("[Notify] no se pudo avisar a la dueña por WhatsApp:", err);
   }
 }

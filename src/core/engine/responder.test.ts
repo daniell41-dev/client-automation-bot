@@ -191,3 +191,54 @@ describe("respond — reglas rápidas y disponibilidad", () => {
     expect(messages[0].options).toEqual(["Limpieza facial", "Uñas"]);
   });
 });
+
+describe("respond — modalidad de pedido (retirar / comer en el local)", () => {
+  const configConPedidos: BusinessConfig = {
+    ...config,
+    pedidos: {
+      enabled: true,
+      pregunta: "¿Retirás en el local o comés acá?",
+      opciones: ["Retirar en el local", "Comer aquí"],
+    },
+  };
+
+  it("tras el nombre, pregunta la modalidad ANTES de la fecha", () => {
+    const paso1 = respond(null, msg("limpieza facial"), configConPedidos, now).lead;
+    const { lead, messages } = respond(paso1, msg("Laura"), configConPedidos, now);
+
+    expect(lead.stage).toBe("esperando_entrega");
+    expect(messages[0].text).toBe("¿Retirás en el local o comés acá?");
+    expect(messages[0].options).toEqual(["Retirar en el local", "Comer aquí"]);
+  });
+
+  it("guarda la modalidad elegida y continúa a la fecha", () => {
+    const paso1 = respond(null, msg("limpieza facial"), configConPedidos, now).lead;
+    const paso2 = respond(paso1, msg("Laura"), configConPedidos, now).lead;
+    const { lead, messages } = respond(paso2, msg("retiro en el local"), configConPedidos, now);
+
+    expect(lead.entrega).toBe("Retirar en el local");
+    expect(lead.stage).toBe("esperando_fecha");
+    expect(messages[0].text).toContain("día");
+  });
+
+  it("el flujo completo llega a agendado con la modalidad guardada", () => {
+    let lead = respond(null, msg("limpieza facial"), configConPedidos, now).lead;
+    lead = respond(lead, msg("Laura"), configConPedidos, now).lead;
+    lead = respond(lead, msg("2"), configConPedidos, now).lead; // "Comer aquí" por número
+    expect(lead.entrega).toBe("Comer aquí");
+    lead = respond(lead, msg("mañana"), configConPedidos, now).lead;
+    expect(lead.stage).toBe("esperando_confirmacion");
+
+    const { lead: final } = respond(lead, msg("sí"), configConPedidos, now);
+    expect(final.state).toBe("agendado");
+    expect(final.stage).toBe("datos_completos");
+    expect(final.entrega).toBe("Comer aquí");
+  });
+
+  it("sin pedidos configurado, el flujo NO pregunta modalidad (regresión)", () => {
+    const paso1 = respond(null, msg("limpieza facial"), config, now).lead;
+    const { lead } = respond(paso1, msg("Laura"), config, now);
+    expect(lead.stage).toBe("esperando_fecha");
+    expect(lead.entrega).toBeUndefined();
+  });
+});

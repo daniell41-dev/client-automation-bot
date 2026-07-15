@@ -26,6 +26,7 @@ export type ConversationStage =
   | "esperando_nombre" // se le pidió el nombre
   | "esperando_fecha" // se le pidió la fecha tentativa
   | "esperando_confirmacion" // se le pidió confirmar la cita (Sí/cambiar fecha)
+  | "esperando_entrega" // se le preguntó la modalidad (retirar / comer en el local)
   | "datos_completos"; // ya tenemos nombre + servicio + fecha y la cita está agendada
 
 /** Plataforma por la que llega/sale un mensaje. */
@@ -86,6 +87,19 @@ export interface BotAIConfig {
   botonesMenu?: string[];
   /** Si el bot no entiende, ¿derivar a una persona? */
   derivarHumano?: boolean;
+}
+
+/**
+ * Modalidad de entrega/consumo para negocios que no son de "cita en otro día"
+ * (p. ej. un restaurante: retirar en el local vs comer ahí). Opcional: si no
+ * está `enabled`, el funnel no pregunta nada de esto (comportamiento actual).
+ */
+export interface PedidosConfig {
+  enabled: boolean;
+  /** Pregunta que hace el bot (p. ej. "¿Retirás en el local o comés acá?"). */
+  pregunta: string;
+  /** Opciones de modalidad (2 a 4), p. ej. ["Retirar en el local", "Comer en el restaurante"]. */
+  opciones: string[];
 }
 
 /** Horario de atención de un día (o rango de días). */
@@ -161,6 +175,14 @@ export interface BusinessConfig {
   horarios?: BusinessHours[];
   /** Cerebro del bot: IA (knowledge) + reglas rápidas + fallback/derivación. */
   ai?: BotAIConfig;
+  /** Modalidad de entrega opcional (retirar / comer en el local, etc.). */
+  pedidos?: PedidosConfig;
+  /**
+   * WhatsApp personal de la dueña/o (E.164, ej. "573001234567"). Si está
+   * configurado, el bot le avisa por WhatsApp cuando se confirma una cita o
+   * pedido (usa el mismo número de WhatsApp Business del negocio para enviar).
+   */
+  notifyPhoneNumber?: string;
   /** Persona del bot por canal. Si un canal no está, se omite la IA para ese canal. */
   personas?: Partial<Record<Channel, PersonaConfig>>;
   /** Almacenamiento propio del negocio (multi-tenant). Sin esto cae a JSON local. */
@@ -223,6 +245,8 @@ export interface Lead {
   serviceId?: string;
   /** Fecha tentativa indicada por el cliente (texto libre). */
   tentativeDate?: string;
+  /** Modalidad elegida cuando `config.pedidos.enabled` (texto de la opción). */
+  entrega?: string;
   state: LeadState;
   stage: ConversationStage;
   /** ISO 8601. */
