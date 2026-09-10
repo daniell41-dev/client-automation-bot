@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { createGroqProvider } from "@/core/ai/groq";
+import { createLLMProvider } from "@/core/ai/factory";
 import { buildSystemPrompt, buildUserMessage } from "@/core/ai/prompt";
 import type { LLMContext } from "@/core/ai/provider";
 
@@ -11,23 +11,80 @@ const ctx: LLMContext = {
   stage: "info_enviada",
 };
 
-describe("createGroqProvider", () => {
-  const original = process.env.GROQ_API_KEY;
+/** Variables de entorno de IA relevantes, para limpiar entre tests. */
+const AI_ENV_VARS = [
+  "GEMINI_API_KEY",
+  "GEMINI_MODEL",
+  "GROQ_API_KEY",
+  "GROQ_MODEL",
+  "CEREBRAS_API_KEY",
+  "CEREBRAS_MODEL",
+  "AI_CUSTOM_API_KEY",
+  "AI_CUSTOM_BASE_URL",
+  "AI_CUSTOM_MODEL",
+  "AI_PROVIDER_ORDER",
+] as const;
+
+describe("createLLMProvider", () => {
+  const originals = Object.fromEntries(
+    AI_ENV_VARS.map((key) => [key, process.env[key]]),
+  );
   afterEach(() => {
-    if (original === undefined) delete process.env.GROQ_API_KEY;
-    else process.env.GROQ_API_KEY = original;
+    for (const key of AI_ENV_VARS) {
+      if (originals[key] === undefined) delete process.env[key];
+      else process.env[key] = originals[key];
+    }
   });
 
-  it("devuelve null cuando no hay GROQ_API_KEY", () => {
-    delete process.env.GROQ_API_KEY;
-    expect(createGroqProvider()).toBeNull();
+  it("devuelve null cuando no hay ninguna key de IA configurada", () => {
+    expect(createLLMProvider()).toBeNull();
   });
 
-  it("crea un provider cuando hay key", () => {
-    process.env.GROQ_API_KEY = "test-key";
-    const provider = createGroqProvider();
+  it("crea un provider Gemini con el modelo por defecto", () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    const provider = createLLMProvider();
     expect(provider).not.toBeNull();
-    expect(provider?.model).toBe("llama-3.3-70b-versatile");
+    expect(provider?.model).toBe("gemini-2.5-flash-lite");
+  });
+
+  it("sigue funcionando solo con GROQ_API_KEY (compatibilidad hacia atrás)", () => {
+    process.env.GROQ_API_KEY = "test-key";
+    const provider = createLLMProvider();
+    expect(provider?.model).toBe("llama-3.1-8b-instant");
+  });
+
+  it("respeta *_MODEL si se especifica", () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    process.env.GEMINI_MODEL = "gemini-custom";
+    expect(createLLMProvider()?.model).toBe("gemini-custom");
+  });
+
+  it("arma una cadena de respaldo cuando hay varias keys (orden: gemini -> groq)", () => {
+    process.env.GEMINI_API_KEY = "gemini-key";
+    process.env.GROQ_API_KEY = "groq-key";
+    const provider = createLLMProvider();
+    expect(provider?.model).toBe("gemini-2.5-flash-lite (+llama-3.1-8b-instant)");
+  });
+
+  it("AI_PROVIDER_ORDER reordena la cadena", () => {
+    process.env.GEMINI_API_KEY = "gemini-key";
+    process.env.GROQ_API_KEY = "groq-key";
+    process.env.AI_PROVIDER_ORDER = "groq,gemini";
+    const provider = createLLMProvider();
+    expect(provider?.model).toBe("llama-3.1-8b-instant (+gemini-2.5-flash-lite)");
+  });
+
+  it("arma un provider custom (Ollama u otro) desde AI_CUSTOM_*", () => {
+    process.env.AI_CUSTOM_API_KEY = "custom-key";
+    process.env.AI_CUSTOM_BASE_URL = "http://localhost:11434/v1";
+    process.env.AI_CUSTOM_MODEL = "llama3";
+    expect(createLLMProvider()?.model).toBe("llama3");
+  });
+
+  it("ignora AI_CUSTOM_* si falta alguna de las tres variables", () => {
+    process.env.AI_CUSTOM_API_KEY = "custom-key";
+    // Faltan AI_CUSTOM_BASE_URL y AI_CUSTOM_MODEL.
+    expect(createLLMProvider()).toBeNull();
   });
 });
 
