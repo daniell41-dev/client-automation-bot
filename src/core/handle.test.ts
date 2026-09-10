@@ -83,14 +83,23 @@ describe("handleIncoming", () => {
   });
 });
 
-/** LLM falso: enhance devuelve el borrador; extractDateTime es configurable. */
-function fakeLLM(extracted: string | null = "2026-06-30T15:00:00-05:00"): ILLMProvider {
+/**
+ * LLM falso: enhance devuelve el borrador; extractDateTime e interpret son
+ * configurables (por defecto interpret devuelve null: sin red de seguridad).
+ */
+function fakeLLM(
+  extracted: string | null = "2026-06-30T15:00:00-05:00",
+  interpreted: string | null = null,
+): ILLMProvider {
   return {
     async enhance(ctx) {
       return ctx.draftResponse;
     },
     async extractDateTime() {
       return extracted;
+    },
+    async interpret() {
+      return interpreted;
     },
   };
 }
@@ -234,5 +243,76 @@ describe("handleIncoming — avisa a la dueña por WhatsApp al confirmar", () =>
 
     expect(replies.length).toBeGreaterThan(0);
     expect(repo.leads[0].stage).toBe("datos_completos");
+  });
+});
+
+/** LLM falso configurable para probar la red de seguridad del intérprete. */
+function fakeLLMWithInterpret(interpreted: string | null): {
+  llm: ILLMProvider;
+  state: { calls: number };
+} {
+  const state = { calls: 0 };
+  const llm: ILLMProvider = {
+    async enhance(ctx) {
+      return ctx.draftResponse;
+    },
+    async extractDateTime() {
+      return null;
+    },
+    async interpret() {
+      state.calls++;
+      return interpreted;
+    },
+  };
+  return { llm, state };
+}
+
+describe("handleIncoming — red de seguridad del intérprete IA", () => {
+  it("usa la interpretación de la IA para reconocer un mensaje que el motor no entendió", async () => {
+    const repo = new InMemoryRepo();
+    const { llm, state } = fakeLLMWithInterpret("Limpieza facial");
+    await handleIncoming(msg("Hola"), config, repo, new Date(), llm); // → menu_enviado
+
+    const replies = await handleIncoming(
+      msg("necesito que me dejen la cara brillante"),
+      config,
+      repo,
+      new Date(),
+      llm,
+    );
+
+    expect(state.calls).toBe(1);
+    expect(repo.leads[0].serviceId).toBe("limpieza-facial");
+    expect(repo.leads[0].stage).toBe("esperando_nombre");
+    expect(replies.length).toBeGreaterThan(0);
+  });
+
+  it("si la IA no reconoce nada (interpret null), se queda con el fallback normal", async () => {
+    const repo = new InMemoryRepo();
+    const { llm, state } = fakeLLMWithInterpret(null);
+    await handleIncoming(msg("Hola"), config, repo, new Date(), llm);
+
+    const replies = await handleIncoming(msg("asdkjhaskjdh"), config, repo, new Date(), llm);
+
+    expect(state.calls).toBe(1);
+    expect(replies[0].text).toBe("no entendí");
+  });
+
+  it("sin IA no intenta interpretar y usa el fallback determinista", async () => {
+    const repo = new InMemoryRepo();
+    await handleIncoming(msg("Hola"), config, repo);
+
+    const replies = await handleIncoming(msg("asdkjhaskjdh"), config, repo);
+
+    expect(replies[0].text).toBe("no entendí");
+  });
+
+  it("no llama a interpret cuando el motor sí entendió el mensaje", async () => {
+    const repo = new InMemoryRepo();
+    const { llm, state } = fakeLLMWithInterpret("Limpieza facial");
+
+    await handleIncoming(msg("limpieza facial"), config, repo, new Date(), llm);
+
+    expect(state.calls).toBe(0);
   });
 });

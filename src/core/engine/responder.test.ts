@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { respond } from "@/core/engine/responder";
+import { interpretableOptions, respond } from "@/core/engine/responder";
 import type { BusinessConfig, IncomingMessage } from "@/core/types";
 
 const config: BusinessConfig = {
@@ -290,5 +290,83 @@ describe("respond — modalidad de pedido (retirar / comer en el local)", () => 
     const { lead } = respond(paso1, msg("Laura"), config, now);
     expect(lead.stage).toBe("esperando_fecha");
     expect(lead.entrega).toBeUndefined();
+  });
+});
+
+describe("respond — señal unrecognized (red de seguridad de la IA)", () => {
+  it("NO marca unrecognized cuando reconoce el servicio o el saludo", () => {
+    expect(respond(null, msg("Hola"), config, now).unrecognized).toBeFalsy();
+    expect(respond(null, msg("limpieza facial"), config, now).unrecognized).toBeFalsy();
+  });
+
+  it("marca unrecognized cuando cae al fallback", () => {
+    // Un lead nuevo (stage "inicio") siempre recibe el menú de bienvenida,
+    // así que primero hay que pasar ese paso para llegar al fallback real.
+    let r = respond(null, msg("Hola"), config, now);
+    r = respond(r.lead, msg("asdkjhaskjdh"), config, now);
+    expect(r.messages[0].text).toContain("No te entendí");
+    expect(r.unrecognized).toBe(true);
+  });
+
+  it("marca unrecognized en esperando_entrega si no reconoce ninguna opción", () => {
+    const configConPedidos: BusinessConfig = {
+      ...config,
+      pedidos: {
+        enabled: true,
+        pregunta: "¿Retirás o comés acá?",
+        opciones: ["Retirar en el local", "Comer aquí"],
+      },
+    };
+    let r = respond(null, msg("limpieza facial"), configConPedidos, now);
+    r = respond(r.lead, msg("Laura"), configConPedidos, now);
+    expect(r.lead.stage).toBe("esperando_entrega");
+
+    const sinMatch = respond(r.lead, msg("no sé, sorpréndeme"), configConPedidos, now);
+    expect(sinMatch.unrecognized).toBe(true);
+    expect(sinMatch.lead.entrega).toBe("no sé, sorpréndeme"); // igual acepta el texto
+
+    const conMatch = respond(r.lead, msg("prefiero retirar"), configConPedidos, now);
+    expect(conMatch.unrecognized).toBeFalsy();
+    expect(conMatch.lead.entrega).toBe("Retirar en el local");
+  });
+});
+
+describe("interpretableOptions", () => {
+  it("en esperando_entrega devuelve las opciones de pedidos", () => {
+    const configConPedidos: BusinessConfig = {
+      ...config,
+      pedidos: {
+        enabled: true,
+        pregunta: "¿?",
+        opciones: ["Retirar en el local", "Comer aquí"],
+      },
+    };
+    expect(interpretableOptions("esperando_entrega", configConPedidos)).toEqual([
+      "Retirar en el local",
+      "Comer aquí",
+    ]);
+  });
+
+  it("en cualquier otra etapa devuelve los servicios disponibles", () => {
+    expect(interpretableOptions("menu_enviado", config)).toEqual([
+      "Limpieza facial",
+      "Uñas",
+    ]);
+    expect(interpretableOptions(undefined, config)).toEqual([
+      "Limpieza facial",
+      "Uñas",
+    ]);
+  });
+
+  it("suma los botonesMenu configurados, sin duplicar", () => {
+    const configConBotones: BusinessConfig = {
+      ...config,
+      ai: { enabled: true, botonesMenu: ["Ver precios", "Uñas"] },
+    };
+    expect(interpretableOptions("menu_enviado", configConBotones)).toEqual([
+      "Limpieza facial",
+      "Uñas",
+      "Ver precios",
+    ]);
   });
 });

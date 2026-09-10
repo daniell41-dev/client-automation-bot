@@ -14,6 +14,7 @@
 import type {
   DateExtractionInput,
   ILLMProvider,
+  InterpretInput,
   LLMContext,
 } from "@/core/ai/provider";
 
@@ -50,6 +51,20 @@ export class ResilientProvider implements ILLMProvider {
       } catch (err) {
         console.error(
           `[AI] ${provider.model ?? "proveedor"} falló (extractDateTime), probando el siguiente:`,
+          err,
+        );
+      }
+    }
+    return null;
+  }
+
+  async interpret(input: InterpretInput): Promise<string | null> {
+    for (const provider of this.providers) {
+      try {
+        return await provider.interpret(input);
+      } catch (err) {
+        console.error(
+          `[AI] ${provider.model ?? "proveedor"} falló (interpret), probando el siguiente:`,
           err,
         );
       }
