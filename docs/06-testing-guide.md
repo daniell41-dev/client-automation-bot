@@ -17,14 +17,14 @@ pnpm install
 
 ### Variable de entorno (opcional)
 
-Crea un archivo `.env.local` en la raíz del proyecto para activar la IA:
+Crea un archivo `.env.local` en la raíz del proyecto para activar la IA (recomendado: Gemini, gratis y sin tarjeta — ver `docs/11-proveedor-ia.md`):
 
 ```
-GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxx
+GEMINI_API_KEY=AI...
 ```
 
-- **Sin `GROQ_API_KEY`:** el bot responde con las plantillas de texto definidas en el `config.ts` del negocio. El flujo de conversación es idéntico.
-- **Con `GROQ_API_KEY`:** las respuestas pasan por Groq (LLaMA 3.3 70B). La IA reformula el texto con el tono de la persona configurada (p. ej. Isabella para Estética Bella en WhatsApp), pero no cambia el estado interno ni el orden de las preguntas.
+- **Sin ninguna key de IA:** el bot responde con las plantillas de texto definidas en el `config.ts` del negocio. El flujo de conversación es idéntico.
+- **Con una key configurada:** las respuestas pasan por la IA. La IA reformula el texto con el tono de la persona configurada (p. ej. Isabella para Estética Bella en WhatsApp), pero no cambia el estado interno ni el orden de las preguntas. Se puede configurar más de una (Gemini, Groq, Cerebras) como cadena de respaldo — ver `docs/11-proveedor-ia.md`.
 
 > **Importante:** nunca commitees `.env.local` ni la carpeta `data/` (ambas están en `.gitignore`).
 
@@ -108,10 +108,10 @@ pnpm sim "sí"
 
 ### 2. Flujo completo con IA
 
-Igual que el anterior, pero con `GROQ_API_KEY` en `.env.local`. El simulador imprime al inicio:
+Igual que el anterior, pero con `GEMINI_API_KEY` (u otra) en `.env.local`. El simulador imprime al inicio:
 
 ```
-✨ IA habilitada (Groq · llama-3.3-70b-versatile) · Persona: Isabella
+✨ IA habilitada (gemini-2.5-flash-lite) · Persona: Isabella
 ```
 
 Las respuestas del bot suenan más naturales, pero el estado interno es el mismo.
@@ -183,8 +183,8 @@ sí
 |-----------|---------|----------|
 | Estado anterior inconsistente | El bot responde desde un `stage` inesperado (p. ej. pide confirmación sin haber pedido nombre) | `pnpm sim --reset "Hola"` |
 | Slug de negocio incorrecto | `❌ Negocio "foo" no encontrado. Disponibles: estetica-bella` | Usar un slug registrado en `src/businesses/registry.ts` |
-| `GROQ_API_KEY` ausente | Inicio muestra `ℹ️  IA desactivada (sin GROQ_API_KEY) — usando plantillas.` | Normal; el flujo funciona igual. Para habilitar IA, añadir la key en `.env.local` |
-| `GROQ_API_KEY` inválida o cuota agotada | Error de Groq al procesar el mensaje | El motor devuelve el borrador de plantilla sin reformulación IA |
+| Sin ninguna key de IA | Inicio muestra `ℹ️  IA desactivada (sin GEMINI_API_KEY/GROQ_API_KEY/…) — usando plantillas.` | Normal; el flujo funciona igual. Para habilitar IA, añadir una key en `.env.local` (ver `docs/11-proveedor-ia.md`) |
+| Key inválida o cuota agotada | `pnpm ai:doctor` muestra el error exacto | Si hay más de un proveedor configurado, la cadena de respaldo prueba el siguiente automáticamente; si no, el motor devuelve el borrador de plantilla sin reformulación IA |
 | `data/sim/` con JSON corrupto | Error de parse al arrancar el modo persistente | `rm -rf data/sim/` o `pnpm sim --reset` |
 
 ---

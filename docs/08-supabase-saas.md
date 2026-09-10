@@ -83,7 +83,7 @@ pnpm dev
 
 1. Sube el repo a GitHub y entra a <https://vercel.com> (plan Hobby, gratis).
 2. **Import Project** → elige el repo. Framework: Next.js (auto).
-3. En **Environment Variables** agrega las 3 de Supabase + las que uses de WhatsApp/Groq.
+3. En **Environment Variables** agrega las 3 de Supabase + las que uses de WhatsApp/IA (ver `docs/11-proveedor-ia.md`).
 4. Deploy. Cada push a la rama conectada redespliega.
 
 ### Conectar WhatsApp en producción
@@ -98,7 +98,7 @@ pnpm dev
 | Supabase Free: el proyecto **se pausa tras ~1 semana sin actividad** | El bot deja de responder hasta reactivarlo | Ping periódico externo (p. ej. cron-job.org llamando a `/demo` cada día) o reactivación manual en el dashboard |
 | Supabase Free: 500 MB de base | Miles de leads caben de sobra | Nada por ahora |
 | Supabase Free: máx. 2 proyectos activos | — | Usa un solo proyecto para todo |
-| Vercel Hobby: funciones serverless con timeout de 10 s | El webhook ya responde 200 rápido; la IA (Groq) suele tardar < 2 s | Si el LLM se pone lento, bajar a `llama-3.1-8b-instant` |
+| Vercel Hobby: funciones serverless con timeout de 10 s | El webhook ya responde 200 rápido; la IA suele tardar < 2 s | Cada proveedor tiene un timeout interno de 8 s (`docs/11-proveedor-ia.md`); si se pone lento, usar un modelo más rápido (`*_MODEL` en `.env.local`) |
 | Vercel Hobby: sin crons útiles | Los follow-ups automáticos no se auto-envían | Fase futura (worker externo o upgrade) |
 
 ## 9. Checklist manual (lo que los tests no cubren)
