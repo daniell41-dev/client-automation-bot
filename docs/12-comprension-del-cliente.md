@@ -102,11 +102,35 @@ El motor sigue siendo el único que decide el estado del lead: la IA solo **trad
 
 Solo se llama a `interpret()` cuando el motor determinista **no entendió** — no en cada mensaje. Un negocio con clientes que escriben razonablemente bien casi no va a gastar cuota extra en esto.
 
+## Capa 3: el motor no secuestra mensajes que no son la respuesta esperada
+
+### El problema
+
+Antes, cuando el lead estaba en una etapa de captura (`esperando_nombre`, `esperando_fecha`, `esperando_confirmacion`…), **cualquier** texto se guardaba como si fuera la respuesta a esa pregunta. Un cliente que preguntaba "¿me repites las opciones?" en medio del flujo quedaba con eso guardado literalmente como su fecha de cita:
+
+> ~~¿Te confirmo tu cita de Uñas para me repites por fa las opciones que hay, Carlos?~~
+
+Peor aún: con la IA activa, esta reformulaba ese dato sin sentido por algo que "sonaba mejor" (p. ej. "hoy") — **inventando** un dato que no estaba en la conversación. Ver la regla reforzada en `02-conservar-datos.md`.
+
+### Cómo funciona ahora
+
+Cada etapa de captura (`esperando_nombre`, `esperando_entrega`, `esperando_fecha`, `esperando_confirmacion`) primero chequea si el mensaje es una **interrupción** en vez de la respuesta esperada:
+
+- **Pedido de menú** (`isMenuRequest`: "opciones", "qué servicios tienen", "repíteme"…) → el bot lista los servicios y **repite la pregunta pendiente**, sin tocar el dato ni la etapa.
+- **Saludo** (`isGreeting`) → el bot saluda de vuelta y **repite la pregunta pendiente**, igual sin tocar nada.
+
+Además, en `esperando_fecha` y `esperando_confirmacion`, el texto solo se guarda como fecha si **realmente parece una fecha** (`looksLikeDate`: días, meses, "hoy"/"mañana", horas, "en 20 minutos", un día suelto del mes…). Si no lo parece, se re-pregunta en vez de guardar cualquier cosa. En `esperando_confirmacion` esto además permite que el cliente cambie la fecha directamente ("mejor el sábado") sin un paso extra.
+
+### Comando de reinicio
+
+En cualquier etapa, el cliente puede escribir "cancelar", "reiniciar" o "empezar de nuevo" (`isResetRequest`) para arrancar de cero — mismo lead (mismo `id`/contacto), pero se borra nombre/servicio/fecha/modalidad y vuelve al menú de bienvenida. Es la vía de escape si la conversación quedó en un estado confuso.
+
 ## Archivos clave
 
 - `src/core/engine/chat-spanish.ts` — diccionario + `expandChatSpanish()`.
 - `src/core/engine/text-normalize.ts` — `foldAccents()`, compartido para evitar un import circular.
-- `src/core/engine/intake.ts` — `normalizeMessage()`, `normalizeDateText()`.
-- `src/core/engine/responder.ts` — `RespondResult.unrecognized`, `interpretableOptions()`.
+- `src/core/engine/intake.ts` — `normalizeMessage()`, `normalizeDateText()`, `looksLikeDate()`, `isMenuRequest()`, `isResetRequest()`.
+- `src/core/engine/responder.ts` — `RespondResult.unrecognized`, `interpretableOptions()`, helper `interruption()` (usado en las 4 etapas de captura) y el comando de reinicio.
 - `src/core/ai/interpret.ts` — `buildInterpretPrompt()`, `parseInterpretation()`.
+- `src/core/ai/rules/global/02-conservar-datos.md` — regla anti-invención reforzada.
 - `src/core/handle.ts` — wiring del reintento con IA.

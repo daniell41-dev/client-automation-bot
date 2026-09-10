@@ -370,3 +370,134 @@ describe("interpretableOptions", () => {
     ]);
   });
 });
+
+describe("respond — el bot no debe secuestrar mensajes que no son la respuesta esperada", () => {
+  it("reproduce el bug reportado: saludo y pedido de menú en esperando_confirmacion no rompen el flujo", () => {
+    let r = respond(null, msg("uñas"), config, now);
+    r = respond(r.lead, msg("Carlos"), config, now);
+    r = respond(r.lead, msg("hoy"), config, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+    expect(r.lead.tentativeDate).toBe("hoy");
+
+    // Interrupción 1: saludo — NO debe tocar la fecha ni la etapa.
+    r = respond(r.lead, msg("Hola buenas tardes"), config, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+    expect(r.lead.tentativeDate).toBe("hoy");
+    expect(r.messages[0].text).toContain("hoy"); // repite la pregunta de confirmación
+
+    // Interrupción 2: pedido de menú — tampoco debe tocar la fecha ni la etapa.
+    r = respond(r.lead, msg("Me repites por fa las opciones que hay"), config, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+    expect(r.lead.tentativeDate).toBe("hoy");
+    expect(r.messages[0].text).toContain("Limpieza facial");
+    expect(r.messages[0].text).toContain("Uñas");
+
+    // El flujo sigue vivo: confirmar todavía funciona.
+    r = respond(r.lead, msg("sí"), config, now);
+    expect(r.lead.stage).toBe("datos_completos");
+    expect(r.lead.state).toBe("agendado");
+  });
+
+  it("un pedido de menú en esperando_fecha no queda guardado como fecha", () => {
+    let r = respond(null, msg("uñas"), config, now);
+    r = respond(r.lead, msg("Carlos"), config, now);
+    expect(r.lead.stage).toBe("esperando_fecha");
+
+    r = respond(r.lead, msg("Me repites por fa las opciones que hay"), config, now);
+    expect(r.lead.stage).toBe("esperando_fecha"); // sigue esperando la fecha
+    expect(r.lead.tentativeDate).toBeUndefined();
+    expect(r.messages[0].text).toContain("Limpieza facial");
+    expect(r.messages[0].text).toContain("¿Qué día");
+  });
+
+  it("un saludo en esperando_fecha no queda guardado como fecha", () => {
+    let r = respond(null, msg("uñas"), config, now);
+    r = respond(r.lead, msg("Carlos"), config, now);
+
+    r = respond(r.lead, msg("hola, buenas tardes"), config, now);
+    expect(r.lead.stage).toBe("esperando_fecha");
+    expect(r.lead.tentativeDate).toBeUndefined();
+    expect(r.messages[0].text).toContain("¿Qué día");
+  });
+
+  it("texto que no parece fecha ni interrupción reconocida re-pregunta (no inventa una fecha)", () => {
+    let r = respond(null, msg("uñas"), config, now);
+    r = respond(r.lead, msg("Carlos"), config, now);
+
+    r = respond(r.lead, msg("no se todavia"), config, now);
+    expect(r.lead.stage).toBe("esperando_fecha");
+    expect(r.lead.tentativeDate).toBeUndefined();
+  });
+
+  it("un saludo en esperando_nombre no queda guardado como nombre", () => {
+    const r = respond(
+      { ...respond(null, msg("uñas"), config, now).lead },
+      msg("Hola, buenas"),
+      config,
+      now,
+    );
+    expect(r.lead.stage).toBe("esperando_nombre");
+    expect(r.lead.name).toBeUndefined();
+    expect(r.messages[0].text).toContain("¿Cuál es tu nombre?");
+  });
+
+  it("en esperando_confirmacion, una fecha nueva directa ('mejor el sábado') actualiza sin re-preguntar aparte", () => {
+    let r = respond(null, msg("uñas"), config, now);
+    r = respond(r.lead, msg("Carlos"), config, now);
+    r = respond(r.lead, msg("hoy"), config, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+
+    r = respond(r.lead, msg("mejor el sábado"), config, now);
+    expect(r.lead.tentativeDate).toBe("el sábado");
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+    expect(r.messages[0].text).toContain("el sábado");
+  });
+
+  it("en esperando_confirmacion, algo genuinamente ambiguo sigue mandando a esperando_fecha (regresión)", () => {
+    let r = respond(null, msg("uñas"), config, now);
+    r = respond(r.lead, msg("Carlos"), config, now);
+    r = respond(r.lead, msg("hoy"), config, now);
+
+    r = respond(r.lead, msg("Cambiar fecha"), config, now);
+    expect(r.lead.stage).toBe("esperando_fecha");
+  });
+});
+
+describe("respond — comando de reinicio", () => {
+  it("'cancelar' en cualquier etapa arranca de cero, conservando el mismo lead", () => {
+    let r = respond(null, msg("uñas"), config, now);
+    r = respond(r.lead, msg("Carlos"), config, now);
+    r = respond(r.lead, msg("hoy"), config, now);
+    const idOriginal = r.lead.id;
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+
+    r = respond(r.lead, msg("cancelar"), config, now);
+    expect(r.lead.id).toBe(idOriginal); // mismo lead, no uno nuevo
+    expect(r.lead.stage).toBe("menu_enviado");
+    expect(r.lead.state).toBe("nuevo");
+    expect(r.lead.name).toBeUndefined();
+    expect(r.lead.serviceId).toBeUndefined();
+    expect(r.lead.tentativeDate).toBeUndefined();
+    expect(r.messages[0].options).toEqual(["Limpieza facial", "Uñas"]);
+  });
+
+  it("después de reiniciar, el flujo se puede recorrer de nuevo desde cero", () => {
+    let r = respond(null, msg("uñas"), config, now);
+    r = respond(r.lead, msg("Carlos"), config, now);
+    r = respond(r.lead, msg("hoy"), config, now);
+    r = respond(r.lead, msg("cancelar"), config, now);
+
+    r = respond(r.lead, msg("limpieza facial"), config, now);
+    expect(r.lead.serviceId).toBe("limpieza-facial");
+    expect(r.lead.stage).toBe("esperando_nombre");
+  });
+
+  it("un lead nuevo que escribe 'cancelar' no dispara el reinicio (no hay nada que reiniciar)", () => {
+    // Sin lead previo, el reinicio no aplica (guardia `existing &&`): se
+    // procesa como cualquier primer mensaje, que siempre muestra el menú de
+    // bienvenida (mismo comportamiento que "Hola" como primer contacto).
+    const r = respond(null, msg("cancelar"), config, now);
+    expect(r.lead.stage).toBe("menu_enviado");
+    expect(r.messages[0].options).toEqual(["Limpieza facial", "Uñas"]);
+  });
+});

@@ -42,4 +42,10 @@ describe("buildRulesBlock", () => {
     const numbers = [...block.matchAll(/^(\d+)\. /gm)].map((m) => Number(m[1]));
     expect(numbers).toEqual([...Array(numbers.length)].map((_, i) => i + 1));
   });
+
+  it("instruye a NUNCA reemplazar un dato raro del borrador por uno inventado", () => {
+    const block = buildRulesBlock(base);
+    expect(block).toMatch(/NUNCA lo reemplaces/i);
+    expect(block).toMatch(/inventar un dato/i);
+  });
 });

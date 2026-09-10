@@ -23,6 +23,9 @@ import {
   matchEntrega,
   isGreeting,
   isAffirmative,
+  isMenuRequest,
+  isResetRequest,
+  looksLikeDate,
   availableServices,
   normalizeDateText,
 } from "@/core/engine/intake";
@@ -127,8 +130,48 @@ export function respond(
   const reply = (text: string, options?: string[]) =>
     messages.push({ to: message.from, text, options });
 
+  // Comando de reinicio: en CUALQUIER etapa, "cancelar"/"reiniciar"/"empezar
+  // de nuevo" arranca de cero (mismo id/contacto, pero se borra lo
+  // capturado). Es la vía de escape si la conversación quedó confusa.
+  if (existing && isResetRequest(message.text)) {
+    lead.state = "nuevo";
+    lead.stage = "menu_enviado";
+    lead.name = undefined;
+    lead.serviceId = undefined;
+    lead.tentativeDate = undefined;
+    lead.entrega = undefined;
+    lead.notes = undefined;
+    reply(render(config.messages.welcome, leadVars(lead, config)), menuOptions(config));
+    return { lead, messages };
+  }
+
   /** Une dos fragmentos en un solo mensaje (info del servicio + pregunta). */
   const joinParts = (...parts: string[]) => parts.filter(Boolean).join("\n\n");
+
+  /**
+   * Si el mensaje es una INTERRUPCIÓN (pedido de menú o saludo) en vez de la
+   * respuesta a lo que se le preguntó, arma esa respuesta sin tocar el dato
+   * pendiente ni la etapa. Es lo que evita que "me repites las opciones?"
+   * quede guardado tal cual como si fuera el nombre/la fecha/la
+   * confirmación. Devuelve `null` si no es una interrupción reconocida (el
+   * llamador sigue con su propia lógica para esa etapa).
+   */
+  const interruption = (
+    pendingText: string,
+    pendingOptions?: string[],
+  ): { text: string; options?: string[] } | null => {
+    if (isMenuRequest(message.text)) {
+      const lista = menuOptions(config).join(", ");
+      return {
+        text: joinParts(`Nuestros servicios: ${lista}.`, pendingText),
+        options: pendingOptions,
+      };
+    }
+    if (isGreeting(message.text)) {
+      return { text: joinParts("¡Hola de nuevo! 👋", pendingText), options: pendingOptions };
+    }
+    return null;
+  };
 
   /** Pide confirmar la cita: pasa a `esperando_confirmacion` y devuelve la pregunta. */
   const askConfirmText = (): string => {
@@ -156,6 +199,12 @@ export function respond(
 
   // 1) Etapas de captura de datos (tienen prioridad sobre todo lo demás).
   if (lead.stage === "esperando_nombre") {
+    const pendingText = render(config.messages.askName, leadVars(lead, config));
+    const interrupted = interruption(pendingText);
+    if (interrupted) {
+      reply(interrupted.text, interrupted.options);
+      return { lead, messages };
+    }
     lead.name = message.text.trim();
     const next = nextAfterName();
     reply(next.text, next.options);
@@ -166,6 +215,11 @@ export function respond(
   // existe este stage si el negocio activó `pedidos`.
   if (lead.stage === "esperando_entrega") {
     const opciones = config.pedidos?.opciones ?? [];
+    const interrupted = interruption(config.pedidos?.pregunta ?? "", opciones);
+    if (interrupted) {
+      reply(interrupted.text, interrupted.options);
+      return { lead, messages };
+    }
     const matched = matchEntrega(message.text, opciones);
     // Sin match: se acepta el texto tal cual (no se le vuelve a preguntar),
     // pero se marca `unrecognized` para que la IA intente mejorarlo a una
@@ -181,11 +235,18 @@ export function respond(
   }
 
   if (lead.stage === "esperando_fecha") {
+    const pendingText = render(config.messages.askDate, leadVars(lead, config));
+    const interrupted = interruption(pendingText);
+    if (interrupted) {
+      reply(interrupted.text, interrupted.options);
+      return { lead, messages };
+    }
     const fecha = normalizeDateText(message.text);
-    // Solo puntuación/muletillas ("???", "no se"): se queda en esperando_fecha
-    // y vuelve a preguntar, en vez de agendar una cita sin fecha real.
-    if (!fecha) {
-      reply(render(config.messages.askDate, leadVars(lead, config)));
+    // Vacío (solo puntuación/muletillas: "???", "no sé") o no parece
+    // hablar de una fecha en absoluto ("me repites las opciones que hay"):
+    // se re-pregunta en vez de guardar cualquier cosa como si fuera la fecha.
+    if (!fecha || !looksLikeDate(fecha)) {
+      reply(pendingText);
       return { lead, messages };
     }
     lead.tentativeDate = fecha;
@@ -193,16 +254,34 @@ export function respond(
     return { lead, messages };
   }
 
-  // 1b) Confirmación de la cita: "sí" agenda; cualquier otra cosa re-pregunta la fecha.
+  // 1b) Confirmación de la cita.
   if (lead.stage === "esperando_confirmacion") {
+    const pendingText = render(config.messages.askConfirm, leadVars(lead, config));
+    const interrupted = interruption(pendingText, CONFIRM_OPTIONS);
+    if (interrupted) {
+      reply(interrupted.text, interrupted.options);
+      return { lead, messages };
+    }
+
     if (isAffirmative(message.text)) {
       lead.state = transition(lead.state, "agendado");
       lead.stage = "datos_completos";
       reply(render(config.messages.captured, leadVars(lead, config)));
-    } else {
-      lead.stage = "esperando_fecha";
-      reply(render(config.messages.askDate, leadVars(lead, config)));
+      return { lead, messages };
     }
+
+    // ¿Trajo una fecha nueva directamente ("mejor el sábado")? Se actualiza
+    // sin volver a pedirla por separado.
+    const nuevaFecha = normalizeDateText(message.text);
+    if (nuevaFecha && looksLikeDate(nuevaFecha)) {
+      lead.tentativeDate = nuevaFecha;
+      reply(askConfirmText(), CONFIRM_OPTIONS);
+      return { lead, messages };
+    }
+
+    // Genuinamente ambiguo ("no", "cambiar fecha"): se vuelve a pedir.
+    lead.stage = "esperando_fecha";
+    reply(render(config.messages.askDate, leadVars(lead, config)));
     return { lead, messages };
   }
 

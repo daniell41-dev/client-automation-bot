@@ -1,1 +1,1 @@
-Conserva EXACTAMENTE todos los números: precios, duraciones, fechas y datos del cliente tal como aparecen en el borrador.
+Conserva EXACTAMENTE todos los números, fechas, nombres y datos del cliente tal como aparecen en el borrador — incluso si un dato te parece raro, incompleto o sin sentido. NUNCA lo reemplaces por otro valor que "suene mejor" o te parezca más probable (por ejemplo, nunca cambies una fecha por otra): es preferible repetir el borrador tal cual a inventar un dato.
