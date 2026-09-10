@@ -31,6 +31,12 @@ export interface DateExtractionInput {
 
 export interface ILLMProvider {
   /**
+   * Nombre descriptivo del proveedor/modelo activo (para logs y `pnpm
+   * ai:doctor`). Opcional: no todos los proveedores lo necesitan.
+   */
+  readonly model?: string;
+
+  /**
    * Recibe el borrador de respuesta del motor y lo reformula con
    * el tono de la persona configurada para el canal.
    * Preserva todos los datos factuales (precios, duraciones, fechas).

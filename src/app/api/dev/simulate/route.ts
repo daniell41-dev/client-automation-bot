@@ -19,7 +19,7 @@ import {
   createLeadRepository,
   createSessionRepository,
 } from "@/core/storage/factory";
-import { createGroqProvider } from "@/core/ai/groq";
+import { createLLMProvider } from "@/core/ai/factory";
 import { handleIncoming } from "@/core/handle";
 import type { Channel, IncomingMessage } from "@/core/types";
 
@@ -70,7 +70,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const repo = createLeadRepository(business);
-  const llm = createGroqProvider();
+  const llm = createLLMProvider();
   const sessionRepo = llm ? createSessionRepository(business) : undefined;
   const calendar = createCalendar(business) ?? undefined;
 

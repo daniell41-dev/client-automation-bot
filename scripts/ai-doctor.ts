@@ -1,71 +1,61 @@
 /**
  * Diagnóstico de la IA (`pnpm ai:doctor`).
  *
- * Verifica de punta a punta que la integración con Groq funciona, mostrando
- * el resultado o el ERROR EXACTO (sin tragárselo). Tres pasos:
- *   1. ¿Está la GROQ_API_KEY?
- *   2. ¿La key autentica? (lista los modelos disponibles)
- *   3. ¿Una respuesta real de la IA?
+ * Agnóstico de proveedor: revisa cada uno de los que estén configurados
+ * (Gemini, Groq, Cerebras, custom) y muestra el resultado EXACTO, sin
+ * tragarse errores. Por proveedor:
+ *   1. ¿Está la *_API_KEY?
+ *   2. ¿La key autentica? (lista los modelos disponibles, si el proveedor
+ *      expone ese endpoint)
+ *   3. ¿Una respuesta real de la IA (enhance)?
+ *
+ * Al final muestra la cadena de respaldo que arma `createLLMProvider()`.
  *
  * Uso:  pnpm ai:doctor
  */
 
-import Groq from "groq-sdk";
-import { GroqProvider } from "@/core/ai/groq";
+import { OpenAICompatibleProvider } from "@/core/ai/openai-compatible";
+import { AI_PRESETS, type PresetName } from "@/core/ai/presets";
+import { createLLMProvider } from "@/core/ai/factory";
 import { esteticaBella } from "@/businesses/estetica-bella/config";
 import { loadEnvLocal } from "./load-env";
 
-function fail(msg: string): never {
-  console.error(`❌ ${msg}`);
-  process.exit(1);
-}
+const PRESET_NAMES: PresetName[] = ["gemini", "groq", "cerebras"];
 
-async function main() {
-  loadEnvLocal();
-  console.log("\n🩺 Diagnóstico de IA (Groq)\n");
+/** Prueba end-to-end de un proveedor concreto. Nunca lanza: devuelve ok/no. */
+async function checkProvider(
+  label: string,
+  baseURL: string,
+  apiKey: string,
+  model: string,
+): Promise<boolean> {
+  const masked = `${apiKey.slice(0, 6)}...${apiKey.slice(-4)}`;
+  console.log(`\n🔎 ${label} (${masked}) — modelo configurado: ${model}`);
 
-  // Paso 1: ¿hay key?
-  const key = process.env.GROQ_API_KEY;
-  if (!key) {
-    fail(
-      "No encontré GROQ_API_KEY.\n" +
-        "   1. Crea una key GRATIS en https://console.groq.com/keys\n" +
-        "   2. Agrégala a .env.local:  GROQ_API_KEY=tu_key",
-    );
-  }
-  const masked = `${key.slice(0, 6)}...${key.slice(-4)}`;
-  console.log(`✅ Paso 1: GROQ_API_KEY detectada (${masked})`);
-
-  const model = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
-  const client = new Groq({ apiKey: key });
-
-  // Paso 2: autenticación real → listar modelos.
+  // Paso 2 (informativo, no bloqueante): algunos proveedores no exponen /models.
   try {
-    const models = await client.models.list();
-    const ids = models.data.map((m) => m.id);
-    const hasModel = ids.includes(model);
-    console.log(`✅ Paso 2: Key válida. ${ids.length} modelos disponibles.`);
-    console.log(
-      `   Modelo configurado: ${model} ${hasModel ? "✓ disponible" : "✗ NO está en la lista"}`,
-    );
-    if (!hasModel) {
-      console.log(`   Modelos de chat sugeridos: ${ids.slice(0, 8).join(", ")}`);
-      fail(
-        `El modelo "${model}" no está disponible para tu key.\n` +
-          "   Ajusta GROQ_MODEL en .env.local a uno de los listados arriba.",
+    const res = await fetch(`${baseURL.replace(/\/$/, "")}/models`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { data?: { id: string }[] };
+      const ids = data.data?.map((m) => m.id) ?? [];
+      const hasModel = ids.length === 0 || ids.includes(model);
+      console.log(
+        `   ✅ Key válida. ${ids.length} modelos listados.${
+          hasModel ? "" : ` ⚠️ "${model}" no está en la lista.`
+        }`,
       );
+    } else {
+      console.log(`   ⚠️  No se pudo listar modelos (status ${res.status}); sigo con la prueba real.`);
     }
   } catch (err) {
-    const e = err as { status?: number; message?: string };
-    fail(
-      `Falló la autenticación con Groq (status ${e.status ?? "?"}): ${e.message ?? err}\n` +
-        "   Si es 401, la key es inválida o fue revocada. Crea otra en https://console.groq.com/keys",
-    );
+    console.log(`   ⚠️  No se pudo listar modelos (${err}); sigo con la prueba real.`);
   }
 
-  // Paso 3: una llamada real de mejora de respuesta.
+  // Paso 3 (definitivo): una llamada real de enhance().
   try {
-    const provider = new GroqProvider(key, model);
+    const provider = new OpenAICompatibleProvider({ name: label, baseURL, apiKey, model });
     const persona =
       esteticaBella.personas?.whatsapp ?? {
         name: "Asistente",
@@ -74,7 +64,6 @@ async function main() {
       };
     const draft =
       "Nuestra Limpieza facial incluye: limpieza profunda. Duración: 60 minutos. Precio: $120.000.";
-    console.log("\n⏳ Paso 3: enviando un mensaje de prueba a la IA...\n");
     const result = await provider.enhance({
       businessName: esteticaBella.name,
       persona,
@@ -84,24 +73,63 @@ async function main() {
     });
 
     if (result === draft) {
-      fail(
-        "La IA devolvió el borrador SIN cambios → algo falló en la llamada.\n" +
-          "   Revisa el log de error [Groq] que debe haber aparecido arriba.",
-      );
+      console.log("   ❌ La IA devolvió el borrador SIN cambios → algo falló.");
+      return false;
     }
-
-    console.log("✅ Paso 3: La IA respondió correctamente.\n");
-    console.log("   📝 Borrador original:");
-    console.log(`      ${draft}\n`);
-    console.log(`   ✨ Mejorado por ${persona.name} (Groq · ${model}):`);
-    console.log(`      ${result}\n`);
-    console.log("🎉 Todo funciona. La IA está activa y respondiendo.\n");
+    console.log(`   ✅ Respuesta real: ${result}`);
+    return true;
   } catch (err) {
-    const e = err as { status?: number; message?: string };
-    fail(
-      `Falló la llamada de generación (status ${e.status ?? "?"}): ${e.message ?? err}`,
+    console.log(`   ❌ Falló la llamada real: ${err}`);
+    return false;
+  }
+}
+
+async function main() {
+  loadEnvLocal();
+  console.log("\n🩺 Diagnóstico de IA (cadena de respaldo)\n");
+
+  let anyOk = false;
+
+  for (const name of PRESET_NAMES) {
+    const envPrefix = name.toUpperCase();
+    const apiKey = process.env[`${envPrefix}_API_KEY`];
+    if (!apiKey) {
+      console.log(`⏭  ${name}: sin ${envPrefix}_API_KEY, se omite.`);
+      continue;
+    }
+    const preset = AI_PRESETS[name];
+    const model = process.env[`${envPrefix}_MODEL`] || preset.defaultModel;
+    const ok = await checkProvider(name, preset.baseURL, apiKey, model);
+    anyOk = anyOk || ok;
+  }
+
+  const customApiKey = process.env.AI_CUSTOM_API_KEY;
+  const customBaseURL = process.env.AI_CUSTOM_BASE_URL;
+  const customModel = process.env.AI_CUSTOM_MODEL;
+  if (customApiKey && customBaseURL && customModel) {
+    const ok = await checkProvider("custom", customBaseURL, customApiKey, customModel);
+    anyOk = anyOk || ok;
+  } else if (customApiKey || customBaseURL || customModel) {
+    console.log(
+      "⏭  custom: hay que definir las 3 variables (AI_CUSTOM_API_KEY, " +
+        "AI_CUSTOM_BASE_URL, AI_CUSTOM_MODEL) para activarlo, se omite.",
     );
   }
+
+  if (!anyOk) {
+    console.error(
+      "\n❌ Ningún proveedor de IA está configurado o funcionando.\n" +
+        "   Recomendado para negocios en Venezuela: Gemini (soporte oficial\n" +
+        "   de Google, gratis, sin tarjeta):\n" +
+        "     1. Crea una key en https://aistudio.google.com/apikey\n" +
+        "     2. Agrégala a .env.local:  GEMINI_API_KEY=tu_key\n" +
+        "   Ver docs/11-proveedor-ia.md para la comparativa completa.\n",
+    );
+    process.exit(1);
+  }
+
+  const chain = createLLMProvider();
+  console.log(`\n🎉 Todo funciona. Cadena activa: ${chain?.model}\n`);
 }
 
 main().catch((err) => {

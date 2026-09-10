@@ -27,7 +27,7 @@ import { listBusinesses } from "@/businesses/registry";
 import { resolveBusinessBySlug } from "@/businesses/resolve";
 import { handleIncoming } from "@/core/handle";
 import { nextAction } from "@/core/engine/lead-state";
-import { createGroqProvider } from "@/core/ai/groq";
+import { createLLMProvider } from "@/core/ai/factory";
 import { createCalendar } from "@/core/storage/factory";
 import { SessionMemoryRepository } from "@/core/storage/adapters/session-memory";
 import { JsonLeadRepository } from "@/core/storage/adapters/json";
@@ -36,6 +36,7 @@ import { loadEnvLocal } from "./load-env";
 import type { IncomingMessage, BusinessConfig, Lead } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
 import type { SessionRepository } from "@/core/storage/session-repository";
+import type { ILLMProvider } from "@/core/ai/provider";
 
 /** Repositorio en memoria: la conversación vive solo durante esta ejecución. */
 class MemoryRepo implements LeadRepository {
@@ -120,7 +121,7 @@ async function sendMessage(
   contact: string,
   business: BusinessConfig,
   repo: LeadRepository,
-  llm: ReturnType<typeof createGroqProvider>,
+  llm: ILLMProvider | null,
   sessionRepo: SessionRepository | undefined,
 ): Promise<void> {
   console.log(`👤 Cliente: ${text}`);
@@ -154,7 +155,7 @@ async function sendMessage(
 async function runRepl(
   businessSlug: string,
   business: BusinessConfig,
-  llm: ReturnType<typeof createGroqProvider>,
+  llm: ILLMProvider | null,
 ): Promise<void> {
   let repo: LeadRepository = new MemoryRepo();
   let sessionRepo: SessionRepository = new SessionMemoryRepository();
@@ -203,7 +204,7 @@ async function runBatch(
   messages: string[],
   reset: boolean,
   business: BusinessConfig,
-  llm: ReturnType<typeof createGroqProvider>,
+  llm: ILLMProvider | null,
 ): Promise<void> {
   const dir = simDir();
 
@@ -253,15 +254,17 @@ async function main() {
 
   console.log(`\n🏭 Simulando conversación con: ${business.name} (${business.slug})\n`);
 
-  const llm = createGroqProvider();
+  const llm = createLLMProvider();
 
   if (llm) {
     const persona = business.personas?.mock ?? business.personas?.whatsapp;
     console.log(
-      `✨ IA habilitada (Groq · ${llm.model})${persona ? ` · Persona: ${persona.name}` : ""}\n`,
+      `✨ IA habilitada (${llm.model})${persona ? ` · Persona: ${persona.name}` : ""}\n`,
     );
   } else {
-    console.log("ℹ️  IA desactivada (sin GROQ_API_KEY) — usando plantillas.\n");
+    console.log(
+      "ℹ️  IA desactivada (sin GEMINI_API_KEY/GROQ_API_KEY/…) — usando plantillas.\n",
+    );
   }
 
   if (messages.length === 0 && !reset) {

@@ -20,7 +20,7 @@ import {
   createLeadRepository,
   createSessionRepository,
 } from "@/core/storage/factory";
-import { createGroqProvider } from "@/core/ai/groq";
+import { createLLMProvider } from "@/core/ai/factory";
 import { handleIncoming } from "@/core/handle";
 import type { IncomingMessage } from "@/core/types";
 
@@ -68,7 +68,7 @@ export async function POST(request: Request): Promise<Response> {
     return new Response("Bad Request", { status: 400 });
   }
 
-  const llm = createGroqProvider();
+  const llm = createLLMProvider();
 
   try {
     for (const parsed of parseInbound(payload)) {
