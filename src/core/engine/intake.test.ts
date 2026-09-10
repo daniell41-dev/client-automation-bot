@@ -7,6 +7,8 @@ import {
   matchRule,
   matchService,
   normalize,
+  normalizeDateText,
+  normalizeMessage,
 } from "@/core/engine/intake";
 import type { Service } from "@/core/types";
 
@@ -44,6 +46,12 @@ describe("isGreeting", () => {
   it("no marca como saludo un texto cualquiera", () => {
     expect(isGreeting("quiero precio")).toBe(false);
   });
+
+  it("detecta saludos escritos en español de chat", () => {
+    expect(isGreeting("hla")).toBe(true);
+    expect(isGreeting("wenas")).toBe(true);
+    expect(isGreeting("holaaa")).toBe(true);
+  });
 });
 
 describe("isAffirmative", () => {
@@ -63,6 +71,21 @@ describe("isAffirmative", () => {
     expect(isAffirmative("Cambiar fecha")).toBe(false);
     expect(isAffirmative("no")).toBe(false);
     expect(isAffirmative("mejor el lunes")).toBe(false);
+  });
+
+  it("reconoce variantes regionales y letras repetidas", () => {
+    expect(isAffirmative("siii")).toBe(true);
+    expect(isAffirmative("vale")).toBe(true);
+    expect(isAffirmative("simon")).toBe(true);
+    expect(isAffirmative("sisas")).toBe(true);
+    expect(isAffirmative("sale")).toBe(true);
+    expect(isAffirmative("hecho")).toBe(true);
+  });
+});
+
+describe("normalizeMessage", () => {
+  it("expande el español de chat antes de comparar", () => {
+    expect(normalizeMessage("K PASA SI?")).toBe("que pasa si ?");
   });
 });
 
@@ -85,6 +108,12 @@ describe("matchService", () => {
     // Número "1" apunta al servicio 0, pero la keyword 'unas' (servicio 1)
     // es más específica y debe ganar.
     expect(matchService("dame el 1, info de uñas", services)?.id).toBe("unas");
+  });
+
+  it("reconoce el servicio aunque el cliente escriba en español de chat", () => {
+    expect(matchService("hla, kiero info d unas xfa", services)?.id).toBe(
+      "unas",
+    );
   });
 
   it("devuelve undefined si no hay coincidencia", () => {
@@ -161,5 +190,40 @@ describe("matchEntrega", () => {
   it("devuelve undefined si no coincide con nada", () => {
     expect(matchEntrega("no sé", opciones)).toBeUndefined();
     expect(matchEntrega("5", opciones)).toBeUndefined();
+  });
+});
+
+describe("normalizeDateText", () => {
+  it("quita muletillas iniciales y puntuación suelta", () => {
+    expect(normalizeDateText("Puede ser hoy ?")).toBe("hoy");
+  });
+
+  it("expande abreviaturas y conserva la tilde del reemplazo", () => {
+    expect(normalizeDateText("Podría ser mñn a las 3 pm!")).toBe(
+      "mañana a las 3 pm",
+    );
+  });
+
+  it("conserva tildes de palabras que no son abreviaturas", () => {
+    expect(normalizeDateText("Creo que el sábado en la tarde.")).toBe(
+      "el sábado en la tarde",
+    );
+  });
+
+  it("no toca un texto que ya es una fecha natural", () => {
+    expect(normalizeDateText("el viernes")).toBe("el viernes");
+  });
+
+  it("quita el filler 'para' para no duplicarlo con la plantilla", () => {
+    expect(normalizeDateText("para mañana")).toBe("mañana");
+  });
+
+  it("devuelve vacío si el mensaje es solo puntuación o muletillas", () => {
+    expect(normalizeDateText("???")).toBe("");
+    expect(normalizeDateText("quiero")).toBe("");
+  });
+
+  it("encadena varias muletillas seguidas", () => {
+    expect(normalizeDateText("Creo que quiero mañana")).toBe("mañana");
   });
 });

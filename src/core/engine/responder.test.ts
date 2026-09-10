@@ -128,6 +128,56 @@ describe("respond — flujo completo de captura", () => {
   });
 });
 
+
+describe("respond — fecha natural (español de chat)", () => {
+  it("limpia muletillas y puntuación antes de guardar la fecha", () => {
+    let r = respond(null, msg("limpieza facial"), config, now);
+    r = respond(r.lead, msg("Laura"), config, now);
+
+    r = respond(r.lead, msg("Puede ser hoy ?"), config, now);
+    expect(r.lead.tentativeDate).toBe("hoy");
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+    expect(r.messages[0].text).toBe("¿Confirmo tu cita de Limpieza facial para hoy?");
+  });
+
+  it("expande abreviaturas y conserva tildes de palabras normales", () => {
+    let r = respond(null, msg("limpieza facial"), config, now);
+    r = respond(r.lead, msg("Laura"), config, now);
+
+    r = respond(r.lead, msg("Podría ser mñn en la tarde"), config, now);
+    expect(r.lead.tentativeDate).toBe("mañana en la tarde");
+  });
+
+  it("si la fecha queda vacía (solo puntuación/muletillas), re-pregunta sin cambiar de etapa", () => {
+    let r = respond(null, msg("limpieza facial"), config, now);
+    r = respond(r.lead, msg("Laura"), config, now);
+
+    r = respond(r.lead, msg("???"), config, now);
+    expect(r.lead.stage).toBe("esperando_fecha");
+    expect(r.lead.tentativeDate).toBeUndefined();
+    expect(r.messages[0].text).toContain("¿Qué día");
+
+    // El cliente responde bien en el siguiente mensaje y el flujo sigue.
+    r = respond(r.lead, msg("el viernes"), config, now);
+    expect(r.lead.tentativeDate).toBe("el viernes");
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+  });
+
+  it("reconoce el servicio y la confirmación aunque el cliente escriba mal todo el camino", () => {
+    let r = respond(null, msg("hla, kiero info d unas xfa"), config, now);
+    expect(r.lead.serviceId).toBe("unas");
+    expect(r.lead.stage).toBe("esperando_nombre");
+
+    r = respond(r.lead, msg("Carlos"), config, now);
+    r = respond(r.lead, msg("puede ser hy"), config, now);
+    expect(r.lead.tentativeDate).toBe("hoy");
+
+    r = respond(r.lead, msg("siii dale"), config, now);
+    expect(r.lead.stage).toBe("datos_completos");
+    expect(r.lead.state).toBe("agendado");
+  });
+});
+
 describe("respond — fallback", () => {
   it("responde fallback cuando no entiende (y ya pasó el inicio)", () => {
     let r = respond(null, msg("Hola"), config, now);

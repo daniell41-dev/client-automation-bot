@@ -4,9 +4,17 @@
  * Funciones puras de reconocimiento (sin estado ni I/O): detectar saludos y
  * resolver a qué servicio se refiere el cliente (por nombre, palabra clave o
  * número de menú). El `responder` usa estas piezas para decidir la respuesta.
+ *
+ * Comprensión de "español de chat": los clientes reales escriben rápido y
+ * mal ("k pasa si?", "kiero info d uñas", "mñn a las 3"). `normalizeMessage`
+ * expande esas abreviaturas (ver `chat-spanish.ts`) ANTES de reconocer
+ * saludos/servicios/confirmaciones — se aplica SOLO al texto del cliente,
+ * nunca a nombres de servicio ni keywords que configuró el negocio.
  */
 
 import type { QuickRule, Service } from "@/core/types";
+import { foldAccents } from "@/core/engine/text-normalize";
+import { expandChatSpanish } from "@/core/engine/chat-spanish";
 
 const GREETING_WORDS = [
   "hola",
@@ -23,16 +31,21 @@ const GREETING_WORDS = [
 
 /** Minúsculas, sin tildes y sin espacios sobrantes, para comparar de forma robusta. */
 export function normalize(text: string): string {
-  return text
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+  return foldAccents(text.trim());
+}
+
+/**
+ * Expande el español de chat del cliente y lo deja listo para comparar
+ * (minúsculas, sin tildes). Es lo que deben usar todas las funciones de
+ * reconocimiento sobre el TEXTO DEL CLIENTE (nunca sobre config del negocio).
+ */
+export function normalizeMessage(text: string): string {
+  return normalize(expandChatSpanish(text));
 }
 
 /** ¿El mensaje contiene un saludo? */
 export function isGreeting(text: string): boolean {
-  const n = normalize(text);
+  const n = normalizeMessage(text);
   return GREETING_WORDS.some((w) => n.includes(w));
 }
 
@@ -53,6 +66,13 @@ const AFFIRMATIVE_WORDS = [
   "de una",
   "correcto",
   "obvio",
+  // Variantes regionales (Venezuela y alrededores).
+  "vale",
+  "va",
+  "hecho",
+  "sale",
+  "simon",
+  "sisas",
 ];
 
 /**
@@ -63,7 +83,7 @@ const AFFIRMATIVE_WORDS = [
  * para que "si" no dispare dentro de "siempre" o "sin".
  */
 export function isAffirmative(text: string): boolean {
-  const n = normalize(text);
+  const n = normalizeMessage(text);
   const words = n.split(/\s+/);
   return AFFIRMATIVE_WORDS.some((w) =>
     w.includes(" ") ? n.includes(w) : words.includes(w),
@@ -87,7 +107,7 @@ export function matchService(
   services: Service[],
 ): Service | undefined {
   const offered = availableServices(services);
-  const n = normalize(text);
+  const n = normalizeMessage(text);
 
   // 1) Por nombre o palabra clave.
   for (const service of offered) {
@@ -118,7 +138,7 @@ export function matchEntrega(
   text: string,
   opciones: string[],
 ): string | undefined {
-  const n = normalize(text);
+  const n = normalizeMessage(text);
   const words = n.split(/\s+/);
 
   // 1) La opción completa aparece en el mensaje.
@@ -153,8 +173,75 @@ export function matchRule(
   reglas: QuickRule[] | undefined,
 ): QuickRule | undefined {
   if (!reglas?.length) return undefined;
-  const n = normalize(text);
+  const n = normalizeMessage(text);
   return reglas.find((rule) =>
     rule.keywords.some((kw) => kw.trim() && n.includes(normalize(kw))),
   );
+}
+
+/**
+ * Frases de relleno al INICIO de una fecha ("Puede ser hoy", "Creo que el
+ * viernes"). Ya están "dobladas" (sin tildes): se comparan contra una copia
+ * doblada del texto, pero el recorte se aplica sobre el texto ORIGINAL (con
+ * tildes), porque doblar no cambia la cantidad de caracteres letra por letra.
+ */
+const DATE_FILLERS = [
+  "puede ser",
+  "podria ser",
+  "seria",
+  "me gustaria",
+  "quisiera",
+  "quiero",
+  "tal vez",
+  "quizas",
+  "creo que",
+  "de pronto",
+  "si se puede",
+  "para",
+  "el dia",
+];
+
+/** Quita muletillas iniciales, una o varias veces ("Creo que quiero mañana" → "mañana"). */
+function stripLeadingFillers(text: string): string {
+  let result = text.trim();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const folded = normalize(result);
+    for (const filler of DATE_FILLERS) {
+      if (folded === filler || folded.startsWith(`${filler} `)) {
+        result = result.slice(filler.length).trim();
+        changed = true;
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Limpia el texto libre de fecha/hora que da el cliente para que se lea
+ * natural dentro de las plantillas ("¿Te confirmo … para {{fecha}}?").
+ *
+ * A diferencia de `normalizeMessage`, NO pierde tildes/mayúsculas de las
+ * palabras que no son abreviaturas: "Creo que el sábado en la tarde." se
+ * convierte en "el sábado en la tarde" (con tilde), no en una versión
+ * doblada. Devuelve "" si no queda nada útil (solo puntuación/muletillas):
+ * el llamador debe re-preguntar la fecha en ese caso.
+ *
+ * Ejemplos:
+ *   "Puede ser hoy ?"              -> "hoy"
+ *   "Podría ser mñn a las 3 pm!"   -> "mañana a las 3 pm"
+ *   "Creo que el sábado en la tarde." -> "el sábado en la tarde"
+ *   "el viernes"                   -> "el viernes"
+ *   "???"                          -> ""
+ */
+export function normalizeDateText(text: string): string {
+  const expanded = expandChatSpanish(text);
+  // Quita puntuación/espacios sueltos al inicio y al final.
+  const trimmed = expanded.replace(/^[¿?¡!.,;:\s]+|[¿?¡!.,;:\s]+$/g, "");
+  if (!trimmed) return "";
+  const withoutFillers = stripLeadingFillers(trimmed);
+  if (!withoutFillers) return "";
+  return withoutFillers.charAt(0).toLowerCase() + withoutFillers.slice(1);
 }
