@@ -92,3 +92,10 @@ adaptador de Instagram, almacenamiento en Google Sheets/Airtable y despliegue re
 | [`03-team-guide.md`](./03-team-guide.md) | Cómo trabajar en el repo |
 | [`04-add-new-business.md`](./04-add-new-business.md) | Agregar un negocio nuevo |
 | [`05-whatsapp-setup.md`](./05-whatsapp-setup.md) | Conectar WhatsApp Cloud API |
+| [`06-testing-guide.md`](./06-testing-guide.md) | Probar el bot con el simulador (`pnpm sim`) |
+| [`07-google-sheets.md`](./07-google-sheets.md) | Persistencia en Google Sheets por negocio |
+| [`08-supabase-saas.md`](./08-supabase-saas.md) | Supabase, portal, back office y deploy gratis en Vercel |
+| [`09-diseno-nexo.md`](./09-diseno-nexo.md) | Diseño del portal (rediseño "Nexo") |
+| [`10-notificaciones-y-pedidos.md`](./10-notificaciones-y-pedidos.md) | Notificación WhatsApp a la dueña + modalidad de pedido |
+| [`11-proveedor-ia.md`](./11-proveedor-ia.md) | IA gratis y estable (cadena de respaldo Gemini → Groq → Cerebras) |
+| [`12-comprension-del-cliente.md`](./12-comprension-del-cliente.md) | Español de chat + intérprete IA |
