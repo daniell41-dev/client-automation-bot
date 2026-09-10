@@ -79,6 +79,16 @@ export interface QuickRule {
 export interface BotAIConfig {
   /** Si es `false`, no se reformula con IA (solo plantillas y reglas). */
   enabled: boolean;
+  /**
+   * "agente" (default): la IA decide qué hacer en cada turno (elegir
+   * servicio, guardar datos, responder preguntas con criterio, detectar si
+   * el cliente se salió del tema) — el motor determinista queda como red de
+   * seguridad si la IA falla. "guiado": el funnel de siempre, paso a paso,
+   * con la IA solo reformulando el tono. Requiere `enabled: true` y una
+   * `persona` configurada para el canal; si falta algo de eso, se usa
+   * "guiado" igual.
+   */
+  modo?: "agente" | "guiado";
   /** Información del negocio con la que responde la IA (conocimiento). */
   knowledge?: string;
   /** Reglas rápidas keyword → respuesta. Tienen prioridad sobre la IA. */
@@ -151,6 +161,12 @@ export interface BusinessConfig {
   slug: string;
   /** Nombre comercial del negocio. */
   name: string;
+  /**
+   * Rubro en lenguaje natural (p. ej. "restaurante", "estética y belleza").
+   * Se le pasa a la IA en modo agente para que actúe con el criterio de ese
+   * rubro. Puramente informativo: no cambia el comportamiento del motor.
+   */
+  rubro?: string;
   /** Código de moneda (p. ej. "COP"). */
   currency: string;
   /** Locale para formatear precios (p. ej. "es-CO"). */
@@ -247,6 +263,12 @@ export interface Lead {
   tentativeDate?: string;
   /** Modalidad elegida cuando `config.pedidos.enabled` (texto de la opción). */
   entrega?: string;
+  /**
+   * Cuántos mensajes SEGUIDOS se fue del tema del negocio (modo agente). Se
+   * resetea a 0 apenas vuelve a hablar del negocio; al llegar al límite, el
+   * bot cierra la charla con amabilidad y reinicia.
+   */
+  offTopicCount?: number;
   state: LeadState;
   stage: ConversationStage;
   /** ISO 8601. */

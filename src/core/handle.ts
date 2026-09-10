@@ -5,9 +5,14 @@
  * (decidir la respuesta). Es reutilizable por el webhook de WhatsApp y por el
  * simulador offline, así ambos ejecutan exactamente la misma lógica.
  *
- * Modo híbrido de IA: si se inyectan `llm` y `sessionRepo`, cada mensaje del
- * motor pasa por la IA para mejorar el tono sin alterar los datos factuales.
- * Sin esos parámetros el comportamiento es idéntico al original.
+ * Dos modos de IA (`config.ai.modo`, default "agente"):
+ *   - "agente": la IA decide qué acciones corresponden al turno (elegir
+ *     servicio, guardar datos, confirmar, detectar fuera de contexto) — ver
+ *     `agent.ts`. Requiere `llm` + `sessionRepo` + una persona configurada
+ *     para el canal; si algo falta, o si la IA falla, cae al motor
+ *     determinista de siempre para ese mensaje (nunca se rompe la charla).
+ *   - "guiado": el funnel de siempre, paso a paso, con la IA solo
+ *     reformulando el tono de las plantillas (`enhance`).
  */
 
 import type {
@@ -15,12 +20,14 @@ import type {
   IncomingMessage,
   Lead,
   OutgoingMessage,
+  SessionMemory,
 } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
 import type { SessionRepository } from "@/core/storage/session-repository";
 import type { ILLMProvider } from "@/core/ai/provider";
 import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { interpretableOptions, respond } from "@/core/engine/responder";
+import { runAgentTurn } from "@/core/ai/agent";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
 
 const DEFAULT_TIMEZONE = "America/Bogota";
@@ -45,15 +52,32 @@ export async function handleIncoming(
   notifier?: OwnerNotifier,
 ): Promise<OutgoingMessage[]> {
   const existing = await repo.findByContact(message.businessSlug, message.from);
-  let result = respond(existing, message, config, now);
 
-  // Red de seguridad: el motor no reconoció el mensaje (clientes que
-  // escriben MUY distinto a lo esperado, más allá de lo que cubre el
-  // español de chat de `intake.ts`). Si hay IA, le pedimos que lo traduzca
-  // a una opción real del negocio y corremos el motor de nuevo UNA sola vez
-  // con esa traducción — nunca en bucle, y nunca aceptando algo inventado
-  // (ver `parseInterpretation`).
-  if (result.unrecognized && llm) {
+  // Para canales sin persona propia (ej. "mock"), se usa la de whatsapp como fallback.
+  const persona = config.personas?.[message.channel] ?? config.personas?.whatsapp;
+  const modoAgente = config.ai?.enabled !== false && (config.ai?.modo ?? "agente") === "agente";
+
+  let result: ReturnType<typeof respond> | null = null;
+  let usedAgent = false;
+  let session: SessionMemory | undefined;
+
+  if (llm && sessionRepo && persona && modoAgente) {
+    session = await sessionRepo.getOrCreate(message.businessSlug, message.from, message.channel);
+    result = await runAgentTurn(existing, message, config, llm, persona, session.history, now);
+    usedAgent = result !== null;
+  }
+
+  if (!result) {
+    result = respond(existing, message, config, now);
+  }
+
+  // Red de seguridad del motor determinista (solo si NO se usó el agente:
+  // el agente ya razona con IA, no necesita este segundo intento). El motor
+  // no reconoció el mensaje — si hay IA, le pedimos que lo traduzca a una
+  // opción real del negocio y corremos el motor de nuevo UNA sola vez con
+  // esa traducción — nunca en bucle, y nunca aceptando algo inventado (ver
+  // `parseInterpretation`).
+  if (!usedAgent && result.unrecognized && llm) {
     const options = interpretableOptions(existing?.stage, config);
     if (options.length > 0) {
       try {
@@ -77,6 +101,8 @@ export async function handleIncoming(
   // Side-effects al CONFIRMAR (transición a datos_completos): agendar en el
   // calendario del negocio y avisarle a la dueña por WhatsApp. Se detecta la
   // transición, no el estado, para no repetirlos en mensajes posteriores.
+  // Funciona igual para ambos modos: el agente también deja `lead.stage`
+  // en "datos_completos" al confirmar (ver `agent.ts`).
   const justConfirmed =
     existing?.stage !== "datos_completos" && lead.stage === "datos_completos";
   if (justConfirmed) {
@@ -90,22 +116,29 @@ export async function handleIncoming(
 
   await repo.save(lead);
 
-  // Con el "cerebro con IA" apagado no se reformula (solo plantillas y reglas).
-  if (!llm || !sessionRepo || !config.personas || config.ai?.enabled === false) {
+  if (usedAgent) {
+    // La respuesta ya la redactó el agente: no se vuelve a reformular con
+    // enhance(). Solo se persiste el historial para el contexto del próximo turno.
+    if (session && sessionRepo) {
+      session.history.push({ role: "user", text: message.text, timestamp: message.timestamp });
+      for (const m of messages) {
+        session.history.push({ role: "assistant", text: m.text, timestamp: now.toISOString() });
+      }
+      await sessionRepo.save(session);
+    }
     return messages;
   }
 
-  // Para canales sin persona propia (ej. "mock"), se usa la de whatsapp como fallback.
-  const persona = config.personas[message.channel] ?? config.personas.whatsapp;
-  if (!persona) return messages;
+  // Modo guiado: con el "cerebro con IA" apagado, o sin persona/sessionRepo,
+  // no se reformula (solo plantillas y reglas).
+  if (!llm || !sessionRepo || !persona || config.ai?.enabled === false) {
+    return messages;
+  }
 
-  const session = await sessionRepo.getOrCreate(
-    message.businessSlug,
-    message.from,
-    message.channel,
-  );
+  const sessionParaEnhance =
+    session ?? (await sessionRepo.getOrCreate(message.businessSlug, message.from, message.channel));
 
-  session.history.push({
+  sessionParaEnhance.history.push({
     role: "user",
     text: message.text,
     timestamp: message.timestamp,
@@ -116,20 +149,20 @@ export async function handleIncoming(
     const text = await llm.enhance({
       businessName: config.name,
       persona,
-      history: session.history,
+      history: sessionParaEnhance.history,
       draftResponse: msg.text,
       stage: lead.stage,
       knowledge: config.ai?.knowledge,
     });
     enhanced.push({ ...msg, text });
-    session.history.push({
+    sessionParaEnhance.history.push({
       role: "assistant",
       text,
       timestamp: now.toISOString(),
     });
   }
 
-  await sessionRepo.save(session);
+  await sessionRepo.save(sessionParaEnhance);
   return enhanced;
 }
 

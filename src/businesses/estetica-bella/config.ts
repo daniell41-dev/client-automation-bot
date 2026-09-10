@@ -11,6 +11,7 @@ import type { BusinessConfig } from "@/core/types";
 export const esteticaBella: BusinessConfig = {
   slug: "estetica-bella",
   name: "Estética Bella",
+  rubro: "estética y belleza",
   currency: "COP",
   locale: "es-CO",
 

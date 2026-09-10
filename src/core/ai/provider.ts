@@ -4,7 +4,8 @@
  * (Groq, OpenAI…) lo inyecta la capa de aplicación.
  */
 
-import type { ConversationTurn, PersonaConfig } from "@/core/types";
+import type { BusinessHours, ConversationTurn, PersonaConfig } from "@/core/types";
+import type { AgentResponse } from "@/core/ai/agent-schema";
 
 export interface LLMContext {
   businessName: string;
@@ -45,6 +46,48 @@ export interface InterpretInput {
   history: ConversationTurn[];
 }
 
+/** Resumen de un servicio del catálogo, tal como se le pasa a la IA en modo agente. */
+export interface AgentServiceSummary {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  durationMinutes: number;
+  categoria?: string;
+}
+
+/** Lo que el motor ya sabe del cliente antes de este turno. */
+export interface AgentLeadState {
+  name?: string;
+  serviceId?: string;
+  tentativeDate?: string;
+  entrega?: string;
+  /** Cuántas veces seguidas se salió del tema en esta conversación. */
+  offTopicCount: number;
+}
+
+/** Contexto completo que necesita la IA para decidir un turno en modo agente. */
+export interface AgentTurnInput {
+  businessName: string;
+  /** Rubro en lenguaje natural (p. ej. "restaurante"), si está configurado. */
+  rubro?: string;
+  currency: string;
+  locale?: string;
+  persona: PersonaConfig;
+  /** Conocimiento libre del negocio (horarios especiales, políticas, etc.). */
+  knowledge?: string;
+  /** SOLO los servicios disponibles — la IA no debe ofrecer los que no. */
+  services: AgentServiceSummary[];
+  horarios?: BusinessHours[];
+  /** Presente solo si el negocio activó la modalidad de entrega/pedidos. */
+  pedidos?: { pregunta: string; opciones: string[] };
+  lead: AgentLeadState;
+  /** Historial reciente de la conversación. */
+  history: ConversationTurn[];
+  /** Mensaje actual del cliente. */
+  message: string;
+}
+
 export interface ILLMProvider {
   /**
    * Nombre descriptivo del proveedor/modelo activo (para logs y `pnpm
@@ -73,4 +116,12 @@ export interface ILLMProvider {
    * en la salida del modelo).
    */
   interpret(input: InterpretInput): Promise<string | null>;
+
+  /**
+   * Modo agente: la IA decide qué acciones corresponden a este turno (no
+   * solo reformula un borrador). Devuelve `null` si la respuesta no es un
+   * JSON válido según el contrato — `agent.ts` NUNCA aplica una acción sin
+   * antes validarla contra el catálogo/estado real.
+   */
+  runAgent(input: AgentTurnInput): Promise<AgentResponse | null>;
 }

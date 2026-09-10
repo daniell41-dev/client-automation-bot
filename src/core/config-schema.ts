@@ -28,6 +28,7 @@ const quickRuleSchema = z.object({
 
 const aiSchema = z.object({
   enabled: z.boolean(),
+  modo: z.enum(["agente", "guiado"]).optional(),
   knowledge: z.string().optional(),
   reglas: z.array(quickRuleSchema).optional(),
   botonesMenu: z.array(z.string()).optional(),
@@ -72,6 +73,7 @@ const personaSchema = z.object({
 export const businessConfigSchema = z.object({
   slug: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "slug en kebab-case"),
   name: z.string().min(1),
+  rubro: z.string().optional(),
   currency: z.string().min(1),
   locale: z.string().optional(),
   services: z.array(serviceSchema).min(1),

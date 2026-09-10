@@ -16,6 +16,7 @@ import type { BusinessConfig } from "@/core/types";
 export const restauranteSabores: BusinessConfig = {
   slug: "restaurante-sabores",
   name: "Sabores del Sur",
+  rubro: "restaurante",
   currency: "COP",
   locale: "es-CO",
 
