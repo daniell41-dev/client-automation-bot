@@ -23,6 +23,7 @@ import {
   isGreeting,
   isAffirmative,
   availableServices,
+  normalizeDateText,
 } from "@/core/engine/intake";
 import { transition } from "@/core/engine/lead-state";
 
@@ -167,7 +168,14 @@ export function respond(
   }
 
   if (lead.stage === "esperando_fecha") {
-    lead.tentativeDate = message.text.trim();
+    const fecha = normalizeDateText(message.text);
+    // Solo puntuación/muletillas ("???", "no se"): se queda en esperando_fecha
+    // y vuelve a preguntar, en vez de agendar una cita sin fecha real.
+    if (!fecha) {
+      reply(render(config.messages.askDate, leadVars(lead, config)));
+      return { lead, messages };
+    }
+    lead.tentativeDate = fecha;
     reply(askConfirmText(), CONFIRM_OPTIONS);
     return { lead, messages };
   }
