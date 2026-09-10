@@ -43,7 +43,11 @@ async function checkProvider(
     });
     if (res.ok) {
       const data = (await res.json()) as { data?: { id: string }[] };
-      const ids = data.data?.map((m) => m.id) ?? [];
+      // Gemini devuelve los IDs con el prefijo "models/" (p. ej.
+      // "models/gemini-3.5-flash-lite"); Groq/Cerebras no lo usan. Se
+      // compara sin ese prefijo para no marcar un falso positivo.
+      const stripPrefix = (id: string) => id.replace(/^models\//, "");
+      const ids = data.data?.map((m) => stripPrefix(m.id)) ?? [];
       const hasModel = ids.length === 0 || ids.includes(model);
       console.log(`   ✅ Key válida. ${ids.length} modelos listados.`);
       if (!hasModel) {
