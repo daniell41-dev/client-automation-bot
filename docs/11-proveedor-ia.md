@@ -14,8 +14,8 @@ La llamada a la IA la hace **el servidor** (Vercel/Node), no el celular del nego
 
 | Proveedor | Venezuela | Límite gratis (por key) | Veredicto |
 |---|---|---|---|
-| **Google Gemini** | **Sí — en la [lista oficial de regiones](https://ai.google.dev/gemini-api/docs/available-regions) de Google** | `gemini-2.5-flash-lite`: ~30 RPM, ~1.500 req/día, 1M TPM | **Primario.** Único con soporte oficial explícito → cero riesgo de ToS. Sin tarjeta. |
-| Groq | Sin lista pública de países; términos de export control genéricos (zona gris) | `llama-3.1-8b-instant`: 14.400 req/día | Respaldo. Rápido (hardware LPU), pero su catálogo de modelos rota (ver nota abajo). |
+| **Google Gemini** | **Sí — en la [lista oficial de regiones](https://ai.google.dev/gemini-api/docs/available-regions) de Google** | Nivel "flash-lite": del orden de ~30 RPM y ~1.500 req/día (varía por modelo/tier, ver nota abajo) | **Primario.** Único con soporte oficial explícito → cero riesgo de ToS. Sin tarjeta. |
+| Groq | Sin lista pública de países; términos de export control genéricos (zona gris) | Modelos "instant"/pequeños: del orden de varios miles de req/día | Respaldo. Rápido (hardware LPU), pero su catálogo de modelos rota (ver nota abajo). |
 | Cerebras | Sin lista pública; términos OFAC/EAR genéricos (zona gris) | ~1M tokens/día, ~30 RPM, contexto 8K | Respaldo opcional. |
 | OpenRouter | Aplica restricciones regionales de sus proveedores subyacentes | 50 req/día sin fondos | Descartado: cuota mínima sin tarjeta, no vale la pena como tercer respaldo. |
 | Cloudflare Workers AI | Sin restricción conocida | ~15-25 llamadas LLM/día | Descartado: insuficiente. |
@@ -24,9 +24,11 @@ La llamada a la IA la hace **el servidor** (Vercel/Node), no el celular del nego
 
 **Decisión: Gemini como primario, Groq y Cerebras como respaldo.** No hace falta elegir uno solo — configurar dos o tres keys gratis (todas sin tarjeta) es lo que da la estabilidad real.
 
-### Nota sobre el catálogo de Groq
+### Nota sobre el catálogo de modelos (cambia seguido)
 
-Groq da de baja modelos con relativa frecuencia (ver [console.groq.com/docs/deprecations](https://console.groq.com/docs/deprecations)) a medida que salen versiones nuevas — es parte de por qué no conviene depender solo de Groq. Si `pnpm ai:doctor` reporta que `GROQ_MODEL` ya no existe, revisa esa página y actualiza la variable en `.env.local`.
+Los IDs de modelo y sus límites gratis **no son estables** — ya pasó una vez con `llama-3.3-70b-versatile` (dado de baja) y con `gemini-2.5-flash-lite` (retirado para cuentas nuevas), y va a volver a pasar. Groq en particular da de baja modelos con relativa frecuencia (ver [console.groq.com/docs/deprecations](https://console.groq.com/docs/deprecations)) — es parte de por qué no conviene depender solo de Groq, ni memorizar un nombre de modelo como si fuera fijo.
+
+**`pnpm ai:doctor` es la fuente de verdad, no esta tabla ni el código.** Si reporta que el modelo configurado (o el default) ya no existe, imprime la lista real de modelos disponibles para tu key — copiá uno de ahí a `GEMINI_MODEL`/`GROQ_MODEL`/`CEREBRAS_MODEL` en `.env.local` y listo.
 
 ## Cómo se usa en el código
 
@@ -57,11 +59,11 @@ En el portal no hay UI para esto (son credenciales de infraestructura, no de un 
 ```bash
 # Primario recomendado — key gratis en https://aistudio.google.com/apikey
 GEMINI_API_KEY=
-# GEMINI_MODEL=            # default: gemini-2.5-flash-lite
+# GEMINI_MODEL=            # default: gemini-3.5-flash-lite
 
 # Respaldo — key gratis en https://console.groq.com/keys
 GROQ_API_KEY=
-# GROQ_MODEL=              # default: llama-3.1-8b-instant
+# GROQ_MODEL=              # default: openai/gpt-oss-20b
 
 # Respaldo opcional — key gratis en https://cloud.cerebras.ai
 # CEREBRAS_API_KEY=
@@ -79,7 +81,7 @@ Verificar que funciona: `pnpm ai:doctor` — revisa cada proveedor configurado (
 
 ### Cuota compartida entre negocios
 
-Una sola key de Gemini sirve a **todos** los negocios del SaaS (no es por negocio). El límite gratis (~1.500 req/día en Flash-Lite) es la suma de TODOS los mensajes con IA de TODOS los negocios ese día — no 1.500 por negocio. El intérprete de intención (`docs/12-comprension-del-cliente.md`) solo consume cuota cuando el motor determinista no entendió, no en cada mensaje, así que el consumo real es menor a "un request por mensaje". Suficiente para arrancar; al escalar, subir a un tier pago o dejar que la cadena de respaldo reparta la carga entre proveedores.
+Una sola key de Gemini sirve a **todos** los negocios del SaaS (no es por negocio). El límite gratis diario es la suma de TODOS los mensajes con IA de TODOS los negocios ese día — no un cupo por negocio. El intérprete de intención (`docs/12-comprension-del-cliente.md`) solo consume cuota cuando el motor determinista no entendió, no en cada mensaje, así que el consumo real es menor a "un request por mensaje". Suficiente para arrancar; al escalar, subir a un tier pago o dejar que la cadena de respaldo reparta la carga entre proveedores.
 
 ## Archivos clave
 

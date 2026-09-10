@@ -19,12 +19,17 @@ export const AI_PRESETS = {
   /** Google Gemini. Key gratis (sin tarjeta) en https://aistudio.google.com/apikey */
   gemini: {
     baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
-    defaultModel: "gemini-2.5-flash-lite",
+    // gemini-2.5-flash-lite dejó de estar disponible para cuentas nuevas
+    // (sep-2026); Google indica migrar a este modelo.
+    defaultModel: "gemini-3.5-flash-lite",
   },
   /** Groq. Key gratis en https://console.groq.com/keys */
   groq: {
     baseURL: "https://api.groq.com/openai/v1",
-    defaultModel: "llama-3.1-8b-instant",
+    // llama-3.1-8b-instant fue dado de baja (ago-2026); Groq recomienda
+    // migrar a este modelo. Si vuelve a fallar, correr `pnpm ai:doctor`:
+    // ahora imprime el listado real de modelos disponibles para tu key.
+    defaultModel: "openai/gpt-oss-20b",
   },
   /** Cerebras. Key gratis en https://cloud.cerebras.ai */
   cerebras: {

@@ -28,11 +28,15 @@ async function checkProvider(
   baseURL: string,
   apiKey: string,
   model: string,
+  modelEnvVar: string,
 ): Promise<boolean> {
   const masked = `${apiKey.slice(0, 6)}...${apiKey.slice(-4)}`;
   console.log(`\n🔎 ${label} (${masked}) — modelo configurado: ${model}`);
 
   // Paso 2 (informativo, no bloqueante): algunos proveedores no exponen /models.
+  // Los modelos de estos proveedores rotan seguido (Groq los da de baja con
+  // frecuencia, Google también) — si el configurado no está en la lista, se
+  // imprimen los reales para no tener que adivinar cuál usar.
   try {
     const res = await fetch(`${baseURL.replace(/\/$/, "")}/models`, {
       headers: { Authorization: `Bearer ${apiKey}` },
@@ -41,11 +45,12 @@ async function checkProvider(
       const data = (await res.json()) as { data?: { id: string }[] };
       const ids = data.data?.map((m) => m.id) ?? [];
       const hasModel = ids.length === 0 || ids.includes(model);
-      console.log(
-        `   ✅ Key válida. ${ids.length} modelos listados.${
-          hasModel ? "" : ` ⚠️ "${model}" no está en la lista.`
-        }`,
-      );
+      console.log(`   ✅ Key válida. ${ids.length} modelos listados.`);
+      if (!hasModel) {
+        console.log(`   ⚠️  "${model}" no está en la lista. Modelos disponibles para tu key:`);
+        console.log(`      ${ids.slice(0, 20).join(", ")}${ids.length > 20 ? ", …" : ""}`);
+        console.log(`      Ajustá ${modelEnvVar} en .env.local a uno de estos.`);
+      }
     } else {
       console.log(`   ⚠️  No se pudo listar modelos (status ${res.status}); sigo con la prueba real.`);
     }
@@ -80,6 +85,11 @@ async function checkProvider(
     return true;
   } catch (err) {
     console.log(`   ❌ Falló la llamada real: ${err}`);
+    if (String(err).includes("404")) {
+      console.log(
+        `      Pinta a modelo dado de baja/renombrado — revisá la lista de modelos disponibles arriba.`,
+      );
+    }
     return false;
   }
 }
@@ -99,7 +109,7 @@ async function main() {
     }
     const preset = AI_PRESETS[name];
     const model = process.env[`${envPrefix}_MODEL`] || preset.defaultModel;
-    const ok = await checkProvider(name, preset.baseURL, apiKey, model);
+    const ok = await checkProvider(name, preset.baseURL, apiKey, model, `${envPrefix}_MODEL`);
     anyOk = anyOk || ok;
   }
 
@@ -107,7 +117,13 @@ async function main() {
   const customBaseURL = process.env.AI_CUSTOM_BASE_URL;
   const customModel = process.env.AI_CUSTOM_MODEL;
   if (customApiKey && customBaseURL && customModel) {
-    const ok = await checkProvider("custom", customBaseURL, customApiKey, customModel);
+    const ok = await checkProvider(
+      "custom",
+      customBaseURL,
+      customApiKey,
+      customModel,
+      "AI_CUSTOM_MODEL",
+    );
     anyOk = anyOk || ok;
   } else if (customApiKey || customBaseURL || customModel) {
     console.log(

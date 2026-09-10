@@ -44,13 +44,13 @@ describe("createLLMProvider", () => {
     process.env.GEMINI_API_KEY = "test-key";
     const provider = createLLMProvider();
     expect(provider).not.toBeNull();
-    expect(provider?.model).toBe("gemini-2.5-flash-lite");
+    expect(provider?.model).toBe("gemini-3.5-flash-lite");
   });
 
   it("sigue funcionando solo con GROQ_API_KEY (compatibilidad hacia atrás)", () => {
     process.env.GROQ_API_KEY = "test-key";
     const provider = createLLMProvider();
-    expect(provider?.model).toBe("llama-3.1-8b-instant");
+    expect(provider?.model).toBe("openai/gpt-oss-20b");
   });
 
   it("respeta *_MODEL si se especifica", () => {
@@ -63,7 +63,7 @@ describe("createLLMProvider", () => {
     process.env.GEMINI_API_KEY = "gemini-key";
     process.env.GROQ_API_KEY = "groq-key";
     const provider = createLLMProvider();
-    expect(provider?.model).toBe("gemini-2.5-flash-lite (+llama-3.1-8b-instant)");
+    expect(provider?.model).toBe("gemini-3.5-flash-lite (+openai/gpt-oss-20b)");
   });
 
   it("AI_PROVIDER_ORDER reordena la cadena", () => {
@@ -71,7 +71,7 @@ describe("createLLMProvider", () => {
     process.env.GROQ_API_KEY = "groq-key";
     process.env.AI_PROVIDER_ORDER = "groq,gemini";
     const provider = createLLMProvider();
-    expect(provider?.model).toBe("llama-3.1-8b-instant (+gemini-2.5-flash-lite)");
+    expect(provider?.model).toBe("openai/gpt-oss-20b (+gemini-3.5-flash-lite)");
   });
 
   it("arma un provider custom (Ollama u otro) desde AI_CUSTOM_*", () => {

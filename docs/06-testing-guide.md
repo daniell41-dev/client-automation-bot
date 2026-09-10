@@ -111,7 +111,7 @@ pnpm sim "sí"
 Igual que el anterior, pero con `GEMINI_API_KEY` (u otra) en `.env.local`. El simulador imprime al inicio:
 
 ```
-✨ IA habilitada (gemini-2.5-flash-lite) · Persona: Isabella
+✨ IA habilitada (gemini-3.5-flash-lite) · Persona: Isabella
 ```
 
 Las respuestas del bot suenan más naturales, pero el estado interno es el mismo.
