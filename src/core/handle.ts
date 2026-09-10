@@ -20,7 +20,7 @@ import type { LeadRepository } from "@/core/storage/repository";
 import type { SessionRepository } from "@/core/storage/session-repository";
 import type { ILLMProvider } from "@/core/ai/provider";
 import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
-import { respond } from "@/core/engine/responder";
+import { interpretableOptions, respond } from "@/core/engine/responder";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
 
 const DEFAULT_TIMEZONE = "America/Bogota";
@@ -45,7 +45,34 @@ export async function handleIncoming(
   notifier?: OwnerNotifier,
 ): Promise<OutgoingMessage[]> {
   const existing = await repo.findByContact(message.businessSlug, message.from);
-  const { lead, messages } = respond(existing, message, config, now);
+  let result = respond(existing, message, config, now);
+
+  // Red de seguridad: el motor no reconoció el mensaje (clientes que
+  // escriben MUY distinto a lo esperado, más allá de lo que cubre el
+  // español de chat de `intake.ts`). Si hay IA, le pedimos que lo traduzca
+  // a una opción real del negocio y corremos el motor de nuevo UNA sola vez
+  // con esa traducción — nunca en bucle, y nunca aceptando algo inventado
+  // (ver `parseInterpretation`).
+  if (result.unrecognized && llm) {
+    const options = interpretableOptions(existing?.stage, config);
+    if (options.length > 0) {
+      try {
+        const interpreted = await llm.interpret({
+          text: message.text,
+          options,
+          stage: existing?.stage ?? "inicio",
+          history: [],
+        });
+        if (interpreted) {
+          result = respond(existing, { ...message, text: interpreted }, config, now);
+        }
+      } catch (err) {
+        console.error("[AI] interpret falló, sigue con el fallback:", err);
+      }
+    }
+  }
+
+  const { lead, messages } = result;
 
   // Side-effects al CONFIRMAR (transición a datos_completos): agendar en el
   // calendario del negocio y avisarle a la dueña por WhatsApp. Se detecta la

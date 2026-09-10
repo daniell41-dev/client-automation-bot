@@ -17,6 +17,7 @@
 import type {
   DateExtractionInput,
   ILLMProvider,
+  InterpretInput,
   LLMContext,
 } from "@/core/ai/provider";
 import { buildSystemPrompt, buildUserMessage } from "@/core/ai/prompt";
@@ -24,6 +25,7 @@ import {
   buildDateExtractionPrompt,
   parseExtractedDateTime,
 } from "@/core/ai/date-extraction";
+import { buildInterpretPrompt, parseInterpretation } from "@/core/ai/interpret";
 
 export interface OpenAICompatibleOptions {
   /** Nombre corto para logs/errores (p. ej. "gemini", "groq"). */
@@ -144,5 +146,16 @@ export class OpenAICompatibleProvider implements ILLMProvider {
       { temperature: 0, maxTokens: 40 },
     );
     return parseExtractedDateTime(raw);
+  }
+
+  async interpret(input: InterpretInput): Promise<string | null> {
+    const raw = await this.chatCompletion(
+      [
+        { role: "system", content: buildInterpretPrompt(input) },
+        { role: "user", content: input.text },
+      ],
+      { temperature: 0, maxTokens: 30 },
+    );
+    return parseInterpretation(raw, input.options);
   }
 }

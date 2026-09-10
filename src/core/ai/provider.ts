@@ -4,7 +4,7 @@
  * (Groq, OpenAI…) lo inyecta la capa de aplicación.
  */
 
-import type { PersonaConfig, ConversationTurn } from "@/core/types";
+import type { ConversationTurn, PersonaConfig } from "@/core/types";
 
 export interface LLMContext {
   businessName: string;
@@ -29,6 +29,22 @@ export interface DateExtractionInput {
   timezone: string;
 }
 
+/**
+ * Entrada para que la IA traduzca un mensaje que el motor NO reconoció a una
+ * de las opciones válidas del negocio (red de seguridad, no un reemplazo del
+ * motor: éste sigue siendo quien decide el estado del lead).
+ */
+export interface InterpretInput {
+  /** Texto original del cliente, tal cual lo escribió. */
+  text: string;
+  /** Opciones válidas entre las que debe elegir (nunca inventar otra). */
+  options: string[];
+  /** Etapa del funnel en la que se produjo el mensaje (contexto). */
+  stage: string;
+  /** Historial reciente, si hay (contexto opcional). */
+  history: ConversationTurn[];
+}
+
 export interface ILLMProvider {
   /**
    * Nombre descriptivo del proveedor/modelo activo (para logs y `pnpm
@@ -49,4 +65,12 @@ export interface ILLMProvider {
    * ambigua o no incluye hora. Usado para agendar la cita en el calendario.
    */
   extractDateTime(input: DateExtractionInput): Promise<string | null>;
+
+  /**
+   * Traduce un mensaje que el motor NO pudo reconocer a una de las opciones
+   * válidas, o `null` si no corresponde a ninguna. Nunca devuelve algo que no
+   * esté en `input.options` (se valida contra la lista, no se confía a ciegas
+   * en la salida del modelo).
+   */
+  interpret(input: InterpretInput): Promise<string | null>;
 }

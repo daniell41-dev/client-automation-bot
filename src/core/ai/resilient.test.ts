@@ -20,11 +20,19 @@ function failingProvider(model: string): ILLMProvider {
     async extractDateTime() {
       throw new Error(`${model} caído`);
     },
+    async interpret() {
+      throw new Error(`${model} caído`);
+    },
   };
 }
 
 /** Provider falso: siempre responde. */
-function workingProvider(model: string, text: string, date: string | null): ILLMProvider {
+function workingProvider(
+  model: string,
+  text: string,
+  date: string | null,
+  interpreted: string | null = null,
+): ILLMProvider {
   return {
     model,
     async enhance() {
@@ -32,6 +40,9 @@ function workingProvider(model: string, text: string, date: string | null): ILLM
     },
     async extractDateTime() {
       return date;
+    },
+    async interpret() {
+      return interpreted;
     },
   };
 }
@@ -46,6 +57,9 @@ describe("ResilientProvider — enhance", () => {
         return "no debería llegar acá";
       },
       async extractDateTime() {
+        return null;
+      },
+      async interpret() {
         return null;
       },
     };
@@ -85,6 +99,9 @@ describe("ResilientProvider — extractDateTime", () => {
       async extractDateTime() {
         secondCalled = true;
         return "2026-06-30T15:00:00-05:00";
+      },
+      async interpret() {
+        return null;
       },
     };
     const chain = new ResilientProvider([
@@ -126,5 +143,55 @@ describe("ResilientProvider — model descriptivo", () => {
 
   it("lanza si se construye sin proveedores", () => {
     expect(() => new ResilientProvider([])).toThrow();
+  });
+});
+
+describe("ResilientProvider — interpret", () => {
+  const input = {
+    text: "me interesa lo de las manos",
+    options: ["Limpieza facial", "Uñas"],
+    stage: "menu_enviado",
+    history: [],
+  };
+
+  it("usa la interpretación del primer proveedor que responda (sin lanzar)", async () => {
+    const chain = new ResilientProvider([
+      workingProvider("primero", "", null, "Uñas"),
+      workingProvider("segundo", "", null, "Limpieza facial"),
+    ]);
+    expect(await chain.interpret(input)).toBe("Uñas");
+  });
+
+  it("un null del primer proveedor (no reconoce nada) NO dispara el fallback", async () => {
+    let secondCalled = false;
+    const second: ILLMProvider = {
+      model: "segundo",
+      async enhance() {
+        return "";
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        secondCalled = true;
+        return "Uñas";
+      },
+    };
+    const chain = new ResilientProvider([workingProvider("primero", "", null, null), second]);
+    expect(await chain.interpret(input)).toBeNull();
+    expect(secondCalled).toBe(false);
+  });
+
+  it("si el primero LANZA, pasa al segundo", async () => {
+    const chain = new ResilientProvider([
+      failingProvider("primero"),
+      workingProvider("segundo", "", null, "Uñas"),
+    ]);
+    expect(await chain.interpret(input)).toBe("Uñas");
+  });
+
+  it("si todos fallan (lanzan), devuelve null", async () => {
+    const chain = new ResilientProvider([failingProvider("uno"), failingProvider("dos")]);
+    expect(await chain.interpret(input)).toBeNull();
   });
 });
