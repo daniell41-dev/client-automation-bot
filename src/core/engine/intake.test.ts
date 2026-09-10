@@ -3,6 +3,9 @@ import {
   availableServices,
   isAffirmative,
   isGreeting,
+  isMenuRequest,
+  isResetRequest,
+  looksLikeDate,
   matchEntrega,
   matchRule,
   matchService,
@@ -225,5 +228,65 @@ describe("normalizeDateText", () => {
 
   it("encadena varias muletillas seguidas", () => {
     expect(normalizeDateText("Creo que quiero mañana")).toBe("mañana");
+  });
+});
+
+describe("looksLikeDate", () => {
+  it("reconoce días de la semana y relativos", () => {
+    expect(looksLikeDate("hoy")).toBe(true);
+    expect(looksLikeDate("mañana")).toBe(true);
+    expect(looksLikeDate("el viernes")).toBe(true);
+    expect(looksLikeDate("mañana en la tarde")).toBe(true);
+    expect(looksLikeDate("el 15 de diciembre")).toBe(true);
+  });
+
+  it("reconoce horas y duraciones relativas", () => {
+    expect(looksLikeDate("a las 3")).toBe(true);
+    expect(looksLikeDate("3 pm")).toBe(true);
+    expect(looksLikeDate("en 20 minutos")).toBe(true);
+    expect(looksLikeDate("15/12")).toBe(true);
+  });
+
+  it("reconoce un número suelto (día del mes)", () => {
+    expect(looksLikeDate("20")).toBe(true);
+  });
+
+  it("NO reconoce preguntas o texto sin relación con fechas", () => {
+    expect(looksLikeDate("me repites por fa las opciones que hay")).toBe(false);
+    expect(looksLikeDate("cambiar fecha")).toBe(false);
+    expect(looksLikeDate("no se")).toBe(false);
+    expect(looksLikeDate("")).toBe(false);
+  });
+
+  it("no matchea 'vaya'/'playa' por contener 'ya' como substring", () => {
+    // Regresión: "ya" como señal de fecha por substring daba falsos positivos.
+    expect(looksLikeDate("vaya, no sé qué día")).toBe(false);
+    expect(looksLikeDate("nos vemos en la playa")).toBe(false);
+  });
+});
+
+describe("isMenuRequest", () => {
+  it("reconoce pedidos de menú/opciones", () => {
+    expect(isMenuRequest("me repites las opciones?")).toBe(true);
+    expect(isMenuRequest("qué servicios tienen")).toBe(true);
+    expect(isMenuRequest("Me repites por fa las opciones que hay")).toBe(true);
+  });
+
+  it("no confunde una respuesta normal con un pedido de menú", () => {
+    expect(isMenuRequest("Carlos")).toBe(false);
+    expect(isMenuRequest("el viernes")).toBe(false);
+  });
+});
+
+describe("isResetRequest", () => {
+  it("reconoce pedidos de reinicio/cancelación", () => {
+    expect(isResetRequest("cancelar")).toBe(true);
+    expect(isResetRequest("quiero reiniciar")).toBe(true);
+    expect(isResetRequest("empezar de nuevo por favor")).toBe(true);
+  });
+
+  it("no confunde una respuesta normal con un pedido de reinicio", () => {
+    expect(isResetRequest("Carlos")).toBe(false);
+    expect(isResetRequest("el viernes")).toBe(false);
   });
 });

@@ -179,6 +179,115 @@ export function matchRule(
   );
 }
 
+/** ¿`needle` aparece en `haystack` como palabra/frase completa (no substring)? */
+function containsWord(haystack: string, needle: string): boolean {
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`\\b${escaped}\\b`).test(haystack);
+}
+
+/**
+ * Palabras/expresiones que indican que el texto SÍ habla de una fecha/hora.
+ * Se comparan por PALABRA COMPLETA (no substring): "ya" sería una señal
+ * demasiado débil y ambigua además de riesgosa por substring (aparece
+ * dentro de "vaya", "mayo", etc.), así que no está en la lista.
+ */
+const DATE_SIGNAL_WORDS = [
+  "hoy",
+  "manana", // sin tilde: ya viene "doblado" por normalizeMessage()
+  "pasado manana",
+  "ahorita",
+  "ahora",
+  "lunes",
+  "martes",
+  "miercoles",
+  "jueves",
+  "viernes",
+  "sabado",
+  "domingo",
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "setiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+
+/**
+ * ¿El texto parece hablar de una fecha/hora? Es la guarda que evita que
+ * `esperando_fecha`/`esperando_confirmacion` acepten CUALQUIER cosa como si
+ * fuera la fecha — sin esto, una pregunta del cliente ("me repites las
+ * opciones?") quedaba guardada tal cual como `tentativeDate`.
+ *
+ * Reconoce: días/meses, "hoy"/"mañana"/"ahorita", horas ("3 pm", "a las 3",
+ * "15:00"), duraciones relativas ("en 20 minutos"), fechas numéricas
+ * ("15/12") y un número suelto (día del mes, p. ej. "el 20" → "20").
+ */
+export function looksLikeDate(text: string): boolean {
+  const n = normalizeMessage(text);
+  if (!n) return false;
+  if (DATE_SIGNAL_WORDS.some((w) => containsWord(n, w))) return true;
+  if (/\b\d{1,2}(:\d{2})?\s*(am|pm|hrs?|horas?)\b/.test(n)) return true;
+  if (/\ba las?\b/.test(n)) return true;
+  if (/\ben\s+\d+\s*(minutos?|horas?|dias?|semanas?)\b/.test(n)) return true;
+  if (/\b\d{1,2}\/\d{1,2}\b/.test(n)) return true;
+  if (/^\d{1,2}$/.test(n)) return true;
+  return false;
+}
+
+/**
+ * ¿El cliente está pidiendo el menú/las opciones ("me repites las
+ * opciones?", "qué servicios tienen?") en vez de responder lo que se le
+ * preguntó? Se usa para no confundir esto con la respuesta esperada.
+ */
+const MENU_REQUEST_KEYWORDS = [
+  "opciones",
+  "que hay",
+  "que tienes",
+  "que tienen",
+  "que ofreces",
+  "que ofrecen",
+  "menu",
+  "servicios",
+  "repite",
+  "repites",
+  "repetir",
+  "cuales son",
+];
+
+export function isMenuRequest(text: string): boolean {
+  const n = normalizeMessage(text);
+  return MENU_REQUEST_KEYWORDS.some((k) => n.includes(k));
+}
+
+/**
+ * ¿El cliente pide arrancar de cero? ("reiniciar", "cancelar",
+ * "empezar de nuevo"). Funciona en cualquier etapa: es la vía de escape si
+ * la conversación quedó en un estado confuso.
+ */
+const RESET_KEYWORDS = [
+  "reiniciar",
+  "reinicia",
+  "empezar de nuevo",
+  "empezar de cero",
+  "volver a empezar",
+  "cancelar",
+  "cancela",
+  "olvida todo",
+  "borra todo",
+];
+
+export function isResetRequest(text: string): boolean {
+  const n = normalizeMessage(text);
+  return RESET_KEYWORDS.some((k) => n.includes(k));
+}
+
 /**
  * Frases de relleno al INICIO de una fecha ("Puede ser hoy", "Creo que el
  * viernes"). Ya están "dobladas" (sin tildes): se comparan contra una copia
@@ -192,6 +301,7 @@ const DATE_FILLERS = [
   "me gustaria",
   "quisiera",
   "quiero",
+  "mejor",
   "tal vez",
   "quizas",
   "creo que",
