@@ -41,6 +41,17 @@ function buildClosingMessage(nombre: string | undefined): string {
   return `${saludo}fue un gusto charlar 😊 Si más adelante te interesa algún servicio, escribime cuando quieras.`;
 }
 
+/** Borra lo capturado dejando el lead como recién llegado (mismo id/contacto). */
+function limpiarDatos(lead: Lead): void {
+  lead.state = "nuevo";
+  lead.stage = "inicio";
+  lead.name = undefined;
+  lead.serviceId = undefined;
+  lead.tentativeDate = undefined;
+  lead.entrega = undefined;
+  lead.offTopicCount = 0;
+}
+
 /**
  * Deriva la etapa "visible" del lead a partir de qué datos ya tiene — el
  * modo agente no sigue un guion de etapas fijo, pero el resto del sistema
@@ -86,6 +97,7 @@ function buildAgentInput(
       serviceId: lead.serviceId,
       tentativeDate: lead.tentativeDate,
       entrega: lead.entrega,
+      yaConfirmado: lead.stage === "datos_completos",
       offTopicCount: lead.offTopicCount ?? 0,
     },
     history,
@@ -110,7 +122,14 @@ export async function runAgentTurn(
   lead.lastInboundAt = message.timestamp;
   lead.updatedAt = now.toISOString();
 
-  const wasAlreadyConfirmed = existing?.stage === "datos_completos";
+  // "cancelar" / "reiniciar" / "empezar de nuevo": se limpia ANTES de llamar
+  // a la IA, así el agente ve un estado en blanco y responde en consecuencia
+  // (mismo comportamiento que el motor determinista, sin gastar la decisión
+  // en algo que ya es explícito).
+  const pidioReinicioExplicito = isResetRequest(message.text);
+  if (pidioReinicioExplicito) limpiarDatos(lead);
+
+  let wasAlreadyConfirmed = !pidioReinicioExplicito && existing?.stage === "datos_completos";
   const offTopicCountBefore = lead.offTopicCount ?? 0;
 
   const input = buildAgentInput(lead, config, persona, history, message.text);
@@ -123,6 +142,14 @@ export async function runAgentTurn(
     return null;
   }
   if (!aiResult) return null;
+
+  // La IA detectó que los datos guardados no corresponden ("yo no pedí
+  // nada", "cambié de idea"). Se limpia ANTES de aplicar el resto de las
+  // acciones, para que un `elegir_servicio` del MISMO turno sobreviva.
+  if (aiResult.acciones.some((a) => a.tipo === "reiniciar")) {
+    limpiarDatos(lead);
+    wasAlreadyConfirmed = false;
+  }
 
   let sawOffTopic = false;
   for (const accion of aiResult.acciones) {
@@ -170,6 +197,8 @@ export async function runAgentTurn(
       case "fuera_de_contexto":
         sawOffTopic = true;
         break;
+      case "reiniciar":
+        break; // ya se aplicó arriba, antes del resto de las acciones
       case "confirmar":
         break; // se procesa después de aplicar el resto de las acciones
     }

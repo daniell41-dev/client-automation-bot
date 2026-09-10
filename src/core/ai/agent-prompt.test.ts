@@ -28,7 +28,7 @@ const baseInput: AgentTurnInput = {
       durationMinutes: 45,
     },
   ],
-  lead: { offTopicCount: 0 },
+  lead: { yaConfirmado: false, offTopicCount: 0 },
   history: [],
   message: "Hola",
 };
@@ -94,6 +94,7 @@ describe("buildAgentSystemPrompt", () => {
         serviceId: "unas",
         tentativeDate: "mañana",
         entrega: undefined,
+        yaConfirmado: false,
         offTopicCount: 0,
       },
     });
@@ -116,6 +117,26 @@ describe("buildAgentSystemPrompt", () => {
       lead: { ...baseInput.lead, offTopicCount: 2 },
     });
     expect(conDesvio).toContain("2 veces");
+  });
+
+  it("avisa de forma DESTACADA cuando la cita ya está confirmada", () => {
+    const prompt = buildAgentSystemPrompt({
+      ...baseInput,
+      lead: { ...baseInput.lead, name: "Carlos", serviceId: "unas", yaConfirmado: true },
+    });
+    expect(prompt).toContain("YA ESTÁ CONFIRMADA");
+    expect(prompt).toMatch(/NO vuelvas a pedirle/i);
+    expect(prompt).toMatch(/reserva NUEVA/i);
+  });
+
+  it("no incluye ese aviso cuando la cita todavía no está confirmada", () => {
+    expect(buildAgentSystemPrompt(baseInput)).not.toContain("YA ESTÁ CONFIRMADA");
+  });
+
+  it("documenta la acción 'reiniciar' como la única forma de corregir datos viejos", () => {
+    const prompt = buildAgentSystemPrompt(baseInput);
+    expect(prompt).toContain('"reiniciar"');
+    expect(prompt).toMatch(/solo agregan, no borran/i);
   });
 
   it("instruye el formato de salida en JSON estricto", () => {
@@ -192,7 +213,7 @@ describe("parseAgentResponse", () => {
     expect(parseAgentResponse(raw)).toBeNull();
   });
 
-  it("acepta las 6 acciones válidas del contrato", () => {
+  it("acepta las 7 acciones válidas del contrato", () => {
     const raw = JSON.stringify({
       respuesta: "ok",
       acciones: [
@@ -202,8 +223,9 @@ describe("parseAgentResponse", () => {
         { tipo: "guardar_modalidad", modalidad: "Retirar" },
         { tipo: "confirmar" },
         { tipo: "fuera_de_contexto" },
+        { tipo: "reiniciar" },
       ],
     });
-    expect(parseAgentResponse(raw)?.acciones).toHaveLength(6);
+    expect(parseAgentResponse(raw)?.acciones).toHaveLength(7);
   });
 });

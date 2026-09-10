@@ -141,3 +141,25 @@ describe("OpenAICompatibleProvider.extractDateTime", () => {
     ).rejects.toThrow(/500/);
   });
 });
+
+describe("buildChatRequest — modo JSON", () => {
+  it("pide response_format json_object cuando jsonMode está activo", () => {
+    const { init } = buildChatRequest(
+      { baseURL: "https://api.example.com/v1", apiKey: "k", model: "m" },
+      [{ role: "user", content: "hola" }],
+      { temperature: 0, maxTokens: 100, jsonMode: true },
+    );
+    const body = JSON.parse(init.body as string);
+    expect(body.response_format).toEqual({ type: "json_object" });
+  });
+
+  it("NO manda response_format cuando jsonMode no está activo", () => {
+    const { init } = buildChatRequest(
+      { baseURL: "https://api.example.com/v1", apiKey: "k", model: "m" },
+      [{ role: "user", content: "hola" }],
+      { temperature: 0.7, maxTokens: 100 },
+    );
+    const body = JSON.parse(init.body as string);
+    expect(body.response_format).toBeUndefined();
+  });
+});

@@ -7,15 +7,20 @@
  */
 
 import { useState } from "react";
-import { Send } from "lucide-react";
+import { RotateCcw, Send } from "lucide-react";
 import { PhonePreview, type PreviewMessage } from "@/components/phone-preview";
 
+const VISITOR_KEY = "demo-visitor-id";
+
+function nuevoVisitorId(): string {
+  return `demo-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function getVisitorId(): string {
-  const key = "demo-visitor-id";
-  let id = sessionStorage.getItem(key);
+  let id = sessionStorage.getItem(VISITOR_KEY);
   if (!id) {
-    id = `demo-${Math.random().toString(36).slice(2, 10)}`;
-    sessionStorage.setItem(key, id);
+    id = nuevoVisitorId();
+    sessionStorage.setItem(VISITOR_KEY, id);
   }
   return id;
 }
@@ -24,6 +29,17 @@ export function DemoChat({ businessSlug }: { businessSlug: string }) {
   const [messages, setMessages] = useState<PreviewMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+
+  /**
+   * Arranca una conversación nueva: el id de visitante identifica al "cliente"
+   * en la base, así que hay que cambiarlo para que el bot no siga viendo el
+   * nombre/servicio/fecha de la prueba anterior.
+   */
+  function reiniciar() {
+    sessionStorage.setItem(VISITOR_KEY, nuevoVisitorId());
+    setMessages([]);
+    setInput("");
+  }
 
   async function send() {
     const text = input.trim();
@@ -59,7 +75,8 @@ export function DemoChat({ businessSlug }: { businessSlug: string }) {
   }
 
   return (
-    <PhonePreview
+    <div className="flex flex-col items-center gap-3">
+      <PhonePreview
       botName="Isabella"
       messages={
         messages.length > 0
@@ -91,6 +108,20 @@ export function DemoChat({ businessSlug }: { businessSlug: string }) {
           </button>
         </form>
       }
-    />
+      />
+
+      <button
+        type="button"
+        onClick={reiniciar}
+        className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-ink-mid hover:text-ink"
+      >
+        <RotateCcw className="h-3.5 w-3.5" />
+        Empezar una conversación nueva
+      </button>
+      <p className="max-w-[320px] text-center text-xs text-ink-soft">
+        El bot recuerda tu nombre y tu cita entre mensajes. Usá este botón para
+        probar desde cero, como un cliente que escribe por primera vez.
+      </p>
+    </div>
   );
 }

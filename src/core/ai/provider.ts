@@ -62,6 +62,12 @@ export interface AgentLeadState {
   serviceId?: string;
   tentativeDate?: string;
   entrega?: string;
+  /**
+   * `true` si la cita/pedido de este cliente YA quedó confirmada. Sin esto,
+   * la IA no tiene forma de saberlo y vuelve a pedir datos o a confirmar
+   * algo que ya estaba cerrado.
+   */
+  yaConfirmado: boolean;
   /** Cuántas veces seguidas se salió del tema en esta conversación. */
   offTopicCount: number;
 }
