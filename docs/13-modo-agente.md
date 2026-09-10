@@ -30,7 +30,9 @@ La IA responde con un JSON estricto (`agent-schema.ts`):
 }
 ```
 
-Seis acciones posibles: `elegir_servicio`, `guardar_nombre`, `guardar_fecha`, `guardar_modalidad`, `confirmar`, `fuera_de_contexto`. La IA puede declarar varias en un mismo turno — si el cliente da todos sus datos de una ("quiero uñas, soy Carlos, mañana"), el bot no necesita tres idas y vueltas para procesarlo.
+Siete acciones posibles: `elegir_servicio`, `guardar_nombre`, `guardar_fecha`, `guardar_modalidad`, `confirmar`, `fuera_de_contexto` y `reiniciar`. La IA puede declarar varias en un mismo turno — si el cliente da todos sus datos de una ("quiero uñas, soy Carlos, mañana"), el bot no necesita tres idas y vueltas para procesarlo.
+
+`reiniciar` merece mención aparte: es la **única forma que tiene la IA de CORREGIR** un dato guardado, porque las demás acciones solo agregan. Cuando el cliente dice "yo no pedí nada", "ese no es mi nombre" o "cambié de idea", la IA la declara y se borra lo capturado. Si en el mismo turno también declara `elegir_servicio`, el servicio nuevo sobrevive (el borrado se aplica primero). Además, el motor detecta de forma determinista las palabras explícitas ("cancelar", "empezar de nuevo") y limpia **antes** de llamar a la IA, para que el agente vea un estado en blanco.
 
 ## Los guardrails (por qué es seguro)
 
@@ -44,6 +46,18 @@ Cada acción se valida en `agent.ts` contra el estado real **antes** de aplicars
 | `guardar_modalidad` | Debe coincidir (exacto o vía `matchEntrega`) con una de las opciones reales configuradas. |
 | `confirmar` | Solo se aplica si YA hay nombre + servicio + fecha (+ modalidad, si el negocio la usa). Si la IA la declara antes de tiempo, se ignora — el motor decide cuándo está realmente completo, no la IA. |
 | `fuera_de_contexto` | Alimenta el contador de desvíos (ver abajo); no toca los datos del lead. |
+| `reiniciar` | Borra lo capturado (mismo `id`/contacto). Se aplica ANTES que el resto de las acciones del turno. |
+
+### La IA tiene que saber lo que ya pasó
+
+Dos datos del estado son tan importantes como el catálogo, y van en el prompt:
+
+- **`yaConfirmado`**: si la cita/pedido ya está cerrada, el prompt lo dice de forma destacada — "NO vuelvas a pedir datos ni a confirmar; si quiere algo más, tratalo como reserva nueva". Sin esto la IA no tiene forma de saberlo y vuelve a preguntar cosas que el cliente ya respondió.
+- **Los datos ya capturados** (nombre, servicio, fecha, modalidad), para que no los vuelva a pedir.
+
+### Respuesta en JSON garantizada
+
+La llamada usa `response_format: {"type":"json_object"}` (soportado por Gemini, Groq y Cerebras) además de pedirlo en el prompt, y un `max_tokens` holgado. Sin eso, el modelo a veces envuelve el JSON en prosa o lo corta a la mitad — y un JSON inválido significa caer al motor determinista, que en medio de una conversación se nota como un bajón brusco de calidad.
 
 El catálogo (precios, duraciones) y el `knowledge` del negocio van en el prompt como los **únicos** datos válidos, con instrucción explícita de no inventar otros — igual que el motor determinista nunca inventó un precio.
 

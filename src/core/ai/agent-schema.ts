@@ -24,6 +24,13 @@ const agentActionSchema = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("confirmar") }),
   /** El mensaje no tiene nada que ver con el negocio (charla ajena al contexto de venta). */
   z.object({ tipo: z.literal("fuera_de_contexto") }),
+  /**
+   * El cliente quiere empezar de cero o dice que los datos que tenemos están
+   * mal ("yo no pedí nada", "cambié de idea", "empecemos de nuevo"). Borra
+   * lo capturado — es la única forma que tiene la IA de CORREGIR un dato
+   * viejo, porque las demás acciones solo agregan.
+   */
+  z.object({ tipo: z.literal("reiniciar") }),
 ]);
 
 export const agentResponseSchema = z.object({

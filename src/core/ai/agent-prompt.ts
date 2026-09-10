@@ -60,6 +60,16 @@ function buildDatosConocidos(input: AgentTurnInput): string {
   return partes.length > 0 ? partes.join(", ") : "ninguno todavía";
 }
 
+/**
+ * Aviso destacado cuando la cita/pedido YA está confirmada. Sin esto la IA
+ * no tiene forma de saberlo y vuelve a pedir datos o a re-confirmar algo
+ * que el cliente ya cerró.
+ */
+function buildConfirmadoBlock(input: AgentTurnInput): string {
+  if (!input.lead.yaConfirmado) return "";
+  return `\n\n⚠️ IMPORTANTE: la cita/pedido de este cliente YA ESTÁ CONFIRMADA con los datos de arriba. NO vuelvas a pedirle el nombre, el servicio ni la fecha, y NO uses la acción "confirmar" otra vez. Si te agradece o se despide, respondé con calidez y cerrá. Si pregunta algo sobre su cita, respondé con esos datos. Si quiere agendar algo MÁS (otro servicio), tratalo como una reserva NUEVA: declarás "elegir_servicio" y le pedís la fecha de esa nueva cita.`;
+}
+
 function buildOffTopicNote(input: AgentTurnInput): string {
   if (input.lead.offTopicCount <= 0) return "";
   const vez = input.lead.offTopicCount === 1 ? "vez" : "veces";
@@ -81,7 +91,7 @@ Tu trabajo es actuar como un vendedor experto de este negocio: entendé lo que e
 Catálogo de servicios (los ÚNICOS que existen — nunca inventes otro, otro precio ni otra duración):
 ${buildCatalogBlock(input)}${buildHorariosBlock(input)}${buildPedidosBlock(input)}${buildKnowledgeBlock(input)}
 
-Datos que ya tenés confirmados de este cliente: ${buildDatosConocidos(input)}.${buildOffTopicNote(input)}
+Datos que ya tenés de este cliente: ${buildDatosConocidos(input)}.${buildConfirmadoBlock(input)}${buildOffTopicNote(input)}
 
 Acciones disponibles (declará las que correspondan a este turno, pueden ser varias si el cliente dio varios datos juntos, o ninguna):
 - "elegir_servicio": el cliente eligió (o cambió) de servicio. Usá el id EXACTO del catálogo de arriba.
@@ -90,6 +100,7 @@ Acciones disponibles (declará las que correspondan a este turno, pueden ser var
 - "guardar_modalidad": SOLO si este negocio pregunta modalidad de entrega (ver arriba) — usá el texto EXACTO de una de sus opciones.
 - "confirmar": SOLO cuando ya tengas nombre + servicio + fecha (+ modalidad, si este negocio la usa). Si falta algo, pedilo en tu respuesta y NO declares esta acción.
 - "fuera_de_contexto": el mensaje no tiene NADA que ver con este negocio (política, deportes, chistes, otro tema totalmente ajeno). Respondé breve y amablemente, y redirigí hacia el negocio.
+- "reiniciar": el cliente dice que los datos que tenemos están MAL o quiere empezar de cero ("yo no pedí nada", "ese no es mi nombre", "cambié de idea", "empecemos de nuevo", "cancelá todo"). Borra todo lo capturado. Es tu ÚNICA forma de corregir un dato viejo o equivocado: las demás acciones solo agregan, no borran. Si sospechás que un dato guardado no corresponde a esta conversación, usá esta acción en vez de seguir adelante con él.
 
 Respondé ÚNICAMENTE un JSON con esta forma exacta, sin texto fuera del JSON ni markdown:
 {"respuesta": "tu respuesta para el cliente", "acciones": [{"tipo": "..."}]}

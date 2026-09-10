@@ -447,3 +447,150 @@ describe("runAgentTurn — fallback (cuando el agente no puede procesar el turno
     expect(result).toBeNull();
   });
 });
+
+describe("runAgentTurn — corregir datos viejos / reiniciar", () => {
+  const leadConDatosViejos: Lead = {
+    id: "lead-1",
+    businessSlug: "estetica-bella",
+    channel: "mock",
+    contact: "57300000000",
+    name: "Carlos",
+    serviceId: "unas",
+    tentativeDate: "mañana",
+    state: "interesado",
+    stage: "esperando_confirmacion",
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    lastInboundAt: now.toISOString(),
+    followUpsSent: [],
+  };
+
+  it("la acción 'reiniciar' borra los datos que la IA detectó como equivocados", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "¡Tenés razón, perdón! Empecemos de nuevo 😊 ¿Qué servicio te interesa?",
+      acciones: [{ tipo: "reiniciar" }],
+    });
+    const result = await runAgentTurn(
+      leadConDatosViejos,
+      msg("pero yo no he pedido nada"),
+      config,
+      llm,
+      persona,
+      [],
+      now,
+    );
+
+    expect(result!.lead.name).toBeUndefined();
+    expect(result!.lead.serviceId).toBeUndefined();
+    expect(result!.lead.tentativeDate).toBeUndefined();
+    expect(result!.lead.state).toBe("nuevo");
+  });
+
+  it("'reiniciar' + 'elegir_servicio' en el mismo turno: el servicio nuevo sobrevive", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "¡Listo, arrancamos de nuevo con una depilación! ¿Para qué día?",
+      acciones: [{ tipo: "reiniciar" }, { tipo: "elegir_servicio", servicioId: "limpieza-facial" }],
+    });
+    const result = await runAgentTurn(
+      leadConDatosViejos,
+      msg("no, olvidá eso, quiero una limpieza facial"),
+      config,
+      llm,
+      persona,
+      [],
+      now,
+    );
+
+    expect(result!.lead.serviceId).toBe("limpieza-facial");
+    expect(result!.lead.name).toBeUndefined(); // lo viejo sí se borró
+    expect(result!.lead.tentativeDate).toBeUndefined();
+  });
+
+  it("'cancelar' limpia ANTES de llamar a la IA (el agente ve el estado en blanco)", async () => {
+    let inputVisto: { name?: string; serviceId?: string; yaConfirmado: boolean } | null = null;
+    const llm: ILLMProvider = {
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent(input) {
+        inputVisto = input.lead;
+        return { respuesta: "¡Dale! Empecemos de nuevo 😊", acciones: [] };
+      },
+    };
+
+    const result = await runAgentTurn(leadConDatosViejos, msg("cancelar"), config, llm, persona, [], now);
+
+    expect(inputVisto!.name).toBeUndefined();
+    expect(inputVisto!.serviceId).toBeUndefined();
+    expect(result!.lead.name).toBeUndefined();
+    expect(result!.lead.serviceId).toBeUndefined();
+  });
+});
+
+describe("runAgentTurn — la IA sabe si la cita ya está confirmada", () => {
+  it("le pasa yaConfirmado: true cuando el lead ya está en datos_completos", async () => {
+    let yaConfirmadoVisto: boolean | null = null;
+    const llm: ILLMProvider = {
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent(input) {
+        yaConfirmadoVisto = input.lead.yaConfirmado;
+        return { respuesta: "¡Gracias a vos, Carlos! Te esperamos 💜", acciones: [] };
+      },
+    };
+
+    const leadConfirmado: Lead = {
+      id: "lead-1",
+      businessSlug: "estetica-bella",
+      channel: "mock",
+      contact: "57300000000",
+      name: "Carlos",
+      serviceId: "unas",
+      tentativeDate: "mañana",
+      state: "agendado",
+      stage: "datos_completos",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      lastInboundAt: now.toISOString(),
+      followUpsSent: [],
+    };
+
+    await runAgentTurn(leadConfirmado, msg("muchas gracias"), config, llm, persona, [], now);
+    expect(yaConfirmadoVisto).toBe(true);
+  });
+
+  it("le pasa yaConfirmado: false mientras la cita no esté cerrada", async () => {
+    let yaConfirmadoVisto: boolean | null = null;
+    const llm: ILLMProvider = {
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent(input) {
+        yaConfirmadoVisto = input.lead.yaConfirmado;
+        return { respuesta: "¿Para qué día?", acciones: [] };
+      },
+    };
+
+    await runAgentTurn(null, msg("Hola"), config, llm, persona, [], now);
+    expect(yaConfirmadoVisto).toBe(false);
+  });
+});

@@ -55,6 +55,12 @@ export interface ChatMessage {
 export interface ChatCompletionParams {
   temperature: number;
   maxTokens: number;
+  /**
+   * Pide al proveedor que garantice JSON válido (`response_format`). Sin
+   * esto, el modelo a veces envuelve el JSON en prosa o markdown y el
+   * parseo falla — que en modo agente significa caer al motor determinista.
+   */
+  jsonMode?: boolean;
 }
 
 export interface SendRequest {
@@ -74,6 +80,7 @@ export function buildChatRequest(
     temperature: params.temperature,
     max_tokens: params.maxTokens,
     messages,
+    ...(params.jsonMode ? { response_format: { type: "json_object" } } : {}),
   };
   return {
     url,
@@ -172,7 +179,9 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         { role: "system", content: buildAgentSystemPrompt(input) },
         { role: "user", content: buildAgentUserMessage(input) },
       ],
-      { temperature: 0.4, maxTokens: 600 },
+      // maxTokens holgado: si la respuesta se corta a la mitad, el JSON
+      // queda inválido y el turno cae al motor determinista.
+      { temperature: 0.4, maxTokens: 900, jsonMode: true },
     );
     return parseAgentResponse(raw);
   }
