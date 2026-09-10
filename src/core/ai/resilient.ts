@@ -4,19 +4,24 @@
  * Envuelve una lista ordenada de `ILLMProvider` (p. ej. Gemini -> Groq ->
  * Cerebras): prueba el primero, y si LANZA (red, HTTP, timeout) pasa al
  * siguiente. Si todos fallan, `enhance` devuelve el borrador del motor y
- * `extractDateTime` devuelve `null` — igual que el comportamiento original
- * de `GroqProvider` sin conexión, así el bot nunca se cae por la IA.
+ * `extractDateTime`/`interpret`/`runAgent` devuelven `null` — así el bot
+ * nunca se cae por la IA.
  *
- * Un `null` de `extractDateTime` que SÍ devuelve un proveedor (fecha
- * ambigua, no un error) es una respuesta válida: no dispara el fallback.
+ * Un `null` de `extractDateTime`/`interpret` que SÍ devuelve un proveedor
+ * (fecha ambigua, sin match) es una respuesta de NEGOCIO válida: no dispara
+ * el paso al siguiente proveedor. `runAgent` es la excepción: ahí un `null`
+ * significa "el modelo no devolvió un JSON válido", que no es una respuesta
+ * de negocio — sí dispara el siguiente proveedor (ver su comentario).
  */
 
 import type {
+  AgentTurnInput,
   DateExtractionInput,
   ILLMProvider,
   InterpretInput,
   LLMContext,
 } from "@/core/ai/provider";
+import type { AgentResponse } from "@/core/ai/agent-schema";
 
 export class ResilientProvider implements ILLMProvider {
   readonly model: string;
@@ -65,6 +70,30 @@ export class ResilientProvider implements ILLMProvider {
       } catch (err) {
         console.error(
           `[AI] ${provider.model ?? "proveedor"} falló (interpret), probando el siguiente:`,
+          err,
+        );
+      }
+    }
+    return null;
+  }
+
+  /**
+   * A diferencia de interpret()/extractDateTime() (donde un `null` es una
+   * respuesta VÁLIDA de negocio), acá un `null` significa que el modelo NO
+   * devolvió un JSON válido — eso no es una respuesta real, así que SÍ se
+   * prueba el siguiente proveedor de la cadena.
+   */
+  async runAgent(input: AgentTurnInput): Promise<AgentResponse | null> {
+    for (const provider of this.providers) {
+      try {
+        const result = await provider.runAgent(input);
+        if (result) return result;
+        console.error(
+          `[AI] ${provider.model ?? "proveedor"} devolvió un JSON inválido en runAgent, probando el siguiente`,
+        );
+      } catch (err) {
+        console.error(
+          `[AI] ${provider.model ?? "proveedor"} falló (runAgent), probando el siguiente:`,
           err,
         );
       }

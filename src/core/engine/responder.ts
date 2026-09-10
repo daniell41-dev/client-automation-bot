@@ -49,8 +49,8 @@ export interface RespondResult {
 /** Respuestas rápidas para el paso de confirmación de cita. */
 const CONFIRM_OPTIONS = ["Sí, confirmar", "Cambiar fecha"];
 
-/** Crea un lead nuevo a partir del primer mensaje. */
-function createLead(message: IncomingMessage, now: Date): Lead {
+/** Crea un lead nuevo a partir del primer mensaje. Exportado: lo reutiliza `agent.ts`. */
+export function createLead(message: IncomingMessage, now: Date): Lead {
   const iso = now.toISOString();
   return {
     id: randomUUID(),

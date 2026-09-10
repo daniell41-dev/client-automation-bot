@@ -21,6 +21,7 @@ import type { BusinessConfig } from "@/core/types";
 export const plantilla: BusinessConfig = {
   slug: "mi-negocio", // identificador en kebab-case
   name: "Mi Negocio",
+  // rubro: "restaurante", // opcional: se lo pasa a la IA en modo agente
   currency: "COP",
   locale: "es-CO",
 
@@ -70,8 +71,12 @@ export const plantilla: BusinessConfig = {
 
   // Cerebro del bot (sección "Respuestas y flujos" del portal).
   // Las reglas rápidas responden EXACTO por palabra clave, antes que la IA.
+  // modo "agente" (default, no hace falta escribirlo): la IA decide qué
+  // hacer en cada turno con criterio de vendedor — ver docs/13-modo-agente.md.
+  // modo "guiado": el funnel paso a paso de siempre, la IA solo reformula.
   // ai: {
   //   enabled: true,
+  //   modo: "agente", // o "guiado" — default "agente" si se omite
   //   knowledge: "Describe el negocio: qué vende, cómo cobra, si hace envíos…",
   //   reglas: [
   //     { keywords: ["horario", "abren"], respuesta: "Atendemos de 9 a 20 h." },

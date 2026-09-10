@@ -15,6 +15,7 @@
  */
 
 import type {
+  AgentTurnInput,
   DateExtractionInput,
   ILLMProvider,
   InterpretInput,
@@ -26,6 +27,12 @@ import {
   parseExtractedDateTime,
 } from "@/core/ai/date-extraction";
 import { buildInterpretPrompt, parseInterpretation } from "@/core/ai/interpret";
+import {
+  buildAgentSystemPrompt,
+  buildAgentUserMessage,
+  parseAgentResponse,
+} from "@/core/ai/agent-prompt";
+import type { AgentResponse } from "@/core/ai/agent-schema";
 
 export interface OpenAICompatibleOptions {
   /** Nombre corto para logs/errores (p. ej. "gemini", "groq"). */
@@ -157,5 +164,16 @@ export class OpenAICompatibleProvider implements ILLMProvider {
       { temperature: 0, maxTokens: 30 },
     );
     return parseInterpretation(raw, input.options);
+  }
+
+  async runAgent(input: AgentTurnInput): Promise<AgentResponse | null> {
+    const raw = await this.chatCompletion(
+      [
+        { role: "system", content: buildAgentSystemPrompt(input) },
+        { role: "user", content: buildAgentUserMessage(input) },
+      ],
+      { temperature: 0.4, maxTokens: 600 },
+    );
+    return parseAgentResponse(raw);
   }
 }

@@ -23,6 +23,9 @@ function failingProvider(model: string): ILLMProvider {
     async interpret() {
       throw new Error(`${model} caído`);
     },
+    async runAgent() {
+      throw new Error(`${model} caído`);
+    },
   };
 }
 
@@ -44,6 +47,9 @@ function workingProvider(
     async interpret() {
       return interpreted;
     },
+    async runAgent() {
+      return null;
+    },
   };
 }
 
@@ -60,6 +66,9 @@ describe("ResilientProvider — enhance", () => {
         return null;
       },
       async interpret() {
+        return null;
+      },
+      async runAgent() {
         return null;
       },
     };
@@ -101,6 +110,9 @@ describe("ResilientProvider — extractDateTime", () => {
         return "2026-06-30T15:00:00-05:00";
       },
       async interpret() {
+        return null;
+      },
+      async runAgent() {
         return null;
       },
     };
@@ -175,6 +187,9 @@ describe("ResilientProvider — interpret", () => {
       async interpret() {
         secondCalled = true;
         return "Uñas";
+      },
+      async runAgent() {
+        return null;
       },
     };
     const chain = new ResilientProvider([workingProvider("primero", "", null, null), second]);

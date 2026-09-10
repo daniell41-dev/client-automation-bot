@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { handleIncoming } from "@/core/handle";
 import type { BusinessConfig, IncomingMessage, Lead } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
-import type { ILLMProvider } from "@/core/ai/provider";
+import type { AgentTurnInput, ILLMProvider } from "@/core/ai/provider";
+import type { AgentResponse } from "@/core/ai/agent-schema";
 import { makeFakeCalendar } from "@/core/storage/adapters/google/fake-calendar";
+import { SessionMemoryRepository } from "@/core/storage/adapters/session-memory";
 
 /** Repositorio en memoria para el test (implementa el contrato). */
 class InMemoryRepo implements LeadRepository {
@@ -100,6 +102,9 @@ function fakeLLM(
     },
     async interpret() {
       return interpreted;
+    },
+    async runAgent() {
+      return null; // los tests de handle.test.ts usan el motor determinista
     },
   };
 }
@@ -263,6 +268,9 @@ function fakeLLMWithInterpret(interpreted: string | null): {
       state.calls++;
       return interpreted;
     },
+    async runAgent() {
+      return null;
+    },
   };
   return { llm, state };
 }
@@ -314,5 +322,161 @@ describe("handleIncoming — red de seguridad del intérprete IA", () => {
     await handleIncoming(msg("limpieza facial"), config, repo, new Date(), llm);
 
     expect(state.calls).toBe(0);
+  });
+});
+
+describe("handleIncoming — modo agente", () => {
+  const configConPersona: BusinessConfig = {
+    ...config,
+    personas: {
+      whatsapp: { name: "Isabella", tone: "cálida", language: "español colombiano" },
+    },
+  };
+
+  /**
+   * LLM falso para el modo agente: cuenta cuántas veces se llama cada método.
+   * `counts` es un objeto mutable (no getters) para que el conteo se pueda
+   * leer DESPUÉS de esperar `handleIncoming` sin quedar pegado al valor de
+   * cuando se creó el fake.
+   */
+  function fakeAgentLLM(
+    runAgentImpl: (input: AgentTurnInput) => Promise<AgentResponse | null>,
+  ): { llm: ILLMProvider; counts: { enhanceCalls: number; runAgentCalls: number } } {
+    const counts = { enhanceCalls: 0, runAgentCalls: 0 };
+    const llm: ILLMProvider = {
+      async enhance(ctx) {
+        counts.enhanceCalls++;
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return "2026-06-30T15:00:00-05:00";
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent(input) {
+        counts.runAgentCalls++;
+        return runAgentImpl(input);
+      },
+    };
+    return { llm, counts };
+  }
+
+  it("con persona + sessionRepo + IA, usa el agente y NO reformula con enhance()", async () => {
+    const repo = new InMemoryRepo();
+    const sessionRepo = new SessionMemoryRepository();
+    const { llm, counts } = fakeAgentLLM(async () => ({
+      respuesta: "¡Hola! ¿Qué servicio te interesa?",
+      acciones: [],
+    }));
+
+    const replies = await handleIncoming(msg("Hola"), configConPersona, repo, new Date(), llm, sessionRepo);
+
+    expect(counts.runAgentCalls).toBe(1);
+    expect(counts.enhanceCalls).toBe(0);
+    expect(replies[0].text).toBe("¡Hola! ¿Qué servicio te interesa?");
+  });
+
+  it("sin sessionRepo, no usa el agente (cae al motor determinista puro, sin reformular)", async () => {
+    // Igual que el modo guiado sin sessionRepo: ninguno de los dos puede
+    // guardar historial, así que ninguno de los dos se ejecuta.
+    const repo = new InMemoryRepo();
+    const { llm, counts } = fakeAgentLLM(async () => ({
+      respuesta: "no debería usarse",
+      acciones: [],
+    }));
+
+    const replies = await handleIncoming(msg("limpieza facial"), configConPersona, repo, new Date(), llm, undefined);
+
+    expect(counts.runAgentCalls).toBe(0);
+    expect(counts.enhanceCalls).toBe(0);
+    expect(replies[0].text).not.toBe("no debería usarse");
+    expect(repo.leads[0].serviceId).toBe("limpieza-facial");
+  });
+
+  it("con modo 'guiado' explícito, no usa el agente aunque haya persona+IA+sessionRepo", async () => {
+    const repo = new InMemoryRepo();
+    const sessionRepo = new SessionMemoryRepository();
+    const configGuiado: BusinessConfig = {
+      ...configConPersona,
+      ai: { enabled: true, modo: "guiado" },
+    };
+    const { llm, counts } = fakeAgentLLM(async () => ({ respuesta: "no debería usarse", acciones: [] }));
+
+    const replies = await handleIncoming(msg("limpieza facial"), configGuiado, repo, new Date(), llm, sessionRepo);
+
+    expect(counts.runAgentCalls).toBe(0);
+    expect(replies[0].text).not.toBe("no debería usarse");
+  });
+
+  it("si el agente falla (runAgent lanza), cae al motor determinista y SÍ reformula con enhance()", async () => {
+    const repo = new InMemoryRepo();
+    const sessionRepo = new SessionMemoryRepository();
+    const { llm, counts } = fakeAgentLLM(async () => {
+      throw new Error("proveedor caído");
+    });
+
+    const replies = await handleIncoming(msg("limpieza facial"), configConPersona, repo, new Date(), llm, sessionRepo);
+
+    expect(counts.enhanceCalls).toBeGreaterThan(0);
+    expect(replies.length).toBeGreaterThan(0);
+    expect(repo.leads[0].serviceId).toBe("limpieza-facial"); // el motor determinista sí lo reconoció
+  });
+
+  it("al confirmar vía agente, agenda en el calendario y avisa a la dueña", async () => {
+    const repo = new InMemoryRepo();
+    const sessionRepo = new SessionMemoryRepository();
+    const cal = makeFakeCalendar();
+    const sent: { to: string; text: string }[] = [];
+    const notifier = { async send(m: { to: string; text: string }) { sent.push(m); } };
+    const configConNotifyYPersona: BusinessConfig = {
+      ...configConPersona,
+      notifyPhoneNumber: "573009998888",
+    };
+
+    const { llm } = fakeAgentLLM(async () => ({
+      respuesta: "¡Listo Laura! Tu cita quedó agendada.",
+      acciones: [
+        { tipo: "elegir_servicio", servicioId: "limpieza-facial" },
+        { tipo: "guardar_nombre", nombre: "Laura" },
+        { tipo: "guardar_fecha", fecha: "mañana a las 3" },
+        { tipo: "confirmar" },
+      ],
+    }));
+
+    await handleIncoming(
+      msg("quiero limpieza facial, soy Laura, mañana a las 3, confirmo"),
+      configConNotifyYPersona,
+      repo,
+      new Date(),
+      llm,
+      sessionRepo,
+      cal,
+      notifier,
+    );
+
+    expect(repo.leads[0].stage).toBe("datos_completos");
+    expect(cal.events).toHaveLength(1);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].text).toContain("Laura");
+  });
+
+  it("persiste el historial de sesión (mensaje del cliente + respuesta del agente)", async () => {
+    const repo = new InMemoryRepo();
+    const sessionRepo = new SessionMemoryRepository();
+    const { llm } = fakeAgentLLM(async () => ({
+      respuesta: "¡Hola! ¿Qué servicio te interesa?",
+      acciones: [],
+    }));
+
+    await handleIncoming(msg("Hola"), configConPersona, repo, new Date(), llm, sessionRepo);
+
+    const session = await sessionRepo.getOrCreate("estetica-bella", "57300000000", "mock");
+    expect(session.history).toHaveLength(2);
+    expect(session.history[0]).toMatchObject({ role: "user", text: "Hola" });
+    expect(session.history[1]).toMatchObject({
+      role: "assistant",
+      text: "¡Hola! ¿Qué servicio te interesa?",
+    });
   });
 });
