@@ -138,10 +138,18 @@ export async function runAgentTurn(
   try {
     aiResult = await llm.runAgent(input);
   } catch (err) {
-    console.error("[Agent] runAgent falló, cae al motor determinista:", err);
+    const esTimeout = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+    const motivo = esTimeout ? "se agotó el tiempo de espera" : String(err);
+    console.error(`[Agent] runAgent falló (${motivo}), cae al motor determinista`);
     return null;
   }
-  if (!aiResult) return null;
+  if (!aiResult) {
+    // El proveedor (o toda la cadena de respaldo) no devolvió un JSON válido.
+    // El motivo exacto ya se logueó en `openai-compatible.ts`/`resilient.ts`;
+    // acá solo se deja constancia de la consecuencia (cae al motor determinista).
+    console.error("[Agent] la IA no devolvió un turno válido, cae al motor determinista");
+    return null;
+  }
 
   // La IA detectó que los datos guardados no corresponden ("yo no pedí
   // nada", "cambié de idea"). Se limpia ANTES de aplicar el resto de las

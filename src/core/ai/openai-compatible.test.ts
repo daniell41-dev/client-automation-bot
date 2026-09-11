@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildChatRequest,
   OpenAICompatibleProvider,
 } from "@/core/ai/openai-compatible";
-import type { LLMContext } from "@/core/ai/provider";
+import type { AgentTurnInput, LLMContext } from "@/core/ai/provider";
 
 const ctx: LLMContext = {
   businessName: "Estética Bella",
@@ -161,5 +161,112 @@ describe("buildChatRequest — modo JSON", () => {
     );
     const body = JSON.parse(init.body as string);
     expect(body.response_format).toBeUndefined();
+  });
+});
+
+describe("buildChatRequest — reasoning_effort", () => {
+  it("manda reasoning_effort cuando se especifica", () => {
+    const { init } = buildChatRequest(
+      { baseURL: "https://api.example.com/v1", apiKey: "k", model: "m" },
+      [{ role: "user", content: "hola" }],
+      { temperature: 0, maxTokens: 100, reasoningEffort: "low" },
+    );
+    const body = JSON.parse(init.body as string);
+    expect(body.reasoning_effort).toBe("low");
+  });
+
+  it("NO manda reasoning_effort si no se especifica", () => {
+    const { init } = buildChatRequest(
+      { baseURL: "https://api.example.com/v1", apiKey: "k", model: "m" },
+      [{ role: "user", content: "hola" }],
+      { temperature: 0, maxTokens: 100 },
+    );
+    const body = JSON.parse(init.body as string);
+    expect(body.reasoning_effort).toBeUndefined();
+  });
+});
+
+describe("OpenAICompatibleProvider.enhance — respuesta vacía", () => {
+  it("incluye el finish_reason en el error cuando la respuesta viene sin contenido", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      fetchImpl: vi.fn(async () =>
+        new Response(
+          JSON.stringify({ choices: [{ message: {}, finish_reason: "length" }] }),
+          { status: 200 },
+        ),
+      ) as unknown as typeof fetch,
+    });
+    await expect(provider.enhance(ctx)).rejects.toThrow(/finish_reason=length/);
+  });
+});
+
+const agentInput: AgentTurnInput = {
+  businessName: "Estética Bella",
+  currency: "COP",
+  persona: { name: "Isabella", tone: "cálida", language: "español colombiano" },
+  services: [
+    {
+      id: "unas",
+      name: "Uñas",
+      description: "Manicure",
+      price: 60000,
+      durationMinutes: 45,
+    },
+  ],
+  lead: { yaConfirmado: false, offTopicCount: 0 },
+  history: [],
+  message: "Hola",
+};
+
+describe("OpenAICompatibleProvider.runAgent", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("manda reasoning_effort y maxTokens holgado, y devuelve el JSON parseado", async () => {
+    let bodyVisto: Record<string, unknown> | null = null;
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      reasoningEffort: "low",
+      fetchImpl: vi.fn(async (_url, init) => {
+        bodyVisto = JSON.parse((init as RequestInit).body as string);
+        return new Response(
+          JSON.stringify({
+            choices: [{ message: { content: '{"respuesta":"hola","acciones":[]}' } }],
+          }),
+          { status: 200 },
+        );
+      }) as unknown as typeof fetch,
+    });
+
+    const result = await provider.runAgent(agentInput);
+
+    expect(result?.respuesta).toBe("hola");
+    expect(bodyVisto!.reasoning_effort).toBe("low");
+    expect(bodyVisto!.max_tokens).toBe(1600);
+    expect(bodyVisto!.response_format).toEqual({ type: "json_object" });
+  });
+
+  it("devuelve null y loguea el motivo cuando el modelo no devuelve JSON válido", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      fetchImpl: fakeFetchOk("esto no es json"),
+    });
+
+    const result = await provider.runAgent(agentInput);
+
+    expect(result).toBeNull();
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("no-json"));
   });
 });

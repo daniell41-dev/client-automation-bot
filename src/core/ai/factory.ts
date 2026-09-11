@@ -10,12 +10,31 @@
 
 import type { ILLMProvider } from "@/core/ai/provider";
 import { OpenAICompatibleProvider } from "@/core/ai/openai-compatible";
-import { AI_PRESETS, type PresetName } from "@/core/ai/presets";
+import { AI_PRESETS, type AIPreset, type PresetName } from "@/core/ai/presets";
 import { ResilientProvider } from "@/core/ai/resilient";
 
 type ProviderName = PresetName | "custom";
 
 const DEFAULT_ORDER: ProviderName[] = ["gemini", "groq", "cerebras", "custom"];
+
+/**
+ * `reasoning_effort` a usar: `AI_REASONING_EFFORT` manda sobre el default del
+ * preset. Vacío (`AI_REASONING_EFFORT=`) fuerza a NO mandar el campo, incluso
+ * si el preset trae uno propio.
+ */
+function resolveReasoningEffort(presetDefault: string | undefined): string | undefined {
+  const override = process.env.AI_REASONING_EFFORT;
+  if (override === undefined) return presetDefault;
+  return override === "" ? undefined : override;
+}
+
+/** Timeout de `runAgent` en ms: `AI_AGENT_TIMEOUT_MS` o el default del provider (20000). */
+function resolveAgentTimeoutMs(): number | undefined {
+  const raw = process.env.AI_AGENT_TIMEOUT_MS;
+  if (!raw) return undefined;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
 
 /** Construye el provider "custom" (Ollama u otro) desde AI_CUSTOM_*. */
 function buildCustomProvider(): ILLMProvider | null {
@@ -23,7 +42,14 @@ function buildCustomProvider(): ILLMProvider | null {
   const baseURL = process.env.AI_CUSTOM_BASE_URL;
   const model = process.env.AI_CUSTOM_MODEL;
   if (!apiKey || !baseURL || !model) return null;
-  return new OpenAICompatibleProvider({ name: "custom", baseURL, apiKey, model });
+  return new OpenAICompatibleProvider({
+    name: "custom",
+    baseURL,
+    apiKey,
+    model,
+    reasoningEffort: resolveReasoningEffort(undefined),
+    agentTimeoutMs: resolveAgentTimeoutMs(),
+  });
 }
 
 /** Construye el provider de un preset conocido (gemini/groq/cerebras) desde <NOMBRE>_*. */
@@ -31,9 +57,16 @@ function buildPresetProvider(name: PresetName): ILLMProvider | null {
   const envPrefix = name.toUpperCase();
   const apiKey = process.env[`${envPrefix}_API_KEY`];
   if (!apiKey) return null;
-  const preset = AI_PRESETS[name];
+  const preset: AIPreset = AI_PRESETS[name];
   const model = process.env[`${envPrefix}_MODEL`] || preset.defaultModel;
-  return new OpenAICompatibleProvider({ name, baseURL: preset.baseURL, apiKey, model });
+  return new OpenAICompatibleProvider({
+    name,
+    baseURL: preset.baseURL,
+    apiKey,
+    model,
+    reasoningEffort: resolveReasoningEffort(preset.reasoningEffort),
+    agentTimeoutMs: resolveAgentTimeoutMs(),
+  });
 }
 
 function buildProvider(name: ProviderName): ILLMProvider | null {

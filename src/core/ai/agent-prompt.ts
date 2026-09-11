@@ -120,27 +120,43 @@ export function buildAgentUserMessage(input: AgentTurnInput): string {
   return `Historial reciente:\n${historyBlock}\n\nMensaje actual del cliente: ${input.message}`;
 }
 
+/** Cuántos caracteres del texto crudo del modelo se conservan para loguear un fallo. */
+const RAW_LOG_LIMIT = 300;
+
+/**
+ * Resultado de intentar parsear la respuesta del modelo. A diferencia de un
+ * simple `null`, `motivo` + `raw` le dan a quien llama (`openai-compatible.ts`)
+ * algo concreto para loguear — sin esto, un fallo de parseo era indistinguible
+ * de cualquier otro y quedaba completamente en silencio.
+ */
+export type AgentParseResult =
+  | { ok: true; value: AgentResponse }
+  | { ok: false; motivo: "vacio" | "no-json" | "schema"; raw: string };
+
 /**
  * Parsea y valida la respuesta cruda del modelo contra el contrato. Tolera
- * que venga envuelta en fences de markdown (```json ... ```). Devuelve
- * `null` si no es JSON válido o no cumple la forma esperada — nunca se
- * confía a ciegas en la salida del modelo.
+ * que venga envuelta en fences de markdown (```json ... ```). Nunca se confía
+ * a ciegas en la salida del modelo: si no es JSON válido o no cumple la forma
+ * esperada, devuelve `ok: false` con el motivo y un recorte del texto crudo.
  */
-export function parseAgentResponse(raw: string): AgentResponse | null {
+export function parseAgentResponse(raw: string): AgentParseResult {
   const cleaned = raw
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/```\s*$/, "")
     .trim();
-  if (!cleaned) return null;
+  if (!cleaned) return { ok: false, motivo: "vacio", raw: raw.slice(0, RAW_LOG_LIMIT) };
 
   let json: unknown;
   try {
     json = JSON.parse(cleaned);
   } catch {
-    return null;
+    return { ok: false, motivo: "no-json", raw: cleaned.slice(0, RAW_LOG_LIMIT) };
   }
 
   const result = agentResponseSchema.safeParse(json);
-  return result.success ? result.data : null;
+  if (!result.success) {
+    return { ok: false, motivo: "schema", raw: cleaned.slice(0, RAW_LOG_LIMIT) };
+  }
+  return { ok: true, value: result.data };
 }

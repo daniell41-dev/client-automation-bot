@@ -180,37 +180,58 @@ describe("parseAgentResponse", () => {
       acciones: [{ tipo: "elegir_servicio", servicioId: "unas" }],
     });
     const result = parseAgentResponse(raw);
-    expect(result?.respuesta).toBe("¡Con gusto! ¿Cuál es tu nombre?");
-    expect(result?.acciones).toEqual([{ tipo: "elegir_servicio", servicioId: "unas" }]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("esperaba ok:true");
+    expect(result.value.respuesta).toBe("¡Con gusto! ¿Cuál es tu nombre?");
+    expect(result.value.acciones).toEqual([{ tipo: "elegir_servicio", servicioId: "unas" }]);
   });
 
   it("tolera que el modelo envuelva el JSON en fences de markdown", () => {
     const raw = '```json\n{"respuesta": "Hola", "acciones": []}\n```';
-    expect(parseAgentResponse(raw)?.respuesta).toBe("Hola");
+    const result = parseAgentResponse(raw);
+    expect(result.ok && result.value.respuesta).toBe("Hola");
   });
 
   it("acepta 'acciones' ausente (default vacío)", () => {
     const result = parseAgentResponse('{"respuesta": "Hola"}');
-    expect(result?.acciones).toEqual([]);
+    expect(result.ok && result.value.acciones).toEqual([]);
   });
 
-  it("devuelve null si no es JSON válido", () => {
-    expect(parseAgentResponse("esto no es json")).toBeNull();
-    expect(parseAgentResponse("")).toBeNull();
+  it("devuelve motivo 'vacio' si el texto crudo está vacío", () => {
+    const result = parseAgentResponse("");
+    expect(result).toEqual({ ok: false, motivo: "vacio", raw: "" });
   });
 
-  it("devuelve null si falta 'respuesta'", () => {
-    expect(parseAgentResponse('{"acciones": []}')).toBeNull();
+  it("devuelve motivo 'no-json' si no es JSON válido", () => {
+    const result = parseAgentResponse("esto no es json");
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.motivo).toBe("no-json");
   });
 
-  it("devuelve null si una acción trae un 'tipo' desconocido", () => {
+  it("devuelve motivo 'schema' si falta 'respuesta'", () => {
+    const result = parseAgentResponse('{"acciones": []}');
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.motivo).toBe("schema");
+  });
+
+  it("devuelve motivo 'schema' si una acción trae un 'tipo' desconocido", () => {
     const raw = JSON.stringify({ respuesta: "Hola", acciones: [{ tipo: "hacer_magia" }] });
-    expect(parseAgentResponse(raw)).toBeNull();
+    const result = parseAgentResponse(raw);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.motivo).toBe("schema");
   });
 
-  it("devuelve null si a una acción le falta el campo requerido", () => {
+  it("devuelve motivo 'schema' si a una acción le falta el campo requerido", () => {
     const raw = JSON.stringify({ respuesta: "Hola", acciones: [{ tipo: "elegir_servicio" }] });
-    expect(parseAgentResponse(raw)).toBeNull();
+    const result = parseAgentResponse(raw);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.motivo).toBe("schema");
+  });
+
+  it("recorta el texto crudo a 300 caracteres en el motivo de fallo", () => {
+    const raw = "x".repeat(500);
+    const result = parseAgentResponse(raw);
+    expect(!result.ok && result.raw.length).toBe(300);
   });
 
   it("acepta las 7 acciones válidas del contrato", () => {
@@ -226,6 +247,7 @@ describe("parseAgentResponse", () => {
         { tipo: "reiniciar" },
       ],
     });
-    expect(parseAgentResponse(raw)?.acciones).toHaveLength(7);
+    const result = parseAgentResponse(raw);
+    expect(result.ok && result.value.acciones).toHaveLength(7);
   });
 });
