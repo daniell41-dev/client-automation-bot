@@ -82,7 +82,7 @@ export async function POST(request: Request): Promise<Response> {
     timestamp: new Date().toISOString(),
   };
 
-  const replies = await handleIncoming(
+  const { messages: replies, modo, motivoFallback } = await handleIncoming(
     message,
     business,
     repo,
@@ -96,6 +96,6 @@ export async function POST(request: Request): Promise<Response> {
   return Response.json({
     replies,
     lead,
-    _debug: { ai_active: !!llm, model: llm?.model ?? null },
+    _debug: { ai_active: !!llm, model: llm?.model ?? null, modo, motivoFallback },
   });
 }

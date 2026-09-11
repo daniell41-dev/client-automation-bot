@@ -96,7 +96,7 @@ export async function POST(request: Request): Promise<Response> {
         contactName: parsed.contactName,
       };
 
-      const replies = await handleIncoming(
+      const { messages: replies } = await handleIncoming(
         message,
         business,
         repo,

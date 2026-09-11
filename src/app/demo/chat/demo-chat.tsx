@@ -59,10 +59,24 @@ export function DemoChat({ businessSlug }: { businessSlug: string }) {
         }),
       });
       if (!res.ok) throw new Error(await res.text());
-      const data = (await res.json()) as { replies: { text: string }[] };
+      const data = (await res.json()) as {
+        replies: { text: string }[];
+        _debug?: { modo?: "agente" | "guiado"; motivoFallback?: string };
+      };
+      // El chip solo importa cuando algo falló (guiado = el agente no pudo
+      // procesar este turno) o en desarrollo, donde vale la pena ver siempre
+      // quién respondió — en producción, si todo va bien, no aporta nada.
+      const { modo, motivoFallback } = data._debug ?? {};
+      const mostrarModo = process.env.NODE_ENV !== "production" || modo === "guiado";
+      const note =
+        mostrarModo && modo
+          ? modo === "guiado" && motivoFallback
+            ? `⚠️ guiado (fallback): ${motivoFallback}`
+            : modo
+          : undefined;
       setMessages((prev) => [
         ...prev,
-        ...data.replies.map((r) => ({ role: "out" as const, text: r.text })),
+        ...data.replies.map((r) => ({ role: "out" as const, text: r.text, note })),
       ]);
     } catch {
       setMessages((prev) => [

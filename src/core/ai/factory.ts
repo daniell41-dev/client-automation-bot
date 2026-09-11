@@ -20,16 +20,17 @@ const DEFAULT_ORDER: ProviderName[] = ["gemini", "groq", "cerebras", "custom"];
 /**
  * `reasoning_effort` a usar: `AI_REASONING_EFFORT` manda sobre el default del
  * preset. Vacío (`AI_REASONING_EFFORT=`) fuerza a NO mandar el campo, incluso
- * si el preset trae uno propio.
+ * si el preset trae uno propio. Exportada para que `ai-doctor.ts` construya
+ * el mismo provider (con la misma config) que usaría el bot en producción.
  */
-function resolveReasoningEffort(presetDefault: string | undefined): string | undefined {
+export function resolveReasoningEffort(presetDefault: string | undefined): string | undefined {
   const override = process.env.AI_REASONING_EFFORT;
   if (override === undefined) return presetDefault;
   return override === "" ? undefined : override;
 }
 
 /** Timeout de `runAgent` en ms: `AI_AGENT_TIMEOUT_MS` o el default del provider (20000). */
-function resolveAgentTimeoutMs(): number | undefined {
+export function resolveAgentTimeoutMs(): number | undefined {
   const raw = process.env.AI_AGENT_TIMEOUT_MS;
   if (!raw) return undefined;
   const parsed = Number(raw);
