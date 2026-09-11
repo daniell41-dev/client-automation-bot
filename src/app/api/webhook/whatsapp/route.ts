@@ -21,6 +21,7 @@ import { parseInbound } from "@/core/channels/whatsapp/parse";
 import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
 import { resolveBusinessByPhoneNumberId } from "@/businesses/resolve";
 import {
+  createAiUsageRepository,
   createCalendar,
   createLeadRepository,
   createMessageDedupeRepository,
@@ -89,7 +90,6 @@ export async function POST(request: Request): Promise<Response> {
  */
 export async function processWebhookPayload(payload: unknown): Promise<void> {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  const llm = createLLMProvider();
   const dedupe = createMessageDedupeRepository();
 
   try {
@@ -106,6 +106,15 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
       if (!resolved) continue; // negocio no registrado → ignorar
       const business = resolved.config;
       if (business.botActivo === false) continue; // bot en pausa → no responder
+
+      // Un payload puede traer mensajes de negocios distintos (batch de
+      // Meta) — el provider se arma POR MENSAJE para que T-07 atribuya el
+      // consumo al negocio correcto en `uso_ia`. `negocioId` (UUID real) si
+      // el negocio vive en Supabase; si no, el slug (fallback JSON local).
+      const llm = createLLMProvider({
+        repo: createAiUsageRepository(),
+        negocio: resolved.negocioId ?? business.slug,
+      });
 
       const repo = createLeadRepository(business);
       const sessionRepo = llm ? createSessionRepository(business) : undefined;

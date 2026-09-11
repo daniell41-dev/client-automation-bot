@@ -40,6 +40,12 @@ export interface SessionRow {
 
 /** Fila de la tabla `negocios` (lo que necesita el resolver del bot). */
 export interface NegocioRow {
+  /**
+   * UUID de la fila. Opcional en el tipo (no en la tabla real) para no
+   * obligar a cada fixture de test a inventarlo — `resolve.ts` lo necesita
+   * para atribuir el consumo de IA (T-07) a un negocio concreto en `uso_ia`.
+   */
+  id?: string;
   slug: string;
   config: unknown;
   whatsapp_phone_number_id: string | null;
@@ -63,6 +69,21 @@ export interface SupabaseDb {
    * carrera, nunca hay una ventana de "leer y después escribir".
    */
   claimMessage(messageId: string): Promise<boolean>;
+  /**
+   * Suma un delta de consumo de IA a la fila del día para
+   * (negocio_id, proveedor) — ver migración 0005. Atómico vía la función
+   * `registrar_uso_ia` (upsert con incremento en la base), no leer-sumar-
+   * escribir desde acá: dos llamadas concurrentes del mismo negocio no
+   * pueden pisarse el contador.
+   */
+  recordAiUsage(entry: {
+    negocioId: string;
+    proveedor: string;
+    llamadas?: number;
+    tokensIn?: number;
+    tokensOut?: number;
+    fallbacks?: number;
+  }): Promise<void>;
 }
 
 /** Implementación real sobre supabase-js. */
@@ -132,7 +153,7 @@ class RealSupabaseDb implements SupabaseDb {
   async selectNegocioBySlug(slug: string): Promise<NegocioRow | null> {
     const { data, error } = await this.client
       .from("negocios")
-      .select("slug, config, whatsapp_phone_number_id, es_demo")
+      .select("id, slug, config, whatsapp_phone_number_id, es_demo")
       .eq("slug", slug)
       .maybeSingle();
     if (error) throw error;
@@ -142,7 +163,7 @@ class RealSupabaseDb implements SupabaseDb {
   async selectNegocioByPhoneNumberId(id: string): Promise<NegocioRow | null> {
     const { data, error } = await this.client
       .from("negocios")
-      .select("slug, config, whatsapp_phone_number_id, es_demo")
+      .select("id, slug, config, whatsapp_phone_number_id, es_demo")
       .eq("whatsapp_phone_number_id", id)
       .maybeSingle();
     if (error) throw error;
@@ -156,6 +177,25 @@ class RealSupabaseDb implements SupabaseDb {
     if (!error) return true;
     if (error.code === "23505") return false; // ya reclamado (unique_violation)
     throw error;
+  }
+
+  async recordAiUsage(entry: {
+    negocioId: string;
+    proveedor: string;
+    llamadas?: number;
+    tokensIn?: number;
+    tokensOut?: number;
+    fallbacks?: number;
+  }): Promise<void> {
+    const { error } = await this.client.rpc("registrar_uso_ia", {
+      p_negocio_id: entry.negocioId,
+      p_proveedor: entry.proveedor,
+      p_llamadas: entry.llamadas ?? 0,
+      p_tokens_in: entry.tokensIn ?? 0,
+      p_tokens_out: entry.tokensOut ?? 0,
+      p_fallbacks: entry.fallbacks ?? 0,
+    });
+    if (error) throw error;
   }
 }
 

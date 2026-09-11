@@ -90,6 +90,29 @@ describe("resolveBusinessByPhoneNumberId", () => {
   });
 });
 
+describe("negocioId (T-07)", () => {
+  it("viene del id de la fila cuando el negocio está en Supabase", async () => {
+    const db = makeFakeSupabaseDb();
+    db.negocios.push({
+      id: "uuid-123",
+      slug: "estetica-bella",
+      config: JSON.parse(JSON.stringify(esteticaBella)),
+      whatsapp_phone_number_id: null,
+      es_demo: false,
+    });
+    createSupabaseDbMock.mockReturnValue(db);
+
+    const resolved = await resolveBusinessBySlug("estetica-bella");
+    expect(resolved?.negocioId).toBe("uuid-123");
+  });
+
+  it("queda undefined cuando el negocio viene del registry estático", async () => {
+    createSupabaseDbMock.mockReturnValue(null);
+    const resolved = await resolveBusinessBySlug("estetica-bella");
+    expect(resolved?.negocioId).toBeUndefined();
+  });
+});
+
 describe("caché de resolución (T-06)", () => {
   it("N mensajes del mismo negocio hacen 1 sola lectura a Supabase", async () => {
     const db = makeFakeSupabaseDb();

@@ -11,7 +11,7 @@
 import type { ILLMProvider } from "@/core/ai/provider";
 import { OpenAICompatibleProvider } from "@/core/ai/openai-compatible";
 import { AI_PRESETS, type AIPreset, type PresetName } from "@/core/ai/presets";
-import { ResilientProvider } from "@/core/ai/resilient";
+import { ResilientProvider, type UsageContext } from "@/core/ai/resilient";
 
 type ProviderName = PresetName | "custom";
 
@@ -90,16 +90,28 @@ function resolveOrder(): ProviderName[] {
 }
 
 /**
- * Crea el proveedor de IA activo: uno solo si hay una única key configurada,
- * o una cadena de respaldo (`ResilientProvider`) si hay varias. `null` si no
- * hay ninguna key — el motor cae a plantillas sin romperse.
+ * Crea el proveedor de IA activo, envuelto siempre en `ResilientProvider`
+ * (incluso con una sola key configurada). `null` si no hay ninguna key — el
+ * motor cae a plantillas sin romperse.
+ *
+ * Antes, con una sola key, se devolvía el provider concreto pelado: si
+ * `enhance()` lanzaba (red, timeout), el error subía sin capturar hasta el
+ * try/catch del webhook, que descarta el mensaje ENTERO sin responderle
+ * nada al cliente — el mismo fallo que con dos proveedores configurados sí
+ * degradaba con gracia a la plantilla. Envolver siempre en
+ * `ResilientProvider` (que ya atrapa el error y cae al borrador/`null`) es
+ * lo que hace falta además para que T-07 pueda registrar el consumo en un
+ * solo lugar, sin importar cuántos proveedores estén configurados.
+ *
+ * `usage`, si se pasa, atribuye cada llamada (y cada caída a plantilla) al
+ * negocio indicado en `uso_ia` — ver `ResilientProvider`.
  */
-export function createLLMProvider(): ILLMProvider | null {
+export function createLLMProvider(usage?: UsageContext): ILLMProvider | null {
   const order = resolveOrder();
   const providers = order
     .map(buildProvider)
     .filter((p): p is ILLMProvider => p !== null);
 
   if (providers.length === 0) return null;
-  return providers.length === 1 ? providers[0] : new ResilientProvider(providers);
+  return new ResilientProvider(providers, usage);
 }
