@@ -1,26 +1,116 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ─── Design tokens "Nexo" (ver docs/09-diseno-nexo.md) ─────────────────── */
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Tipografía */
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-sora), var(--font-jakarta), sans-serif;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Marca / UI */
+  --color-primary: #2a6fdb;
+  --color-primary-hover: #1f5bc0;
+  --color-primary-light: #4c8dff;
+  --color-primary-tint: #eff5ff;
+
+  /* Texto */
+  --color-ink: #101828;
+  --color-ink-mid: #475467;
+  --color-ink-soft: #98a2b3;
+  --color-ink-faint: #b4bac5;
+
+  /* Superficies */
+  --color-surface: #ffffff;
+  --color-canvas: #f6f7f9;
+  --color-surface-2: #f2f4f7;
+  --color-surface-3: #f9fafb;
+
+  /* Bordes */
+  --color-line: #eaecf0;
+  --color-line-2: #e4e7ec;
+  --color-line-input: #d0d5dd;
+
+  /* Back office */
+  --color-bo-sidebar: #101828;
+
+  /* Semánticos */
+  --color-success: #12b76a;
+  --color-success-ink: #067647;
+  --color-success-bg: #ecfdf3;
+  --color-warn: #f79009;
+  --color-warn-ink: #b54708;
+  --color-warn-bg: #fffaeb;
+
+  /* WhatsApp (preview) */
+  --color-wa-header: #008069;
+  --color-wa-bg: #efeae2;
+  --color-wa-out: #d9fdd3;
+  --color-wa-reply: #0a94d6;
+  --color-wa-today: #fff6d5;
+
+  /* Rubros (tinte de fondo / tinta del icono) */
+  --color-rubro-gastro-bg: #fff1e6;
+  --color-rubro-gastro-ink: #e8590c;
+  --color-rubro-servicios-bg: #f3eeff;
+  --color-rubro-servicios-ink: #7c3aed;
+  --color-rubro-salud-bg: #e7f7f0;
+  --color-rubro-salud-ink: #0e9f6e;
+  --color-rubro-comercio-bg: #eef2f6;
+  --color-rubro-comercio-ink: #475467;
+
+  /* Sombras */
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-lift: 0 10px 28px -14px rgba(16, 24, 40, 0.22);
+  --shadow-fab: 0 14px 32px -10px rgba(16, 24, 40, 0.55);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* Entrada suave al montar pantallas/cards (README: fadeUp .3–.35s). */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-up {
+  animation: fadeUp 0.32s ease both;
+}
+
+/* Dropdown del switcher (README: pop .14s). */
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.pop-in {
+  animation: pop 0.14s ease both;
+}
+
+/* Foco de inputs: borde primario + ring azul suave. */
+.input-nexo {
+  border: 1px solid var(--color-line-input);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.input-nexo:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(42, 111, 219, 0.12);
 }

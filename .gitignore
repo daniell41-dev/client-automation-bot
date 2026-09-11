@@ -13,6 +13,9 @@
 # testing
 /coverage
 
+# datos locales del bot (leads en JSON) — nunca commitear datos de clientes
+/data
+
 # next.js
 /.next/
 /out/
@@ -32,6 +35,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# …pero sí versionamos la plantilla de ejemplo (sin secretos)
+!.env.example
 
 # vercel
 .vercel
@@ -39,3 +44,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# herramientas locales de agentes (se regeneran, no son código del proyecto)
+/graphify-out/
+/.atl/
