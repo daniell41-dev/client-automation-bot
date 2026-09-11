@@ -4,8 +4,8 @@ La plataforma escala de bot single-tenant a un SaaS multi-tenant:
 
 | Sección | Ruta | Quién entra | Qué hace |
 |---------|------|-------------|----------|
-| **Portal** | `/portal` | Clientes (login) | Ve sus rubros asignados, crea su negocio desde la plantilla y configura servicios, mensajes y persona del bot |
-| **Back office** | `/backoffice` | Solo admin | Crea usuarios, crea rubros (plantillas verticales), los asigna a clientes y ve todos los negocios/leads |
+| **Portal** | `/portal` | Clientes (login) | Ve los negocios que el admin le creó y configura servicios, mensajes y persona del bot |
+| **Back office** | `/backoffice` | Solo admin | Crea usuarios, crea rubros (plantillas verticales), **crea los negocios de cada cliente desde una plantilla** y ve todos los negocios/leads |
 | **Demo** | `/demo` | Público (sin login) | Ve el negocio de ejemplo y prueba el bot en un chat |
 
 **Conceptos:**
@@ -69,15 +69,17 @@ pnpm dev
 
 1. **`/demo`** — sin login: ve el negocio de ejemplo y chatea con el bot.
 2. **`/login`** — entra con tu admin → te lleva a `/backoffice`.
-3. **Back office**: crea un usuario cliente (Usuarios), crea o edita un rubro (Rubros), asígnaselo (Asignaciones).
-4. Cierra sesión, entra con el cliente → `/portal`: crea un negocio desde el rubro y edita su configuración.
-5. El bot ya responde con esa config:
+3. **Back office → Usuarios**: invita un usuario cliente.
+4. **Back office → Negocios**: card "Nuevo negocio" — elegí ese cliente como dueño y un rubro (plantilla); el negocio nace **Pausado**. Esto también le asigna el rubro al cliente automáticamente (no hace falta el paso extra en Asignaciones).
+5. Activá el bot desde el detalle del negocio (`/backoffice/negocios/<id>` → "Activar bot").
+6. Cierra sesión, entra con el cliente → `/portal`: el negocio ya está ahí; entra a **Catálogo** y **Configuración** para editar servicios, tono y conocimiento de la IA.
+7. El bot ya responde con esa config:
    ```bash
    curl -s -X POST http://localhost:3000/api/dev/simulate \
      -H 'Content-Type: application/json' \
      -d '{"message":"Hola","business":"<slug-de-tu-negocio>","from":"prueba-1"}'
    ```
-6. Los leads aparecen en el detalle del negocio en el portal (y globalmente en `/backoffice/leads`).
+8. Los leads aparecen en el detalle del negocio en el portal (y globalmente en `/backoffice/leads`).
 
 ## 7. Desplegar gratis en Vercel
 
@@ -109,7 +111,8 @@ Los tests unitarios cubren los adaptadores, el resolver y el schema con fakes. E
 - [ ] `/backoffice` redirige a `/portal` si entras con un cliente.
 - [ ] `/portal` y `/backoffice` redirigen a `/login` sin sesión.
 - [ ] Anónimo solo ve datos demo en `/demo` (y `/api/dev/simulate` en producción solo acepta el negocio demo).
-- [ ] Crear negocio desde un rubro NO asignado falla (la RLS lo bloquea aunque se manipule el form).
+- [ ] Un cliente **no** puede crear un negocio insertando directo contra la API con su sesión (la RLS lo bloquea aunque se salte el formulario) — ver `pnpm test:rls`.
+- [ ] Al crear un negocio desde el back office, el cliente dueño lo ve de inmediato en su `/portal` (la asignación del rubro se crea sola).
 - [ ] El trigger crea el profile al crear un usuario desde el back office.
 
 ## 10. Arquitectura (referencia rápida)

@@ -5,11 +5,10 @@
 
 import Link from "next/link";
 import { createUserClient } from "@/lib/supabase/server";
-import { parseBusinessConfig } from "@/core/config-schema";
 import { crearRubro, eliminarRubro } from "@/app/backoffice/actions";
 import { ActionForm } from "@/components/action-form";
 import { Card, Pill } from "@/components/ui";
-import { RubroTile, catalogLabel } from "@/components/rubro-visual";
+import { RubroTile, camposDelNegocio, tipoCitas } from "@/components/rubro-visual";
 import { Info } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -17,29 +16,6 @@ export const dynamic = "force-dynamic";
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
 const inputCls =
   "input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft";
-
-/** Chips de "campos del negocio" derivados de la plantilla del rubro. */
-function camposDelNegocio(rubroNombre: string, template: unknown): string[] {
-  const config = parseBusinessConfig(template);
-  const itemLabel =
-    catalogLabel(rubroNombre) === "Menú"
-      ? "Plato"
-      : catalogLabel(rubroNombre) === "Servicios"
-        ? "Servicio"
-        : "Producto";
-  const campos = [itemLabel, "Precio", "Duración", "Categoría", "Disponible"];
-  if (config?.ai) campos.push("IA + reglas");
-  return campos;
-}
-
-function tipoCitas(rubroNombre: string, template: unknown): string {
-  const config = parseBusinessConfig(template);
-  if (!config) return "—";
-  if (config.services.some((s) => s.reservable)) {
-    return catalogLabel(rubroNombre) === "Menú" ? "Reserva de mesa" : "Turnos";
-  }
-  return "Sin citas";
-}
 
 export default async function RubrosPage() {
   const supabase = await createUserClient();

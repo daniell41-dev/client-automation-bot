@@ -1,12 +1,14 @@
 /**
- * Back office · Negocios: stats de la plataforma + tabla global.
+ * Back office · Negocios: stats de la plataforma + alta + tabla global.
  */
 
+import Link from "next/link";
 import { createUserClient } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { DataTable } from "@/components/data-table";
-import { Pill, StatCard } from "@/components/ui";
-import { RubroTile } from "@/components/rubro-visual";
+import { Card, Pill, StatCard } from "@/components/ui";
+import { RubroTile, camposDelNegocio } from "@/components/rubro-visual";
+import { NuevoNegocioForm } from "./nuevo-negocio-form";
 
 export const dynamic = "force-dynamic";
 
@@ -25,14 +27,16 @@ export default async function NegociosPage() {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
 
-  const [{ data: negocios }, { data: clientes }, { count: rubrosCount }, leadsRes, leadsHoyRes] =
+  const [{ data: negocios }, { data: clientes }, { data: rubros }, leadsRes, leadsHoyRes] =
     await Promise.all([
       supabase
         .from("negocios")
         .select("id, slug, config, whatsapp_phone_number_id, profiles(email), rubros(nombre)")
         .order("updated_at", { ascending: false }),
-      supabase.from("profiles").select("id").eq("role", "cliente"),
-      supabase.from("rubros").select("id", { count: "exact", head: true }),
+      supabase.from("profiles").select("id, email").eq("role", "cliente"),
+      // Con template (no solo el count): alimenta el select + el preview
+      // en vivo de "Nuevo negocio" — ver camposDelNegocio() más abajo.
+      supabase.from("rubros").select("id, nombre, template").order("nombre"),
       supabase.from("leads").select("business_slug"),
       supabase
         .from("leads")
@@ -55,14 +59,28 @@ export default async function NegociosPage() {
   }));
   const activos = parsed.filter(({ config }) => config?.botActivo !== false).length;
 
+  const rubroOptions = (rubros ?? []).map((r) => ({
+    id: r.id,
+    nombre: r.nombre,
+    campos: camposDelNegocio(r.nombre, r.template),
+  }));
+  const clienteOptions = (clientes ?? []).map((c) => ({ id: c.id, email: c.email }));
+
   return (
     <div className="mx-auto max-w-[980px] space-y-5 fade-up">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Negocios activos" value={String(activos)} />
         <StatCard label="Clientes" value={String(clientes?.length ?? 0)} />
-        <StatCard label="Rubros" value={String(rubrosCount ?? 0)} />
+        <StatCard label="Rubros" value={String(rubros?.length ?? 0)} />
         <StatCard label="Leads hoy" value={String(leadsHoyRes.count ?? 0)} />
       </div>
+
+      <Card
+        title="Nuevo negocio"
+        subtitle="Elegí el cliente dueño y el rubro que le da su plantilla base. Nace en pausa."
+      >
+        <NuevoNegocioForm rubros={rubroOptions} clientes={clienteOptions} />
+      </Card>
 
       <DataTable
         headers={["Negocio", "Rubro", "Cliente", "Estado", "Leads", "Plan"]}
@@ -70,12 +88,16 @@ export default async function NegociosPage() {
         rows={parsed.map(({ row, config }) => ({
           key: row.id,
           cells: [
-            <span key="n" className="flex items-center gap-2.5">
+            <Link
+              key="n"
+              href={`/backoffice/negocios/${row.id}`}
+              className="flex items-center gap-2.5 hover:underline"
+            >
               <RubroTile rubroNombre={row.rubros?.nombre} size="sm" />
               <span className="max-w-[160px] truncate font-bold text-ink">
                 {config?.name ?? row.slug}
               </span>
-            </span>,
+            </Link>,
             <span key="r" className="text-ink-mid">
               {row.rubros?.nombre ?? "—"}
             </span>,
@@ -96,8 +118,7 @@ export default async function NegociosPage() {
       />
 
       <p className="text-xs text-ink-soft">
-        Los negocios los crea cada cliente desde su portal a partir de un rubro
-        asignado (Usuarios → Asignar rubros).
+        Hacé clic en un negocio para editarlo, pausarlo/activarlo o eliminarlo.
       </p>
     </div>
   );
