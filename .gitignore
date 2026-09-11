@@ -44,3 +44,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# herramientas locales de agentes (se regeneran, no son código del proyecto)
+/graphify-out/
+/.atl/
