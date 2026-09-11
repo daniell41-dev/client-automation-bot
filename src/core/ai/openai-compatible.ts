@@ -52,8 +52,15 @@ export interface OpenAICompatibleOptions {
    */
   agentTimeoutMs?: number;
   /**
-   * `reasoning_effort` a mandar en cada llamada (ver `AIPreset`). Si no se
-   * especifica, no se manda el campo (comportamiento por defecto del modelo).
+   * `reasoning_effort` a mandar SOLO en `runAgent()` (ver `AIPreset`). El
+   * resto de los métodos (`enhance`/`interpret`/`extractDateTime`) NO lo
+   * usan: son prompts cortos y libres, y bajarles el esfuerzo de
+   * razonamiento puede hacer que el modelo, en vez de reformular, devuelva
+   * el texto de entrada sin tocar — visto en producción con Groq
+   * (`openai/gpt-oss-20b`): con `reasoning_effort: "low"`, `enhance()`
+   * devolvía el borrador idéntico. `runAgent()` sí lo necesita: su prompt es
+   * largo y pide JSON estricto, y ahí el problema real es el modelo
+   * gastando `max_tokens` pensando (ver el comentario en `runAgent`).
    */
   reasoningEffort?: string;
 }
@@ -170,7 +177,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         { role: "system", content: buildSystemPrompt(ctx) },
         { role: "user", content: buildUserMessage(ctx) },
       ],
-      { temperature: 0.7, maxTokens: 512, reasoningEffort: this.reasoningEffort },
+      { temperature: 0.7, maxTokens: 512 },
     );
   }
 
@@ -180,7 +187,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         { role: "system", content: buildDateExtractionPrompt(input) },
         { role: "user", content: input.text },
       ],
-      { temperature: 0, maxTokens: 40, reasoningEffort: this.reasoningEffort },
+      { temperature: 0, maxTokens: 40 },
     );
     return parseExtractedDateTime(raw);
   }
@@ -191,7 +198,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         { role: "system", content: buildInterpretPrompt(input) },
         { role: "user", content: input.text },
       ],
-      { temperature: 0, maxTokens: 30, reasoningEffort: this.reasoningEffort },
+      { temperature: 0, maxTokens: 30 },
     );
     return parseInterpretation(raw, input.options);
   }

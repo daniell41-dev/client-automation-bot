@@ -204,6 +204,67 @@ describe("OpenAICompatibleProvider.enhance — respuesta vacía", () => {
   });
 });
 
+describe("reasoning_effort — solo runAgent() lo manda", () => {
+  // Regresión real: con reasoningEffort configurado (como en producción para
+  // Groq/Gemini), enhance() con Groq (openai/gpt-oss-20b) devolvía el
+  // borrador SIN NINGÚN cambio — el modelo, con el esfuerzo de razonamiento
+  // bajo, optaba por la respuesta "más segura" frente a las reglas de no
+  // inventar/conservar datos: copiar el texto de entrada tal cual. enhance()/
+  // interpret()/extractDateTime() no tienen el problema que reasoning_effort
+  // resuelve (prompt largo + JSON estricto), así que no deben mandarlo nunca,
+  // aunque el provider tenga uno configurado.
+  it("enhance() NO manda reasoning_effort aunque el provider tenga uno configurado", async () => {
+    let bodyVisto: Record<string, unknown> | null = null;
+    const provider = new OpenAICompatibleProvider({
+      name: "groq",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      reasoningEffort: "low",
+      fetchImpl: vi.fn(async (_url, init) => {
+        bodyVisto = JSON.parse((init as RequestInit).body as string);
+        return new Response(
+          JSON.stringify({ choices: [{ message: { content: "reformulado" } }] }),
+          { status: 200 },
+        );
+      }) as unknown as typeof fetch,
+    });
+    await provider.enhance(ctx);
+    expect(bodyVisto!.reasoning_effort).toBeUndefined();
+  });
+
+  it("interpret() y extractDateTime() tampoco lo mandan", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async (_url, init) => {
+      bodies.push(JSON.parse((init as RequestInit).body as string));
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: "NONE" } }] }),
+        { status: 200 },
+      );
+    }) as unknown as typeof fetch;
+    const provider = new OpenAICompatibleProvider({
+      name: "groq",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      reasoningEffort: "low",
+      fetchImpl,
+    });
+
+    await provider.interpret({ text: "algo", options: ["A", "B"], stage: "inicio", history: [] });
+    await provider.extractDateTime({
+      text: "mañana",
+      nowISO: "2026-06-29T10:00:00.000Z",
+      timezone: "America/Bogota",
+    });
+
+    expect(bodies).toHaveLength(2);
+    for (const body of bodies) {
+      expect(body.reasoning_effort).toBeUndefined();
+    }
+  });
+});
+
 const agentInput: AgentTurnInput = {
   businessName: "Estética Bella",
   currency: "COP",

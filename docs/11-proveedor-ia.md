@@ -79,12 +79,13 @@ GROQ_API_KEY=
 
 Verificar que funciona: `pnpm ai:doctor` — revisa cada proveedor configurado (auth + una llamada real de `enhance()` y otra de `runAgent()`) y muestra el error EXACTO si algo falla, sin adivinar.
 
-### Modelos que razonan: `reasoning_effort` y el timeout del modo agente
+### Modelos que razonan: `reasoning_effort` SOLO en modo agente
 
-Gemini 3 y `gpt-oss` (el modelo de Groq) "piensan" antes de responder salvo que se les baje el esfuerzo explícitamente. Esos tokens de razonamiento salen del mismo `max_tokens` que la respuesta — en modo agente (prompt largo + JSON estricto, ver `docs/13-modo-agente.md`), un modelo que piensa de más puede gastar todo el presupuesto y devolver contenido vacío, o tardar más de lo que da el timeout. Por eso:
+Gemini 3 y `gpt-oss` (el modelo de Groq) "piensan" antes de responder salvo que se les baje el esfuerzo explícitamente. En `runAgent()` (modo agente: prompt largo + JSON estricto, ver `docs/13-modo-agente.md`) esos tokens de razonamiento salen del mismo `max_tokens` que la respuesta — un modelo que piensa de más puede gastar todo el presupuesto y devolver contenido vacío, o tardar más de lo que da el timeout. Por eso:
 
-- `presets.ts` manda `reasoning_effort: "low"` por defecto para Gemini y Groq (Cerebras no lo necesita).
-- `runAgent()` usa su propio timeout, más holgado que el resto de las llamadas (20s por defecto vs. 8s de `enhance()`/`interpret()`), porque razonar tarda más y ese tiempo crece con el catálogo + historial del negocio.
+- `presets.ts` define `reasoning_effort: "low"` por defecto para Gemini y Groq (Cerebras no lo necesita), pero **`OpenAICompatibleProvider` solo lo manda en `runAgent()`** — es el único método con ese problema.
+- `enhance()`/`interpret()`/`extractDateTime()` **nunca** lo mandan, aunque el preset lo tenga configurado: son prompts cortos y libres (reformular un párrafo, elegir una opción, extraer una fecha), sin la presión de un JSON estricto. Bajarles el esfuerzo de razonamiento no ahorra nada ahí y puede salir caro: en producción, con Groq (`openai/gpt-oss-20b`) y `reasoning_effort: "low"`, `enhance()` devolvía el borrador **sin ningún cambio** — el modelo, al no "pensar" lo suficiente, optaba por la respuesta más segura frente a las reglas de "no inventar/conservar datos": copiar el texto de entrada tal cual.
+- `runAgent()` usa además su propio timeout, más holgado que el resto de las llamadas (20s por defecto vs. 8s de `enhance()`/`interpret()`), porque razonar tarda más y ese tiempo crece con el catálogo + historial del negocio.
 
 Ambos son configurables sin tocar código:
 
