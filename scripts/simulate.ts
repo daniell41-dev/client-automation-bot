@@ -133,7 +133,7 @@ async function sendMessage(
     timestamp: new Date().toISOString(),
   };
   const calendar = createCalendar(business) ?? undefined;
-  const replies = await handleIncoming(
+  const { messages: replies, modo, motivoFallback } = await handleIncoming(
     message,
     business,
     repo,
@@ -147,6 +147,9 @@ async function sendMessage(
     if (reply.options?.length) {
       console.log(`        [opciones: ${reply.options.join(" · ")}]`);
     }
+  }
+  if (motivoFallback) {
+    console.log(`        [modo: ${modo} — ${motivoFallback}]`);
   }
   console.log("");
 }

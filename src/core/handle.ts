@@ -41,6 +41,21 @@ export interface OwnerNotifier {
   send(message: OutgoingMessage): Promise<void>;
 }
 
+/**
+ * Resultado de procesar un mensaje. `modo` dice quién redactó la respuesta
+ * de verdad: "agente" (la IA decidió las acciones del turno) o "guiado" (el
+ * funnel determinista, con o sin `enhance()` encima). `motivoFallback` solo
+ * viene con contenido cuando el negocio SÍ tiene el modo agente configurado
+ * pero este turno puntual no pudo usarlo — sin esto, un fallback silencioso
+ * es indistinguible de un "guiado" configurado a propósito (ver
+ * docs/13-modo-agente.md).
+ */
+export interface HandleResult {
+  messages: OutgoingMessage[];
+  modo: "agente" | "guiado";
+  motivoFallback?: string;
+}
+
 export async function handleIncoming(
   message: IncomingMessage,
   config: BusinessConfig,
@@ -50,7 +65,7 @@ export async function handleIncoming(
   sessionRepo?: SessionRepository,
   calendar?: CalendarApi,
   notifier?: OwnerNotifier,
-): Promise<OutgoingMessage[]> {
+): Promise<HandleResult> {
   const existing = await repo.findByContact(message.businessSlug, message.from);
 
   // Para canales sin persona propia (ej. "mock"), se usa la de whatsapp como fallback.
@@ -60,11 +75,19 @@ export async function handleIncoming(
   let result: ReturnType<typeof respond> | null = null;
   let usedAgent = false;
   let session: SessionMemory | undefined;
+  let motivoFallback: string | undefined;
 
-  if (llm && sessionRepo && persona && modoAgente) {
-    session = await sessionRepo.getOrCreate(message.businessSlug, message.from, message.channel);
-    result = await runAgentTurn(existing, message, config, llm, persona, session.history, now);
-    usedAgent = result !== null;
+  if (modoAgente) {
+    if (llm && sessionRepo && persona) {
+      session = await sessionRepo.getOrCreate(message.businessSlug, message.from, message.channel);
+      result = await runAgentTurn(existing, message, config, llm, persona, session.history, now);
+      usedAgent = result !== null;
+      if (!usedAgent) {
+        motivoFallback = "la IA no devolvió un turno válido para este mensaje (ver logs)";
+      }
+    } else {
+      motivoFallback = "faltan requisitos del modo agente (IA, sesión o persona configurada)";
+    }
   }
 
   if (!result) {
@@ -126,13 +149,13 @@ export async function handleIncoming(
       }
       await sessionRepo.save(session);
     }
-    return messages;
+    return { messages, modo: "agente" };
   }
 
   // Modo guiado: con el "cerebro con IA" apagado, o sin persona/sessionRepo,
   // no se reformula (solo plantillas y reglas).
   if (!llm || !sessionRepo || !persona || config.ai?.enabled === false) {
-    return messages;
+    return { messages, modo: "guiado", motivoFallback };
   }
 
   const sessionParaEnhance =
@@ -163,7 +186,7 @@ export async function handleIncoming(
   }
 
   await sessionRepo.save(sessionParaEnhance);
-  return enhanced;
+  return { messages: enhanced, modo: "guiado", motivoFallback };
 }
 
 /**

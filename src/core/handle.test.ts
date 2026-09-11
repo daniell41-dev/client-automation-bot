@@ -70,7 +70,7 @@ function msg(text: string): IncomingMessage {
 describe("handleIncoming", () => {
   it("crea un lead nuevo y devuelve respuestas", async () => {
     const repo = new InMemoryRepo();
-    const out = await handleIncoming(msg("limpieza facial"), config, repo);
+    const { messages: out } = await handleIncoming(msg("limpieza facial"), config, repo);
     expect(out.length).toBeGreaterThan(0);
     expect(repo.leads).toHaveLength(1);
     expect(repo.leads[0].serviceId).toBe("limpieza-facial");
@@ -156,7 +156,7 @@ describe("handleIncoming — agendar en calendario al confirmar", () => {
     const cal = makeFakeCalendar();
     await driveUntilConfirm(repo, fakeLLM(null), cal);
 
-    const replies = await handleIncoming(
+    const { messages: replies } = await handleIncoming(
       msg("sí"), config, repo, new Date(), fakeLLM(null), undefined, cal,
     );
 
@@ -169,7 +169,7 @@ describe("handleIncoming — agendar en calendario al confirmar", () => {
   it("no toca el calendario si no se inyecta cliente de calendar", async () => {
     const repo = new InMemoryRepo();
     await driveUntilConfirm(repo, fakeLLM(), undefined);
-    const replies = await handleIncoming(
+    const { messages: replies } = await handleIncoming(
       msg("sí"), config, repo, new Date(), fakeLLM(), undefined, undefined,
     );
     expect(replies.length).toBeGreaterThan(0);
@@ -244,7 +244,7 @@ describe("handleIncoming — avisa a la dueña por WhatsApp al confirmar", () =>
     await handleIncoming(msg("Laura"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, failingNotifier);
     await handleIncoming(msg("mañana a las 3"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, failingNotifier);
 
-    const replies = await handleIncoming(msg("sí"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, failingNotifier);
+    const { messages: replies } = await handleIncoming(msg("sí"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, failingNotifier);
 
     expect(replies.length).toBeGreaterThan(0);
     expect(repo.leads[0].stage).toBe("datos_completos");
@@ -281,7 +281,7 @@ describe("handleIncoming — red de seguridad del intérprete IA", () => {
     const { llm, state } = fakeLLMWithInterpret("Limpieza facial");
     await handleIncoming(msg("Hola"), config, repo, new Date(), llm); // → menu_enviado
 
-    const replies = await handleIncoming(
+    const { messages: replies } = await handleIncoming(
       msg("necesito que me dejen la cara brillante"),
       config,
       repo,
@@ -300,7 +300,7 @@ describe("handleIncoming — red de seguridad del intérprete IA", () => {
     const { llm, state } = fakeLLMWithInterpret(null);
     await handleIncoming(msg("Hola"), config, repo, new Date(), llm);
 
-    const replies = await handleIncoming(msg("asdkjhaskjdh"), config, repo, new Date(), llm);
+    const { messages: replies } = await handleIncoming(msg("asdkjhaskjdh"), config, repo, new Date(), llm);
 
     expect(state.calls).toBe(1);
     expect(replies[0].text).toBe("no entendí");
@@ -310,7 +310,7 @@ describe("handleIncoming — red de seguridad del intérprete IA", () => {
     const repo = new InMemoryRepo();
     await handleIncoming(msg("Hola"), config, repo);
 
-    const replies = await handleIncoming(msg("asdkjhaskjdh"), config, repo);
+    const { messages: replies } = await handleIncoming(msg("asdkjhaskjdh"), config, repo);
 
     expect(replies[0].text).toBe("no entendí");
   });
@@ -370,11 +370,20 @@ describe("handleIncoming — modo agente", () => {
       acciones: [],
     }));
 
-    const replies = await handleIncoming(msg("Hola"), configConPersona, repo, new Date(), llm, sessionRepo);
+    const { messages: replies, modo, motivoFallback } = await handleIncoming(
+      msg("Hola"),
+      configConPersona,
+      repo,
+      new Date(),
+      llm,
+      sessionRepo,
+    );
 
     expect(counts.runAgentCalls).toBe(1);
     expect(counts.enhanceCalls).toBe(0);
     expect(replies[0].text).toBe("¡Hola! ¿Qué servicio te interesa?");
+    expect(modo).toBe("agente");
+    expect(motivoFallback).toBeUndefined();
   });
 
   it("sin sessionRepo, no usa el agente (cae al motor determinista puro, sin reformular)", async () => {
@@ -386,15 +395,24 @@ describe("handleIncoming — modo agente", () => {
       acciones: [],
     }));
 
-    const replies = await handleIncoming(msg("limpieza facial"), configConPersona, repo, new Date(), llm, undefined);
+    const { messages: replies, modo, motivoFallback } = await handleIncoming(
+      msg("limpieza facial"),
+      configConPersona,
+      repo,
+      new Date(),
+      llm,
+      undefined,
+    );
 
     expect(counts.runAgentCalls).toBe(0);
     expect(counts.enhanceCalls).toBe(0);
     expect(replies[0].text).not.toBe("no debería usarse");
     expect(repo.leads[0].serviceId).toBe("limpieza-facial");
+    expect(modo).toBe("guiado");
+    expect(motivoFallback).toContain("faltan requisitos");
   });
 
-  it("con modo 'guiado' explícito, no usa el agente aunque haya persona+IA+sessionRepo", async () => {
+  it("con modo 'guiado' explícito, no usa el agente aunque haya persona+IA+sessionRepo (no es un fallback)", async () => {
     const repo = new InMemoryRepo();
     const sessionRepo = new SessionMemoryRepository();
     const configGuiado: BusinessConfig = {
@@ -403,10 +421,20 @@ describe("handleIncoming — modo agente", () => {
     };
     const { llm, counts } = fakeAgentLLM(async () => ({ respuesta: "no debería usarse", acciones: [] }));
 
-    const replies = await handleIncoming(msg("limpieza facial"), configGuiado, repo, new Date(), llm, sessionRepo);
+    const { messages: replies, modo, motivoFallback } = await handleIncoming(
+      msg("limpieza facial"),
+      configGuiado,
+      repo,
+      new Date(),
+      llm,
+      sessionRepo,
+    );
 
     expect(counts.runAgentCalls).toBe(0);
     expect(replies[0].text).not.toBe("no debería usarse");
+    // Guiado configurado a propósito: no es un fallback, así que no lleva motivo.
+    expect(modo).toBe("guiado");
+    expect(motivoFallback).toBeUndefined();
   });
 
   it("si el agente falla (runAgent lanza), cae al motor determinista y SÍ reformula con enhance()", async () => {
@@ -416,11 +444,20 @@ describe("handleIncoming — modo agente", () => {
       throw new Error("proveedor caído");
     });
 
-    const replies = await handleIncoming(msg("limpieza facial"), configConPersona, repo, new Date(), llm, sessionRepo);
+    const { messages: replies, modo, motivoFallback } = await handleIncoming(
+      msg("limpieza facial"),
+      configConPersona,
+      repo,
+      new Date(),
+      llm,
+      sessionRepo,
+    );
 
     expect(counts.enhanceCalls).toBeGreaterThan(0);
     expect(replies.length).toBeGreaterThan(0);
     expect(repo.leads[0].serviceId).toBe("limpieza-facial"); // el motor determinista sí lo reconoció
+    expect(modo).toBe("guiado");
+    expect(motivoFallback).toContain("no devolvió un turno válido");
   });
 
   it("al confirmar vía agente, agenda en el calendario y avisa a la dueña", async () => {

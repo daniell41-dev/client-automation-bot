@@ -8,6 +8,9 @@
  *   2. ¿La key autentica? (lista los modelos disponibles, si el proveedor
  *      expone ese endpoint)
  *   3. ¿Una respuesta real de la IA (enhance)?
+ *   4. ¿Una respuesta real en MODO AGENTE (runAgent)? — prueba aparte porque
+ *      un prompt más largo + JSON estricto puede fallar aunque enhance()
+ *      funcione (ver docs/13-modo-agente.md).
  *
  * Al final muestra la cadena de respaldo que arma `createLLMProvider()`.
  *
@@ -15,12 +18,51 @@
  */
 
 import { OpenAICompatibleProvider } from "@/core/ai/openai-compatible";
-import { AI_PRESETS, type PresetName } from "@/core/ai/presets";
-import { createLLMProvider } from "@/core/ai/factory";
+import { AI_PRESETS, type AIPreset, type PresetName } from "@/core/ai/presets";
+import { createLLMProvider, resolveAgentTimeoutMs, resolveReasoningEffort } from "@/core/ai/factory";
+import { availableServices } from "@/core/engine/intake";
 import { esteticaBella } from "@/businesses/estetica-bella/config";
 import { loadEnvLocal } from "./load-env";
 
 const PRESET_NAMES: PresetName[] = ["gemini", "groq", "cerebras"];
+
+/**
+ * Paso 4: una llamada real de `runAgent` con el catálogo de estética-bella.
+ * Mide el tiempo (para calibrar `AI_AGENT_TIMEOUT_MS`) e imprime el JSON
+ * crudo — si falla, el motivo ya queda logueado por `runAgent` mismo.
+ */
+async function checkAgentMode(provider: OpenAICompatibleProvider): Promise<boolean> {
+  const persona =
+    esteticaBella.personas?.whatsapp ?? { name: "Asistente", tone: "amable", language: "español" };
+
+  const start = Date.now();
+  const result = await provider.runAgent({
+    businessName: esteticaBella.name,
+    rubro: esteticaBella.rubro,
+    currency: esteticaBella.currency,
+    locale: esteticaBella.locale,
+    persona,
+    services: availableServices(esteticaBella.services).map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description,
+      price: s.price,
+      durationMinutes: s.durationMinutes,
+      categoria: s.categoria,
+    })),
+    lead: { yaConfirmado: false, offTopicCount: 0 },
+    history: [],
+    message: "Hola, quiero información de limpieza facial",
+  });
+  const ms = Date.now() - start;
+
+  if (!result) {
+    console.log(`   ❌ runAgent no devolvió un turno válido (${ms}ms) — ver el motivo arriba.`);
+    return false;
+  }
+  console.log(`   ✅ runAgent respondió en ${ms}ms: ${JSON.stringify(result)}`);
+  return true;
+}
 
 /** Prueba end-to-end de un proveedor concreto. Nunca lanza: devuelve ok/no. */
 async function checkProvider(
@@ -29,6 +71,7 @@ async function checkProvider(
   apiKey: string,
   model: string,
   modelEnvVar: string,
+  reasoningEffort: string | undefined,
 ): Promise<boolean> {
   const masked = `${apiKey.slice(0, 6)}...${apiKey.slice(-4)}`;
   console.log(`\n🔎 ${label} (${masked}) — modelo configurado: ${model}`);
@@ -62,9 +105,21 @@ async function checkProvider(
     console.log(`   ⚠️  No se pudo listar modelos (${err}); sigo con la prueba real.`);
   }
 
-  // Paso 3 (definitivo): una llamada real de enhance().
+  // Mismo provider (con la misma config de reasoning_effort/timeout) que
+  // usaría createLLMProvider() en producción — sin esto, el diagnóstico
+  // podría pasar con una config que el bot real no usa.
+  const provider = new OpenAICompatibleProvider({
+    name: label,
+    baseURL,
+    apiKey,
+    model,
+    reasoningEffort,
+    agentTimeoutMs: resolveAgentTimeoutMs(),
+  });
+
+  // Paso 3: una llamada real de enhance().
+  let enhanceOk: boolean;
   try {
-    const provider = new OpenAICompatibleProvider({ name: label, baseURL, apiKey, model });
     const persona =
       esteticaBella.personas?.whatsapp ?? {
         name: "Asistente",
@@ -83,19 +138,31 @@ async function checkProvider(
 
     if (result === draft) {
       console.log("   ❌ La IA devolvió el borrador SIN cambios → algo falló.");
-      return false;
+      enhanceOk = false;
+    } else {
+      console.log(`   ✅ Respuesta real (enhance): ${result}`);
+      enhanceOk = true;
     }
-    console.log(`   ✅ Respuesta real: ${result}`);
-    return true;
   } catch (err) {
-    console.log(`   ❌ Falló la llamada real: ${err}`);
+    console.log(`   ❌ Falló la llamada real (enhance): ${err}`);
     if (String(err).includes("404")) {
       console.log(
         `      Pinta a modelo dado de baja/renombrado — revisá la lista de modelos disponibles arriba.`,
       );
     }
-    return false;
+    enhanceOk = false;
   }
+
+  // Paso 4: una llamada real de runAgent (modo agente) — ver `checkAgentMode`.
+  let agentOk: boolean;
+  try {
+    agentOk = await checkAgentMode(provider);
+  } catch (err) {
+    console.log(`   ❌ Falló la llamada real (runAgent): ${err}`);
+    agentOk = false;
+  }
+
+  return enhanceOk && agentOk;
 }
 
 async function main() {
@@ -111,9 +178,16 @@ async function main() {
       console.log(`⏭  ${name}: sin ${envPrefix}_API_KEY, se omite.`);
       continue;
     }
-    const preset = AI_PRESETS[name];
+    const preset: AIPreset = AI_PRESETS[name];
     const model = process.env[`${envPrefix}_MODEL`] || preset.defaultModel;
-    const ok = await checkProvider(name, preset.baseURL, apiKey, model, `${envPrefix}_MODEL`);
+    const ok = await checkProvider(
+      name,
+      preset.baseURL,
+      apiKey,
+      model,
+      `${envPrefix}_MODEL`,
+      resolveReasoningEffort(preset.reasoningEffort),
+    );
     anyOk = anyOk || ok;
   }
 
@@ -127,6 +201,7 @@ async function main() {
       customApiKey,
       customModel,
       "AI_CUSTOM_MODEL",
+      resolveReasoningEffort(undefined),
     );
     anyOk = anyOk || ok;
   } else if (customApiKey || customBaseURL || customModel) {
