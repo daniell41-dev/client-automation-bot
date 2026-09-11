@@ -49,6 +49,12 @@ cada migración, **en orden**, ejecutando una por una:
 5. `supabase/migrations/0005_uso_ia.sql` — tabla y función `registrar_uso_ia`
    para medir el consumo de IA por negocio/día/proveedor (T-07). Igual
    criterio que `0004`: solo el bot la toca.
+6. `supabase/migrations/0006_negocio_id_fk.sql` — agrega `negocio_id` (FK a
+   `negocios.id`, `on delete cascade`) a `leads` y `sesiones`, con backfill
+   por `business_slug` (T-08). El motor y las políticas de RLS siguen usando
+   `business_slug`; `negocio_id` solo hace que borrar un negocio arrastre sus
+   leads y sesiones. Test de regresión: `pnpm test:cascade` (sección
+   "Probar el borrado en cascada de negocio_id" de `docs/06-testing-guide.md`).
 
 ## 3. Desactivar la confirmación de email
 
@@ -132,6 +138,7 @@ Los tests unitarios cubren los adaptadores, el resolver y el schema con fakes. E
 - [ ] Un cliente **no** puede crear un negocio insertando directo contra la API con su sesión (la RLS lo bloquea aunque se salte el formulario) — ver `pnpm test:rls`.
 - [ ] Al crear un negocio desde el back office, el cliente dueño lo ve de inmediato en su `/portal` (la asignación del rubro se crea sola).
 - [ ] El trigger crea el profile al crear un usuario desde el back office.
+- [ ] Creo un negocio, genero un lead con `pnpm sim` (o `/api/dev/simulate`), borro el negocio desde el back office y confirmo que el lead (y su sesión) desaparecieron — ver `pnpm test:cascade`.
 
 ## 10. Arquitectura (referencia rápida)
 

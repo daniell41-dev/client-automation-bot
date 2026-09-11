@@ -318,3 +318,28 @@ menos — no hace falta leer el schema para saber qué se rompió.
 - `supabase/tests/01-grants.sql` — los grants que Supabase da por defecto a esos
   roles (sin esto, RLS ni se pondría a prueba: fallaría por falta de permiso, no
   por política).
+
+---
+
+## Probar el borrado en cascada de `negocio_id` (`pnpm test:cascade`)
+
+Mismo criterio que `pnpm test:rls`: corre las migraciones REALES contra el
+Postgres desechable de `TEST_DATABASE_URL` (ver arriba cómo levantar una) y
+prueba `0006_negocio_id_fk.sql` (T-08) de punta a punta:
+
+```bash
+pnpm test:cascade
+```
+
+1. Inserta un negocio y un lead/sesión enlazados solo por `business_slug`
+   (0001-0005, sin la columna `negocio_id` todavía) — así como ya existen en
+   producción.
+2. Aplica `0006` y verifica que el **backfill** completó `negocio_id` de ese
+   lead/sesión correctamente, y que un lead con un slug que no matchea ningún
+   negocio queda con `negocio_id` en `null` (no inventa una relación).
+3. Borra el negocio y verifica que el lead y la sesión **desaparecen** (el
+   `on delete cascade` de la FK), sin afectar al lead huérfano.
+
+`supabase/tests/cascade.test.ts` reusa `00-auth-shim.sql` de la sección
+anterior (no necesita `01-grants.sql`: todas las queries corren como dueño de
+las tablas, no hay RLS de por medio en este test).

@@ -15,7 +15,7 @@ import type {
 import type { LeadRepository } from "@/core/storage/repository";
 import type { LeadRow, SupabaseDb } from "@/core/storage/adapters/supabase/api";
 
-function toRow(lead: Lead): LeadRow {
+function toRow(lead: Lead, negocioId: string | undefined): LeadRow {
   return {
     id: lead.id,
     business_slug: lead.businessSlug,
@@ -31,6 +31,7 @@ function toRow(lead: Lead): LeadRow {
     last_inbound_at: lead.lastInboundAt,
     follow_ups_sent: lead.followUpsSent ?? [],
     notes: lead.notes ?? null,
+    negocio_id: negocioId ?? null,
   };
 }
 
@@ -54,7 +55,11 @@ function fromRow(row: LeadRow): Lead {
 }
 
 export class SupabaseLeadRepository implements LeadRepository {
-  constructor(private readonly db: SupabaseDb) {}
+  constructor(
+    private readonly db: SupabaseDb,
+    /** FK de conveniencia (T-08) — ver el comentario de `LeadRow.negocio_id`. */
+    private readonly negocioId?: string,
+  ) {}
 
   async findByContact(businessSlug: string, contact: string): Promise<Lead | null> {
     const row = await this.db.selectLeadByContact(businessSlug, contact);
@@ -67,7 +72,7 @@ export class SupabaseLeadRepository implements LeadRepository {
   }
 
   async save(lead: Lead): Promise<Lead> {
-    await this.db.upsertLead(toRow(lead));
+    await this.db.upsertLead(toRow(lead, this.negocioId));
     return lead;
   }
 

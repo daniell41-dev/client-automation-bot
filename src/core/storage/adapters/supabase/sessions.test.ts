@@ -76,3 +76,31 @@ describe("SupabaseSessionRepository", () => {
     expect(restored.history[0].text).toBe("msg-5");
   });
 });
+
+describe("SupabaseSessionRepository — negocio_id (T-08)", () => {
+  const session: SessionMemory = {
+    businessSlug: "estetica-bella",
+    contact: "57300",
+    channel: "whatsapp",
+    history: [],
+    updatedAt: "t1",
+  };
+
+  it("completa negocio_id cuando el repo se construye con uno", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseSessionRepository(db, "uuid-negocio-1");
+
+    await repo.save(session);
+
+    expect(db.sesiones[0].negocio_id).toBe("uuid-negocio-1");
+  });
+
+  it("sin negocioId (negocio del registry estático), queda null", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseSessionRepository(db);
+
+    await repo.save(session);
+
+    expect(db.sesiones[0].negocio_id).toBeNull();
+  });
+});
