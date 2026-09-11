@@ -27,22 +27,32 @@ import { SupabaseSessionRepository } from "@/core/storage/adapters/supabase/sess
 import { SupabaseMessageDedupeRepository } from "@/core/storage/adapters/supabase/dedupe";
 import { SupabaseAiUsageRepository } from "@/core/storage/adapters/supabase/usage";
 
-/** Repositorio de leads: Supabase > Sheets del negocio > JSON local. */
-export function createLeadRepository(business?: BusinessConfig): LeadRepository {
+/**
+ * Repositorio de leads: Supabase > Sheets del negocio > JSON local.
+ *
+ * `negocioId` (T-08) es el `id` real de `negocios` — lo usa el adaptador de
+ * Supabase para completar la FK de conveniencia `leads.negocio_id`. `undefined`
+ * cuando el negocio vive solo en el registry estático (sin fila en `negocios`).
+ */
+export function createLeadRepository(
+  business?: BusinessConfig,
+  negocioId?: string,
+): LeadRepository {
   const db = createSupabaseDb();
-  if (db) return new SupabaseLeadRepository(db);
+  if (db) return new SupabaseLeadRepository(db, negocioId);
   const sheets = createSheetsApi(business?.storage?.spreadsheetId);
   return sheets
     ? new GoogleSheetsLeadRepository(sheets)
     : new JsonLeadRepository();
 }
 
-/** Repositorio de sesiones: Supabase > Sheets del negocio > JSON local. */
+/** Repositorio de sesiones: Supabase > Sheets del negocio > JSON local. Ver `negocioId` en `createLeadRepository`. */
 export function createSessionRepository(
   business?: BusinessConfig,
+  negocioId?: string,
 ): SessionRepository {
   const db = createSupabaseDb();
-  if (db) return new SupabaseSessionRepository(db);
+  if (db) return new SupabaseSessionRepository(db, negocioId);
   const sheets = createSheetsApi(business?.storage?.spreadsheetId);
   return sheets
     ? new GoogleSheetsSessionRepository(sheets)

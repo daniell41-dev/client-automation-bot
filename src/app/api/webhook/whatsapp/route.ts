@@ -116,8 +116,10 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
         negocio: resolved.negocioId ?? business.slug,
       });
 
-      const repo = createLeadRepository(business);
-      const sessionRepo = llm ? createSessionRepository(business) : undefined;
+      const repo = createLeadRepository(business, resolved.negocioId);
+      const sessionRepo = llm
+        ? createSessionRepository(business, resolved.negocioId)
+        : undefined;
       const calendar = createCalendar(business) ?? undefined;
 
       // Mismo canal para responderle al cliente y para avisarle a la dueña
