@@ -77,7 +77,27 @@ GROQ_API_KEY=
 # AI_PROVIDER_ORDER=
 ```
 
-Verificar que funciona: `pnpm ai:doctor` — revisa cada proveedor configurado (auth + una llamada real) y muestra el error EXACTO si algo falla, sin adivinar.
+Verificar que funciona: `pnpm ai:doctor` — revisa cada proveedor configurado (auth + una llamada real de `enhance()` y otra de `runAgent()`) y muestra el error EXACTO si algo falla, sin adivinar.
+
+### Modelos que razonan: `reasoning_effort` y el timeout del modo agente
+
+Gemini 3 y `gpt-oss` (el modelo de Groq) "piensan" antes de responder salvo que se les baje el esfuerzo explícitamente. Esos tokens de razonamiento salen del mismo `max_tokens` que la respuesta — en modo agente (prompt largo + JSON estricto, ver `docs/13-modo-agente.md`), un modelo que piensa de más puede gastar todo el presupuesto y devolver contenido vacío, o tardar más de lo que da el timeout. Por eso:
+
+- `presets.ts` manda `reasoning_effort: "low"` por defecto para Gemini y Groq (Cerebras no lo necesita).
+- `runAgent()` usa su propio timeout, más holgado que el resto de las llamadas (20s por defecto vs. 8s de `enhance()`/`interpret()`), porque razonar tarda más y ese tiempo crece con el catálogo + historial del negocio.
+
+Ambos son configurables sin tocar código:
+
+```bash
+# "none" | "low" | "medium" | "high". Vacío ("") fuerza a NO mandar el campo.
+# AI_REASONING_EFFORT=
+
+# Timeout de runAgent en ms (default 20000). En Vercel Hobby el límite de
+# función es 10s: si migrás ahí, bajalo o pasate a un plan con más tiempo.
+# AI_AGENT_TIMEOUT_MS=
+```
+
+Si `pnpm ai:doctor` reporta que `runAgent` falla con "respuesta vacía (finish_reason=length)", el modelo se quedó sin tokens pensando — la primera prueba es bajar `AI_REASONING_EFFORT` a `"none"`. Si en cambio tarda pero eventualmente respondería, subí `AI_AGENT_TIMEOUT_MS`.
 
 ### Cuota compartida entre negocios
 
