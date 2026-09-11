@@ -23,6 +23,12 @@ export interface ResolvedBusiness {
   config: BusinessConfig;
   /** `true` si es el negocio de demostración pública. */
   esDemo: boolean;
+  /**
+   * UUID de `negocios.id` en Supabase. `undefined` si el negocio vino del
+   * registry estático (sin Supabase o sin fila en la base) — ahí no hay un
+   * id real que atribuir en `uso_ia` (T-07).
+   */
+  negocioId?: string;
 }
 
 /** Busca por slug: Supabase primero, registry estático como fallback. */
@@ -45,7 +51,7 @@ async function fetchBySlug(slug: string): Promise<ResolvedBusiness | null> {
     const row = await db.selectNegocioBySlug(slug);
     if (row) {
       const config = parseBusinessConfig(row.config);
-      if (config) return { config, esDemo: row.es_demo };
+      if (config) return { config, esDemo: row.es_demo, negocioId: row.id };
       console.warn(`[resolve] config inválida en DB para negocio "${slug}"`);
     }
   }
@@ -61,7 +67,7 @@ async function fetchByPhoneNumberId(
     const row = await db.selectNegocioByPhoneNumberId(phoneNumberId);
     if (row) {
       const config = parseBusinessConfig(row.config);
-      if (config) return { config, esDemo: row.es_demo };
+      if (config) return { config, esDemo: row.es_demo, negocioId: row.id };
       console.warn(
         `[resolve] config inválida en DB para phone_number_id "${phoneNumberId}"`,
       );

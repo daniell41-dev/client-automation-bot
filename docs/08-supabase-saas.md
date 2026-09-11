@@ -42,6 +42,13 @@ cada migración, **en orden**, ejecutando una por una:
    cliente no podía leer sus rubros asignados, y podía crear un negocio en un
    rubro que no le fue asignado). Test de regresión: `pnpm test:rls` (sección
    "Probar las políticas de RLS" de `docs/06-testing-guide.md`).
+4. `supabase/migrations/0004_mensajes_procesados.sql` — tabla de idempotencia
+   por `message.id` de WhatsApp, para que un reintento de Meta no duplique la
+   respuesta del bot (T-05). Solo la usa el bot (service role); sin políticas
+   para `authenticated`/`anon`.
+5. `supabase/migrations/0005_uso_ia.sql` — tabla y función `registrar_uso_ia`
+   para medir el consumo de IA por negocio/día/proveedor (T-07). Igual
+   criterio que `0004`: solo el bot la toca.
 
 ## 3. Desactivar la confirmación de email
 

@@ -11,10 +11,12 @@ import type { BusinessConfig } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
 import type { SessionRepository } from "@/core/storage/session-repository";
 import type { MessageDedupeRepository } from "@/core/storage/dedupe-repository";
+import type { AiUsageRepository } from "@/core/storage/usage-repository";
 import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { JsonLeadRepository } from "@/core/storage/adapters/json";
 import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
 import { JsonMessageDedupeRepository } from "@/core/storage/adapters/dedupe-json";
+import { JsonAiUsageRepository } from "@/core/storage/adapters/usage-json";
 import { createSheetsApi } from "@/core/storage/adapters/google/auth";
 import { createCalendarApi } from "@/core/storage/adapters/google/calendar";
 import { GoogleSheetsLeadRepository } from "@/core/storage/adapters/google/leads";
@@ -23,6 +25,7 @@ import { createSupabaseDb } from "@/core/storage/adapters/supabase/api";
 import { SupabaseLeadRepository } from "@/core/storage/adapters/supabase/leads";
 import { SupabaseSessionRepository } from "@/core/storage/adapters/supabase/sessions";
 import { SupabaseMessageDedupeRepository } from "@/core/storage/adapters/supabase/dedupe";
+import { SupabaseAiUsageRepository } from "@/core/storage/adapters/supabase/usage";
 
 /** Repositorio de leads: Supabase > Sheets del negocio > JSON local. */
 export function createLeadRepository(business?: BusinessConfig): LeadRepository {
@@ -63,4 +66,14 @@ export function createCalendar(business: BusinessConfig): CalendarApi | null {
 export function createMessageDedupeRepository(): MessageDedupeRepository {
   const db = createSupabaseDb();
   return db ? new SupabaseMessageDedupeRepository(db) : new JsonMessageDedupeRepository();
+}
+
+/**
+ * Repositorio de consumo de IA (T-07): Supabase > JSON local. Sin Sheets, por
+ * el mismo motivo que el dedupe de mensajes: es bookkeeping técnico, no un
+ * dato que un negocio necesite ver en su propia planilla.
+ */
+export function createAiUsageRepository(): AiUsageRepository {
+  const db = createSupabaseDb();
+  return db ? new SupabaseAiUsageRepository(db) : new JsonAiUsageRepository();
 }
