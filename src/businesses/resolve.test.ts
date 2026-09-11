@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { esteticaBella } from "@/businesses/estetica-bella/config";
 import { makeFakeSupabaseDb } from "@/core/storage/adapters/supabase/fake-supabase";
+import { invalidateBusinessCache } from "@/businesses/business-cache";
 
 // Controla lo que devuelve createSupabaseDb() en cada test.
 const { createSupabaseDbMock } = vi.hoisted(() => ({
@@ -17,6 +18,9 @@ import {
 
 beforeEach(() => {
   createSupabaseDbMock.mockReset();
+  // Cada test parte de un caché limpio (T-06): sin esto, dos tests que
+  // resuelven el mismo slug/phoneNumberId con fixtures distintas se pisan.
+  invalidateBusinessCache();
 });
 
 describe("resolveBusinessBySlug", () => {
@@ -83,5 +87,65 @@ describe("resolveBusinessByPhoneNumberId", () => {
   it("devuelve null si el phone_number_id no está mapeado", async () => {
     createSupabaseDbMock.mockReturnValue(null);
     expect(await resolveBusinessByPhoneNumberId("99999")).toBeNull();
+  });
+});
+
+describe("caché de resolución (T-06)", () => {
+  it("N mensajes del mismo negocio hacen 1 sola lectura a Supabase", async () => {
+    const db = makeFakeSupabaseDb();
+    db.negocios.push({
+      slug: "estetica-bella",
+      config: JSON.parse(JSON.stringify(esteticaBella)),
+      whatsapp_phone_number_id: "12345",
+      es_demo: false,
+    });
+    createSupabaseDbMock.mockReturnValue(db);
+    const spy = vi.spyOn(db, "selectNegocioByPhoneNumberId");
+
+    for (let i = 0; i < 5; i++) {
+      const resolved = await resolveBusinessByPhoneNumberId("12345");
+      expect(resolved?.config.slug).toBe("estetica-bella");
+    }
+
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("guardar en el portal invalida el caché: el siguiente mensaje usa la config nueva", async () => {
+    const db = makeFakeSupabaseDb();
+    db.negocios.push({
+      slug: "estetica-bella",
+      config: JSON.parse(JSON.stringify(esteticaBella)),
+      whatsapp_phone_number_id: "12345",
+      es_demo: false,
+    });
+    createSupabaseDbMock.mockReturnValue(db);
+
+    const antes = await resolveBusinessByPhoneNumberId("12345");
+    expect(antes?.config.name).toBe("Estética Bella");
+
+    // Simula lo que hace guardarConfigParcial()/actualizarNegocio(): escriben
+    // en la tabla y después invalidan.
+    db.negocios[0].config = { ...antes!.config, name: "Nuevo Nombre" };
+    invalidateBusinessCache();
+
+    const despues = await resolveBusinessByPhoneNumberId("12345");
+    expect(despues?.config.name).toBe("Nuevo Nombre");
+  });
+
+  it("sin invalidar, sigue sirviendo la config vieja (así funciona el TTL de seguridad)", async () => {
+    const db = makeFakeSupabaseDb();
+    db.negocios.push({
+      slug: "estetica-bella",
+      config: JSON.parse(JSON.stringify(esteticaBella)),
+      whatsapp_phone_number_id: "12345",
+      es_demo: false,
+    });
+    createSupabaseDbMock.mockReturnValue(db);
+
+    const antes = await resolveBusinessByPhoneNumberId("12345");
+    db.negocios[0].config = { ...antes!.config, name: "Nuevo Nombre" };
+
+    const sinInvalidar = await resolveBusinessByPhoneNumberId("12345");
+    expect(sinInvalidar?.config.name).toBe("Estética Bella");
   });
 });

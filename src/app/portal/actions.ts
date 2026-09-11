@@ -13,6 +13,7 @@
 import { revalidatePath } from "next/cache";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
+import { invalidateBusinessCache } from "@/businesses/business-cache";
 
 export interface ActionState {
   error?: string;
@@ -51,6 +52,7 @@ export async function actualizarConfig(
   if (error) return { error: `No se pudo guardar: ${error.message}` };
   if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
 
+  invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`);
   revalidatePath(`/portal/negocios/${slug}/editar`);
   return { ok: "Configuración guardada. El bot ya responde con estos cambios." };
@@ -117,6 +119,7 @@ export async function guardarConfigParcial(
   if (error) return { error: `No se pudo guardar: ${error.message}` };
   if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
 
+  invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`, "layout");
   return { ok: "Guardado. El bot ya responde con estos cambios." };
 }
@@ -145,6 +148,7 @@ export async function toggleBotActivo(formData: FormData): Promise<void> {
     .update({ config, updated_at: new Date().toISOString() })
     .eq("slug", slug);
 
+  invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`, "layout");
 }
 
@@ -177,6 +181,7 @@ export async function actualizarWhatsapp(
   }
   if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
 
+  invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}/editar`);
   return { ok: "Conexión de WhatsApp actualizada." };
 }
