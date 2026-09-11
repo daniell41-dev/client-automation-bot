@@ -33,11 +33,30 @@ const agentActionSchema = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("reiniciar") }),
 ]);
 
+/**
+ * Descarta del array crudo las entradas que NO cumplen `agentActionSchema`
+ * antes de validarlo como array — así una acción alucinada (`{"tipo":
+ * "hacer_magia"}`, o una a la que le falta un campo) no invalida el resto de
+ * la respuesta. Si el valor no es un array, se devuelve sin tocar para que
+ * `z.array` falle de forma normal (no es "algunas acciones raras", es un
+ * campo con la forma equivocada).
+ */
+function descartarAccionesInvalidas(val: unknown): unknown {
+  if (!Array.isArray(val)) return val;
+  return val.filter((item) => agentActionSchema.safeParse(item).success);
+}
+
 export const agentResponseSchema = z.object({
   /** Texto para enviarle al cliente, ya redactado por la IA (no se reformula de nuevo). */
   respuesta: z.string().min(1),
-  /** Acciones que la IA cree que corresponden a este turno (pueden ser varias, o ninguna). */
-  acciones: z.array(agentActionSchema).default([]),
+  /**
+   * Acciones que la IA cree que corresponden a este turno (pueden ser varias,
+   * o ninguna). Tolerante: una acción con un "tipo" desconocido o un campo
+   * faltante se descarta en vez de invalidar toda la respuesta — el resto de
+   * `agent.ts` sigue validando cada acción que sobrevive contra el
+   * catálogo/estado real, así que esto nunca relaja esas reglas de negocio.
+   */
+  acciones: z.preprocess(descartarAccionesInvalidas, z.array(agentActionSchema)).default([]),
 });
 
 export type AgentAction = z.infer<typeof agentActionSchema>;

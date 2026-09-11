@@ -221,6 +221,11 @@ export class OpenAICompatibleProvider implements ILLMProvider {
       );
       return null;
     }
+    if (parsed.rescatado) {
+      console.error(
+        `[${this.name}] runAgent rescató el texto de una respuesta rota/truncada (sin acciones)`,
+      );
+    }
     return parsed.value;
   }
 }
