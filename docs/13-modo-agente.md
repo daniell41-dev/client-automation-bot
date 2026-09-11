@@ -55,9 +55,15 @@ Dos datos del estado son tan importantes como el catálogo, y van en el prompt:
 - **`yaConfirmado`**: si la cita/pedido ya está cerrada, el prompt lo dice de forma destacada — "NO vuelvas a pedir datos ni a confirmar; si quiere algo más, tratalo como reserva nueva". Sin esto la IA no tiene forma de saberlo y vuelve a preguntar cosas que el cliente ya respondió.
 - **Los datos ya capturados** (nombre, servicio, fecha, modalidad), para que no los vuelva a pedir.
 
-### Respuesta en JSON garantizada
+### Respuesta en JSON garantizada (y qué pasa si no lo es)
 
-La llamada usa `response_format: {"type":"json_object"}` (soportado por Gemini, Groq y Cerebras) además de pedirlo en el prompt, y un `max_tokens` holgado. Sin eso, el modelo a veces envuelve el JSON en prosa o lo corta a la mitad — y un JSON inválido significa caer al motor determinista, que en medio de una conversación se nota como un bajón brusco de calidad.
+La llamada usa `response_format: {"type":"json_object"}` (soportado por Gemini, Groq y Cerebras) además de pedirlo en el prompt, y un `max_tokens` holgado (1600 — ver `docs/11-proveedor-ia.md` sobre por qué los modelos que razonan necesitan margen extra). Aun así, tres cosas pueden salir mal, y cada una se maneja distinto en vez de tirar el turno entero:
+
+- **Una acción con un `tipo` desconocido, o a la que le falta un campo**: se descarta solo esa acción — el resto de la respuesta (el texto y las demás acciones) se procesa normal. Antes, un solo `{"tipo":"hacer_magia"}` invalidaba todo el JSON.
+- **El modelo envolvió el JSON en prosa** ("Acá tenés: {...} espero que sirva"): se rescata el objeto `{...}` balanceado.
+- **La respuesta se cortó a la mitad** (JSON truncado): se rescata SOLO el texto de `"respuesta"` por regex, con `acciones: []` — nunca se adivina un cambio de estado a partir de algo roto, pero el cliente recibe una respuesta de la IA en vez de caer a una plantilla que no viene a cuento.
+
+Si ninguno de los rescates funciona, `parseAgentResponse` devuelve el motivo (`vacio` / `no-json` / `schema`) y un recorte del texto crudo — ver la sección de diagnóstico más abajo.
 
 El catálogo (precios, duraciones) y el `knowledge` del negocio van en el prompt como los **únicos** datos válidos, con instrucción explícita de no inventar otros — igual que el motor determinista nunca inventó un precio.
 
@@ -87,10 +93,28 @@ El modo agente requiere, además de `ai.enabled !== false` y `modo !== "guiado"`
 - Cuando `runAgentTurn()` devuelve `null`, `handleIncoming` cae al motor determinista (`respond()`) para ESE mensaje, con su propia red de seguridad de intérprete IA (`docs/12`). El cliente **siempre** recibe una respuesta.
 - Al confirmar (por cualquiera de los dos modos), el resto del sistema sigue funcionando igual: se agenda en el calendario del negocio y se avisa a la dueña por WhatsApp (`docs/10-notificaciones-y-pedidos.md`) — la detección de "recién confirmado" mira `lead.stage`, que ambos modos dejan en `"datos_completos"` de la misma forma.
 
+## Reglas rápidas y brevedad: el agente también las respeta
+
+`config.ai.reglas` (keyword → respuesta oficial, ver `docs/07-*`/el editor de "Respuestas y flujos") se le pasa al prompt como referencia: *"si el cliente pregunta por esto, esta es la respuesta oficial del negocio — podés adaptar el tono, no el dato"*. No es un atajo por keyword como en modo guiado (`matchRule`): el agente sigue razonando, pero ya no improvisa una política de envíos o un horario que el negocio ya definió textualmente.
+
+El prompt también instruye brevedad explícita (2-3 frases, tono de WhatsApp, sin markdown ni listas largas salvo que pidan el menú) — la misma idea que la regla `04-brevedad.md` de `enhance()`, que el prompt del agente no heredaba. Además de fidelidad al modo guiado, respuestas más cortas corren menos riesgo de truncarse (ver la sección de arriba).
+
+## Cuándo cae al motor determinista, y cómo diagnosticarlo
+
+El síntoma típico de una caída silenciosa: el bot "olvida" datos que ya tenía (vuelve a pedir el nombre, ofrece un menú genérico) a mitad de una conversación que había empezado bien. Antes esto no dejaba ningún rastro — hoy sí:
+
+- **Logs**: cada causa deja una línea distinta en la consola del servidor:
+  - `[<proveedor>] runAgent devolvió algo inválido (<motivo>): <texto crudo recortado>` — el motivo es `vacio`, `no-json` o `schema` (ver la sección de arriba sobre los rescates: si `vacio`/`no-json` se pudo rescatar SOLO el texto, esto no aparece — en su lugar sale la línea de "rescató" de abajo).
+  - `[<proveedor>] runAgent rescató el texto de una respuesta rota/truncada (sin acciones)` — se salvó una respuesta parcial; no es un fallo del turno, pero vale la pena saber que pasó seguido (podría indicar que conviene subir `AI_AGENT_TIMEOUT_MS` o bajar `AI_REASONING_EFFORT`).
+  - `[AI] <proveedor> falló (runAgent), probando el siguiente` — solo con 2+ proveedores configurados (`ResilientProvider`); con uno solo, el fallo ya quedó logueado por el punto anterior.
+  - `[Agent] runAgent falló (se agotó el tiempo de espera), cae al motor determinista` — timeout específicamente.
+  - `[Agent] la IA no devolvió un turno válido, cae al motor determinista` — línea final, siempre presente cuando el turno termina en modo guiado por culpa del agente (a diferencia de un guiado configurado a propósito, que no loguea nada).
+- **`pnpm ai:doctor` — paso 4**: además de probar `enhance()`, hace una llamada real de `runAgent()` con el catálogo de estética-bella (mismo `reasoning_effort`/timeout que usaría el bot real) e imprime la latencia y el JSON crudo. Es la prueba que puede fallar aunque el paso 3 (`enhance()`) pase — un prompt más largo + `response_format` estricto es un caso distinto.
+- **En vivo, sin leer logs**: `handleIncoming()` devuelve `{ messages, modo, motivoFallback }` en vez de solo los mensajes. `/api/dev/simulate` lo expone en `_debug.modo`/`_debug.motivoFallback`, y el chat de `/demo` muestra una nota discreta bajo la respuesta del bot cuando cayó a guiado (en desarrollo se muestra siempre, para ver también cuándo SÍ contestó el agente). `motivoFallback` viene vacío cuando el guiado fue una decisión del negocio (`ai.modo: "guiado"`), no un fallback real.
+
 ## Lo que NO cambia
 
 - El almacenamiento (Supabase/Sheets/JSON), el calendario, las notificaciones, los seguimientos automáticos: todos siguen leyendo el mismo `Lead` de siempre.
-- Las reglas rápidas (`config.ai.reglas`) — el motor determinista sigue existiendo completo como red de seguridad y modo alternativo.
 - El costo de IA: ya se pagaba una llamada por mensaje (para `enhance()`); ahora se paga la misma llamada, pero para que decida en vez de solo parafrasear.
 
 ## Pendiente (fuera de esta fase)
@@ -100,10 +124,12 @@ El modo agente requiere, además de `ai.enabled !== false` y `modo !== "guiado"`
 
 ## Archivos clave
 
-- `src/core/ai/agent-schema.ts` — el contrato JSON (Zod): acciones válidas y su forma.
-- `src/core/ai/agent-prompt.ts` — `buildAgentSystemPrompt()`, `buildAgentUserMessage()`, `parseAgentResponse()` (nunca confía a ciegas en la salida del modelo).
-- `src/core/ai/agent.ts` — `runAgentTurn()`: aplica las acciones validadas, deriva la etapa visible del lead, cuenta los desvíos de tema.
+- `src/core/ai/agent-schema.ts` — el contrato JSON (Zod): acciones válidas y su forma; `acciones` es tolerante (descarta las inválidas, no invalida toda la respuesta).
+- `src/core/ai/agent-prompt.ts` — `buildAgentSystemPrompt()` (catálogo, reglas rápidas, brevedad), `buildAgentUserMessage()`, `parseAgentResponse()` (nunca confía a ciegas en la salida del modelo; incluye los rescates de JSON roto/truncado).
+- `src/core/ai/agent.ts` — `runAgentTurn()`: aplica las acciones validadas, deriva la etapa visible del lead, cuenta los desvíos de tema, loguea por qué cae al motor determinista.
 - `src/core/ai/provider.ts` — `AgentTurnInput`/`AgentServiceSummary`/`AgentLeadState`, método `runAgent()` en `ILLMProvider`.
-- `src/core/ai/openai-compatible.ts` / `resilient.ts` — implementan `runAgent()` (con la cadena de respaldo tratando un JSON inválido como fallo real, a diferencia de `interpret`/`extractDateTime`).
-- `src/core/handle.ts` — decide qué modo usar por turno y arma el fallback.
+- `src/core/ai/openai-compatible.ts` / `resilient.ts` — implementan `runAgent()` (con la cadena de respaldo tratando un JSON inválido como fallo real, a diferencia de `interpret`/`extractDateTime`); loguean el motivo exacto de cada fallo.
+- `src/core/ai/factory.ts` — `resolveReasoningEffort()`/`resolveAgentTimeoutMs()` (también los usa `ai-doctor.ts` para probar con la misma config que producción).
+- `src/core/handle.ts` — decide qué modo usar por turno, arma el fallback, y devuelve `{ messages, modo, motivoFallback }`.
+- `scripts/ai-doctor.ts` — paso 4: llamada real de `runAgent()`.
 - `src/core/types.ts` — `BusinessConfig.rubro`, `BotAIConfig.modo`, `Lead.offTopicCount`.
