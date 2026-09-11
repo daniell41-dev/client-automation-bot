@@ -129,6 +129,6 @@ Código
 ├── src/core/storage/factory.ts          ← prioridad Supabase > Sheets > JSON
 ├── src/core/config-schema.ts            ← validación Zod del BusinessConfig
 ├── src/businesses/resolve.ts            ← negocio por slug/phone_number_id con fallback a código
-├── src/middleware.ts                    ← protege /portal y /backoffice
+├── src/proxy.ts                         ← protege /portal y /backoffice
 └── src/app/{portal,backoffice,demo,login}/  ← las tres secciones + auth
 ```
