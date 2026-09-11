@@ -16,6 +16,7 @@ import {
   getBusinessBySlug,
   getBusinessByPhoneNumberId,
 } from "@/businesses/registry";
+import { cached } from "@/businesses/business-cache";
 
 /** Info extra del negocio que necesita la capa web (no el motor). */
 export interface ResolvedBusiness {
@@ -28,6 +29,17 @@ export interface ResolvedBusiness {
 export async function resolveBusinessBySlug(
   slug: string,
 ): Promise<ResolvedBusiness | null> {
+  return cached(`slug:${slug}`, () => fetchBySlug(slug));
+}
+
+/** Busca por phone_number_id de WhatsApp: Supabase primero, registry después. */
+export async function resolveBusinessByPhoneNumberId(
+  phoneNumberId: string,
+): Promise<ResolvedBusiness | null> {
+  return cached(`phone:${phoneNumberId}`, () => fetchByPhoneNumberId(phoneNumberId));
+}
+
+async function fetchBySlug(slug: string): Promise<ResolvedBusiness | null> {
   const db = createSupabaseDb();
   if (db) {
     const row = await db.selectNegocioBySlug(slug);
@@ -41,8 +53,7 @@ export async function resolveBusinessBySlug(
   return fallback ? { config: fallback, esDemo: false } : null;
 }
 
-/** Busca por phone_number_id de WhatsApp: Supabase primero, registry después. */
-export async function resolveBusinessByPhoneNumberId(
+async function fetchByPhoneNumberId(
   phoneNumberId: string,
 ): Promise<ResolvedBusiness | null> {
   const db = createSupabaseDb();

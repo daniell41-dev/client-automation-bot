@@ -15,6 +15,7 @@ import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { plantilla } from "@/businesses/_template/config";
+import { invalidateBusinessCache } from "@/businesses/business-cache";
 import type { BusinessConfig } from "@/core/types";
 
 export interface ActionState {
@@ -111,6 +112,7 @@ export async function crearNegocio(
   const asignacionError = await asegurarAsignacion(supabase, ownerId, rubroId);
   if (asignacionError) return { error: asignacionError };
 
+  invalidateBusinessCache();
   revalidatePath("/backoffice/negocios");
   redirect(`/backoffice/negocios/${negocio.id}`);
 }
@@ -163,6 +165,7 @@ export async function actualizarNegocio(
   const asignacionError = await asegurarAsignacion(supabase, ownerId, actual.rubro_id);
   if (asignacionError) return { error: asignacionError };
 
+  invalidateBusinessCache();
   revalidatePath("/backoffice/negocios");
   revalidatePath(`/backoffice/negocios/${id}`);
   return { ok: "Negocio actualizado." };
@@ -192,6 +195,7 @@ export async function toggleBotActivoNegocio(formData: FormData): Promise<void> 
     .update({ config, updated_at: new Date().toISOString() })
     .eq("id", id);
 
+  invalidateBusinessCache();
   revalidatePath(`/backoffice/negocios/${id}`);
   revalidatePath("/backoffice/negocios");
 }
@@ -205,6 +209,7 @@ export async function eliminarNegocio(formData: FormData): Promise<void> {
 
   const supabase = await createUserClient();
   await supabase.from("negocios").delete().eq("id", id);
+  invalidateBusinessCache();
   revalidatePath("/backoffice/negocios");
   redirect("/backoffice/negocios");
 }
