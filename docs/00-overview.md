@@ -100,3 +100,4 @@ adaptador de Instagram, almacenamiento en Google Sheets/Airtable y despliegue re
 | [`11-proveedor-ia.md`](./11-proveedor-ia.md) | IA gratis y estable (cadena de respaldo Gemini → Groq → Cerebras) |
 | [`12-comprension-del-cliente.md`](./12-comprension-del-cliente.md) | Español de chat + intérprete IA |
 | [`13-modo-agente.md`](./13-modo-agente.md) | Modo agente: la IA decide acciones validadas, no solo reformula texto |
+| [`14-plan-de-trabajo.md`](./14-plan-de-trabajo.md) | **Contrato de trabajo:** decisiones cerradas, convenciones y backlog |
