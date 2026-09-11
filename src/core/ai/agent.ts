@@ -80,6 +80,7 @@ function buildAgentInput(
     locale: config.locale,
     persona,
     knowledge: config.ai?.knowledge,
+    reglas: config.ai?.reglas,
     services: availableServices(config.services).map((s) => ({
       id: s.id,
       name: s.name,

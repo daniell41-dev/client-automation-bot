@@ -594,3 +594,56 @@ describe("runAgentTurn — la IA sabe si la cita ya está confirmada", () => {
     expect(yaConfirmadoVisto).toBe(false);
   });
 });
+
+describe("runAgentTurn — le pasa a la IA las reglas rápidas del negocio", () => {
+  it("propaga config.ai.reglas en el input del agente", async () => {
+    let reglasVistas: unknown = "sin-tocar";
+    const configConReglas: BusinessConfig = {
+      ...config,
+      ai: {
+        enabled: true,
+        reglas: [{ keywords: ["horario"], respuesta: "Abrimos de 9 a 6." }],
+      },
+    };
+    const llm: ILLMProvider = {
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent(input) {
+        reglasVistas = input.reglas;
+        return { respuesta: "Abrimos de 9 a 6.", acciones: [] };
+      },
+    };
+
+    await runAgentTurn(null, msg("¿cuál es el horario?"), configConReglas, llm, persona, [], now);
+    expect(reglasVistas).toEqual([{ keywords: ["horario"], respuesta: "Abrimos de 9 a 6." }]);
+  });
+
+  it("sin reglas configuradas, el input del agente trae 'reglas' undefined", async () => {
+    let reglasVistas: unknown = "sin-tocar";
+    const llm: ILLMProvider = {
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent(input) {
+        reglasVistas = input.reglas;
+        return { respuesta: "hola", acciones: [] };
+      },
+    };
+
+    await runAgentTurn(null, msg("Hola"), config, llm, persona, [], now);
+    expect(reglasVistas).toBeUndefined();
+  });
+});
