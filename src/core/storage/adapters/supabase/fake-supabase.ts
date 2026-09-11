@@ -15,17 +15,20 @@ interface FakeSupabaseDb extends SupabaseDb {
   leads: LeadRow[];
   sesiones: SessionRow[];
   negocios: NegocioRow[];
+  mensajesProcesados: Set<string>;
 }
 
 export function makeFakeSupabaseDb(): FakeSupabaseDb {
   const leads: LeadRow[] = [];
   const sesiones: SessionRow[] = [];
   const negocios: NegocioRow[] = [];
+  const mensajesProcesados = new Set<string>();
 
   return {
     leads,
     sesiones,
     negocios,
+    mensajesProcesados,
 
     async selectLeadByContact(businessSlug, contact) {
       return (
@@ -80,6 +83,12 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
 
     async selectNegocioByPhoneNumberId(id) {
       return negocios.find((n) => n.whatsapp_phone_number_id === id) ?? null;
+    },
+
+    async claimMessage(messageId) {
+      if (mensajesProcesados.has(messageId)) return false;
+      mensajesProcesados.add(messageId);
+      return true;
     },
   };
 }
