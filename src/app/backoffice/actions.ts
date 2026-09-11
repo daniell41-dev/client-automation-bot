@@ -10,20 +10,203 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { plantilla } from "@/businesses/_template/config";
+import type { BusinessConfig } from "@/core/types";
 
 export interface ActionState {
   error?: string;
   ok?: string;
 }
 
+const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
 async function requireAdmin(): Promise<string | null> {
   const me = await getUserRole();
   if (!me || me.role !== "admin") return "No autorizado.";
   return null;
+}
+
+/**
+ * Asegura que el cliente dueño tenga el rubro asignado — sin esto, RLS
+ * (`rubros_asignados`/`negocios_own`) le deja el negocio invisible en su
+ * propio `/portal` apenas lo creamos. Idempotente: si ya existe, la
+ * violación de `unique (user_id, rubro_id)` se ignora a propósito.
+ */
+async function asegurarAsignacion(
+  supabase: Awaited<ReturnType<typeof createUserClient>>,
+  userId: string,
+  rubroId: string,
+): Promise<string | null> {
+  const { error } = await supabase
+    .from("asignaciones")
+    .insert({ user_id: userId, rubro_id: rubroId });
+  if (error && error.code !== "23505") {
+    return `No se pudo asignar el rubro al cliente: ${error.message}`;
+  }
+  return null;
+}
+
+// ── Negocios ─────────────────────────────────────────────────────────────────
+
+export async function crearNegocio(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const denied = await requireAdmin();
+  if (denied) return { error: denied };
+
+  const nombre = String(formData.get("nombre") ?? "").trim();
+  const slug = String(formData.get("slug") ?? "").trim().toLowerCase();
+  const ownerId = String(formData.get("owner_id") ?? "");
+  const rubroId = String(formData.get("rubro_id") ?? "");
+  const whatsapp = String(formData.get("whatsapp_phone_number_id") ?? "").trim();
+  const plan = String(formData.get("plan") ?? "free") === "pro" ? "pro" : "free";
+
+  if (!nombre || !ownerId || !rubroId) {
+    return { error: "Nombre, cliente dueño y rubro son obligatorios." };
+  }
+  if (!SLUG_RE.test(slug)) {
+    return { error: "El slug debe ir en kebab-case (ej. mi-negocio)." };
+  }
+
+  const supabase = await createUserClient();
+
+  const { data: rubro } = await supabase
+    .from("rubros")
+    .select("template")
+    .eq("id", rubroId)
+    .maybeSingle();
+  const template = parseBusinessConfig(rubro?.template);
+  if (!template) {
+    return { error: "La plantilla de ese rubro es inválida; revisala en Rubros." };
+  }
+
+  // Nace Pausado: el admin lo activa cuando el negocio esté listo para atender.
+  const config: BusinessConfig = { ...template, slug, name: nombre, botActivo: false, plan };
+
+  const { data: negocio, error } = await supabase
+    .from("negocios")
+    .insert({
+      owner_id: ownerId,
+      rubro_id: rubroId,
+      slug,
+      config,
+      whatsapp_phone_number_id: whatsapp || null,
+    })
+    .select("id")
+    .single();
+  if (error) {
+    return {
+      error:
+        error.code === "23505"
+          ? "Ya existe un negocio con ese slug o ese WhatsApp; elegí otro."
+          : `No se pudo crear el negocio: ${error.message}`,
+    };
+  }
+
+  const asignacionError = await asegurarAsignacion(supabase, ownerId, rubroId);
+  if (asignacionError) return { error: asignacionError };
+
+  revalidatePath("/backoffice/negocios");
+  redirect(`/backoffice/negocios/${negocio.id}`);
+}
+
+export async function actualizarNegocio(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const denied = await requireAdmin();
+  if (denied) return { error: denied };
+
+  const id = String(formData.get("id") ?? "");
+  const nombre = String(formData.get("nombre") ?? "").trim();
+  const ownerId = String(formData.get("owner_id") ?? "");
+  const whatsapp = String(formData.get("whatsapp_phone_number_id") ?? "").trim();
+  const plan = String(formData.get("plan") ?? "free") === "pro" ? "pro" : "free";
+  if (!id || !nombre || !ownerId) return { error: "Faltan datos del negocio." };
+
+  const supabase = await createUserClient();
+  const { data: actual } = await supabase
+    .from("negocios")
+    .select("rubro_id, config")
+    .eq("id", id)
+    .maybeSingle();
+  const config = parseBusinessConfig(actual?.config);
+  if (!actual || !config) return { error: "Negocio no encontrado o config inválida." };
+
+  const nuevaConfig: BusinessConfig = { ...config, name: nombre, plan };
+
+  const { error } = await supabase
+    .from("negocios")
+    .update({
+      owner_id: ownerId,
+      config: nuevaConfig,
+      whatsapp_phone_number_id: whatsapp || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) {
+    return {
+      error:
+        error.code === "23505"
+          ? "Ese WhatsApp ya está en uso por otro negocio."
+          : `No se pudo guardar: ${error.message}`,
+    };
+  }
+
+  // Si se transfirió a otro cliente, ese cliente necesita el rubro asignado
+  // para poder verlo/gestionarlo en su /portal.
+  const asignacionError = await asegurarAsignacion(supabase, ownerId, actual.rubro_id);
+  if (asignacionError) return { error: asignacionError };
+
+  revalidatePath("/backoffice/negocios");
+  revalidatePath(`/backoffice/negocios/${id}`);
+  return { ok: "Negocio actualizado." };
+}
+
+/** Pausar/Activar bot desde el detalle del negocio (equivalente admin del toggle del portal). */
+export async function toggleBotActivoNegocio(formData: FormData): Promise<void> {
+  const denied = await requireAdmin();
+  if (denied) return;
+
+  const id = String(formData.get("id") ?? "");
+  const next = String(formData.get("next") ?? "") === "true";
+  if (!id) return;
+
+  const supabase = await createUserClient();
+  const { data: negocio } = await supabase
+    .from("negocios")
+    .select("config")
+    .eq("id", id)
+    .maybeSingle();
+  const config = parseBusinessConfig(negocio?.config);
+  if (!config) return;
+
+  config.botActivo = next;
+  await supabase
+    .from("negocios")
+    .update({ config, updated_at: new Date().toISOString() })
+    .eq("id", id);
+
+  revalidatePath(`/backoffice/negocios/${id}`);
+  revalidatePath("/backoffice/negocios");
+}
+
+export async function eliminarNegocio(formData: FormData): Promise<void> {
+  const denied = await requireAdmin();
+  if (denied) return;
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = await createUserClient();
+  await supabase.from("negocios").delete().eq("id", id);
+  revalidatePath("/backoffice/negocios");
+  redirect("/backoffice/negocios");
 }
 
 // ── Usuarios ─────────────────────────────────────────────────────────────────

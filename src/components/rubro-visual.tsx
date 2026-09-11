@@ -12,6 +12,7 @@ import {
   UtensilsCrossed,
   type LucideIcon,
 } from "lucide-react";
+import { parseBusinessConfig } from "@/core/config-schema";
 
 export interface RubroVisual {
   bg: string;
@@ -52,6 +53,34 @@ export function catalogLabel(rubroNombre: string | null | undefined): string {
   if (/gastro|restaur|comida|parrilla|caf|pizz/i.test(name)) return "Menú";
   if (/servicio|peluquer|estetic|belleza|barber|salud|spa/i.test(name)) return "Servicios";
   return "Catálogo";
+}
+
+/**
+ * Chips de "campos del negocio" que hereda un negocio creado desde este rubro
+ * — se usa tanto en la card de cada plantilla (`/backoffice/rubros`) como en
+ * el preview en vivo del modal "Nuevo negocio" (`/backoffice/negocios`), así
+ * que vive acá para no duplicar el cálculo en dos páginas.
+ */
+export function camposDelNegocio(
+  rubroNombre: string | null | undefined,
+  template: unknown,
+): string[] {
+  const config = parseBusinessConfig(template);
+  const label = catalogLabel(rubroNombre);
+  const itemLabel = label === "Menú" ? "Plato" : label === "Servicios" ? "Servicio" : "Producto";
+  const campos = [itemLabel, "Precio", "Duración", "Categoría", "Disponible"];
+  if (config?.ai) campos.push("IA + reglas");
+  return campos;
+}
+
+/** Tipo de citas/reservas que ofrece un negocio creado desde este rubro. */
+export function tipoCitas(rubroNombre: string | null | undefined, template: unknown): string {
+  const config = parseBusinessConfig(template);
+  if (!config) return "—";
+  if (config.services.some((s) => s.reservable)) {
+    return catalogLabel(rubroNombre) === "Menú" ? "Reserva de mesa" : "Turnos";
+  }
+  return "Sin citas";
 }
 
 /** Tile cuadrado con el icono del rubro. */
