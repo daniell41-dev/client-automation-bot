@@ -86,6 +86,25 @@ describe("buildAgentSystemPrompt", () => {
     expect(prompt).toContain("Aceptamos tarjetas y transferencias.");
   });
 
+  it("incluye las reglas rápidas del negocio como respuestas oficiales, solo si hay", () => {
+    const sinReglas = buildAgentSystemPrompt(baseInput);
+    expect(sinReglas).not.toContain("Respuestas oficiales del negocio");
+
+    const conReglas = buildAgentSystemPrompt({
+      ...baseInput,
+      reglas: [{ keywords: ["envios", "domicilio"], respuesta: "Hacemos envíos a todo Bogotá." }],
+    });
+    expect(conReglas).toContain("Respuestas oficiales del negocio");
+    expect(conReglas).toContain("Hacemos envíos a todo Bogotá.");
+    expect(conReglas).toContain("envios");
+  });
+
+  it("instruye a ser breve (tono de WhatsApp, sin markdown ni listas largas)", () => {
+    const prompt = buildAgentSystemPrompt(baseInput);
+    expect(prompt).toMatch(/breve/i);
+    expect(prompt).toMatch(/whatsapp/i);
+  });
+
   it("resume los datos ya conocidos del cliente", () => {
     const prompt = buildAgentSystemPrompt({
       ...baseInput,

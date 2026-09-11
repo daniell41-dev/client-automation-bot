@@ -4,7 +4,7 @@
  * (Groq, OpenAI…) lo inyecta la capa de aplicación.
  */
 
-import type { BusinessHours, ConversationTurn, PersonaConfig } from "@/core/types";
+import type { BusinessHours, ConversationTurn, PersonaConfig, QuickRule } from "@/core/types";
 import type { AgentResponse } from "@/core/ai/agent-schema";
 
 export interface LLMContext {
@@ -82,6 +82,13 @@ export interface AgentTurnInput {
   persona: PersonaConfig;
   /** Conocimiento libre del negocio (horarios especiales, políticas, etc.). */
   knowledge?: string;
+  /**
+   * Reglas rápidas del negocio (keyword → respuesta oficial). En modo guiado
+   * tienen prioridad sobre la IA (`matchRule` en `intake.ts`); acá se le
+   * pasan como referencia para que no invente una respuesta propia cuando el
+   * negocio ya definió la suya.
+   */
+  reglas?: QuickRule[];
   /** SOLO los servicios disponibles — la IA no debe ofrecer los que no. */
   services: AgentServiceSummary[];
   horarios?: BusinessHours[];

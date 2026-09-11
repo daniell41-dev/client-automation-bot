@@ -50,6 +50,21 @@ function buildKnowledgeBlock(input: AgentTurnInput): string {
   return `\n\nInformación adicional del negocio (usala para responder preguntas; nunca inventes algo que no esté acá ni en el catálogo):\n${knowledge}`;
 }
 
+/**
+ * Respuestas oficiales que configuró el negocio para ciertos temas (las
+ * mismas que en modo guiado tienen prioridad sobre la IA, ver `matchRule` en
+ * `intake.ts`). En modo agente no son un atajo por keyword: se le pasan a la
+ * IA como referencia para que no improvise cuando el negocio ya definió su
+ * propia respuesta (p. ej. la política de envíos exacta).
+ */
+function buildReglasBlock(input: AgentTurnInput): string {
+  if (!input.reglas?.length) return "";
+  const lineas = input.reglas
+    .map((r) => `- Sobre "${r.keywords.join('", "')}": "${r.respuesta}"`)
+    .join("\n");
+  return `\n\nRespuestas oficiales del negocio para estos temas (usá el mismo contenido; podés adaptar el tono, no el dato):\n${lineas}`;
+}
+
 function buildDatosConocidos(input: AgentTurnInput): string {
   const partes = [
     input.lead.name ? `nombre: ${input.lead.name}` : null,
@@ -88,8 +103,10 @@ Idioma: ${input.persona.language}
 
 Tu trabajo es actuar como un vendedor experto de este negocio: entendé lo que el cliente necesita, respondé sus preguntas con criterio real (no repitas un guion armado), resolvé objeciones, y guialo hacia agendar/pedir cuando tenga sentido — usando SOLO la información de abajo. Cuestioná lo que el cliente escribe con sentido común: si algo no tiene sentido o falta información, preguntá; no lo inventes ni lo aceptes a ciegas.
 
+Sé breve: máximo 2 o 3 frases, con tono de mensaje de WhatsApp real, no de folleto. Sin markdown ni listas largas, salvo que el cliente pida el menú completo.
+
 Catálogo de servicios (los ÚNICOS que existen — nunca inventes otro, otro precio ni otra duración):
-${buildCatalogBlock(input)}${buildHorariosBlock(input)}${buildPedidosBlock(input)}${buildKnowledgeBlock(input)}
+${buildCatalogBlock(input)}${buildHorariosBlock(input)}${buildPedidosBlock(input)}${buildKnowledgeBlock(input)}${buildReglasBlock(input)}
 
 Datos que ya tenés de este cliente: ${buildDatosConocidos(input)}.${buildConfirmadoBlock(input)}${buildOffTopicNote(input)}
 
