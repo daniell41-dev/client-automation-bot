@@ -127,17 +127,65 @@ const RAW_LOG_LIMIT = 300;
  * Resultado de intentar parsear la respuesta del modelo. A diferencia de un
  * simple `null`, `motivo` + `raw` le dan a quien llama (`openai-compatible.ts`)
  * algo concreto para loguear — sin esto, un fallo de parseo era indistinguible
- * de cualquier otro y quedaba completamente en silencio.
+ * de cualquier otro y quedaba completamente en silencio. `rescatado` marca un
+ * `ok: true` que no vino de un `JSON.parse` limpio (ver rescates abajo): sigue
+ * siendo una respuesta usable, pero vale la pena que quede en el log.
  */
 export type AgentParseResult =
-  | { ok: true; value: AgentResponse }
+  | { ok: true; value: AgentResponse; rescatado?: boolean }
   | { ok: false; motivo: "vacio" | "no-json" | "schema"; raw: string };
 
 /**
+ * Busca el primer objeto `{...}` balanceado dentro del texto (por si el
+ * modelo agregó prosa antes/después del JSON, en vez de devolver SOLO el
+ * JSON como se le pidió). Devuelve `null` si no encuentra ninguna llave de
+ * apertura o si nunca llega a cerrar (JSON truncado a la mitad).
+ */
+function extraerObjetoBalanceado(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+/**
+ * Último rescate cuando el JSON está roto o truncado: salva SOLO el texto de
+ * `"respuesta"` por regex, sin adivinar nada de `acciones` (eso sí requiere
+ * JSON válido). Conservador a propósito — nunca se infiere un cambio de
+ * estado a partir de una respuesta rota. Prueba primero con la comilla de
+ * cierre (caso normal); si no aparece, es que el string quedó truncado a la
+ * mitad — se toma todo lo que haya hasta el final del texto.
+ */
+function rescatarTextoRespuesta(text: string): string | null {
+  const match =
+    text.match(/"respuesta"\s*:\s*"((?:[^"\\]|\\.)*)"/) ??
+    text.match(/"respuesta"\s*:\s*"((?:[^"\\]|\\.)*)$/);
+  if (!match) return null;
+  try {
+    // Reutiliza JSON.parse para des-escapar (\n, \", etc.) el fragmento capturado.
+    return JSON.parse(`"${match[1]}"`) as string;
+  } catch {
+    // El truncado cortó a mitad de un escape (p. ej. una "\" suelta al
+    // final): el des-escapado falla, pero el texto crudo sigue siendo
+    // aprovechable — mejor eso que perder el rescate por completo.
+    return match[1].length > 0 ? match[1] : null;
+  }
+}
+
+/**
  * Parsea y valida la respuesta cruda del modelo contra el contrato. Tolera
- * que venga envuelta en fences de markdown (```json ... ```). Nunca se confía
- * a ciegas en la salida del modelo: si no es JSON válido o no cumple la forma
- * esperada, devuelve `ok: false` con el motivo y un recorte del texto crudo.
+ * que venga envuelta en fences de markdown (```json ... ```). Si el `JSON.parse`
+ * directo falla, intenta dos rescates ANTES de rendirse (ver funciones de
+ * arriba): nunca se confía a ciegas en la salida del modelo, pero tampoco se
+ * tira una respuesta aprovechable solo porque vino rodeada de prosa o se
+ * cortó a la mitad.
  */
 export function parseAgentResponse(raw: string): AgentParseResult {
   const cleaned = raw
@@ -148,15 +196,39 @@ export function parseAgentResponse(raw: string): AgentParseResult {
   if (!cleaned) return { ok: false, motivo: "vacio", raw: raw.slice(0, RAW_LOG_LIMIT) };
 
   let json: unknown;
+  let rescatado = false;
   try {
     json = JSON.parse(cleaned);
   } catch {
-    return { ok: false, motivo: "no-json", raw: cleaned.slice(0, RAW_LOG_LIMIT) };
+    const balanceado = extraerObjetoBalanceado(cleaned);
+    try {
+      json = balanceado ? JSON.parse(balanceado) : undefined;
+    } catch {
+      json = undefined;
+    }
+    if (json === undefined) {
+      const respuesta = rescatarTextoRespuesta(cleaned);
+      if (respuesta) {
+        return { ok: true, value: { respuesta, acciones: [] }, rescatado: true };
+      }
+      return { ok: false, motivo: "no-json", raw: cleaned.slice(0, RAW_LOG_LIMIT) };
+    }
+    rescatado = true;
   }
 
   const result = agentResponseSchema.safeParse(json);
   if (!result.success) {
+    if (rescatado) {
+      // El objeto balanceado no cumple el contrato — probamos el último
+      // rescate (solo el texto) antes de rendirnos del todo.
+      const respuesta = rescatarTextoRespuesta(cleaned);
+      if (respuesta) {
+        return { ok: true, value: { respuesta, acciones: [] }, rescatado: true };
+      }
+    }
     return { ok: false, motivo: "schema", raw: cleaned.slice(0, RAW_LOG_LIMIT) };
   }
-  return { ok: true, value: result.data };
+  return rescatado
+    ? { ok: true, value: result.data, rescatado: true }
+    : { ok: true, value: result.data };
 }

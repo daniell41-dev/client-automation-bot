@@ -214,18 +214,33 @@ describe("parseAgentResponse", () => {
     expect(!result.ok && result.motivo).toBe("schema");
   });
 
-  it("devuelve motivo 'schema' si una acción trae un 'tipo' desconocido", () => {
-    const raw = JSON.stringify({ respuesta: "Hola", acciones: [{ tipo: "hacer_magia" }] });
+  it("descarta (no invalida todo) una acción con un 'tipo' desconocido, si hay otras válidas", () => {
+    const raw = JSON.stringify({
+      respuesta: "Hola",
+      acciones: [{ tipo: "hacer_magia" }, { tipo: "guardar_nombre", nombre: "Carlos" }],
+    });
     const result = parseAgentResponse(raw);
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.motivo).toBe("schema");
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.value.acciones).toEqual([
+      { tipo: "guardar_nombre", nombre: "Carlos" },
+    ]);
   });
 
-  it("devuelve motivo 'schema' si a una acción le falta el campo requerido", () => {
-    const raw = JSON.stringify({ respuesta: "Hola", acciones: [{ tipo: "elegir_servicio" }] });
+  it("una respuesta con SOLO una acción de 'tipo' desconocido queda con acciones vacío (no falla)", () => {
+    const raw = JSON.stringify({ respuesta: "Hola", acciones: [{ tipo: "hacer_magia" }] });
     const result = parseAgentResponse(raw);
-    expect(result.ok).toBe(false);
-    expect(!result.ok && result.motivo).toBe("schema");
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.value.acciones).toEqual([]);
+  });
+
+  it("descarta una acción a la que le falta el campo requerido, sin invalidar el resto", () => {
+    const raw = JSON.stringify({
+      respuesta: "Hola",
+      acciones: [{ tipo: "elegir_servicio" }, { tipo: "confirmar" }],
+    });
+    const result = parseAgentResponse(raw);
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.value.acciones).toEqual([{ tipo: "confirmar" }]);
   });
 
   it("recorta el texto crudo a 300 caracteres en el motivo de fallo", () => {
@@ -249,5 +264,36 @@ describe("parseAgentResponse", () => {
     });
     const result = parseAgentResponse(raw);
     expect(result.ok && result.value.acciones).toHaveLength(7);
+  });
+});
+
+describe("parseAgentResponse — rescates cuando el JSON no es válido a la primera", () => {
+  it("rescata el objeto si el modelo lo rodeó de prosa", () => {
+    const raw = 'Claro, acá va: {"respuesta": "¡Hola!", "acciones": []} espero que sirva';
+    const result = parseAgentResponse(raw);
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.value.respuesta).toBe("¡Hola!");
+    expect(result.ok && result.rescatado).toBe(true);
+  });
+
+  it("rescata solo el texto de 'respuesta' si el JSON viene truncado a la mitad", () => {
+    const raw = '{"respuesta": "¡Sí, tenemos disponibilidad para maña';
+    const result = parseAgentResponse(raw);
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.value.respuesta).toBe("¡Sí, tenemos disponibilidad para maña");
+    expect(result.ok && result.value.acciones).toEqual([]);
+    expect(result.ok && result.rescatado).toBe(true);
+  });
+
+  it("un JSON completo y válido a la primera NO se marca como rescatado", () => {
+    const result = parseAgentResponse('{"respuesta": "Hola", "acciones": []}');
+    expect(result.ok && result.rescatado).toBeUndefined();
+  });
+
+  it("si ni el objeto balanceado ni el regex encuentran 'respuesta', devuelve 'no-json'", () => {
+    const raw = "esto no es json ni tiene nada rescatable";
+    const result = parseAgentResponse(raw);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.motivo).toBe("no-json");
   });
 });

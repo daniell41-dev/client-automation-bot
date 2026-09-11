@@ -269,4 +269,21 @@ describe("OpenAICompatibleProvider.runAgent", () => {
     expect(result).toBeNull();
     expect(spy).toHaveBeenCalledWith(expect.stringContaining("no-json"));
   });
+
+  it("devuelve la respuesta rescatada y deja constancia en el log cuando el JSON venía roto", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      fetchImpl: fakeFetchOk('{"respuesta": "¡Sí, tenemos disponibilidad para maña'),
+    });
+
+    const result = await provider.runAgent(agentInput);
+
+    expect(result?.respuesta).toBe("¡Sí, tenemos disponibilidad para maña");
+    expect(result?.acciones).toEqual([]);
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("rescató"));
+  });
 });
