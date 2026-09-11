@@ -56,6 +56,13 @@ export interface SupabaseDb {
   upsertSession(row: SessionRow): Promise<void>;
   selectNegocioBySlug(slug: string): Promise<NegocioRow | null>;
   selectNegocioByPhoneNumberId(id: string): Promise<NegocioRow | null>;
+  /**
+   * Reclama un `message.id` de WhatsApp. `true` la primera vez, `false` si ya
+   * estaba reclamado. Atómico vía la restricción `unique` de la tabla
+   * `mensajes_procesados` (migración 0004): el INSERT gana o pierde la
+   * carrera, nunca hay una ventana de "leer y después escribir".
+   */
+  claimMessage(messageId: string): Promise<boolean>;
 }
 
 /** Implementación real sobre supabase-js. */
@@ -140,6 +147,15 @@ class RealSupabaseDb implements SupabaseDb {
       .maybeSingle();
     if (error) throw error;
     return (data as NegocioRow | null) ?? null;
+  }
+
+  async claimMessage(messageId: string): Promise<boolean> {
+    const { error } = await this.client
+      .from("mensajes_procesados")
+      .insert({ message_id: messageId });
+    if (!error) return true;
+    if (error.code === "23505") return false; // ya reclamado (unique_violation)
+    throw error;
   }
 }
 
