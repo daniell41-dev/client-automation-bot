@@ -8,11 +8,20 @@
  * hechas desde el servidor, no desde Venezuela).
  */
 
+export type ReasoningEffort = "none" | "low" | "medium" | "high";
+
 export interface AIPreset {
   /** URL base SIN `/chat/completions` (formato OpenAI-compatible). */
   baseURL: string;
   /** Modelo por defecto si no se especifica *_MODEL en el entorno. */
   defaultModel: string;
+  /**
+   * `reasoning_effort` a mandar por defecto. Modelos como Gemini 3 o gpt-oss
+   * "piensan" antes de responder salvo que se les baje el esfuerzo — sin
+   * esto, en modo agente (prompt largo + JSON estricto) pueden gastar todo
+   * `max_tokens` pensando y devolver contenido vacío (ver `runAgent`).
+   */
+  reasoningEffort?: ReasoningEffort;
 }
 
 export const AI_PRESETS = {
@@ -22,6 +31,7 @@ export const AI_PRESETS = {
     // gemini-2.5-flash-lite dejó de estar disponible para cuentas nuevas
     // (sep-2026); Google indica migrar a este modelo.
     defaultModel: "gemini-3.5-flash-lite",
+    reasoningEffort: "low",
   },
   /** Groq. Key gratis en https://console.groq.com/keys */
   groq: {
@@ -30,6 +40,7 @@ export const AI_PRESETS = {
     // migrar a este modelo. Si vuelve a fallar, correr `pnpm ai:doctor`:
     // ahora imprime el listado real de modelos disponibles para tu key.
     defaultModel: "openai/gpt-oss-20b",
+    reasoningEffort: "low",
   },
   /** Cerebras. Key gratis en https://cloud.cerebras.ai */
   cerebras: {
