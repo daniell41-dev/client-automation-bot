@@ -28,9 +28,20 @@ Todo corre gratis: **Vercel Hobby** (Next.js completo) + **Supabase Free** (Post
 
 ## 2. Aplicar el esquema
 
-1. En el dashboard, abre **SQL Editor → New query**.
-2. Pega el contenido completo de `supabase/migrations/0001_schema_inicial.sql` y ejecuta.
-3. Debe crear 6 tablas (`profiles`, `rubros`, `asignaciones`, `negocios`, `leads`, `sesiones`), el trigger de perfiles y todas las políticas RLS.
+En el dashboard, abre **SQL Editor → New query** y pega el contenido completo de
+cada migración, **en orden**, ejecutando una por una:
+
+1. `supabase/migrations/0001_schema_inicial.sql` — crea las 6 tablas (`profiles`,
+   `rubros`, `asignaciones`, `negocios`, `leads`, `sesiones`), el trigger de
+   perfiles y todas las políticas RLS.
+2. `supabase/migrations/0002_sesiones_cliente.sql` — el cliente puede LEER las
+   sesiones (conversaciones) de sus propios negocios, para la bandeja
+   "Conversaciones" del portal.
+3. `supabase/migrations/0003_fix_rls.sql` — corrige dos políticas de `0001` que
+   comparaban una columna sin calificar contra la subconsulta equivocada (un
+   cliente no podía leer sus rubros asignados, y podía crear un negocio en un
+   rubro que no le fue asignado). Test de regresión: `pnpm test:rls` (sección
+   "Probar las políticas de RLS" de `docs/06-testing-guide.md`).
 
 ## 3. Desactivar la confirmación de email
 
