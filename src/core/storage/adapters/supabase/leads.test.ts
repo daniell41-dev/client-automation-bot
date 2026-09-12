@@ -94,3 +94,37 @@ describe("SupabaseLeadRepository — negocio_id (T-08)", () => {
     expect(db.leads[0].negocio_id).toBeNull();
   });
 });
+
+describe("SupabaseLeadRepository — appointmentAt/confirmedAt (T-20)", () => {
+  it("guarda y recupera las dos fechas nuevas", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseLeadRepository(db);
+    await repo.save(
+      makeLead({
+        appointmentAt: "2026-07-15T20:00:00.000Z",
+        confirmedAt: "2026-07-11T10:05:00.000Z",
+      }),
+    );
+
+    expect(db.leads[0].appointment_at).toBe("2026-07-15T20:00:00.000Z");
+    expect(db.leads[0].confirmed_at).toBe("2026-07-11T10:05:00.000Z");
+
+    const found = await repo.getById("lead-1");
+    expect(found?.appointmentAt).toBe("2026-07-15T20:00:00.000Z");
+    expect(found?.confirmedAt).toBe("2026-07-11T10:05:00.000Z");
+  });
+
+  it("una fila vieja (sin las columnas) vuelve con ambas en undefined", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseLeadRepository(db);
+    await repo.save(makeLead());
+
+    // Simula una fila insertada antes de la migración 0007 (sin appointment_at/confirmed_at).
+    delete db.leads[0].appointment_at;
+    delete db.leads[0].confirmed_at;
+
+    const found = await repo.getById("lead-1");
+    expect(found?.appointmentAt).toBeUndefined();
+    expect(found?.confirmedAt).toBeUndefined();
+  });
+});

@@ -293,6 +293,21 @@ export interface Lead {
   updatedAt: string;
   /** ISO 8601 del último mensaje entrante del cliente (base para seguimientos). */
   lastInboundAt: string;
+  /**
+   * ISO 8601 de la cita/pedido resuelto por la IA a partir de `tentativeDate`
+   * (T-20). `undefined` si nunca se pudo resolver una fecha exacta (negocio
+   * sin IA, o fecha ambigua tipo "cuando puedas") — en ese caso el cierre
+   * automático de la cita usa `confirmedAt` en su lugar (ver
+   * `appointment-lifecycle.ts`).
+   */
+  appointmentAt?: string;
+  /**
+   * ISO 8601 de cuándo se confirmó la cita/pedido (T-20). Distinto de
+   * `updatedAt`, que se sobreescribe en cada mensaje: este es el que permite
+   * medir "hace cuánto se confirmó" para cerrar solas las citas sin fecha
+   * exacta.
+   */
+  confirmedAt?: string;
   /** Umbrales de seguimiento ya enviados (para no repetir). */
   followUpsSent: FollowUpThreshold[];
   notes?: string;

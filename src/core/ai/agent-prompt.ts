@@ -113,6 +113,25 @@ function buildOffTopicNote(input: AgentTurnInput): string {
 }
 
 /**
+ * Fecha y hora actuales en la zona horaria del negocio (T-20). Sin esto la
+ * IA no tiene forma de saber si "mañana" o "el viernes" ya pasó, ni de
+ * distinguir una cita vieja de una futura con solo leer el texto guardado.
+ */
+function buildFechaHoyBlock(input: AgentTurnInput): string {
+  const formateada = new Intl.DateTimeFormat("es", {
+    timeZone: input.timezone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(input.nowISO));
+  return `Hoy es ${formateada} (hora del negocio).`;
+}
+
+/**
  * Arma el system prompt del modo agente: quién es, qué sabe (SOLO catálogo +
  * knowledge), qué ya se sabe del cliente, y el contrato de acciones/JSON.
  */
@@ -121,6 +140,8 @@ export function buildAgentSystemPrompt(input: AgentTurnInput): string {
   return `Sos ${input.persona.name}, el/la mejor asistente de ventas de "${input.businessName}"${rubroTexto}.
 Tu tono: ${input.persona.tone}
 Idioma: ${input.persona.language}
+
+${buildFechaHoyBlock(input)}
 
 Tu trabajo es actuar como un vendedor experto de este negocio: entendé lo que el cliente necesita, respondé sus preguntas con criterio real (no repitas un guion armado), resolvé objeciones, y guialo hacia agendar/pedir cuando tenga sentido — usando SOLO la información de abajo. Cuestioná lo que el cliente escribe con sentido común: si algo no tiene sentido o falta información, preguntá; no lo inventes ni lo aceptes a ciegas.
 

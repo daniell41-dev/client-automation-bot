@@ -31,7 +31,25 @@ const baseInput: AgentTurnInput = {
   lead: { yaConfirmado: false, offTopicCount: 0 },
   history: [],
   message: "Hola",
+  nowISO: "2026-09-12T15:00:00.000Z", // sábado 12 de septiembre de 2026, 10:00 en Bogotá
+  timezone: "America/Bogota",
 };
+
+describe("buildAgentSystemPrompt — fecha de hoy (T-20)", () => {
+  it("incluye la fecha de hoy en la zona horaria del negocio", () => {
+    const prompt = buildAgentSystemPrompt(baseInput);
+    expect(prompt).toContain("Hoy es");
+    expect(prompt).toContain("sábado");
+    expect(prompt).toContain("12 de septiembre de 2026");
+  });
+
+  it("usa la hora local del negocio, no la de UTC crudo", () => {
+    // 15:00 UTC son las 10:00 en Bogotá (UTC-5) — si se leyera en UTC diría 15:00.
+    const prompt = buildAgentSystemPrompt(baseInput);
+    expect(prompt).toContain("10:");
+    expect(prompt).not.toContain("15:00 (hora del negocio)");
+  });
+});
 
 describe("buildAgentSystemPrompt", () => {
   it("incluye el nombre, tono y catálogo con precios formateados", () => {

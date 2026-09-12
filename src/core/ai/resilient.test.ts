@@ -284,6 +284,8 @@ describe("ResilientProvider — registra consumo en uso_ia (T-07)", () => {
       lead: { yaConfirmado: false, offTopicCount: 0 },
       history: [],
       message: "hola",
+      nowISO: "2026-06-29T10:00:00.000Z",
+      timezone: "America/Bogota",
     };
     await chain.runAgent(input);
 
