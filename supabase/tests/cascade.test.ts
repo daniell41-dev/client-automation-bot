@@ -17,6 +17,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import { loadEnvLocal } from "../../scripts/load-env";
+import { acquireScratchDbLock } from "./scratch-db-lock";
 
 loadEnvLocal();
 
@@ -47,8 +48,13 @@ const NEGOCIO_HUERFANO_SLUG = `huerfano-${randomUUID()}`;
 
 describe.skipIf(!TEST_DATABASE_URL)("negocio_id como FK en leads/sesiones (T-08)", () => {
   let negocioId: string;
+  let releaseLock: () => Promise<void>;
 
   beforeAll(async () => {
+    // Serializa contra rls.test.ts: comparten la misma base descartable
+    // (ver scratch-db-lock.ts).
+    releaseLock = await acquireScratchDbLock(TEST_DATABASE_URL);
+
     await adminQuery(`
       drop schema if exists public cascade;
       drop schema if exists auth cascade;
@@ -97,6 +103,7 @@ describe.skipIf(!TEST_DATABASE_URL)("negocio_id como FK en leads/sesiones (T-08)
       drop schema if exists public cascade;
       drop schema if exists auth cascade;
     `);
+    await releaseLock();
   });
 
   it("el backfill completa negocio_id de leads/sesiones existentes por su slug", async () => {

@@ -20,6 +20,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Client } from "pg";
 import { loadEnvLocal } from "../../scripts/load-env";
+import { acquireScratchDbLock } from "./scratch-db-lock";
 
 loadEnvLocal();
 
@@ -73,7 +74,13 @@ const RUBRO_A = randomUUID();
 const RUBRO_B = randomUUID();
 
 describe.skipIf(!TEST_DATABASE_URL)("RLS: rubros y negocios (supabase/migrations)", () => {
+  let releaseLock: () => Promise<void>;
+
   beforeAll(async () => {
+    // Serializa contra cascade.test.ts: comparten la misma base descartable
+    // (ver scratch-db-lock.ts).
+    releaseLock = await acquireScratchDbLock(TEST_DATABASE_URL);
+
     // Base desechable: recrea `public`/`auth` desde cero en cada corrida.
     await adminQuery(`
       drop schema if exists public cascade;
@@ -108,6 +115,7 @@ describe.skipIf(!TEST_DATABASE_URL)("RLS: rubros y negocios (supabase/migrations
       drop schema if exists public cascade;
       drop schema if exists auth cascade;
     `);
+    await releaseLock();
   });
 
   it("el cliente A lee el rubro que tiene asignado (antes de 0003: 0 filas)", async () => {
