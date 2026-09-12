@@ -4,7 +4,7 @@ import { ToastProvider } from "@/components/toast";
 import "./globals.css";
 
 // Tipografía del design system "Nexo": Plus Jakarta Sans para UI,
-// Sora para números/KPIs (ver docs/09-diseno-nexo.md).
+// Sora para números/KPIs (ver docs/design/README.md).
 const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
   subsets: ["latin"],
