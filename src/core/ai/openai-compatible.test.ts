@@ -304,6 +304,8 @@ const agentInput: AgentTurnInput = {
   lead: { yaConfirmado: false, offTopicCount: 0 },
   history: [],
   message: "Hola",
+  nowISO: "2026-06-29T10:00:00.000Z",
+  timezone: "America/Bogota",
 };
 
 describe("OpenAICompatibleProvider.runAgent", () => {

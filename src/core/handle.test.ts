@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { handleIncoming } from "@/core/handle";
-import type { BusinessConfig, IncomingMessage, Lead } from "@/core/types";
+import type { BusinessConfig, DiaAtencion, IncomingMessage, Lead } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
 import type { AgentTurnInput, ILLMProvider } from "@/core/ai/provider";
 import type { AgentResponse } from "@/core/ai/agent-schema";
@@ -541,5 +541,63 @@ describe("handleIncoming — modo agente", () => {
       role: "assistant",
       text: "¡Hola! ¿Qué servicio te interesa?",
     });
+  });
+});
+
+describe("handleIncoming — validación de horario de atención (T-20)", () => {
+  // fakeLLM() extrae siempre "2026-06-30T15:00:00-05:00" — martes 15:00 en Bogotá.
+  const HORARIO_MARTES_ANGOSTO: DiaAtencion[] = [
+    { dow: 2, abierto: true, tramos: [{ desde: "09:00", hasta: "13:00" }] },
+  ];
+  const HORARIO_MARTES_AMPLIO: DiaAtencion[] = [
+    { dow: 2, abierto: true, tramos: [{ desde: "09:00", hasta: "19:00" }] },
+  ];
+
+  it("rechaza una fecha fuera de horario: no confirma, limpia la fecha y avisa la alternativa", async () => {
+    const repo = new InMemoryRepo();
+    const configConHorarios: BusinessConfig = { ...config, horarios: HORARIO_MARTES_ANGOSTO };
+    await handleIncoming(msg("limpieza facial"), configConHorarios, repo, new Date(), fakeLLM());
+    await handleIncoming(msg("Laura"), configConHorarios, repo, new Date(), fakeLLM());
+
+    const { messages } = await handleIncoming(
+      msg("mañana a las 3"), configConHorarios, repo, new Date(), fakeLLM(),
+    );
+
+    expect(repo.leads[0].stage).toBe("esperando_fecha");
+    expect(repo.leads[0].tentativeDate).toBeUndefined();
+    expect(repo.leads[0].appointmentAt).toBeUndefined();
+    expect(messages[0].text).toMatch(/martes/i);
+  });
+
+  it("acepta una fecha dentro del horario: confirma normalmente y persiste appointmentAt", async () => {
+    const repo = new InMemoryRepo();
+    const configConHorarios: BusinessConfig = { ...config, horarios: HORARIO_MARTES_AMPLIO };
+    await handleIncoming(msg("limpieza facial"), configConHorarios, repo, new Date(), fakeLLM());
+    await handleIncoming(msg("Laura"), configConHorarios, repo, new Date(), fakeLLM());
+    await handleIncoming(msg("mañana a las 3"), configConHorarios, repo, new Date(), fakeLLM());
+
+    expect(repo.leads[0].stage).toBe("esperando_confirmacion");
+    expect(repo.leads[0].appointmentAt).toBe("2026-06-30T15:00:00-05:00");
+  });
+
+  it("sin IA no valida nada (no hay forma de resolver la fecha a ISO) — comportamiento igual a antes de T-20", async () => {
+    const repo = new InMemoryRepo();
+    const configConHorarios: BusinessConfig = { ...config, horarios: HORARIO_MARTES_ANGOSTO };
+    await handleIncoming(msg("limpieza facial"), configConHorarios, repo);
+    await handleIncoming(msg("Laura"), configConHorarios, repo);
+    await handleIncoming(msg("mañana a las 3"), configConHorarios, repo);
+
+    expect(repo.leads[0].stage).toBe("esperando_confirmacion");
+    expect(repo.leads[0].appointmentAt).toBeUndefined();
+  });
+
+  it("sin horarios cargados, cualquier fecha se acepta (comportamiento igual a antes de T-20)", async () => {
+    const repo = new InMemoryRepo();
+    await handleIncoming(msg("limpieza facial"), config, repo, new Date(), fakeLLM());
+    await handleIncoming(msg("Laura"), config, repo, new Date(), fakeLLM());
+    await handleIncoming(msg("mañana a las 3"), config, repo, new Date(), fakeLLM());
+
+    expect(repo.leads[0].stage).toBe("esperando_confirmacion");
+    expect(repo.leads[0].appointmentAt).toBe("2026-06-30T15:00:00-05:00");
   });
 });

@@ -92,6 +92,15 @@ export interface AgentTurnInput {
   /** SOLO los servicios disponibles — la IA no debe ofrecer los que no. */
   services: AgentServiceSummary[];
   horarios?: DiaAtencion[];
+  /**
+   * ISO 8601 del momento actual (T-20) — sin esto la IA no tiene forma de
+   * saber si "mañana" o "el viernes" ya pasó, o de razonar sobre fechas en
+   * general. Se pasa explícito (no `new Date()` adentro del prompt) para que
+   * sea inyectable y testeable, igual criterio que el `now` de `respond()`.
+   */
+  nowISO: string;
+  /** Zona horaria IANA del negocio, para mostrar la fecha de hoy en su hora local. */
+  timezone: string;
   /** Presente solo si el negocio activó la modalidad de entrega/pedidos. */
   pedidos?: { pregunta: string; opciones: string[] };
   lead: AgentLeadState;

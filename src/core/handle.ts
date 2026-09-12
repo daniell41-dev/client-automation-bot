@@ -29,8 +29,8 @@ import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { interpretableOptions, respond } from "@/core/engine/responder";
 import { runAgentTurn } from "@/core/ai/agent";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
-
-const DEFAULT_TIMEZONE = "America/Bogota";
+import { validarCita } from "@/core/engine/horarios";
+import { DEFAULT_TIMEZONE } from "@/core/timezone";
 
 /**
  * Lo mínimo que necesita `handleIncoming` para avisarle a la dueña por
@@ -119,13 +119,51 @@ export async function handleIncoming(
     }
   }
 
-  const { lead, messages } = result;
+  const { lead } = result;
+  let { messages } = result;
+
+  // T-20: si ESTE turno capturó una fecha nueva (cambió respecto a la que
+  // tenía el lead antes de procesar el mensaje), resolverla a ISO real y
+  // validarla contra el horario de atención — ANTES de persistir, para que
+  // ni el agente ni el motor determinista puedan dejar pasar una cita fuera
+  // de horario. Corre para los dos modos: ambos escriben `lead.tentativeDate`
+  // directo (`responder.ts`/`agent.ts`), así que comparar contra `existing`
+  // alcanza sin necesidad de que cada uno avise por separado.
+  const fechaNueva = lead.tentativeDate && lead.tentativeDate !== existing?.tentativeDate;
+  if (fechaNueva && llm) {
+    const timezone = config.timezone ?? DEFAULT_TIMEZONE;
+    try {
+      const startISO = await llm.extractDateTime({
+        text: lead.tentativeDate!,
+        nowISO: now.toISOString(),
+        timezone,
+      });
+      // Sin ISO (fecha ambigua) no hay nada contra qué validar — se acepta
+      // igual que antes de T-20; `scheduleConfirmedAppointment` deja la nota
+      // de "agendar manualmente" si esto sigue sin resolverse al confirmar.
+      lead.appointmentAt = startISO ?? undefined;
+      if (startISO) {
+        const service = config.services.find((s) => s.id === lead.serviceId);
+        const resultado = validarCita(startISO, service?.durationMinutes ?? 0, config.horarios, timezone);
+        if (!resultado.ok) {
+          lead.stage = "esperando_fecha";
+          lead.tentativeDate = undefined;
+          lead.appointmentAt = undefined;
+          messages = [{ to: message.from, text: resultado.alternativa }];
+        }
+      }
+    } catch (err) {
+      console.error("[AI] extractDateTime falló al validar el horario, sigue sin validar:", err);
+    }
+  }
 
   // Side-effects al CONFIRMAR (transición a datos_completos): agendar en el
   // calendario del negocio y avisarle a la dueña por WhatsApp. Se detecta la
   // transición, no el estado, para no repetirlos en mensajes posteriores.
   // Funciona igual para ambos modos: el agente también deja `lead.stage`
-  // en "datos_completos" al confirmar (ver `agent.ts`).
+  // en "datos_completos" al confirmar (ver `agent.ts`). Se calcula DESPUÉS
+  // de la validación de horario de arriba, que puede haber revertido el
+  // stage a `esperando_fecha` si la cita no era válida.
   const justConfirmed =
     existing?.stage !== "datos_completos" && lead.stage === "datos_completos";
   if (justConfirmed) {
@@ -213,15 +251,24 @@ async function scheduleConfirmedAppointment(
 
   const timezone = config.timezone ?? DEFAULT_TIMEZONE;
   try {
-    const startISO = await llm.extractDateTime({
-      text: lead.tentativeDate,
-      nowISO: now.toISOString(),
-      timezone,
-    });
+    // T-20: el turno que capturó la fecha ya la resolvió a ISO para
+    // validarla contra el horario (ver el bloque `fechaNueva` en
+    // `handleIncoming`) — se reusa ese resultado en vez de volver a llamar a
+    // la IA por la misma fecha. Sigue resolviéndola acá como red de
+    // seguridad (leads de antes de T-20, o algún camino que no haya pasado
+    // por ese bloque).
+    const startISO =
+      lead.appointmentAt ??
+      (await llm.extractDateTime({
+        text: lead.tentativeDate,
+        nowISO: now.toISOString(),
+        timezone,
+      }));
     if (!startISO) {
       lead.notes = `Cita sin fecha exacta: "${lead.tentativeDate}". Agendar manualmente.`;
       return;
     }
+    lead.appointmentAt = startISO;
     const event = buildCalendarEvent(lead, service, startISO, timezone);
     await calendar.createEvent(event);
   } catch (err) {
