@@ -205,17 +205,18 @@ describe("OpenAICompatibleProvider.enhance — respuesta vacía", () => {
 });
 
 describe("reasoning_effort en enhance()/interpret()/extractDateTime()", () => {
-  // Historia real (ver el comentario de `reasoningEffort` en
-  // `OpenAICompatibleOptions`): primero se mandaba el valor configurado
-  // ("low") también en enhance() — Groq (openai/gpt-oss-20b) devolvía el
-  // borrador SIN NINGÚN cambio, el modelo optaba por la respuesta "más
-  // segura". Se pasó a no mandar nada, pero eso resultó PEOR: sin el campo,
-  // el modelo igual razona por defecto — Gemini hacía timeout en `enhance()`
-  // y Groq devolvía vacío (`finish_reason=length`), visto en `pnpm ai:doctor`
-  // real (sept-2026). Ahora se manda `"none"` explícito: distinto del valor
-  // configurado para runAgent(), apaga el razonamiento del todo en vez de
-  // bajarlo.
-  it("enhance() manda reasoning_effort=\"none\" (no el valor configurado) si el provider razona", async () => {
+  // Historia real, tres intentos probados con keys reales (sept-2026, ver el
+  // comentario largo de `reasoningEffort` en `OpenAICompatibleOptions`):
+  // (1) mandar "low" en todos lados → Groq devolvía el borrador sin cambios;
+  // (2) no mandar nada en estos tres métodos → PEOR: Gemini hacía timeout y
+  // Groq devolvía vacío, porque omitir el campo no apaga el razonamiento;
+  // (3) mandar "none" explícito para apagarlo → HTTP 400 real de AMBOS
+  // proveedores, "none" no es un valor válido del enum (Groq lo dice
+  // textual: "must be one of low, medium, or high"). Con (2) y (3)
+  // descartados por evidencia real, se manda el mismo valor configurado en
+  // todos los métodos (opción 1) — el caso de Groq en enhance() queda como
+  // límite conocido del modelo, no un bug de este código.
+  it("enhance() manda el mismo reasoning_effort configurado que runAgent()", async () => {
     let bodyVisto: Record<string, unknown> | null = null;
     const provider = new OpenAICompatibleProvider({
       name: "groq",
@@ -232,10 +233,10 @@ describe("reasoning_effort en enhance()/interpret()/extractDateTime()", () => {
       }) as unknown as typeof fetch,
     });
     await provider.enhance(ctx);
-    expect(bodyVisto!.reasoning_effort).toBe("none");
+    expect(bodyVisto!.reasoning_effort).toBe("low");
   });
 
-  it("interpret() y extractDateTime() también mandan \"none\" si el provider razona", async () => {
+  it("interpret() y extractDateTime() también mandan el valor configurado", async () => {
     const bodies: Record<string, unknown>[] = [];
     const fetchImpl = vi.fn(async (_url, init) => {
       bodies.push(JSON.parse((init as RequestInit).body as string));
@@ -262,7 +263,7 @@ describe("reasoning_effort en enhance()/interpret()/extractDateTime()", () => {
 
     expect(bodies).toHaveLength(2);
     for (const body of bodies) {
-      expect(body.reasoning_effort).toBe("none");
+      expect(body.reasoning_effort).toBe("low");
     }
   });
 
