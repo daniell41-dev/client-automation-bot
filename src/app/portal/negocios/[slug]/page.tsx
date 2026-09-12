@@ -117,15 +117,19 @@ export default async function ResumenPage({
             </li>
           ))}
         </ul>
+        {/* T-16: "Respuestas y flujos" está oculta — el conocimiento del bot
+            se muda a Configuración en T-17, así que apunta ahí de una vez
+            en vez de a una ruta que el cliente ya no puede alcanzar. */}
         <Link
-          href={`/portal/negocios/${slug}/${done < 2 ? "catalogo" : "respuestas"}`}
+          href={`/portal/negocios/${slug}/${done < 2 ? "catalogo" : "configuracion"}`}
           className="mt-4 block rounded-[10px] bg-primary-tint py-2.5 text-center text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white"
         >
           Continuar configuración
         </Link>
       </Card>
 
-      {/* Conversaciones recientes */}
+      {/* Conversaciones recientes: preview informativo, sin link — la
+          sección "Conversaciones" está oculta (T-16). */}
       <Card title="Conversaciones recientes">
         {recientes.length === 0 ? (
           <EmptyState
@@ -137,34 +141,29 @@ export default async function ResumenPage({
             {recientes.map((s) => {
               const last = s.history[s.history.length - 1];
               return (
-                <li key={s.contact}>
-                  <Link
-                    href={`/portal/negocios/${slug}/conversaciones`}
-                    className="flex items-center gap-3 py-3 transition-colors hover:bg-surface-3"
-                  >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-tint text-xs font-bold text-primary">
-                      {s.contact.slice(-2)}
-                    </span>
-                    <span className="min-w-0 flex-1 leading-tight">
-                      <span className="flex items-center gap-2">
-                        <span className="truncate text-sm font-semibold text-ink">
-                          {s.contact}
-                        </span>
-                        <Pill tone={last?.role === "assistant" ? "success" : "info"}>
-                          {last?.role === "assistant" ? "Bot" : "Cliente"}
-                        </Pill>
+                <li key={s.contact} className="flex items-center gap-3 py-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-tint text-xs font-bold text-primary">
+                    {s.contact.slice(-2)}
+                  </span>
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate text-sm font-semibold text-ink">
+                        {s.contact}
                       </span>
-                      <span className="block truncate text-[13px] text-ink-soft">
-                        {last?.text ?? "—"}
-                      </span>
+                      <Pill tone={last?.role === "assistant" ? "success" : "info"}>
+                        {last?.role === "assistant" ? "Bot" : "Cliente"}
+                      </Pill>
                     </span>
-                    <span className="shrink-0 text-xs text-ink-soft">
-                      {new Date(s.updated_at).toLocaleTimeString("es-CO", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                    <span className="block truncate text-[13px] text-ink-soft">
+                      {last?.text ?? "—"}
                     </span>
-                  </Link>
+                  </span>
+                  <span className="shrink-0 text-xs text-ink-soft">
+                    {new Date(s.updated_at).toLocaleTimeString("es-CO", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
                 </li>
               );
             })}
