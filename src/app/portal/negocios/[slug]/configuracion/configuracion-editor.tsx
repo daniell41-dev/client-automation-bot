@@ -2,18 +2,24 @@
 
 /**
  * Editor de Configuración: datos del negocio + persona del bot (nombre y tono
- * con presets Cercano/Neutral/Formal).
+ * con presets Cercano/Neutral/Formal) + cerebro con IA y el conocimiento del
+ * negocio (T-17: se movió acá desde "Respuestas y flujos", oculta desde T-16
+ * — es el único punto donde el cliente le enseña algo al bot que no sea un
+ * precio).
  */
 
 import { useActionState, useState } from "react";
-import type { BusinessConfig, PersonaConfig } from "@/core/types";
+import type { FormEvent } from "react";
+import { Sparkles } from "lucide-react";
+import type { BotAIConfig, BusinessConfig, PersonaConfig } from "@/core/types";
+import { personaSchema } from "@/core/config-schema";
 import {
   actualizarWhatsapp,
   guardarConfigParcial,
   type ActionState,
 } from "@/app/portal/actions";
 import { ActionForm } from "@/components/action-form";
-import { Card, Pill, Segmented } from "@/components/ui";
+import { Card, Pill, Segmented, Toggle } from "@/components/ui";
 
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
 const inputCls =
@@ -45,6 +51,7 @@ export function ConfiguracionEditor({
   notifyPhoneNumber: notifyPhoneNumberInicial,
   persona,
   personas,
+  initialAi,
 }: {
   slug: string;
   nombre: string;
@@ -54,23 +61,45 @@ export function ConfiguracionEditor({
   notifyPhoneNumber: string;
   persona: PersonaConfig;
   personas: BusinessConfig["personas"];
+  initialAi: BotAIConfig;
 }) {
   const [direccion, setDireccion] = useState(direccionInicial);
   const [notifyPhoneNumber, setNotifyPhoneNumber] = useState(notifyPhoneNumberInicial);
   const [botName, setBotName] = useState(persona.name);
   const [tono, setTono] = useState<Tono>(tonoActual(persona.tone));
+  const [botNameError, setBotNameError] = useState<string>();
+  // Copia completa de `initialAi` (T-17): reglas/botonesMenu/derivarHumano/
+  // modo no se muestran acá, pero hay que preservarlos al guardar — este
+  // editor y el de "Respuestas y flujos" (oculto, no borrado) escriben al
+  // mismo `config.ai`, y guardarConfigParcial reemplaza la clave entera.
+  const [ai, setAi] = useState<BotAIConfig>(initialAi);
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     guardarConfigParcial,
     {},
   );
 
+  const nuevaPersona = { ...persona, name: botName, tone: TONOS[tono] };
   const patch = {
     direccion: direccion || undefined,
     notifyPhoneNumber: notifyPhoneNumber.trim() || undefined,
-    personas: {
-      ...personas,
-      whatsapp: { ...persona, name: botName || "Asistente", tone: TONOS[tono] },
-    },
+    personas: { ...personas, whatsapp: nuevaPersona },
+    ai,
+  };
+
+  /**
+   * Mismo schema que valida `guardarConfigParcial` en el servidor (T-12):
+   * antes había un fallback silencioso a "Asistente" cuando el nombre
+   * quedaba vacío — con eso el servidor nunca veía un nombre inválido. Ahora
+   * el error se ve al toque, sin ida y vuelta.
+   */
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    const result = personaSchema.safeParse(nuevaPersona);
+    if (result.success) {
+      setBotNameError(undefined);
+      return;
+    }
+    e.preventDefault();
+    setBotNameError(result.error.issues[0]?.message);
   };
 
   return (
@@ -151,11 +180,17 @@ export function ConfiguracionEditor({
           <div className="max-w-sm">
             <label className={labelCls}>Nombre del bot</label>
             <input
-              className={inputCls}
+              className={`${inputCls} ${botNameError ? "border-warn-ink" : ""}`}
               value={botName}
-              onChange={(e) => setBotName(e.target.value)}
+              onChange={(e) => {
+                setBotName(e.target.value);
+                if (botNameError) setBotNameError(undefined);
+              }}
               placeholder="Asistente"
             />
+            {botNameError && (
+              <p className="mt-1 text-xs text-warn-ink">{botNameError}</p>
+            )}
           </div>
           <div>
             <label className={labelCls}>Tono de las respuestas</label>
@@ -171,11 +206,40 @@ export function ConfiguracionEditor({
             />
             <p className="mt-2 text-xs text-ink-soft">{TONOS[tono]}</p>
           </div>
+
+          {/* Cerebro con IA + conocimiento del negocio (T-17) */}
+          <div className="border-t border-line pt-4">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2.5">
+                <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-primary-tint text-primary">
+                  <Sparkles className="h-4 w-4" />
+                </span>
+                <span className="text-sm font-semibold text-ink">Cerebro con IA</span>
+              </span>
+              <Toggle
+                checked={ai.enabled}
+                onChange={(next) => setAi((prev) => ({ ...prev, enabled: next }))}
+                label="IA activada"
+              />
+            </div>
+            <label className={labelCls}>Información del negocio</label>
+            <textarea
+              className={inputCls}
+              rows={4}
+              value={ai.knowledge ?? ""}
+              onChange={(e) => setAi((prev) => ({ ...prev, knowledge: e.target.value }))}
+              placeholder="Horarios especiales, medios de pago, dirección, políticas de cambio… lo que el bot necesita saber para responder lo que no está en el catálogo."
+            />
+            <p className="mt-1.5 text-xs text-ink-soft">
+              Con esto el bot responde preguntas que no están en el catálogo (medios
+              de pago, horarios especiales, etc.).
+            </p>
+          </div>
         </div>
       </Card>
 
       {/* Guardar */}
-      <form action={formAction} className="space-y-3">
+      <form action={formAction} onSubmit={handleSubmit} noValidate className="space-y-3">
         <input type="hidden" name="slug" value={slug} />
         <input type="hidden" name="patch" value={JSON.stringify(patch)} />
         {state.error && (

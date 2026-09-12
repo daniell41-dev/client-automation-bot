@@ -6,10 +6,10 @@
 import Link from "next/link";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
-import { Pill } from "@/components/ui";
+import { EmptyState, Pill } from "@/components/ui";
 import { Logo } from "@/components/logo";
 import { RubroTile } from "@/components/rubro-visual";
-import { Plus, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -112,51 +112,47 @@ export default async function PortalHome() {
           WhatsApp.
         </p>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          {cards.map((card) => (
-            <Link
-              key={card.id}
-              href={`/portal/negocios/${card.slug}`}
-              className="group rounded-2xl border border-line bg-surface p-5 shadow-card transition-all hover:-translate-y-0.5 hover:border-[#B2CCF4] hover:shadow-lift"
-            >
-              <div className="flex items-start justify-between">
-                <RubroTile rubroNombre={card.rubro} size="lg" />
-                <Pill tone={card.botActivo ? "success" : "warn"} dot>
-                  {card.botActivo ? "Bot activo" : "Bot en pausa"}
-                </Pill>
-              </div>
-              <h2 className="mt-4 text-[17.5px] font-bold text-ink">
-                {card.nombre}
-              </h2>
-              <p className="mt-0.5 text-sm text-ink-mid">
-                {card.rubro}
-                {card.tag ? ` · ${card.tag}` : ""}
-              </p>
-              <div className="mt-5 flex items-center justify-between border-t border-line pt-3.5">
-                <span className="text-[13px] text-ink-soft">
-                  {card.mensajesHoy} mensajes hoy
-                </span>
-                <span className="inline-flex items-center gap-1 text-sm font-bold text-primary">
-                  Abrir
-                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                </span>
-              </div>
-            </Link>
-          ))}
-
-          {/* Agregar otro negocio */}
-          <Link
-            href="/portal/negocios/nuevo"
-            className="flex min-h-[190px] flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-line-2 text-ink-soft transition-colors hover:border-primary hover:text-primary"
-          >
-            <span className="flex h-11 w-11 items-center justify-center rounded-[13px] bg-rubro-salud-bg text-rubro-salud-ink">
-              <Plus className="h-5 w-5" />
-            </span>
-            <span className="text-sm font-semibold">
-              {cards.length === 0 ? "Crear tu primer negocio" : "Agregar otro negocio"}
-            </span>
-          </Link>
-        </div>
+        {cards.length === 0 ? (
+          <div className="mt-8">
+            <EmptyState
+              title="Todavía no tenés ningún negocio."
+              subtitle="Pedile al administrador de la plataforma que te cree uno desde el back office."
+            />
+          </div>
+        ) : (
+          <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            {cards.map((card) => (
+              <Link
+                key={card.id}
+                href={`/portal/negocios/${card.slug}`}
+                className="group rounded-2xl border border-line bg-surface p-5 shadow-card transition-all hover:-translate-y-0.5 hover:border-[#B2CCF4] hover:shadow-lift"
+              >
+                <div className="flex items-start justify-between">
+                  <RubroTile rubroNombre={card.rubro} size="lg" />
+                  <Pill tone={card.botActivo ? "success" : "warn"} dot>
+                    {card.botActivo ? "Bot activo" : "Bot en pausa"}
+                  </Pill>
+                </div>
+                <h2 className="mt-4 text-[17.5px] font-bold text-ink">
+                  {card.nombre}
+                </h2>
+                <p className="mt-0.5 text-sm text-ink-mid">
+                  {card.rubro}
+                  {card.tag ? ` · ${card.tag}` : ""}
+                </p>
+                <div className="mt-5 flex items-center justify-between border-t border-line pt-3.5">
+                  <span className="text-[13px] text-ink-soft">
+                    {card.mensajesHoy} mensajes hoy
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-sm font-bold text-primary">
+                    Abrir
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </main>
     </div>
   );

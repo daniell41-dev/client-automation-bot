@@ -22,6 +22,7 @@ interface MetaValue {
   messages?: MetaMessage[];
 }
 interface MetaMessage {
+  id?: string;
   from?: string;
   timestamp?: string;
   type?: string;
@@ -35,6 +36,13 @@ export interface ParsedWhatsAppMessage {
   text: string;
   timestamp: string; // ISO 8601
   contactName?: string;
+  /**
+   * `wamid` de Meta (globalmente único). Sirve para deduplicar un reintento
+   * de entrega del webhook (T-05: `MessageDedupeRepository`). Optativo por
+   * si algún payload llegara sin `id` — no vale la pena descartar el mensaje
+   * por eso, solo se pierde la protección contra duplicados de ESE mensaje.
+   */
+  messageId?: string;
 }
 
 /** Convierte el timestamp de Meta (segundos unix, string) a ISO 8601. */
@@ -77,6 +85,7 @@ export function parseInbound(payload: unknown): ParsedWhatsAppMessage[] {
           text: message.text.body,
           timestamp: toIso(message.timestamp),
           contactName: nameByWaId.get(message.from),
+          messageId: message.id,
         });
       }
     }

@@ -95,8 +95,9 @@ adaptador de Instagram, almacenamiento en Google Sheets/Airtable y despliegue re
 | [`06-testing-guide.md`](./06-testing-guide.md) | Probar el bot con el simulador (`pnpm sim`) |
 | [`07-google-sheets.md`](./07-google-sheets.md) | Persistencia en Google Sheets por negocio |
 | [`08-supabase-saas.md`](./08-supabase-saas.md) | Supabase, portal, back office y deploy gratis en Vercel |
-| [`09-diseno-nexo.md`](./09-diseno-nexo.md) | Diseño del portal (rediseño "Nexo") |
+| [`design/README.md`](./design/README.md) | Handoff de diseño "Nexo": pantallas, tokens y mapeo a Supabase (`design/TASKS.md` es el backlog, `design/screenshots/` las 18 capturas) |
 | [`10-notificaciones-y-pedidos.md`](./10-notificaciones-y-pedidos.md) | Notificación WhatsApp a la dueña + modalidad de pedido |
 | [`11-proveedor-ia.md`](./11-proveedor-ia.md) | IA gratis y estable (cadena de respaldo Gemini → Groq → Cerebras) |
 | [`12-comprension-del-cliente.md`](./12-comprension-del-cliente.md) | Español de chat + intérprete IA |
 | [`13-modo-agente.md`](./13-modo-agente.md) | Modo agente: la IA decide acciones validadas, no solo reformula texto |
+| [`14-plan-de-trabajo.md`](./14-plan-de-trabajo.md) | **Contrato de trabajo:** decisiones cerradas, convenciones y backlog |

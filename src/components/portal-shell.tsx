@@ -25,6 +25,7 @@ import {
 import { Logo } from "@/components/logo";
 import { RubroTile, catalogLabel } from "@/components/rubro-visual";
 import { Pill } from "@/components/ui";
+import { seccionVisible, type PortalSeccion } from "@/config/portal-scope";
 
 export interface ShellNegocio {
   slug: string;
@@ -52,39 +53,56 @@ export function PortalShell({
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const base = `/portal/negocios/${negocio.slug}`;
-  const nav = [
-    { href: base, label: "Resumen", Icon: LayoutGrid, group: "GESTIÓN DEL BOT" },
+  // T-16: cada ítem lleva su `seccion` para poder filtrarlo contra el
+  // alcance v1 (ver src/config/portal-scope.ts) — código y rutas de las
+  // secciones ocultas siguen acá, solo dejan de listarse.
+  const navCompleto: {
+    href: string;
+    label: string;
+    Icon: typeof LayoutGrid;
+    group: "GESTIÓN DEL BOT" | "ATENCIÓN";
+    seccion: PortalSeccion;
+  }[] = [
+    { href: base, label: "Resumen", Icon: LayoutGrid, group: "GESTIÓN DEL BOT", seccion: "resumen" },
     {
       href: `${base}/catalogo`,
       label: catalogLabel(negocio.rubro),
       Icon: ShoppingBag,
       group: "GESTIÓN DEL BOT",
+      seccion: "catalogo",
     },
     {
       href: `${base}/citas`,
       label: "Citas y reservas",
       Icon: CalendarDays,
       group: "GESTIÓN DEL BOT",
+      seccion: "citas",
     },
     {
       href: `${base}/respuestas`,
       label: "Respuestas y flujos",
       Icon: MessageCircle,
       group: "GESTIÓN DEL BOT",
+      seccion: "respuestas",
     },
     {
       href: `${base}/conversaciones`,
       label: "Conversaciones",
       Icon: MessagesSquare,
       group: "ATENCIÓN",
+      seccion: "conversaciones",
     },
     {
       href: `${base}/configuracion`,
       label: "Configuración",
       Icon: SlidersHorizontal,
       group: "ATENCIÓN",
+      seccion: "configuracion",
     },
   ];
+  // T-16: código y rutas de las secciones ocultas siguen en el repo, solo
+  // dejan de listarse acá (ver src/config/portal-scope.ts).
+  const nav = navCompleto.filter((item) => seccionVisible(item.seccion));
 
   const isActive = (href: string) =>
     href === base ? pathname === base : pathname.startsWith(href);
@@ -100,13 +118,12 @@ export function PortalShell({
     Configuración: "Datos del negocio, horarios y bot",
   };
 
-  // Tab bar móvil: 4 accesos del handoff.
-  const mobileTabs = [
-    { href: base, label: "Resumen", Icon: LayoutGrid },
-    { href: `${base}/catalogo`, label: catalogLabel(negocio.rubro), Icon: ShoppingBag },
-    { href: `${base}/citas`, label: "Citas", Icon: CalendarDays },
-    { href: `${base}/conversaciones`, label: "Chats", Icon: MessagesSquare },
-  ];
+  // Tab bar móvil (T-16): antes tenía 4 accesos fijos del handoff (2 a
+  // secciones que ahora están ocultas). Reusa `nav` ya filtrado en vez de
+  // mantener una segunda lista — con el alcance v1 son las mismas 3
+  // secciones, y así Configuración (que el handoff no incluía en mobile)
+  // queda alcanzable ahí también.
+  const mobileTabs = nav;
 
   return (
     <div className="flex min-h-screen bg-canvas">

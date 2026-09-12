@@ -1,6 +1,7 @@
 /**
  * Portal · Configuración: datos del negocio (nombre, rubro, WhatsApp,
- * dirección) y el bot (nombre + tono de las respuestas).
+ * dirección) y el bot (nombre, tono, cerebro con IA y el conocimiento del
+ * negocio — T-17: se movió acá desde "Respuestas y flujos", oculta desde T-16).
  */
 
 import { notFound } from "next/navigation";
@@ -43,6 +44,7 @@ export default async function ConfiguracionPage({
         }
       }
       personas={config.personas}
+      initialAi={config.ai ?? { enabled: true }}
     />
   );
 }

@@ -45,6 +45,29 @@ describe("parseInbound", () => {
     expect(m.text).toBe("Hola, quiero info de limpieza facial");
     expect(m.contactName).toBe("Laura Pérez");
     expect(m.timestamp).toBe(new Date(1750500000 * 1000).toISOString());
+    expect(m.messageId).toBe("wamid.ABC");
+  });
+
+  it("messageId queda undefined si el payload no lo trae (no descarta el mensaje)", () => {
+    const sinId = {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: "111" },
+                messages: [
+                  { from: "573009998877", type: "text", text: { body: "hola" } },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const messages = parseInbound(sinId);
+    expect(messages).toHaveLength(1);
+    expect(messages[0].messageId).toBeUndefined();
   });
 
   it("ignora eventos de estado (sin messages)", () => {

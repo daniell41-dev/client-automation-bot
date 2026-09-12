@@ -74,3 +74,23 @@ describe("SupabaseLeadRepository", () => {
     expect(list.map((l) => l.id)).toEqual(["b", "a"]);
   });
 });
+
+describe("SupabaseLeadRepository — negocio_id (T-08)", () => {
+  it("completa negocio_id cuando el repo se construye con uno", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseLeadRepository(db, "uuid-negocio-1");
+
+    await repo.save(makeLead());
+
+    expect(db.leads[0].negocio_id).toBe("uuid-negocio-1");
+  });
+
+  it("sin negocioId (negocio del registry estático), queda null", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseLeadRepository(db);
+
+    await repo.save(makeLead());
+
+    expect(db.leads[0].negocio_id).toBeNull();
+  });
+});

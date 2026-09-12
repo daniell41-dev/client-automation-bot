@@ -14,7 +14,11 @@ import type { SupabaseDb } from "@/core/storage/adapters/supabase/api";
 const MAX_HISTORY = 10;
 
 export class SupabaseSessionRepository implements SessionRepository {
-  constructor(private readonly db: SupabaseDb) {}
+  constructor(
+    private readonly db: SupabaseDb,
+    /** FK de conveniencia (T-08) — ver el comentario de `LeadRow.negocio_id`. */
+    private readonly negocioId?: string,
+  ) {}
 
   async getOrCreate(
     businessSlug: string,
@@ -47,6 +51,7 @@ export class SupabaseSessionRepository implements SessionRepository {
       channel: session.channel,
       history: session.history.slice(-MAX_HISTORY),
       updated_at: new Date().toISOString(),
+      negocio_id: this.negocioId ?? null,
     });
   }
 }

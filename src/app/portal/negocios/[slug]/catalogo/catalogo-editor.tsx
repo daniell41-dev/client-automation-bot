@@ -7,12 +7,14 @@
  */
 
 import { useActionState, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { Plus } from "lucide-react";
 import type { Service } from "@/core/types";
+import { servicesSchema } from "@/core/config-schema";
 import { guardarConfigParcial, type ActionState } from "@/app/portal/actions";
 import { Card, EmptyState, SearchInput, Toggle } from "@/components/ui";
 import { PhonePreview } from "@/components/phone-preview";
-import { catalogLabel } from "@/components/rubro-visual";
+import { catalogCopy, rubroVisual } from "@/components/rubro-visual";
 
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
 const inputCls =
@@ -52,6 +54,7 @@ export function CatalogoEditor({
     initialServices[0]?.id ?? null,
   );
   const [search, setSearch] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     guardarConfigParcial,
     {},
@@ -83,7 +86,37 @@ export function CatalogoEditor({
     setSelectedId(item.id);
   };
 
-  const esMenu = catalogLabel(rubro) === "Menú";
+  /**
+   * Valida el catálogo con el MISMO schema que usa `guardarConfigParcial` en
+   * el servidor (T-12) antes de enviarlo — así el error aparece al toque, sin
+   * ida y vuelta al servidor. Si algún ítem falla, lo selecciona para que el
+   * error se vea en el campo real, no en un aviso genérico.
+   */
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    const result = servicesSchema.safeParse(services);
+    if (result.success) {
+      setFieldErrors({});
+      return;
+    }
+    e.preventDefault();
+    const first = result.error.issues[0];
+    const index = typeof first.path[0] === "number" ? first.path[0] : 0;
+    const errors: Record<string, string> = {};
+    for (const issue of result.error.issues) {
+      if (issue.path[0] === index && typeof issue.path[1] === "string") {
+        errors[issue.path[1]] = issue.message;
+      }
+    }
+    setSelectedId(services[index]?.id ?? null);
+    setFieldErrors(errors);
+  };
+
+  // T-18: el icono de cada ítem usaba SIEMPRE los colores de "gastro"
+  // (04-catalogo.png es justo un negocio gastro) — con `rubroVisual` sale
+  // del rubro real, como ya hace `RubroTile` en el resto del portal.
+  const { bg: iconBg, ink: iconInk } = rubroVisual(rubro);
+  const { categoriaPlaceholder, previewSaludo, previewSustantivo, previewCta } =
+    catalogCopy(rubro);
 
   return (
     <div className="flex flex-wrap items-start gap-5 fade-up">
@@ -126,7 +159,9 @@ export function CatalogoEditor({
                     : "border-line bg-surface hover:bg-surface-3"
                 }`}
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-rubro-gastro-bg text-sm font-extrabold text-rubro-gastro-ink">
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] text-sm font-extrabold ${iconBg} ${iconInk}`}
+                >
                   {(s.name || "·").slice(0, 1).toUpperCase()}
                 </span>
                 <span className="min-w-0 flex-1 leading-tight">
@@ -165,10 +200,16 @@ export function CatalogoEditor({
               <div className="sm:col-span-2">
                 <label className={labelCls}>Nombre</label>
                 <input
-                  className={inputCls}
+                  className={`${inputCls} ${fieldErrors.name ? "border-warn-ink" : ""}`}
                   value={selected.name}
-                  onChange={(e) => patchService(selected.id, { name: e.target.value })}
+                  onChange={(e) => {
+                    patchService(selected.id, { name: e.target.value });
+                    if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: "" }));
+                  }}
                 />
+                {fieldErrors.name && (
+                  <p className="mt-1 text-xs text-warn-ink">{fieldErrors.name}</p>
+                )}
               </div>
               <div>
                 <label className={labelCls}>Precio</label>
@@ -177,15 +218,19 @@ export function CatalogoEditor({
                     $
                   </span>
                   <input
-                    className={`${inputCls} pl-7`}
+                    className={`${inputCls} pl-7 ${fieldErrors.price ? "border-warn-ink" : ""}`}
                     type="number"
                     min={0}
                     value={selected.price}
-                    onChange={(e) =>
-                      patchService(selected.id, { price: Number(e.target.value) })
-                    }
+                    onChange={(e) => {
+                      patchService(selected.id, { price: Number(e.target.value) });
+                      if (fieldErrors.price) setFieldErrors((prev) => ({ ...prev, price: "" }));
+                    }}
                   />
                 </div>
+                {fieldErrors.price && (
+                  <p className="mt-1 text-xs text-warn-ink">{fieldErrors.price}</p>
+                )}
               </div>
               <div>
                 <label className={labelCls}>Categoría</label>
@@ -195,7 +240,7 @@ export function CatalogoEditor({
                   onChange={(e) =>
                     patchService(selected.id, { categoria: e.target.value })
                   }
-                  placeholder={esMenu ? "Entradas" : "Faciales"}
+                  placeholder={categoriaPlaceholder}
                 />
               </div>
               <div className="sm:col-span-2">
@@ -230,7 +275,7 @@ export function CatalogoEditor({
         )}
 
         {/* Guardar */}
-        <form action={formAction} className="space-y-3">
+        <form action={formAction} onSubmit={handleSubmit} noValidate className="space-y-3">
           <input type="hidden" name="slug" value={slug} />
           <input type="hidden" name="patch" value={JSON.stringify({ services })} />
           {state.error && (
@@ -258,11 +303,11 @@ export function CatalogoEditor({
         botName={botName}
         online={botActivo}
         messages={[
-          { role: "in", text: esMenu ? "¡Hola! ¿Qué tienen hoy?" : "¡Hola! ¿Qué servicios ofrecen?" },
+          { role: "in", text: previewSaludo },
           {
             role: "out",
             text: selected?.name
-              ? `¡Hola! Te comparto ${esMenu ? "nuestro plato" : "nuestro servicio"}:`
+              ? `¡Hola! Te comparto ${previewSustantivo}:`
               : "¡Hola! Este es nuestro catálogo:",
           },
         ]}
@@ -273,7 +318,7 @@ export function CatalogoEditor({
                 nombre: selected.name || "(sin nombre)",
                 precio: precio.format(selected.price),
                 descripcion: selected.description,
-                cta: esMenu ? "Agregar al pedido" : "Reservar turno",
+                cta: previewCta,
               }
             : undefined
         }

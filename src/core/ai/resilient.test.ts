@@ -1,6 +1,18 @@
-import { describe, expect, it } from "vitest";
-import { ResilientProvider } from "@/core/ai/resilient";
+import { describe, expect, it, vi } from "vitest";
+import { FALLBACK_PROVIDER, ResilientProvider } from "@/core/ai/resilient";
 import type { ILLMProvider, LLMContext } from "@/core/ai/provider";
+import type { AiUsageEntry, AiUsageRepository } from "@/core/storage/usage-repository";
+
+/** Fake que guarda cada `registrar()` recibido, para revisarlo en los asserts. */
+function fakeUsageRepo(): AiUsageRepository & { entries: AiUsageEntry[] } {
+  const entries: AiUsageEntry[] = [];
+  return {
+    entries,
+    async registrar(entry) {
+      entries.push(entry);
+    },
+  };
+}
 
 const ctx: LLMContext = {
   businessName: "Estética Bella",
@@ -208,5 +220,101 @@ describe("ResilientProvider — interpret", () => {
   it("si todos fallan (lanzan), devuelve null", async () => {
     const chain = new ResilientProvider([failingProvider("uno"), failingProvider("dos")]);
     expect(await chain.interpret(input)).toBeNull();
+  });
+});
+
+describe("ResilientProvider — registra consumo en uso_ia (T-07)", () => {
+  it("una llamada exitosa al primer proveedor registra 1 llamada, sin fallback", async () => {
+    const usageRepo = fakeUsageRepo();
+    const chain = new ResilientProvider(
+      [workingProvider("gemini-x", "respuesta", null)],
+      { repo: usageRepo, negocio: "neg-1" },
+    );
+
+    await chain.enhance(ctx);
+
+    expect(usageRepo.entries).toEqual([
+      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0 },
+    ]);
+  });
+
+  it("cada paso al siguiente proveedor cuenta como una llamada propia", async () => {
+    const usageRepo = fakeUsageRepo();
+    const chain = new ResilientProvider(
+      [failingProvider("gemini-x"), workingProvider("groq-y", "respuesta", null)],
+      { repo: usageRepo, negocio: "neg-1" },
+    );
+
+    await chain.enhance(ctx);
+
+    expect(usageRepo.entries).toEqual([
+      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0 },
+      { negocio: "neg-1", proveedor: "groq-y", llamadas: 1, fallbacks: 0 },
+    ]);
+  });
+
+  it("si se agota toda la cadena, registra una caída bajo FALLBACK_PROVIDER además de cada intento", async () => {
+    const usageRepo = fakeUsageRepo();
+    const chain = new ResilientProvider(
+      [failingProvider("uno"), failingProvider("dos")],
+      { repo: usageRepo, negocio: "neg-1" },
+    );
+
+    await chain.enhance(ctx);
+
+    expect(usageRepo.entries).toEqual([
+      { negocio: "neg-1", proveedor: "uno", llamadas: 1, fallbacks: 0 },
+      { negocio: "neg-1", proveedor: "dos", llamadas: 1, fallbacks: 0 },
+      { negocio: "neg-1", proveedor: FALLBACK_PROVIDER, llamadas: 0, fallbacks: 1 },
+    ]);
+  });
+
+  it("un runAgent() que devuelve null (JSON inválido) sin lanzar igual cuenta como llamada", async () => {
+    const usageRepo = fakeUsageRepo();
+    const chain = new ResilientProvider(
+      [workingProvider("gemini-x", "", null)], // runAgent() del fake devuelve null
+      { repo: usageRepo, negocio: "neg-1" },
+    );
+
+    const input = {
+      businessName: "x",
+      currency: "COP",
+      persona: { name: "x", tone: "x", language: "x" },
+      services: [],
+      lead: { yaConfirmado: false, offTopicCount: 0 },
+      history: [],
+      message: "hola",
+    };
+    await chain.runAgent(input);
+
+    expect(usageRepo.entries).toEqual([
+      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0 },
+      { negocio: "neg-1", proveedor: FALLBACK_PROVIDER, llamadas: 0, fallbacks: 1 },
+    ]);
+  });
+
+  it("sin `usage`, no intenta registrar nada (comportamiento actual intacto)", async () => {
+    const chain = new ResilientProvider([workingProvider("gemini-x", "respuesta", null)]);
+    expect(await chain.enhance(ctx)).toBe("respuesta");
+  });
+
+  it("un registro que falla se loguea pero NUNCA rompe la respuesta real", async () => {
+    const brokenRepo: AiUsageRepository = {
+      async registrar() {
+        throw new Error("Supabase caído");
+      },
+    };
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const chain = new ResilientProvider(
+      [workingProvider("gemini-x", "respuesta", null)],
+      { repo: brokenRepo, negocio: "neg-1" },
+    );
+
+    await expect(chain.enhance(ctx)).resolves.toBe("respuesta");
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("no se pudo registrar el uso"),
+      expect.any(Error),
+    );
+    errorSpy.mockRestore();
   });
 });

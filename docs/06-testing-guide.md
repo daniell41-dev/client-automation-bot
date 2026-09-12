@@ -255,3 +255,93 @@ El simulador imprime el estado del lead al final de cada invocación en modo B, 
 ### `Próxima acción`
 
 Calculada por `nextAction(lead.state)` en `src/core/engine/lead-state.ts`. Indica al equipo de ventas qué hacer con ese lead fuera del bot (llamar, enviar link de pago, etc.).
+
+---
+
+## Probar las políticas de RLS (`pnpm test:rls`)
+
+Las políticas de Row Level Security de `supabase/migrations/` (quién puede leer/
+escribir qué fila) son código, y como todo código pueden tener bugs sutiles —
+`0003_fix_rls.sql` corrige dos que un cliente no podía detectar leyendo el SQL,
+solo ejecutándolo. `pnpm test:rls` (`supabase/tests/rls.test.ts`) corre las
+migraciones REALES contra un Postgres corriente y simula dos clientes distintos
+para probarlo de verdad.
+
+**No corre por defecto.** `pnpm test` lo salta si no hay `TEST_DATABASE_URL`
+configurada — así el resto de la suite sigue verde en cualquier máquina sin
+Postgres instalado. **En CI sí corre** (T-14): `.github/workflows/ci.yml` levanta
+un Postgres de servicio y exporta `TEST_DATABASE_URL`, así que `pnpm test` ya lo
+incluye en cada PR, sin un paso aparte.
+
+### Levantar una base desechable
+
+Necesitás un Postgres al que puedas conectarte por `postgresql://` — **nunca uses
+tu proyecto de Supabase real**: el test borra y recrea los schemas `public`/`auth`
+en cada corrida.
+
+**Con Postgres instalado localmente** (Linux, rol `postgres`):
+```bash
+sudo -u postgres createdb rls_test
+# TCP con contraseña (el driver `pg` no usa auth "peer" de sockets Unix):
+sudo -u postgres psql -c "alter user postgres with password 'postgres';"
+echo 'TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/rls_test' >> .env.local
+```
+(macOS con Postgres.app/Homebrew: el rol suele coincidir con tu usuario del
+sistema — cambiá `postgres:postgres` por `$(whoami)` sin contraseña, o creá una
+con `createuser -P`.)
+
+**Con Docker** (no necesita Postgres instalado):
+```bash
+docker run -d --name rls-test -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16
+echo 'TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/postgres' >> .env.local
+```
+
+### Correr el test
+
+```bash
+pnpm test:rls
+```
+
+Siembra dos clientes de prueba (A y B), cada uno con un rubro asignado, y verifica:
+1. A lee el rubro que tiene asignado.
+2. A **no** ve el rubro asignado solo a B.
+3. A **no** puede crear un negocio en el rubro de B (el bug de seguridad que corrige `0003`).
+4. A **sí** puede crear un negocio en el suyo (que el fix no rompa el caso legítimo).
+
+Si algo falla, el mensaje dice cuál política violó o qué fila apareció de más/de
+menos — no hace falta leer el schema para saber qué se rompió.
+
+### Archivos
+
+- `supabase/tests/rls.test.ts` — el test (Vitest + el driver `pg` directo, sin PostgREST).
+- `supabase/tests/00-auth-shim.sql` — recrea lo mínimo de `auth.users`/`auth.uid()`
+  y los roles `authenticated`/`anon` que un proyecto de Supabase real ya trae.
+  Solo para este test; no es schema de producción.
+- `supabase/tests/01-grants.sql` — los grants que Supabase da por defecto a esos
+  roles (sin esto, RLS ni se pondría a prueba: fallaría por falta de permiso, no
+  por política).
+
+---
+
+## Probar el borrado en cascada de `negocio_id` (`pnpm test:cascade`)
+
+Mismo criterio que `pnpm test:rls`: corre las migraciones REALES contra el
+Postgres desechable de `TEST_DATABASE_URL` (ver arriba cómo levantar una) y
+prueba `0006_negocio_id_fk.sql` (T-08) de punta a punta:
+
+```bash
+pnpm test:cascade
+```
+
+1. Inserta un negocio y un lead/sesión enlazados solo por `business_slug`
+   (0001-0005, sin la columna `negocio_id` todavía) — así como ya existen en
+   producción.
+2. Aplica `0006` y verifica que el **backfill** completó `negocio_id` de ese
+   lead/sesión correctamente, y que un lead con un slug que no matchea ningún
+   negocio queda con `negocio_id` en `null` (no inventa una relación).
+3. Borra el negocio y verifica que el lead y la sesión **desaparecen** (el
+   `on delete cascade` de la FK), sin afectar al lead huérfano.
+
+`supabase/tests/cascade.test.ts` reusa `00-auth-shim.sql` de la sección
+anterior (no necesita `01-grants.sql`: todas las queries corren como dueño de
+las tablas, no hay RLS de por medio en este test).

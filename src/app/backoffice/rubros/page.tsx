@@ -5,11 +5,11 @@
 
 import Link from "next/link";
 import { createUserClient } from "@/lib/supabase/server";
-import { parseBusinessConfig } from "@/core/config-schema";
 import { crearRubro, eliminarRubro } from "@/app/backoffice/actions";
 import { ActionForm } from "@/components/action-form";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Card, Pill } from "@/components/ui";
-import { RubroTile, catalogLabel } from "@/components/rubro-visual";
+import { RubroTile, camposDelNegocio, tipoCitas } from "@/components/rubro-visual";
 import { Info } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -17,29 +17,6 @@ export const dynamic = "force-dynamic";
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
 const inputCls =
   "input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft";
-
-/** Chips de "campos del negocio" derivados de la plantilla del rubro. */
-function camposDelNegocio(rubroNombre: string, template: unknown): string[] {
-  const config = parseBusinessConfig(template);
-  const itemLabel =
-    catalogLabel(rubroNombre) === "Menú"
-      ? "Plato"
-      : catalogLabel(rubroNombre) === "Servicios"
-        ? "Servicio"
-        : "Producto";
-  const campos = [itemLabel, "Precio", "Duración", "Categoría", "Disponible"];
-  if (config?.ai) campos.push("IA + reglas");
-  return campos;
-}
-
-function tipoCitas(rubroNombre: string, template: unknown): string {
-  const config = parseBusinessConfig(template);
-  if (!config) return "—";
-  if (config.services.some((s) => s.reservable)) {
-    return catalogLabel(rubroNombre) === "Menú" ? "Reserva de mesa" : "Turnos";
-  }
-  return "Sin citas";
-}
 
 export default async function RubrosPage() {
   const supabase = await createUserClient();
@@ -142,15 +119,20 @@ export default async function RubrosPage() {
                   >
                     Editar plantilla
                   </Link>
-                  <form action={eliminarRubro}>
-                    <input type="hidden" name="id" value={r.id} />
-                    <button
-                      type="submit"
-                      className="text-xs font-semibold text-warn-ink hover:underline"
-                    >
-                      Eliminar
-                    </button>
-                  </form>
+                  <ConfirmDeleteButton
+                    action={eliminarRubro}
+                    hiddenFields={{ id: r.id }}
+                    title={`¿Eliminar "${r.nombre}"?`}
+                    description="No se puede deshacer."
+                    blockedReason={
+                      negociosCount > 0
+                        ? `Este rubro tiene ${negociosCount} ${negociosCount === 1 ? "negocio" : "negocios"} asociados. No se puede eliminar mientras los tenga.`
+                        : undefined
+                    }
+                    confirmLabel="Sí, eliminar"
+                    triggerLabel="Eliminar"
+                    triggerClassName="text-xs font-semibold text-warn-ink hover:underline"
+                  />
                 </span>
               </div>
             </div>

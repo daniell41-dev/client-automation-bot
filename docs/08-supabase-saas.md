@@ -4,8 +4,8 @@ La plataforma escala de bot single-tenant a un SaaS multi-tenant:
 
 | Sección | Ruta | Quién entra | Qué hace |
 |---------|------|-------------|----------|
-| **Portal** | `/portal` | Clientes (login) | Ve sus rubros asignados, crea su negocio desde la plantilla y configura servicios, mensajes y persona del bot |
-| **Back office** | `/backoffice` | Solo admin | Crea usuarios, crea rubros (plantillas verticales), los asigna a clientes y ve todos los negocios/leads |
+| **Portal** | `/portal` | Clientes (login) | Ve los negocios que el admin le creó y configura servicios, mensajes y persona del bot |
+| **Back office** | `/backoffice` | Solo admin | Crea usuarios, crea rubros (plantillas verticales), **crea los negocios de cada cliente desde una plantilla** y ve todos los negocios/leads |
 | **Demo** | `/demo` | Público (sin login) | Ve el negocio de ejemplo y prueba el bot en un chat |
 
 **Conceptos:**
@@ -28,9 +28,33 @@ Todo corre gratis: **Vercel Hobby** (Next.js completo) + **Supabase Free** (Post
 
 ## 2. Aplicar el esquema
 
-1. En el dashboard, abre **SQL Editor → New query**.
-2. Pega el contenido completo de `supabase/migrations/0001_schema_inicial.sql` y ejecuta.
-3. Debe crear 6 tablas (`profiles`, `rubros`, `asignaciones`, `negocios`, `leads`, `sesiones`), el trigger de perfiles y todas las políticas RLS.
+En el dashboard, abre **SQL Editor → New query** y pega el contenido completo de
+cada migración, **en orden**, ejecutando una por una:
+
+1. `supabase/migrations/0001_schema_inicial.sql` — crea las 6 tablas (`profiles`,
+   `rubros`, `asignaciones`, `negocios`, `leads`, `sesiones`), el trigger de
+   perfiles y todas las políticas RLS.
+2. `supabase/migrations/0002_sesiones_cliente.sql` — el cliente puede LEER las
+   sesiones (conversaciones) de sus propios negocios, para la bandeja
+   "Conversaciones" del portal.
+3. `supabase/migrations/0003_fix_rls.sql` — corrige dos políticas de `0001` que
+   comparaban una columna sin calificar contra la subconsulta equivocada (un
+   cliente no podía leer sus rubros asignados, y podía crear un negocio en un
+   rubro que no le fue asignado). Test de regresión: `pnpm test:rls` (sección
+   "Probar las políticas de RLS" de `docs/06-testing-guide.md`).
+4. `supabase/migrations/0004_mensajes_procesados.sql` — tabla de idempotencia
+   por `message.id` de WhatsApp, para que un reintento de Meta no duplique la
+   respuesta del bot (T-05). Solo la usa el bot (service role); sin políticas
+   para `authenticated`/`anon`.
+5. `supabase/migrations/0005_uso_ia.sql` — tabla y función `registrar_uso_ia`
+   para medir el consumo de IA por negocio/día/proveedor (T-07). Igual
+   criterio que `0004`: solo el bot la toca.
+6. `supabase/migrations/0006_negocio_id_fk.sql` — agrega `negocio_id` (FK a
+   `negocios.id`, `on delete cascade`) a `leads` y `sesiones`, con backfill
+   por `business_slug` (T-08). El motor y las políticas de RLS siguen usando
+   `business_slug`; `negocio_id` solo hace que borrar un negocio arrastre sus
+   leads y sesiones. Test de regresión: `pnpm test:cascade` (sección
+   "Probar el borrado en cascada de negocio_id" de `docs/06-testing-guide.md`).
 
 ## 3. Desactivar la confirmación de email
 
@@ -69,15 +93,17 @@ pnpm dev
 
 1. **`/demo`** — sin login: ve el negocio de ejemplo y chatea con el bot.
 2. **`/login`** — entra con tu admin → te lleva a `/backoffice`.
-3. **Back office**: crea un usuario cliente (Usuarios), crea o edita un rubro (Rubros), asígnaselo (Asignaciones).
-4. Cierra sesión, entra con el cliente → `/portal`: crea un negocio desde el rubro y edita su configuración.
-5. El bot ya responde con esa config:
+3. **Back office → Usuarios**: invita un usuario cliente.
+4. **Back office → Negocios**: card "Nuevo negocio" — elegí ese cliente como dueño y un rubro (plantilla); el negocio nace **Pausado**. Esto también le asigna el rubro al cliente automáticamente (no hace falta el paso extra en Asignaciones).
+5. Activá el bot desde el detalle del negocio (`/backoffice/negocios/<id>` → "Activar bot").
+6. Cierra sesión, entra con el cliente → `/portal`: el negocio ya está ahí; entra a **Catálogo** y **Configuración** para editar servicios, tono y conocimiento de la IA.
+7. El bot ya responde con esa config:
    ```bash
    curl -s -X POST http://localhost:3000/api/dev/simulate \
      -H 'Content-Type: application/json' \
      -d '{"message":"Hola","business":"<slug-de-tu-negocio>","from":"prueba-1"}'
    ```
-6. Los leads aparecen en el detalle del negocio en el portal (y globalmente en `/backoffice/leads`).
+8. Los leads aparecen en el detalle del negocio en el portal (y globalmente en `/backoffice/leads`).
 
 ## 7. Desplegar gratis en Vercel
 
@@ -109,8 +135,10 @@ Los tests unitarios cubren los adaptadores, el resolver y el schema con fakes. E
 - [ ] `/backoffice` redirige a `/portal` si entras con un cliente.
 - [ ] `/portal` y `/backoffice` redirigen a `/login` sin sesión.
 - [ ] Anónimo solo ve datos demo en `/demo` (y `/api/dev/simulate` en producción solo acepta el negocio demo).
-- [ ] Crear negocio desde un rubro NO asignado falla (la RLS lo bloquea aunque se manipule el form).
+- [ ] Un cliente **no** puede crear un negocio insertando directo contra la API con su sesión (la RLS lo bloquea aunque se salte el formulario) — ver `pnpm test:rls`.
+- [ ] Al crear un negocio desde el back office, el cliente dueño lo ve de inmediato en su `/portal` (la asignación del rubro se crea sola).
 - [ ] El trigger crea el profile al crear un usuario desde el back office.
+- [ ] Creo un negocio, genero un lead con `pnpm sim` (o `/api/dev/simulate`), borro el negocio desde el back office y confirmo que el lead (y su sesión) desaparecieron — ver `pnpm test:cascade`.
 
 ## 10. Arquitectura (referencia rápida)
 

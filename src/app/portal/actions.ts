@@ -4,75 +4,20 @@
  * Server Actions del portal de clientes.
  *
  * Todas usan el cliente del usuario (cookies): RLS garantiza que un cliente
- * solo puede tocar SUS negocios y crear solo desde rubros que tiene asignados
- * (además del chequeo explícito aquí — defensa en profundidad).
+ * solo puede tocar SUS negocios (defensa en profundidad además del chequeo
+ * explícito de cada action). El negocio en sí lo crea el administrador desde
+ * el back office (`crearNegocio` en `backoffice/actions.ts`) — el portal solo
+ * configura lo que ya existe.
  */
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
-import type { BusinessConfig } from "@/core/types";
+import { invalidateBusinessCache } from "@/businesses/business-cache";
 
 export interface ActionState {
   error?: string;
   ok?: string;
-}
-
-const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
-export async function crearNegocio(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
-
-  const rubroId = String(formData.get("rubro_id") ?? "");
-  const nombre = String(formData.get("nombre") ?? "").trim();
-  const slug = String(formData.get("slug") ?? "").trim().toLowerCase();
-
-  if (!rubroId || !nombre) return { error: "Elige un rubro y un nombre." };
-  if (!SLUG_RE.test(slug)) {
-    return { error: "El slug debe ir en kebab-case (ej. mi-negocio)." };
-  }
-
-  const supabase = await createUserClient();
-
-  // El rubro debe estar asignado al usuario (RLS también lo exige en el insert).
-  const { data: asignacion } = await supabase
-    .from("asignaciones")
-    .select("id, rubros(template)")
-    .eq("rubro_id", rubroId)
-    .eq("user_id", me.userId)
-    .maybeSingle();
-  if (!asignacion) return { error: "Ese rubro no está asignado a tu cuenta." };
-
-  const rubro = asignacion.rubros as unknown as { template: unknown } | null;
-  const template = parseBusinessConfig(rubro?.template);
-  if (!template) {
-    return { error: "La plantilla del rubro es inválida; contacta al administrador." };
-  }
-
-  // El negocio nace como copia de la plantilla, con su propio slug y nombre.
-  const config: BusinessConfig = { ...template, slug, name: nombre };
-
-  const { error } = await supabase.from("negocios").insert({
-    owner_id: me.userId,
-    rubro_id: rubroId,
-    slug,
-    config,
-  });
-  if (error) {
-    return {
-      error: error.code === "23505"
-        ? "Ya existe un negocio con ese slug; elige otro."
-        : `No se pudo crear el negocio: ${error.message}`,
-    };
-  }
-
-  revalidatePath("/portal");
-  redirect(`/portal/negocios/${slug}`);
 }
 
 export async function actualizarConfig(
@@ -107,6 +52,7 @@ export async function actualizarConfig(
   if (error) return { error: `No se pudo guardar: ${error.message}` };
   if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
 
+  invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`);
   revalidatePath(`/portal/negocios/${slug}/editar`);
   return { ok: "Configuración guardada. El bot ya responde con estos cambios." };
@@ -173,6 +119,7 @@ export async function guardarConfigParcial(
   if (error) return { error: `No se pudo guardar: ${error.message}` };
   if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
 
+  invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`, "layout");
   return { ok: "Guardado. El bot ya responde con estos cambios." };
 }
@@ -201,6 +148,7 @@ export async function toggleBotActivo(formData: FormData): Promise<void> {
     .update({ config, updated_at: new Date().toISOString() })
     .eq("slug", slug);
 
+  invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`, "layout");
 }
 
@@ -233,6 +181,7 @@ export async function actualizarWhatsapp(
   }
   if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
 
+  invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}/editar`);
   return { ok: "Conexión de WhatsApp actualizada." };
 }

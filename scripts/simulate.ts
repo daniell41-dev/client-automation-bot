@@ -28,7 +28,7 @@ import { resolveBusinessBySlug } from "@/businesses/resolve";
 import { handleIncoming } from "@/core/handle";
 import { nextAction } from "@/core/engine/lead-state";
 import { createLLMProvider } from "@/core/ai/factory";
-import { createCalendar } from "@/core/storage/factory";
+import { createAiUsageRepository, createCalendar } from "@/core/storage/factory";
 import { SessionMemoryRepository } from "@/core/storage/adapters/session-memory";
 import { JsonLeadRepository } from "@/core/storage/adapters/json";
 import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
@@ -257,7 +257,12 @@ async function main() {
 
   console.log(`\n🏭 Simulando conversación con: ${business.name} (${business.slug})\n`);
 
-  const llm = createLLMProvider();
+  // T-07: sin Supabase (lo habitual en `pnpm sim`), createAiUsageRepository()
+  // cae al JSON local — el consumo queda en data/uso-ia.json bajo el slug.
+  const llm = createLLMProvider({
+    repo: createAiUsageRepository(),
+    negocio: resolved.negocioId ?? business.slug,
+  });
 
   if (llm) {
     const persona = business.personas?.mock ?? business.personas?.whatsapp;

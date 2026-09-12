@@ -15,8 +15,15 @@
  * Al final muestra la cadena de respaldo que arma `createLLMProvider()`.
  *
  * Uso:  pnpm ai:doctor
+ *
+ * Si `AI_DOCTOR_REPORT_PATH` está seteada, además escribe un reporte JSON
+ * estructurado ahí (ver `ProviderReport`) — lo usa el workflow "Alarma de
+ * deprecación de modelos" (T-15, `.github/workflows/ai-doctor-alarm.yml`)
+ * para decidir a qué proveedores configurados abrirles un issue. En uso
+ * normal desde la terminal esta variable no está seteada y no cambia nada.
  */
 
+import { writeFileSync } from "node:fs";
 import { OpenAICompatibleProvider } from "@/core/ai/openai-compatible";
 import { AI_PRESETS, type AIPreset, type PresetName } from "@/core/ai/presets";
 import { createLLMProvider, resolveAgentTimeoutMs, resolveReasoningEffort } from "@/core/ai/factory";
@@ -25,6 +32,20 @@ import { esteticaBella } from "@/businesses/estetica-bella/config";
 import { loadEnvLocal } from "./load-env";
 
 const PRESET_NAMES: PresetName[] = ["gemini", "groq", "cerebras"];
+
+interface ProviderCheckResult {
+  ok: boolean;
+  /** Listado real de modelos que devuelve la key (paso 2), si el endpoint existe. */
+  modelosDisponibles?: string[];
+  /** Error concreto de la primera llamada real que falló (enhance o runAgent). */
+  error?: string;
+}
+
+interface ProviderReport extends ProviderCheckResult {
+  name: string;
+  model: string;
+  apiKeyPresent: boolean;
+}
 
 /**
  * Paso 4: una llamada real de `runAgent` con el catálogo de estética-bella.
@@ -64,7 +85,7 @@ async function checkAgentMode(provider: OpenAICompatibleProvider): Promise<boole
   return true;
 }
 
-/** Prueba end-to-end de un proveedor concreto. Nunca lanza: devuelve ok/no. */
+/** Prueba end-to-end de un proveedor concreto. Nunca lanza: devuelve el resultado. */
 async function checkProvider(
   label: string,
   baseURL: string,
@@ -72,7 +93,7 @@ async function checkProvider(
   model: string,
   modelEnvVar: string,
   reasoningEffort: string | undefined,
-): Promise<boolean> {
+): Promise<ProviderCheckResult> {
   const masked = `${apiKey.slice(0, 6)}...${apiKey.slice(-4)}`;
   console.log(`\n🔎 ${label} (${masked}) — modelo configurado: ${model}`);
 
@@ -80,6 +101,7 @@ async function checkProvider(
   // Los modelos de estos proveedores rotan seguido (Groq los da de baja con
   // frecuencia, Google también) — si el configurado no está en la lista, se
   // imprimen los reales para no tener que adivinar cuál usar.
+  let modelosDisponibles: string[] | undefined;
   try {
     const res = await fetch(`${baseURL.replace(/\/$/, "")}/models`, {
       headers: { Authorization: `Bearer ${apiKey}` },
@@ -91,6 +113,7 @@ async function checkProvider(
       // compara sin ese prefijo para no marcar un falso positivo.
       const stripPrefix = (id: string) => id.replace(/^models\//, "");
       const ids = data.data?.map((m) => stripPrefix(m.id)) ?? [];
+      modelosDisponibles = ids;
       const hasModel = ids.length === 0 || ids.includes(model);
       console.log(`   ✅ Key válida. ${ids.length} modelos listados.`);
       if (!hasModel) {
@@ -119,6 +142,7 @@ async function checkProvider(
 
   // Paso 3: una llamada real de enhance().
   let enhanceOk: boolean;
+  let enhanceError: string | undefined;
   try {
     const persona =
       esteticaBella.personas?.whatsapp ?? {
@@ -139,30 +163,43 @@ async function checkProvider(
     if (result === draft) {
       console.log("   ❌ La IA devolvió el borrador SIN cambios → algo falló.");
       enhanceOk = false;
+      enhanceError = "La IA devolvió el borrador sin cambios (respuesta vacía o descartada).";
     } else {
       console.log(`   ✅ Respuesta real (enhance): ${result}`);
       enhanceOk = true;
     }
   } catch (err) {
     console.log(`   ❌ Falló la llamada real (enhance): ${err}`);
-    if (String(err).includes("404")) {
+    enhanceError = String(err);
+    if (enhanceError.includes("404")) {
       console.log(
         `      Pinta a modelo dado de baja/renombrado — revisá la lista de modelos disponibles arriba.`,
       );
+      enhanceError += " (pinta a modelo dado de baja/renombrado)";
     }
     enhanceOk = false;
   }
 
   // Paso 4: una llamada real de runAgent (modo agente) — ver `checkAgentMode`.
   let agentOk: boolean;
+  let agentError: string | undefined;
   try {
     agentOk = await checkAgentMode(provider);
+    if (!agentOk) agentError = "runAgent no devolvió un turno válido (ver log de arriba).";
   } catch (err) {
     console.log(`   ❌ Falló la llamada real (runAgent): ${err}`);
+    agentError = String(err);
     agentOk = false;
   }
 
-  return enhanceOk && agentOk;
+  const ok = enhanceOk && agentOk;
+  const error = ok
+    ? undefined
+    : [enhanceError && `enhance: ${enhanceError}`, agentError && `runAgent: ${agentError}`]
+        .filter((v): v is string => Boolean(v))
+        .join(" | ");
+
+  return { ok, modelosDisponibles, error };
 }
 
 async function main() {
@@ -170,17 +207,19 @@ async function main() {
   console.log("\n🩺 Diagnóstico de IA (cadena de respaldo)\n");
 
   let anyOk = false;
+  const reports: ProviderReport[] = [];
 
   for (const name of PRESET_NAMES) {
     const envPrefix = name.toUpperCase();
     const apiKey = process.env[`${envPrefix}_API_KEY`];
     if (!apiKey) {
       console.log(`⏭  ${name}: sin ${envPrefix}_API_KEY, se omite.`);
+      reports.push({ name, model: AI_PRESETS[name].defaultModel, apiKeyPresent: false, ok: false });
       continue;
     }
     const preset: AIPreset = AI_PRESETS[name];
     const model = process.env[`${envPrefix}_MODEL`] || preset.defaultModel;
-    const ok = await checkProvider(
+    const result = await checkProvider(
       name,
       preset.baseURL,
       apiKey,
@@ -188,14 +227,15 @@ async function main() {
       `${envPrefix}_MODEL`,
       resolveReasoningEffort(preset.reasoningEffort),
     );
-    anyOk = anyOk || ok;
+    anyOk = anyOk || result.ok;
+    reports.push({ name, model, apiKeyPresent: true, ...result });
   }
 
   const customApiKey = process.env.AI_CUSTOM_API_KEY;
   const customBaseURL = process.env.AI_CUSTOM_BASE_URL;
   const customModel = process.env.AI_CUSTOM_MODEL;
   if (customApiKey && customBaseURL && customModel) {
-    const ok = await checkProvider(
+    const result = await checkProvider(
       "custom",
       customBaseURL,
       customApiKey,
@@ -203,12 +243,19 @@ async function main() {
       "AI_CUSTOM_MODEL",
       resolveReasoningEffort(undefined),
     );
-    anyOk = anyOk || ok;
+    anyOk = anyOk || result.ok;
+    reports.push({ name: "custom", model: customModel, apiKeyPresent: true, ...result });
   } else if (customApiKey || customBaseURL || customModel) {
     console.log(
       "⏭  custom: hay que definir las 3 variables (AI_CUSTOM_API_KEY, " +
         "AI_CUSTOM_BASE_URL, AI_CUSTOM_MODEL) para activarlo, se omite.",
     );
+  }
+
+  const reportPath = process.env.AI_DOCTOR_REPORT_PATH;
+  if (reportPath) {
+    writeFileSync(reportPath, JSON.stringify({ providers: reports }, null, 2));
+    console.log(`\n📄 Reporte estructurado escrito en ${reportPath}`);
   }
 
   if (!anyOk) {

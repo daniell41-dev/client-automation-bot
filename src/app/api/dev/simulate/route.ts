@@ -15,6 +15,7 @@
 
 import { resolveBusinessBySlug } from "@/businesses/resolve";
 import {
+  createAiUsageRepository,
   createCalendar,
   createLeadRepository,
   createSessionRepository,
@@ -69,9 +70,16 @@ export async function POST(request: Request): Promise<Response> {
     });
   }
 
-  const repo = createLeadRepository(business);
-  const llm = createLLMProvider();
-  const sessionRepo = llm ? createSessionRepository(business) : undefined;
+  // T-07/T-08: negocioId (UUID real) si el negocio vive en Supabase; si no,
+  // el slug (fallback JSON local) — igual criterio que el webhook real.
+  const repo = createLeadRepository(business, resolved.negocioId);
+  const llm = createLLMProvider({
+    repo: createAiUsageRepository(),
+    negocio: resolved.negocioId ?? business.slug,
+  });
+  const sessionRepo = llm
+    ? createSessionRepository(business, resolved.negocioId)
+    : undefined;
   const calendar = createCalendar(business) ?? undefined;
 
   const message: IncomingMessage = {

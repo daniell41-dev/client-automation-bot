@@ -1,0 +1,61 @@
+name: Alarma de deprecación de modelos IA
+
+# Lunes y jueves a las 09:00 UTC (T-15): los proveedores gratuitos (Gemini,
+# Groq, Cerebras) dan de baja modelos sin mucho aviso — ver docs/11-proveedor-ia.md.
+# `workflow_dispatch` permite disparar la corrida a mano, con overrides de
+# *_MODEL para poder probar la alarma forzando un modelo inexistente sin
+# tocar los secrets reales del repo.
+on:
+  schedule:
+    - cron: "0 9 * * 1,4"
+  workflow_dispatch:
+    inputs:
+      gemini_model:
+        description: "Override de GEMINI_MODEL (dejar vacío para usar el configurado)"
+        required: false
+      groq_model:
+        description: "Override de GROQ_MODEL (para forzar un fallo y probar la alarma)"
+        required: false
+      cerebras_model:
+        description: "Override de CEREBRAS_MODEL"
+        required: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  ai-doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # No falla el step si ai:doctor sale con código 1 (ningún proveedor
+      # respondió): el reporte igual queda escrito, y es ese reporte —no el
+      # código de salida de este paso— el que decide si se abre un issue.
+      - name: Correr pnpm ai:doctor
+        continue-on-error: true
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ github.event.inputs.gemini_model }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ github.event.inputs.groq_model }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          CEREBRAS_MODEL: ${{ github.event.inputs.cerebras_model }}
+          AI_DOCTOR_REPORT_PATH: ai-doctor-report.json
+        run: pnpm ai:doctor
+
+      - name: Abrir/actualizar issue por cada proveedor configurado que falló
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_DOCTOR_REPORT_PATH: ai-doctor-report.json
+        run: pnpm ai:doctor:report-issue

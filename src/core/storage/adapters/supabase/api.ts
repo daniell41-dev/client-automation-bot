@@ -27,6 +27,13 @@ export interface LeadRow {
   last_inbound_at: string;
   follow_ups_sent: string[];
   notes: string | null;
+  /**
+   * FK de conveniencia a `negocios.id` (T-08): `business_slug` sigue siendo
+   * lo que usan el motor y las políticas de RLS. `null`/ausente cuando el
+   * negocio vive solo en el registry estático de código (sin fila en
+   * `negocios`) — ver el comentario de la migración 0006.
+   */
+  negocio_id?: string | null;
 }
 
 /** Fila de la tabla `sesiones`. */
@@ -36,10 +43,18 @@ export interface SessionRow {
   channel: string;
   history: unknown[];
   updated_at: string;
+  /** Igual criterio que `LeadRow.negocio_id` — ver ese comentario. */
+  negocio_id?: string | null;
 }
 
 /** Fila de la tabla `negocios` (lo que necesita el resolver del bot). */
 export interface NegocioRow {
+  /**
+   * UUID de la fila. Opcional en el tipo (no en la tabla real) para no
+   * obligar a cada fixture de test a inventarlo — `resolve.ts` lo necesita
+   * para atribuir el consumo de IA (T-07) a un negocio concreto en `uso_ia`.
+   */
+  id?: string;
   slug: string;
   config: unknown;
   whatsapp_phone_number_id: string | null;
@@ -56,6 +71,28 @@ export interface SupabaseDb {
   upsertSession(row: SessionRow): Promise<void>;
   selectNegocioBySlug(slug: string): Promise<NegocioRow | null>;
   selectNegocioByPhoneNumberId(id: string): Promise<NegocioRow | null>;
+  /**
+   * Reclama un `message.id` de WhatsApp. `true` la primera vez, `false` si ya
+   * estaba reclamado. Atómico vía la restricción `unique` de la tabla
+   * `mensajes_procesados` (migración 0004): el INSERT gana o pierde la
+   * carrera, nunca hay una ventana de "leer y después escribir".
+   */
+  claimMessage(messageId: string): Promise<boolean>;
+  /**
+   * Suma un delta de consumo de IA a la fila del día para
+   * (negocio_id, proveedor) — ver migración 0005. Atómico vía la función
+   * `registrar_uso_ia` (upsert con incremento en la base), no leer-sumar-
+   * escribir desde acá: dos llamadas concurrentes del mismo negocio no
+   * pueden pisarse el contador.
+   */
+  recordAiUsage(entry: {
+    negocioId: string;
+    proveedor: string;
+    llamadas?: number;
+    tokensIn?: number;
+    tokensOut?: number;
+    fallbacks?: number;
+  }): Promise<void>;
 }
 
 /** Implementación real sobre supabase-js. */
@@ -125,7 +162,7 @@ class RealSupabaseDb implements SupabaseDb {
   async selectNegocioBySlug(slug: string): Promise<NegocioRow | null> {
     const { data, error } = await this.client
       .from("negocios")
-      .select("slug, config, whatsapp_phone_number_id, es_demo")
+      .select("id, slug, config, whatsapp_phone_number_id, es_demo")
       .eq("slug", slug)
       .maybeSingle();
     if (error) throw error;
@@ -135,11 +172,39 @@ class RealSupabaseDb implements SupabaseDb {
   async selectNegocioByPhoneNumberId(id: string): Promise<NegocioRow | null> {
     const { data, error } = await this.client
       .from("negocios")
-      .select("slug, config, whatsapp_phone_number_id, es_demo")
+      .select("id, slug, config, whatsapp_phone_number_id, es_demo")
       .eq("whatsapp_phone_number_id", id)
       .maybeSingle();
     if (error) throw error;
     return (data as NegocioRow | null) ?? null;
+  }
+
+  async claimMessage(messageId: string): Promise<boolean> {
+    const { error } = await this.client
+      .from("mensajes_procesados")
+      .insert({ message_id: messageId });
+    if (!error) return true;
+    if (error.code === "23505") return false; // ya reclamado (unique_violation)
+    throw error;
+  }
+
+  async recordAiUsage(entry: {
+    negocioId: string;
+    proveedor: string;
+    llamadas?: number;
+    tokensIn?: number;
+    tokensOut?: number;
+    fallbacks?: number;
+  }): Promise<void> {
+    const { error } = await this.client.rpc("registrar_uso_ia", {
+      p_negocio_id: entry.negocioId,
+      p_proveedor: entry.proveedor,
+      p_llamadas: entry.llamadas ?? 0,
+      p_tokens_in: entry.tokensIn ?? 0,
+      p_tokens_out: entry.tokensOut ?? 0,
+      p_fallbacks: entry.fallbacks ?? 0,
+    });
+    if (error) throw error;
   }
 }
 

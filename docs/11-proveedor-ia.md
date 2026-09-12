@@ -30,6 +30,27 @@ Los IDs de modelo y sus límites gratis **no son estables** — ya pasó una vez
 
 **`pnpm ai:doctor` es la fuente de verdad, no esta tabla ni el código.** Si reporta que el modelo configurado (o el default) ya no existe, imprime la lista real de modelos disponibles para tu key — copiá uno de ahí a `GEMINI_MODEL`/`GROQ_MODEL`/`CEREBRAS_MODEL` en `.env.local` y listo.
 
+### Alarma automática de deprecación (T-15)
+
+Esperar a notarlo en una prueba real (como pasó con Groq, ver arriba) no escala.
+`.github/workflows/ai-doctor-alarm.yml` corre `pnpm ai:doctor` en CI los **lunes y
+jueves a las 09:00 UTC**, contra los secrets `GEMINI_API_KEY`/`GROQ_API_KEY`/
+`CEREBRAS_API_KEY` del repo, y si algún proveedor **configurado** (tiene su key)
+falla, abre un issue con el error exacto y el catálogo de modelos disponibles
+para esa key (o comenta el issue ya abierto, si la alarma sigue sonando). Un
+proveedor sin key configurada nunca genera issue — eso no es una falla, es que
+ese proveedor no está en uso.
+
+- `ai-doctor.ts` escribe ese reporte estructurado cuando corre con
+  `AI_DOCTOR_REPORT_PATH` seteada (solo en CI; en la terminal no cambia nada).
+- `ai-doctor-report-issue.ts` lo lee y abre/comenta el issue vía la API de
+  GitHub, usando el `GITHUB_TOKEN` que Actions inyecta solo.
+
+**Probarla a mano:** desde la pestaña Actions → "Alarma de deprecación de
+modelos IA" → *Run workflow*, completar el input `groq_model` con algo
+inexistente (p. ej. `modelo-que-no-existe`) y correrlo — Groq va a fallar la
+llamada real y el workflow debe abrir un issue nuevo con ese error exacto.
+
 ## Cómo se usa en el código
 
 Gemini, Groq y Cerebras exponen el mismo protocolo (`POST {baseURL}/chat/completions`, formato OpenAI). Un solo adaptador (`OpenAICompatibleProvider`) sirve para los tres — y para un Ollama propio — solo cambiando `baseURL`/`model`.
@@ -79,12 +100,13 @@ GROQ_API_KEY=
 
 Verificar que funciona: `pnpm ai:doctor` — revisa cada proveedor configurado (auth + una llamada real de `enhance()` y otra de `runAgent()`) y muestra el error EXACTO si algo falla, sin adivinar.
 
-### Modelos que razonan: `reasoning_effort` y el timeout del modo agente
+### Modelos que razonan: `reasoning_effort` SOLO en modo agente
 
-Gemini 3 y `gpt-oss` (el modelo de Groq) "piensan" antes de responder salvo que se les baje el esfuerzo explícitamente. Esos tokens de razonamiento salen del mismo `max_tokens` que la respuesta — en modo agente (prompt largo + JSON estricto, ver `docs/13-modo-agente.md`), un modelo que piensa de más puede gastar todo el presupuesto y devolver contenido vacío, o tardar más de lo que da el timeout. Por eso:
+Gemini 3 y `gpt-oss` (el modelo de Groq) "piensan" antes de responder salvo que se les baje el esfuerzo explícitamente. En `runAgent()` (modo agente: prompt largo + JSON estricto, ver `docs/13-modo-agente.md`) esos tokens de razonamiento salen del mismo `max_tokens` que la respuesta — un modelo que piensa de más puede gastar todo el presupuesto y devolver contenido vacío, o tardar más de lo que da el timeout. Por eso:
 
-- `presets.ts` manda `reasoning_effort: "low"` por defecto para Gemini y Groq (Cerebras no lo necesita).
-- `runAgent()` usa su propio timeout, más holgado que el resto de las llamadas (20s por defecto vs. 8s de `enhance()`/`interpret()`), porque razonar tarda más y ese tiempo crece con el catálogo + historial del negocio.
+- `presets.ts` define `reasoning_effort: "low"` por defecto para Gemini y Groq (Cerebras no lo necesita), pero **`OpenAICompatibleProvider` solo lo manda en `runAgent()`** — es el único método con ese problema.
+- `enhance()`/`interpret()`/`extractDateTime()` **nunca** lo mandan, aunque el preset lo tenga configurado: son prompts cortos y libres (reformular un párrafo, elegir una opción, extraer una fecha), sin la presión de un JSON estricto. Bajarles el esfuerzo de razonamiento no ahorra nada ahí y puede salir caro: en producción, con Groq (`openai/gpt-oss-20b`) y `reasoning_effort: "low"`, `enhance()` devolvía el borrador **sin ningún cambio** — el modelo, al no "pensar" lo suficiente, optaba por la respuesta más segura frente a las reglas de "no inventar/conservar datos": copiar el texto de entrada tal cual.
+- `runAgent()` usa además su propio timeout, más holgado que el resto de las llamadas (20s por defecto vs. 8s de `enhance()`/`interpret()`), porque razonar tarda más y ese tiempo crece con el catálogo + historial del negocio.
 
 Ambos son configurables sin tocar código:
 
@@ -110,3 +132,5 @@ Una sola key de Gemini sirve a **todos** los negocios del SaaS (no es por negoci
 - `src/core/ai/resilient.ts` — la cadena de respaldo.
 - `src/core/ai/factory.ts` — `createLLMProvider()`, arma la cadena desde el entorno.
 - `scripts/ai-doctor.ts` — diagnóstico agnóstico de proveedor.
+- `scripts/ai-doctor-report-issue.ts` — abre/comenta el issue de la alarma (T-15) a partir del reporte de `ai-doctor.ts`.
+- `.github/workflows/ai-doctor-alarm.yml` — la corre programada (lunes/jueves) y permite dispararla a mano.

@@ -10,22 +10,38 @@ import type {
   SupabaseDb,
 } from "@/core/storage/adapters/supabase/api";
 
+/** Fila acumulada de `uso_ia`, espejo de la migración 0005. */
+interface UsoIaRow {
+  negocio_id: string;
+  proveedor: string;
+  llamadas: number;
+  tokens_in: number;
+  tokens_out: number;
+  fallbacks: number;
+}
+
 interface FakeSupabaseDb extends SupabaseDb {
   /** Acceso directo a las filas para asserts y seeding en tests. */
   leads: LeadRow[];
   sesiones: SessionRow[];
   negocios: NegocioRow[];
+  mensajesProcesados: Set<string>;
+  usoIa: UsoIaRow[];
 }
 
 export function makeFakeSupabaseDb(): FakeSupabaseDb {
   const leads: LeadRow[] = [];
   const sesiones: SessionRow[] = [];
   const negocios: NegocioRow[] = [];
+  const mensajesProcesados = new Set<string>();
+  const usoIa: UsoIaRow[] = [];
 
   return {
     leads,
     sesiones,
     negocios,
+    mensajesProcesados,
+    usoIa,
 
     async selectLeadByContact(businessSlug, contact) {
       return (
@@ -80,6 +96,32 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
 
     async selectNegocioByPhoneNumberId(id) {
       return negocios.find((n) => n.whatsapp_phone_number_id === id) ?? null;
+    },
+
+    async claimMessage(messageId) {
+      if (mensajesProcesados.has(messageId)) return false;
+      mensajesProcesados.add(messageId);
+      return true;
+    },
+
+    async recordAiUsage(entry) {
+      const fila = usoIa.find(
+        (u) => u.negocio_id === entry.negocioId && u.proveedor === entry.proveedor,
+      );
+      const delta = {
+        llamadas: entry.llamadas ?? 0,
+        tokens_in: entry.tokensIn ?? 0,
+        tokens_out: entry.tokensOut ?? 0,
+        fallbacks: entry.fallbacks ?? 0,
+      };
+      if (fila) {
+        fila.llamadas += delta.llamadas;
+        fila.tokens_in += delta.tokens_in;
+        fila.tokens_out += delta.tokens_out;
+        fila.fallbacks += delta.fallbacks;
+      } else {
+        usoIa.push({ negocio_id: entry.negocioId, proveedor: entry.proveedor, ...delta });
+      }
     },
   };
 }

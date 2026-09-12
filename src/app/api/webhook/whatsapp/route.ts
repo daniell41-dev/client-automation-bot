@@ -2,12 +2,17 @@
  * Webhook de WhatsApp Cloud API.
  *
  *  GET  → verificación del webhook (devuelve `hub.challenge`).
- *  POST → recepción de mensajes: valida firma, parsea, resuelve el negocio,
- *         corre el motor (guardando el lead) y envía las respuestas.
+ *  POST → valida la firma y responde 200 DE INMEDIATO — Meta reintenta el
+ *         mismo mensaje si el ACK tarda, lo que hacía que el bot respondiera
+ *         dos veces. El procesamiento real (resolver negocio, llamar IA,
+ *         guardar lead, enviar respuesta) corre DESPUÉS, dentro de `after()`
+ *         (`next/server`), sin bloquear la respuesta. Si igual llega un
+ *         reintento, `processWebhookPayload` lo deduplica por `message.id`.
  *
  * La capa Next solo traduce HTTP ↔ tipos del core; la lógica vive en `core/`.
  */
 
+import { after } from "next/server";
 import {
   verifyChallenge,
   verifySignature,
@@ -16,8 +21,10 @@ import { parseInbound } from "@/core/channels/whatsapp/parse";
 import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
 import { resolveBusinessByPhoneNumberId } from "@/businesses/resolve";
 import {
+  createAiUsageRepository,
   createCalendar,
   createLeadRepository,
+  createMessageDedupeRepository,
   createSessionRepository,
 } from "@/core/storage/factory";
 import { createLLMProvider } from "@/core/ai/factory";
@@ -46,12 +53,12 @@ export async function GET(request: Request): Promise<Response> {
   return new Response("Forbidden", { status: 403 });
 }
 
-/** POST: recepción y procesamiento de mensajes entrantes. */
+/** POST: valida y responde 200 de inmediato; el procesamiento corre en `after()`. */
 export async function POST(request: Request): Promise<Response> {
   const appSecret = process.env.WHATSAPP_APP_SECRET;
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
 
-  // El raw body es necesario para validar la firma antes de parsear.
+  // El raw body es necesario para validar la firma antes de parsear. Esto es
+  // síncrono/local (sin I/O de red) — corre antes del ACK sin costo real.
   const rawBody = await request.text();
 
   if (appSecret) {
@@ -68,17 +75,51 @@ export async function POST(request: Request): Promise<Response> {
     return new Response("Bad Request", { status: 400 });
   }
 
-  const llm = createLLMProvider();
+  // Todo lo que hace I/O (resolver negocio, llamar IA, guardar lead, mandar
+  // la respuesta) corre DESPUÉS de este punto — nunca bloquea el ACK a Meta.
+  after(() => processWebhookPayload(payload));
+
+  return new Response("OK", { status: 200 });
+}
+
+/**
+ * Procesa los mensajes de un payload ya validado (firma + JSON). Corre
+ * dentro de `after()` — ver `POST` — nunca bloquea el ACK a Meta. Exportada
+ * aparte para poder testearla directamente, sin depender del runtime de
+ * `after()` de Next (que solo existe dentro de una request real).
+ */
+export async function processWebhookPayload(payload: unknown): Promise<void> {
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const dedupe = createMessageDedupeRepository();
 
   try {
     for (const parsed of parseInbound(payload)) {
+      // Idempotencia: un reintento de Meta trae el MISMO message.id. Si ya
+      // se reclamó, no se reprocesa — evita que el cliente reciba la
+      // respuesta duplicada. Sin `messageId` (payload atípico) se procesa
+      // igual: perder la protección de UN mensaje es mejor que perderlo del todo.
+      if (parsed.messageId && !(await dedupe.claim(parsed.messageId))) {
+        continue;
+      }
+
       const resolved = await resolveBusinessByPhoneNumberId(parsed.phoneNumberId);
       if (!resolved) continue; // negocio no registrado → ignorar
       const business = resolved.config;
       if (business.botActivo === false) continue; // bot en pausa → no responder
 
-      const repo = createLeadRepository(business);
-      const sessionRepo = llm ? createSessionRepository(business) : undefined;
+      // Un payload puede traer mensajes de negocios distintos (batch de
+      // Meta) — el provider se arma POR MENSAJE para que T-07 atribuya el
+      // consumo al negocio correcto en `uso_ia`. `negocioId` (UUID real) si
+      // el negocio vive en Supabase; si no, el slug (fallback JSON local).
+      const llm = createLLMProvider({
+        repo: createAiUsageRepository(),
+        negocio: resolved.negocioId ?? business.slug,
+      });
+
+      const repo = createLeadRepository(business, resolved.negocioId);
+      const sessionRepo = llm
+        ? createSessionRepository(business, resolved.negocioId)
+        : undefined;
       const calendar = createCalendar(business) ?? undefined;
 
       // Mismo canal para responderle al cliente y para avisarle a la dueña
@@ -114,10 +155,9 @@ export async function POST(request: Request): Promise<Response> {
       }
     }
   } catch (err) {
-    // Nunca dejamos caer el server por un evento; Meta reintentará si hace falta.
+    // Nunca dejamos caer el proceso por un evento; a Meta ya se le respondió
+    // 200 (el ACK ya salió en POST), así que no reintentará por esto — solo
+    // queda el log.
     console.error("Error procesando webhook de WhatsApp:", err);
   }
-
-  // Meta espera un 200 rápido para no reintentar.
-  return new Response("OK", { status: 200 });
 }

@@ -16,24 +16,42 @@ import {
   getBusinessBySlug,
   getBusinessByPhoneNumberId,
 } from "@/businesses/registry";
+import { cached } from "@/businesses/business-cache";
 
 /** Info extra del negocio que necesita la capa web (no el motor). */
 export interface ResolvedBusiness {
   config: BusinessConfig;
   /** `true` si es el negocio de demostración pública. */
   esDemo: boolean;
+  /**
+   * UUID de `negocios.id` en Supabase. `undefined` si el negocio vino del
+   * registry estático (sin Supabase o sin fila en la base) — ahí no hay un
+   * id real que atribuir en `uso_ia` (T-07).
+   */
+  negocioId?: string;
 }
 
 /** Busca por slug: Supabase primero, registry estático como fallback. */
 export async function resolveBusinessBySlug(
   slug: string,
 ): Promise<ResolvedBusiness | null> {
+  return cached(`slug:${slug}`, () => fetchBySlug(slug));
+}
+
+/** Busca por phone_number_id de WhatsApp: Supabase primero, registry después. */
+export async function resolveBusinessByPhoneNumberId(
+  phoneNumberId: string,
+): Promise<ResolvedBusiness | null> {
+  return cached(`phone:${phoneNumberId}`, () => fetchByPhoneNumberId(phoneNumberId));
+}
+
+async function fetchBySlug(slug: string): Promise<ResolvedBusiness | null> {
   const db = createSupabaseDb();
   if (db) {
     const row = await db.selectNegocioBySlug(slug);
     if (row) {
       const config = parseBusinessConfig(row.config);
-      if (config) return { config, esDemo: row.es_demo };
+      if (config) return { config, esDemo: row.es_demo, negocioId: row.id };
       console.warn(`[resolve] config inválida en DB para negocio "${slug}"`);
     }
   }
@@ -41,8 +59,7 @@ export async function resolveBusinessBySlug(
   return fallback ? { config: fallback, esDemo: false } : null;
 }
 
-/** Busca por phone_number_id de WhatsApp: Supabase primero, registry después. */
-export async function resolveBusinessByPhoneNumberId(
+async function fetchByPhoneNumberId(
   phoneNumberId: string,
 ): Promise<ResolvedBusiness | null> {
   const db = createSupabaseDb();
@@ -50,7 +67,7 @@ export async function resolveBusinessByPhoneNumberId(
     const row = await db.selectNegocioByPhoneNumberId(phoneNumberId);
     if (row) {
       const config = parseBusinessConfig(row.config);
-      if (config) return { config, esDemo: row.es_demo };
+      if (config) return { config, esDemo: row.es_demo, negocioId: row.id };
       console.warn(
         `[resolve] config inválida en DB para phone_number_id "${phoneNumberId}"`,
       );
