@@ -55,6 +55,44 @@ export function catalogLabel(rubroNombre: string | null | undefined): string {
   return "Catálogo";
 }
 
+/** Textos del editor de Catálogo (T-18) que dependen del rubro — placeholder de categoría y copy del preview de WhatsApp. */
+export interface CatalogCopy {
+  categoriaPlaceholder: string;
+  previewSaludo: string;
+  previewSustantivo: string;
+  previewCta: string;
+}
+
+export function catalogCopy(rubroNombre: string | null | undefined): CatalogCopy {
+  const label = catalogLabel(rubroNombre);
+  if (label === "Menú") {
+    return {
+      categoriaPlaceholder: "Entradas",
+      previewSaludo: "¡Hola! ¿Qué tienen hoy?",
+      previewSustantivo: "nuestro plato",
+      previewCta: "Agregar al pedido",
+    };
+  }
+  if (label === "Servicios") {
+    return {
+      categoriaPlaceholder: "Faciales",
+      previewSaludo: "¡Hola! ¿Qué servicios ofrecen?",
+      previewSustantivo: "nuestro servicio",
+      previewCta: "Reservar turno",
+    };
+  }
+  // Catálogo (comercio/retail genérico): antes de T-18 caía en la misma
+  // rama que "Servicios" (solo se distinguía Menú de "todo lo demás"), así
+  // que un negocio de comercio veía "¿Qué servicios ofrecen?" y el CTA
+  // "Reservar turno" — no tiene sentido reservar un turno para comprar un producto.
+  return {
+    categoriaPlaceholder: "Categoría",
+    previewSaludo: "¡Hola! ¿Qué tienen disponible?",
+    previewSustantivo: "nuestro producto",
+    previewCta: "Agregar al pedido",
+  };
+}
+
 /**
  * Chips de "campos del negocio" que hereda un negocio creado desde este rubro
  * — se usa tanto en la card de cada plantilla (`/backoffice/rubros`) como en
