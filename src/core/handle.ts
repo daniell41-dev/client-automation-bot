@@ -129,6 +129,11 @@ export async function handleIncoming(
   const justConfirmed =
     existing?.stage !== "datos_completos" && lead.stage === "datos_completos";
   if (justConfirmed) {
+    // T-20: siempre, incluso sin `calendar`/`llm` (un negocio sin IA nunca va
+    // a tener `appointmentAt`, pero necesita `confirmedAt` para que el cierre
+    // automático de la cita — que a falta de fecha exacta se basa en "hace
+    // cuántos días se confirmó" — funcione igual).
+    lead.confirmedAt = now.toISOString();
     if (calendar && llm) {
       await scheduleConfirmedAppointment(lead, config, now, llm, calendar);
     }
