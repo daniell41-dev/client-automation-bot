@@ -52,15 +52,30 @@ export interface OpenAICompatibleOptions {
    */
   agentTimeoutMs?: number;
   /**
-   * `reasoning_effort` a mandar SOLO en `runAgent()` (ver `AIPreset`). El
-   * resto de los métodos (`enhance`/`interpret`/`extractDateTime`) NO lo
-   * usan: son prompts cortos y libres, y bajarles el esfuerzo de
-   * razonamiento puede hacer que el modelo, en vez de reformular, devuelva
-   * el texto de entrada sin tocar — visto en producción con Groq
-   * (`openai/gpt-oss-20b`): con `reasoning_effort: "low"`, `enhance()`
-   * devolvía el borrador idéntico. `runAgent()` sí lo necesita: su prompt es
-   * largo y pide JSON estricto, y ahí el problema real es el modelo
-   * gastando `max_tokens` pensando (ver el comentario en `runAgent`).
+   * `reasoning_effort` configurado para este proveedor en `runAgent()` (ver
+   * `AIPreset`) — su prompt es largo y pide JSON estricto, así que necesita
+   * ALGO de razonamiento ("low"), con `maxTokens` holgado para absorberlo.
+   *
+   * `enhance()`/`interpret()`/`extractDateTime()` son prompts cortos y
+   * libres, sin esa presión — pero NO significa que no razonan si no se les
+   * manda nada: Gemini 3 y `gpt-oss` (Groq) razonan por defecto igual, aunque
+   * el campo venga ausente. Visto en el diagnóstico real (`pnpm ai:doctor`,
+   * sept-2026): con el campo ausente, Gemini hacía timeout en `enhance()`
+   * (>8s en un prompt corto) y Groq devolvía vacío (`finish_reason=length`,
+   * se quedaba sin `max_tokens` pensando). Por eso estos tres métodos mandan
+   * `"none"` explícito —no el valor configurado acá, que sigue siendo para
+   * `runAgent()`— cuando el proveedor es de los que razonan (este campo
+   * viene seteado); un proveedor sin este campo (Cerebras, custom) no lo
+   * necesita y no se le manda nada, igual que antes.
+   *
+   * Ojo: `"none"` es DISTINTO de `"low"`. En producción, `reasoning_effort:
+   * "low"` en `enhance()` con Groq hacía que el modelo, con el esfuerzo bajo
+   * pero no nulo, optara por la respuesta "más segura" frente a las reglas
+   * de no inventar/conservar datos: copiar el borrador sin cambios. Por eso
+   * antes se optó por no mandar nada — pero "nada" resultó ser peor (timeout
+   * / respuesta vacía) que mandar `"none"`, que si apaga el razonamiento del
+   * todo. Si "none" reintroduce el problema de "borrador sin cambios", hay
+   * que revisar de nuevo — no hay forma de probar esto sin una key real.
    */
   reasoningEffort?: string;
 }
@@ -171,13 +186,22 @@ export class OpenAICompatibleProvider implements ILLMProvider {
     return text;
   }
 
+  /**
+   * `"none"` explícito si el proveedor es de los que razonan (ver el
+   * comentario de `reasoningEffort` en `OpenAICompatibleOptions`) — nunca el
+   * valor configurado ahí, que es para `runAgent()`.
+   */
+  private get noReasoning(): string | undefined {
+    return this.reasoningEffort ? "none" : undefined;
+  }
+
   async enhance(ctx: LLMContext): Promise<string> {
     return this.chatCompletion(
       [
         { role: "system", content: buildSystemPrompt(ctx) },
         { role: "user", content: buildUserMessage(ctx) },
       ],
-      { temperature: 0.7, maxTokens: 512 },
+      { temperature: 0.7, maxTokens: 512, reasoningEffort: this.noReasoning },
     );
   }
 
@@ -187,7 +211,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         { role: "system", content: buildDateExtractionPrompt(input) },
         { role: "user", content: input.text },
       ],
-      { temperature: 0, maxTokens: 40 },
+      { temperature: 0, maxTokens: 40, reasoningEffort: this.noReasoning },
     );
     return parseExtractedDateTime(raw);
   }
@@ -198,7 +222,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         { role: "system", content: buildInterpretPrompt(input) },
         { role: "user", content: input.text },
       ],
-      { temperature: 0, maxTokens: 30 },
+      { temperature: 0, maxTokens: 30, reasoningEffort: this.noReasoning },
     );
     return parseInterpretation(raw, input.options);
   }
