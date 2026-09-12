@@ -11,7 +11,9 @@
  */
 
 import { useState } from "react";
+import type { FormEvent } from "react";
 import { crearNegocio } from "@/app/backoffice/actions";
+import { crearNegocioSchema } from "@/app/backoffice/negocio-schema";
 import { ActionForm } from "@/components/action-form";
 import { Segmented } from "@/components/ui";
 
@@ -40,31 +42,54 @@ export function NuevoNegocioForm({
 }) {
   const [rubroId, setRubroId] = useState(rubros[0]?.id ?? "");
   const [plan, setPlan] = useState<"free" | "pro">("free");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const rubroSeleccionado = rubros.find((r) => r.id === rubroId);
 
+  /**
+   * Mismo schema que valida `crearNegocio` en el servidor (T-12): el error
+   * por campo aparece al toque, sin ida y vuelta.
+   */
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    const data = Object.fromEntries(new FormData(e.currentTarget));
+    const result = crearNegocioSchema.safeParse(data);
+    if (result.success) {
+      setFieldErrors({});
+      return;
+    }
+    e.preventDefault();
+    const errors: Record<string, string> = {};
+    for (const [field, messages] of Object.entries(result.error.flatten().fieldErrors)) {
+      if (messages?.[0]) errors[field] = messages[0];
+    }
+    setFieldErrors(errors);
+  };
+
   return (
-    <ActionForm action={crearNegocio} submitLabel="Crear negocio">
+    <ActionForm action={crearNegocio} submitLabel="Crear negocio" onSubmit={handleSubmit}>
       <input type="hidden" name="plan" value={plan} />
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className={labelCls}>Nombre del negocio</label>
           <input
             name="nombre"
-            required
-            className={inputCls}
+            className={`${inputCls} ${fieldErrors.nombre ? "border-warn-ink" : ""}`}
             placeholder="Estética Bella"
           />
+          {fieldErrors.nombre && (
+            <p className="mt-1 text-xs text-warn-ink">{fieldErrors.nombre}</p>
+          )}
         </div>
         <div>
           <label className={labelCls}>Slug (identificador, kebab-case)</label>
           <input
             name="slug"
-            required
-            pattern="[a-z0-9]+(-[a-z0-9]+)*"
-            className={inputCls}
+            className={`${inputCls} ${fieldErrors.slug ? "border-warn-ink" : ""}`}
             placeholder="estetica-bella"
           />
+          {fieldErrors.slug && (
+            <p className="mt-1 text-xs text-warn-ink">{fieldErrors.slug}</p>
+          )}
         </div>
 
         <div>
@@ -74,7 +99,11 @@ export function NuevoNegocioForm({
               No hay ningún cliente todavía — invitá uno en Usuarios.
             </p>
           ) : (
-            <select name="owner_id" required className={inputCls} defaultValue="">
+            <select
+              name="owner_id"
+              className={`${inputCls} ${fieldErrors.owner_id ? "border-warn-ink" : ""}`}
+              defaultValue=""
+            >
               <option value="" disabled>
                 Elegí un cliente…
               </option>
@@ -84,6 +113,9 @@ export function NuevoNegocioForm({
                 </option>
               ))}
             </select>
+          )}
+          {fieldErrors.owner_id && (
+            <p className="mt-1 text-xs text-warn-ink">{fieldErrors.owner_id}</p>
           )}
         </div>
         <div>
@@ -95,8 +127,7 @@ export function NuevoNegocioForm({
           ) : (
             <select
               name="rubro_id"
-              required
-              className={inputCls}
+              className={`${inputCls} ${fieldErrors.rubro_id ? "border-warn-ink" : ""}`}
               value={rubroId}
               onChange={(e) => setRubroId(e.target.value)}
             >
@@ -106,6 +137,9 @@ export function NuevoNegocioForm({
                 </option>
               ))}
             </select>
+          )}
+          {fieldErrors.rubro_id && (
+            <p className="mt-1 text-xs text-warn-ink">{fieldErrors.rubro_id}</p>
           )}
         </div>
 

@@ -9,17 +9,27 @@
 import { z } from "zod";
 import type { BusinessConfig } from "@/core/types";
 
-const serviceSchema = z.object({
+/**
+ * Exportado (T-12): el editor de Catálogo del portal valida el mismo objeto
+ * Zod en el cliente, antes de enviar, que el que corre en el servidor dentro
+ * de `businessConfigSchema` — nunca dos definiciones que puedan desalinearse.
+ */
+export const serviceSchema = z.object({
   id: z.string().min(1),
-  name: z.string().min(1),
+  name: z.string().min(1, "El nombre es obligatorio."),
   description: z.string(),
-  price: z.number().nonnegative(),
+  price: z.number().nonnegative("El precio no puede ser negativo."),
   durationMinutes: z.number().positive(),
   keywords: z.array(z.string()).optional(),
   categoria: z.string().optional(),
   disponible: z.boolean().optional(),
   reservable: z.boolean().optional(),
 });
+
+/** El catálogo completo: al menos un producto/servicio (igual regla que `businessConfigSchema`). */
+export const servicesSchema = z
+  .array(serviceSchema)
+  .min(1, "Agregá al menos un producto o servicio.");
 
 const quickRuleSchema = z.object({
   keywords: z.array(z.string().min(1)).min(1),
@@ -64,8 +74,9 @@ const followUpSchema = z.object({
   message: z.string(),
 });
 
-const personaSchema = z.object({
-  name: z.string().min(1),
+/** Exportado (T-12): el editor de Configuración valida el nombre del bot con este mismo schema. */
+export const personaSchema = z.object({
+  name: z.string().min(1, "El nombre del bot es obligatorio."),
   tone: z.string(),
   language: z.string(),
 });
@@ -76,7 +87,7 @@ export const businessConfigSchema = z.object({
   rubro: z.string().optional(),
   currency: z.string().min(1),
   locale: z.string().optional(),
-  services: z.array(serviceSchema).min(1),
+  services: servicesSchema,
   messages: messagesSchema,
   followUps: z.array(followUpSchema),
   bookingUrl: z.string().optional(),

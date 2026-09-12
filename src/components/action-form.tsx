@@ -19,11 +19,18 @@ export function ActionForm({
   children,
   submitLabel = "Guardar",
   className,
+  onSubmit,
 }: {
   action: Action;
   children: React.ReactNode;
   submitLabel?: string;
   className?: string;
+  /**
+   * Validación previa en el cliente (T-12): si llama a `preventDefault()`,
+   * la Server Action no se dispara — React respeta ese `preventDefault` del
+   * evento `onSubmit` nativo aunque el `<form>` tenga `action={formAction}`.
+   */
+  onSubmit?: (event: React.FormEvent<HTMLFormElement>) => void;
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     action,
@@ -31,7 +38,12 @@ export function ActionForm({
   );
 
   return (
-    <form action={formAction} className={className ?? "space-y-3"}>
+    <form
+      action={formAction}
+      onSubmit={onSubmit}
+      noValidate={!!onSubmit}
+      className={className ?? "space-y-3"}
+    >
       {children}
       {state.error && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
