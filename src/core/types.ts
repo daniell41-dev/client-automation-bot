@@ -112,16 +112,32 @@ export interface PedidosConfig {
   opciones: string[];
 }
 
-/** Horario de atención de un día (o rango de días). */
-export interface BusinessHours {
-  /** Etiqueta visible (p. ej. "Lunes a viernes", "Sábado"). */
-  dia: string;
+/** Un tramo horario dentro de un día, "HH:MM" 24hs. */
+export interface HourRange {
   /** Hora de apertura "HH:MM". */
   desde: string;
   /** Hora de cierre "HH:MM". */
   hasta: string;
-  /** Si es `false`, ese día está cerrado. */
+}
+
+/**
+ * Horario de atención de UN día de la semana (T-20).
+ *
+ * `dow` (day of week) numérico y no un nombre de día en texto libre — es lo
+ * que permite validar una cita por código (`core/engine/horarios.ts`) sin
+ * tener que normalizar tildes/mayúsculas/abreviaturas contra algo como
+ * "Lunes a viernes". Mismo criterio que `Date.getDay()`: 0 = domingo,
+ * 6 = sábado.
+ *
+ * `tramos` admite más de uno para el corte de mediodía (9-13 y 15-19): sin
+ * eso, un negocio así tendría que declarar un solo tramo 9-19 y el bot
+ * aceptaría citas a las 14. Vacío (o `abierto: false`) = cerrado ese día.
+ */
+export interface DiaAtencion {
+  /** 0 = domingo … 6 = sábado. */
+  dow: number;
   abierto: boolean;
+  tramos: HourRange[];
 }
 
 /** Configuración de un seguimiento (cuándo y con qué mensaje). */
@@ -188,7 +204,7 @@ export interface BusinessConfig {
   /** Plan comercial (pill del back office). Default "free". */
   plan?: "free" | "pro";
   /** Horarios de atención (los usa el bot y la sección Citas del portal). */
-  horarios?: BusinessHours[];
+  horarios?: DiaAtencion[];
   /** Cerebro del bot: IA (knowledge) + reglas rápidas + fallback/derivación. */
   ai?: BotAIConfig;
   /** Modalidad de entrega opcional (retirar / comer en el local, etc.). */

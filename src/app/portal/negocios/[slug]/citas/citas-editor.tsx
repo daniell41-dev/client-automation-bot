@@ -7,10 +7,11 @@
 
 import { useActionState, useState } from "react";
 import { CalendarDays, Plus, X } from "lucide-react";
-import type { BusinessHours, PedidosConfig, Service } from "@/core/types";
+import type { DiaAtencion, PedidosConfig, Service } from "@/core/types";
 import { guardarConfigParcial, type ActionState } from "@/app/portal/actions";
 import { Card, EmptyState, Pill, Toggle } from "@/components/ui";
 import { PhonePreview } from "@/components/phone-preview";
+import { MAX_TRAMOS_POR_DIA, NOMBRES_DIA } from "./horarios-form";
 
 export interface ProximaReserva {
   id: string;
@@ -36,14 +37,15 @@ export function CitasEditor({
 }: {
   slug: string;
   initialServices: Service[];
-  initialHorarios: BusinessHours[];
+  /** Exactamente 7 filas (una por día) — armadas por `buildSieteFilas` en `page.tsx`. */
+  initialHorarios: DiaAtencion[];
   initialPedidos: PedidosConfig;
   reservas: ProximaReserva[];
   botName: string;
   botActivo: boolean;
 }) {
   const [services, setServices] = useState<Service[]>(initialServices);
-  const [horarios, setHorarios] = useState<BusinessHours[]>(initialHorarios);
+  const [horarios, setHorarios] = useState<DiaAtencion[]>(initialHorarios);
   const [pedidos, setPedidos] = useState<PedidosConfig>(initialPedidos);
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     guardarConfigParcial,
@@ -61,8 +63,44 @@ export function CitasEditor({
       prev.map((s) => (s.id === id ? { ...s, reservable: next } : s)),
     );
 
-  const patchHorario = (i: number, patch: Partial<BusinessHours>) =>
-    setHorarios((prev) => prev.map((h, j) => (j === i ? { ...h, ...patch } : h)));
+  const patchTramo = (diaIdx: number, tramoIdx: number, patch: Partial<{ desde: string; hasta: string }>) =>
+    setHorarios((prev) =>
+      prev.map((d, j) =>
+        j === diaIdx
+          ? { ...d, tramos: d.tramos.map((t, k) => (k === tramoIdx ? { ...t, ...patch } : t)) }
+          : d,
+      ),
+    );
+
+  const agregarTramo = (diaIdx: number) =>
+    setHorarios((prev) =>
+      prev.map((d, j) =>
+        j === diaIdx && d.tramos.length < MAX_TRAMOS_POR_DIA
+          ? { ...d, tramos: [...d.tramos, { desde: "09:00", hasta: "18:00" }] }
+          : d,
+      ),
+    );
+
+  const quitarTramo = (diaIdx: number, tramoIdx: number) =>
+    setHorarios((prev) =>
+      prev.map((d, j) =>
+        j === diaIdx ? { ...d, tramos: d.tramos.filter((_, k) => k !== tramoIdx) } : d,
+      ),
+    );
+
+  const toggleAbierto = (diaIdx: number, next: boolean) =>
+    setHorarios((prev) =>
+      prev.map((d, j) =>
+        j === diaIdx
+          ? {
+              ...d,
+              abierto: next,
+              // Al abrir un día sin tramos cargados, arranca con uno por defecto.
+              tramos: next && d.tramos.length === 0 ? [{ desde: "09:00", hasta: "18:00" }] : d.tramos,
+            }
+          : d,
+      ),
+    );
 
   const reservables = services.filter((s) => s.reservable);
 
@@ -177,41 +215,74 @@ export function CitasEditor({
         </Card>
 
         {/* Horarios de atención */}
-        <Card title="Horarios de atención">
+        <Card
+          title="Horarios de atención"
+          subtitle="El bot no acepta citas fuera de estos horarios."
+        >
           <div className="divide-y divide-line">
-            {horarios.map((h, i) => (
-              <div key={i} className="flex items-center gap-3 py-2.5">
-                <span
-                  className={`flex-1 text-sm font-semibold ${
-                    h.abierto ? "text-ink" : "text-ink-soft"
-                  }`}
-                >
-                  {h.dia}
-                </span>
-                {h.abierto ? (
-                  <span className="flex items-center gap-1.5 text-[13px] text-ink-mid">
-                    <input
-                      className={timeCls}
-                      value={h.desde}
-                      onChange={(e) => patchHorario(i, { desde: e.target.value })}
+            {horarios.map((dia, i) => {
+              const nombre = NOMBRES_DIA[dia.dow];
+              return (
+                <div key={dia.dow} className="flex flex-col gap-2 py-2.5">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`flex-1 text-sm font-semibold ${
+                        dia.abierto ? "text-ink" : "text-ink-soft"
+                      }`}
+                    >
+                      {nombre}
+                    </span>
+                    {!dia.abierto && <span className="text-[13px] text-ink-soft">Cerrado</span>}
+                    <Toggle
+                      checked={dia.abierto}
+                      onChange={(next) => toggleAbierto(i, next)}
+                      label={`Abierto: ${nombre}`}
                     />
-                    –
-                    <input
-                      className={timeCls}
-                      value={h.hasta}
-                      onChange={(e) => patchHorario(i, { hasta: e.target.value })}
-                    />
-                  </span>
-                ) : (
-                  <span className="text-[13px] text-ink-soft">Cerrado</span>
-                )}
-                <Toggle
-                  checked={h.abierto}
-                  onChange={(next) => patchHorario(i, { abierto: next })}
-                  label={`Abierto: ${h.dia}`}
-                />
-              </div>
-            ))}
+                  </div>
+                  {dia.abierto && (
+                    <div className="space-y-1.5 pl-1">
+                      {dia.tramos.map((t, ti) => (
+                        <div key={ti} className="flex items-center gap-1.5">
+                          <span className="flex items-center gap-1.5 text-[13px] text-ink-mid">
+                            <input
+                              className={timeCls}
+                              value={t.desde}
+                              onChange={(e) => patchTramo(i, ti, { desde: e.target.value })}
+                            />
+                            –
+                            <input
+                              className={timeCls}
+                              value={t.hasta}
+                              onChange={(e) => patchTramo(i, ti, { hasta: e.target.value })}
+                            />
+                          </span>
+                          {dia.tramos.length > 1 && (
+                            <button
+                              type="button"
+                              aria-label={`Quitar tramo de ${nombre}`}
+                              onClick={() => quitarTramo(i, ti)}
+                              className="text-ink-soft hover:text-warn-ink"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {dia.tramos.length < MAX_TRAMOS_POR_DIA && (
+                        <button
+                          type="button"
+                          onClick={() => agregarTramo(i)}
+                          className="inline-flex items-center gap-1 text-[13px] font-bold text-primary hover:underline"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Agregar tramo (p. ej. corte de mediodía)
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </Card>
 

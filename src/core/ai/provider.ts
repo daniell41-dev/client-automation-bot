@@ -4,7 +4,7 @@
  * (Groq, OpenAI…) lo inyecta la capa de aplicación.
  */
 
-import type { BusinessHours, ConversationTurn, PersonaConfig, QuickRule } from "@/core/types";
+import type { ConversationTurn, DiaAtencion, PersonaConfig, QuickRule } from "@/core/types";
 import type { AgentResponse } from "@/core/ai/agent-schema";
 
 export interface LLMContext {
@@ -91,7 +91,7 @@ export interface AgentTurnInput {
   reglas?: QuickRule[];
   /** SOLO los servicios disponibles — la IA no debe ofrecer los que no. */
   services: AgentServiceSummary[];
-  horarios?: BusinessHours[];
+  horarios?: DiaAtencion[];
   /** Presente solo si el negocio activó la modalidad de entrega/pedidos. */
   pedidos?: { pregunta: string; opciones: string[] };
   lead: AgentLeadState;

@@ -120,9 +120,9 @@ export function PortalShell({
 
   // Tab bar móvil (T-16): antes tenía 4 accesos fijos del handoff (2 a
   // secciones que ahora están ocultas). Reusa `nav` ya filtrado en vez de
-  // mantener una segunda lista — con el alcance v1 son las mismas 3
-  // secciones, y así Configuración (que el handoff no incluía en mobile)
-  // queda alcanzable ahí también.
+  // mantener una segunda lista — así Configuración (que el handoff no
+  // incluía en mobile) queda alcanzable ahí también, y no hay que tocar dos
+  // listas cada vez que se oculta/reactiva una sección (T-20 reactivó Citas).
   const mobileTabs = nav;
 
   return (

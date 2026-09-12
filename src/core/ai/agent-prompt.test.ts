@@ -60,10 +60,32 @@ describe("buildAgentSystemPrompt", () => {
 
     const conHorarios = buildAgentSystemPrompt({
       ...baseInput,
-      horarios: [{ dia: "Lunes a viernes", desde: "09:00", hasta: "19:00", abierto: true }],
+      horarios: [{ dow: 1, abierto: true, tramos: [{ desde: "09:00", hasta: "19:00" }] }],
     });
     expect(conHorarios).toContain("Horarios de atención");
-    expect(conHorarios).toContain("Lunes a viernes: 09:00 a 19:00");
+    expect(conHorarios).toContain("Lunes: 09:00 a 19:00");
+  });
+
+  it("ordena los días lunes→domingo y junta varios tramos con \"y\"", () => {
+    const prompt = buildAgentSystemPrompt({
+      ...baseInput,
+      horarios: [
+        { dow: 0, abierto: false, tramos: [] }, // domingo, va último
+        {
+          dow: 1, // lunes, va primero
+          abierto: true,
+          tramos: [
+            { desde: "09:00", hasta: "13:00" },
+            { desde: "15:00", hasta: "19:00" },
+          ],
+        },
+      ],
+    });
+    const idxLunes = prompt.indexOf("- Lunes:");
+    const idxDomingo = prompt.indexOf("- Domingo:");
+    expect(idxLunes).toBeGreaterThan(-1);
+    expect(idxDomingo).toBe(-1); // domingo cerrado no aparece en la lista de abiertos
+    expect(prompt).toContain("Lunes: 09:00 a 13:00 y 15:00 a 19:00");
   });
 
   it("incluye la modalidad de pedidos con sus opciones EXACTAS, solo si el negocio la usa", () => {
