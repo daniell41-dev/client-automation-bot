@@ -7,17 +7,42 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getUserRoleMock, createUserClientMock } = vi.hoisted(() => ({
-  getUserRoleMock: vi.fn(),
-  createUserClientMock: vi.fn(),
-}));
+const { getUserRoleMock, createUserClientMock, redirectMock, revalidatePathMock } = vi.hoisted(
+  () => ({
+    getUserRoleMock: vi.fn(),
+    createUserClientMock: vi.fn(),
+    redirectMock: vi.fn(),
+    revalidatePathMock: vi.fn(),
+  }),
+);
 vi.mock("@/lib/supabase/server", () => ({
   getUserRole: getUserRoleMock,
   createUserClient: createUserClientMock,
 }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
+vi.mock("next/navigation", () => ({ redirect: redirectMock }));
+// revalidatePath necesita un contexto real de request de Next — fuera de
+// eso (como acá, en Vitest) lanza "static generation store missing".
+vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
-import { actualizarNegocio, crearNegocio } from "@/app/backoffice/actions";
+import {
+  actualizarNegocio,
+  crearNegocio,
+  eliminarNegocio,
+  eliminarRubro,
+  quitarAsignacion,
+} from "@/app/backoffice/actions";
+
+/** Fake mínimo: `.from(tabla).delete().eq("id", id)` resuelve a `{ error }`. */
+function fakeSupabaseDelete(error: { message: string; code?: string } | null = null) {
+  return {
+    from: () => ({
+      delete: () => ({
+        eq: async () => ({ error }),
+      }),
+    }),
+  };
+}
 
 function formData(fields: Record<string, string>): FormData {
   const fd = new FormData();
@@ -28,6 +53,8 @@ function formData(fields: Record<string, string>): FormData {
 beforeEach(() => {
   getUserRoleMock.mockReset();
   createUserClientMock.mockReset();
+  redirectMock.mockReset();
+  revalidatePathMock.mockReset();
   getUserRoleMock.mockResolvedValue({ userId: "admin-1", email: "a@a.com", role: "admin" });
 });
 
@@ -127,5 +154,77 @@ describe("actualizarNegocio — rechaza datos inválidos sin tocar Supabase", ()
     );
     expect(result.error).toBe("Elegí un cliente dueño.");
     expect(createUserClientMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * T-13: antes estas tres actions eran `Promise<void>` sin chequear el
+ * `error` de Supabase — un fallo (permisos, FK) no le llegaba a nadie.
+ * Ahora devuelven `ActionState`, que es lo que `ConfirmDeleteButton` usa
+ * para mostrar el toast de error.
+ */
+describe("eliminarNegocio", () => {
+  it("no autorizado: no llega a tocar Supabase", async () => {
+    getUserRoleMock.mockResolvedValueOnce({ userId: "u1", email: "c@c.com", role: "cliente" });
+    const result = await eliminarNegocio({}, formData({ id: "negocio-1" }));
+    expect(result.error).toBe("No autorizado.");
+    expect(createUserClientMock).not.toHaveBeenCalled();
+  });
+
+  it("sin id: error, no toca Supabase", async () => {
+    const result = await eliminarNegocio({}, formData({}));
+    expect(result.error).toBeTruthy();
+    expect(createUserClientMock).not.toHaveBeenCalled();
+  });
+
+  it("si Supabase falla, devuelve un error legible en vez de tirar sin avisar", async () => {
+    createUserClientMock.mockResolvedValue(fakeSupabaseDelete({ message: "permiso denegado" }));
+    const result = await eliminarNegocio({}, formData({ id: "negocio-1" }));
+    expect(result.error).toBe("No se pudo eliminar: permiso denegado");
+    expect(redirectMock).not.toHaveBeenCalled();
+  });
+
+  it("si el borrado funciona, redirige a la lista de negocios", async () => {
+    createUserClientMock.mockResolvedValue(fakeSupabaseDelete());
+    await eliminarNegocio({}, formData({ id: "negocio-1" }));
+    expect(redirectMock).toHaveBeenCalledWith("/backoffice/negocios");
+  });
+});
+
+describe("eliminarRubro", () => {
+  it("una violación de FK (23503) se traduce a un mensaje legible", async () => {
+    createUserClientMock.mockResolvedValue(
+      fakeSupabaseDelete({ message: "update or delete on table...", code: "23503" }),
+    );
+    const result = await eliminarRubro({}, formData({ id: "rubro-1" }));
+    expect(result.error).toBe("No se puede eliminar: todavía tiene negocios asociados.");
+  });
+
+  it("otro error de Supabase se muestra tal cual", async () => {
+    createUserClientMock.mockResolvedValue(fakeSupabaseDelete({ message: "boom" }));
+    const result = await eliminarRubro({}, formData({ id: "rubro-1" }));
+    expect(result.error).toBe("No se pudo eliminar: boom");
+  });
+
+  it("si el borrado funciona, devuelve ok (no navega — sigue en la misma página)", async () => {
+    createUserClientMock.mockResolvedValue(fakeSupabaseDelete());
+    const result = await eliminarRubro({}, formData({ id: "rubro-1" }));
+    expect(result.ok).toBeTruthy();
+    expect(result.error).toBeUndefined();
+  });
+});
+
+describe("quitarAsignacion", () => {
+  it("no autorizado: no toca Supabase", async () => {
+    getUserRoleMock.mockResolvedValueOnce({ userId: "u1", email: "c@c.com", role: "cliente" });
+    const result = await quitarAsignacion({}, formData({ id: "asig-1" }));
+    expect(result.error).toBe("No autorizado.");
+    expect(createUserClientMock).not.toHaveBeenCalled();
+  });
+
+  it("si el borrado funciona, devuelve ok", async () => {
+    createUserClientMock.mockResolvedValue(fakeSupabaseDelete());
+    const result = await quitarAsignacion({}, formData({ id: "asig-1" }));
+    expect(result.ok).toBeTruthy();
   });
 });

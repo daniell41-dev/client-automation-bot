@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans, Sora } from "next/font/google";
+import { ToastProvider } from "@/components/toast";
 import "./globals.css";
 
 // Tipografía del design system "Nexo": Plus Jakarta Sans para UI,
@@ -32,7 +33,9 @@ export default function RootLayout({
       lang="es"
       className={`${jakarta.variable} ${sora.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ToastProvider>{children}</ToastProvider>
+      </body>
     </html>
   );
 }
