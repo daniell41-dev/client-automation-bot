@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { createUserClient } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { CitasEditor, type ProximaReserva } from "./citas-editor";
+import { buildSieteFilas } from "./horarios-form";
 
 export const dynamic = "force-dynamic";
 
@@ -47,13 +48,7 @@ export default async function CitasPage({
     <CitasEditor
       slug={slug}
       initialServices={config.services}
-      initialHorarios={
-        config.horarios ?? [
-          { dia: "Lunes a viernes", desde: "09:00", hasta: "20:00", abierto: true },
-          { dia: "Sábado", desde: "09:00", hasta: "13:00", abierto: true },
-          { dia: "Domingo", desde: "00:00", hasta: "00:00", abierto: false },
-        ]
-      }
+      initialHorarios={buildSieteFilas(config.horarios)}
       initialPedidos={
         config.pedidos ?? {
           enabled: false,

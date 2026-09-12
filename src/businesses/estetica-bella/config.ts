@@ -111,10 +111,15 @@ export const esteticaBella: BusinessConfig = {
   botActivo: true,
   plan: "pro",
 
+  // T-20: `dow` 0=domingo … 6=sábado (igual que Date.getDay()).
   horarios: [
-    { dia: "Lunes a viernes", desde: "09:00", hasta: "19:00", abierto: true },
-    { dia: "Sábado", desde: "09:00", hasta: "14:00", abierto: true },
-    { dia: "Domingo", desde: "00:00", hasta: "00:00", abierto: false },
+    { dow: 0, abierto: false, tramos: [] }, // domingo
+    { dow: 1, abierto: true, tramos: [{ desde: "09:00", hasta: "19:00" }] },
+    { dow: 2, abierto: true, tramos: [{ desde: "09:00", hasta: "19:00" }] },
+    { dow: 3, abierto: true, tramos: [{ desde: "09:00", hasta: "19:00" }] },
+    { dow: 4, abierto: true, tramos: [{ desde: "09:00", hasta: "19:00" }] },
+    { dow: 5, abierto: true, tramos: [{ desde: "09:00", hasta: "19:00" }] },
+    { dow: 6, abierto: true, tramos: [{ desde: "09:00", hasta: "14:00" }] }, // sábado
   ],
 
   ai: {

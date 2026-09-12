@@ -45,11 +45,18 @@ const aiSchema = z.object({
   derivarHumano: z.boolean().optional(),
 });
 
-const hoursSchema = z.object({
-  dia: z.string().min(1),
-  desde: z.string(),
-  hasta: z.string(),
+const HORA_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+const tramoSchema = z.object({
+  desde: z.string().regex(HORA_RE, "hora HH:MM"),
+  hasta: z.string().regex(HORA_RE, "hora HH:MM"),
+});
+
+const diaAtencionSchema = z.object({
+  /** 0 = domingo … 6 = sábado, igual que `Date.getDay()`. */
+  dow: z.number().int().min(0).max(6),
   abierto: z.boolean(),
+  tramos: z.array(tramoSchema),
 });
 
 const pedidosSchema = z.object({
@@ -95,7 +102,12 @@ export const businessConfigSchema = z.object({
   direccion: z.string().optional(),
   botActivo: z.boolean().optional(),
   plan: z.enum(["free", "pro"]).optional(),
-  horarios: z.array(hoursSchema).optional(),
+  // T-20: `.catch(undefined)` en vez de invalidar el config entero — un
+  // horario mal formado (o en el formato viejo de texto libre, pre-T-20)
+  // nunca debe tumbar al negocio al registry estático. Sin horarios
+  // válidos, el bot simplemente no valida citas contra ellos (como si no
+  // los tuviera cargados).
+  horarios: z.array(diaAtencionSchema).optional().catch(undefined),
   ai: aiSchema.optional(),
   pedidos: pedidosSchema.optional(),
   notifyPhoneNumber: z.string().optional(),

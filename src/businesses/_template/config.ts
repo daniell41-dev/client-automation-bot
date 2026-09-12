@@ -62,11 +62,17 @@ export const plantilla: BusinessConfig = {
   // direccion: "Calle 1 #2-34, Ciudad", // visible en Configuración del portal
   // botActivo: true, // en false el bot queda en pausa (toggle de la topbar)
 
-  // Horarios de atención (sección "Citas y reservas" del portal).
+  // Horarios de atención (sección "Citas y reservas" del portal) — T-20:
+  // `dow` 0=domingo … 6=sábado (igual que Date.getDay()). Sin este campo, el
+  // bot no valida citas contra ningún horario (se comporta como hoy).
   // horarios: [
-  //   { dia: "Lunes a viernes", desde: "09:00", hasta: "20:00", abierto: true },
-  //   { dia: "Sábado", desde: "09:00", hasta: "13:00", abierto: true },
-  //   { dia: "Domingo", desde: "00:00", hasta: "00:00", abierto: false },
+  //   { dow: 0, abierto: false, tramos: [] },
+  //   { dow: 1, abierto: true, tramos: [{ desde: "09:00", hasta: "18:00" }] },
+  //   { dow: 2, abierto: true, tramos: [{ desde: "09:00", hasta: "18:00" }] },
+  //   { dow: 3, abierto: true, tramos: [{ desde: "09:00", hasta: "18:00" }] },
+  //   { dow: 4, abierto: true, tramos: [{ desde: "09:00", hasta: "18:00" }] },
+  //   { dow: 5, abierto: true, tramos: [{ desde: "09:00", hasta: "18:00" }] },
+  //   { dow: 6, abierto: false, tramos: [] },
   // ],
 
   // Cerebro del bot (sección "Respuestas y flujos" del portal).

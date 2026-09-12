@@ -34,6 +34,58 @@ describe("parseBusinessConfig", () => {
   });
 });
 
+describe("parseBusinessConfig — horarios (T-20)", () => {
+  it("acepta horarios en el formato nuevo (dow + tramos)", () => {
+    const config = {
+      ...JSON.parse(JSON.stringify(esteticaBella)),
+      horarios: [
+        { dow: 1, abierto: true, tramos: [{ desde: "09:00", hasta: "13:00" }, { desde: "15:00", hasta: "19:00" }] },
+      ],
+    };
+    const parsed = parseBusinessConfig(config);
+    expect(parsed?.horarios).toHaveLength(1);
+    expect(parsed?.horarios?.[0].tramos).toHaveLength(2);
+  });
+
+  it("sin horarios: la config sigue siendo válida (campo opcional)", () => {
+    const base = JSON.parse(JSON.stringify(esteticaBella));
+    delete base.horarios;
+    const parsed = parseBusinessConfig(base);
+    expect(parsed).not.toBeNull();
+    expect(parsed?.horarios).toBeUndefined();
+  });
+
+  it("degrada a undefined (NO invalida toda la config) con el formato viejo de texto libre", () => {
+    const config = {
+      ...JSON.parse(JSON.stringify(esteticaBella)),
+      horarios: [{ dia: "Lunes a viernes", desde: "09:00", hasta: "19:00", abierto: true }],
+    };
+    const parsed = parseBusinessConfig(config);
+    expect(parsed).not.toBeNull(); // el negocio entero no se cae al registry estático
+    expect(parsed?.horarios).toBeUndefined(); // pero sin horarios válidos no se valida nada
+  });
+
+  it("degrada a undefined con una hora mal formada", () => {
+    const config = {
+      ...JSON.parse(JSON.stringify(esteticaBella)),
+      horarios: [{ dow: 1, abierto: true, tramos: [{ desde: "9am", hasta: "19:00" }] }],
+    };
+    const parsed = parseBusinessConfig(config);
+    expect(parsed).not.toBeNull();
+    expect(parsed?.horarios).toBeUndefined();
+  });
+
+  it("degrada a undefined con un dow fuera de rango", () => {
+    const config = {
+      ...JSON.parse(JSON.stringify(esteticaBella)),
+      horarios: [{ dow: 9, abierto: true, tramos: [] }],
+    };
+    const parsed = parseBusinessConfig(config);
+    expect(parsed).not.toBeNull();
+    expect(parsed?.horarios).toBeUndefined();
+  });
+});
+
 describe("parseBusinessConfig — pedidos y notifyPhoneNumber", () => {
   it("acepta pedidos válido (enabled + pregunta + 2-4 opciones)", () => {
     const config = {

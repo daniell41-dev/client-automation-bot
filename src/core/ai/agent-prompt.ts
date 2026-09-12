@@ -30,11 +30,32 @@ function buildCatalogBlock(input: AgentTurnInput): string {
     .join("\n");
 }
 
+/** Nombre del día en español a partir de `dow` (0 = domingo … 6 = sábado). */
+const NOMBRES_DIA = [
+  "Domingo",
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+];
+
 function buildHorariosBlock(input: AgentTurnInput): string {
   if (!input.horarios?.length) return "";
-  const abiertos = input.horarios.filter((h) => h.abierto);
+  // Orden fijo lunes→domingo para que el prompt sea legible, no el orden en
+  // que vengan guardados los días.
+  const ordenados = [...input.horarios].sort(
+    (a, b) => ((a.dow + 6) % 7) - ((b.dow + 6) % 7),
+  );
+  const abiertos = ordenados.filter((d) => d.abierto && d.tramos.length > 0);
   const lineas = abiertos.length
-    ? abiertos.map((h) => `- ${h.dia}: ${h.desde} a ${h.hasta}`).join("\n")
+    ? abiertos
+        .map((d) => {
+          const tramos = d.tramos.map((t) => `${t.desde} a ${t.hasta}`).join(" y ");
+          return `- ${NOMBRES_DIA[d.dow]}: ${tramos}`;
+        })
+        .join("\n")
     : "Cerrado todos los días (confirmar con el cliente).";
   return `\n\nHorarios de atención:\n${lineas}`;
 }
