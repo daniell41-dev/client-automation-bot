@@ -19,7 +19,7 @@ import type { SheetsApi } from "@/core/storage/adapters/google/auth";
 
 const TAB = "Leads";
 
-/** Columnas A..N de la pestaña "Leads", en orden. */
+/** Columnas A..P de la pestaña "Leads", en orden. */
 const HEADERS = [
   "id",
   "businessSlug",
@@ -35,9 +35,12 @@ const HEADERS = [
   "lastInboundAt",
   "followUpsSent",
   "notes",
+  "appointmentAt",
+  "confirmedAt",
 ] as const;
 
-const LAST_COL = "N"; // 14 columnas
+const LAST_COL = "P"; // 16 columnas (T-20: appointmentAt/confirmedAt agregadas al final —
+// una fila vieja de 14 columnas simplemente no tiene O/P, que `fromRow` lee como `undefined`)
 
 function toRow(lead: Lead): string[] {
   return [
@@ -55,6 +58,8 @@ function toRow(lead: Lead): string[] {
     lead.lastInboundAt,
     JSON.stringify(lead.followUpsSent ?? []),
     lead.notes ?? "",
+    lead.appointmentAt ?? "",
+    lead.confirmedAt ?? "",
   ];
 }
 
@@ -82,6 +87,8 @@ function fromRow(row: string[]): Lead {
     lastInboundAt: cell(11),
     followUpsSent,
     notes: cell(13) || undefined,
+    appointmentAt: cell(14) || undefined,
+    confirmedAt: cell(15) || undefined,
   };
 }
 

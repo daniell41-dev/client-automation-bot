@@ -177,6 +177,32 @@ describe("handleIncoming — agendar en calendario al confirmar", () => {
   });
 });
 
+describe("handleIncoming — confirmedAt (T-20)", () => {
+  it("setea confirmedAt al confirmar, incluso sin calendar", async () => {
+    const repo = new InMemoryRepo();
+    const now = new Date("2026-06-25T12:00:00.000Z");
+    await driveUntilConfirm(repo, fakeLLM(), undefined);
+    await handleIncoming(msg("sí"), config, repo, now, fakeLLM(), undefined, undefined);
+
+    expect(repo.leads[0].confirmedAt).toBe(now.toISOString());
+  });
+
+  it("setea confirmedAt al confirmar incluso SIN ninguna IA (negocio 100% guiado)", async () => {
+    const repo = new InMemoryRepo();
+    const now = new Date("2026-06-25T12:00:00.000Z");
+    // Sin llm: driveUntilConfirm con undefined corre el motor determinista puro.
+    await handleIncoming(msg("limpieza facial"), config, repo, now);
+    await handleIncoming(msg("Laura"), config, repo, now);
+    await handleIncoming(msg("mañana a las 3"), config, repo, now);
+    await handleIncoming(msg("sí"), config, repo, now);
+
+    expect(repo.leads[0].stage).toBe("datos_completos");
+    expect(repo.leads[0].confirmedAt).toBe(now.toISOString());
+    // Sin IA no hay forma de resolver una fecha exacta.
+    expect(repo.leads[0].appointmentAt).toBeUndefined();
+  });
+});
+
 /** Notifier falso: registra los mensajes enviados. */
 function fakeNotifier(): { sent: { to: string; text: string }[]; send: (m: { to: string; text: string }) => Promise<void> } {
   const sent: { to: string; text: string }[] = [];

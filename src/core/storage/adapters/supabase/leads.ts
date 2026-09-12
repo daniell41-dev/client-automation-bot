@@ -31,6 +31,8 @@ function toRow(lead: Lead, negocioId: string | undefined): LeadRow {
     last_inbound_at: lead.lastInboundAt,
     follow_ups_sent: lead.followUpsSent ?? [],
     notes: lead.notes ?? null,
+    appointment_at: lead.appointmentAt ?? null,
+    confirmed_at: lead.confirmedAt ?? null,
     negocio_id: negocioId ?? null,
   };
 }
@@ -51,6 +53,8 @@ function fromRow(row: LeadRow): Lead {
     lastInboundAt: row.last_inbound_at,
     followUpsSent: (row.follow_ups_sent ?? []) as FollowUpThreshold[],
     notes: row.notes ?? undefined,
+    appointmentAt: row.appointment_at ?? undefined,
+    confirmedAt: row.confirmed_at ?? undefined,
   };
 }
 

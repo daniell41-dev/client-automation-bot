@@ -27,6 +27,10 @@ export interface LeadRow {
   last_inbound_at: string;
   follow_ups_sent: string[];
   notes: string | null;
+  /** ISO de la cita/pedido resuelta a fecha exacta (T-20). Ver `Lead.appointmentAt`. */
+  appointment_at?: string | null;
+  /** ISO de cuándo se confirmó la cita/pedido (T-20). Ver `Lead.confirmedAt`. */
+  confirmed_at?: string | null;
   /**
    * FK de conveniencia a `negocios.id` (T-08): `business_slug` sigue siendo
    * lo que usan el motor y las políticas de RLS. `null`/ausente cuando el
