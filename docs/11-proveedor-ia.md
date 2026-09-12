@@ -100,20 +100,25 @@ GROQ_API_KEY=
 
 Verificar que funciona: `pnpm ai:doctor` — revisa cada proveedor configurado (auth + una llamada real de `enhance()` y otra de `runAgent()`) y muestra el error EXACTO si algo falla, sin adivinar.
 
-### Modelos que razonan: `reasoning_effort` distinto en cada método
+### Modelos que razonan: mismo `reasoning_effort` en todos los métodos
 
-Gemini 3 y `gpt-oss` (el modelo de Groq) "piensan" antes de responder — **incluso si no se les manda `reasoning_effort` en absoluto**: el campo no es "on/off", es "cuánto"; omitirlo no lo apaga, deja el nivel por defecto del proveedor. Eso importa distinto según el método:
+Gemini 3 y `gpt-oss` (el modelo de Groq) "piensan" antes de responder — **incluso si no se les manda `reasoning_effort` en absoluto**: el campo no es "on/off", es "cuánto"; omitirlo no lo apaga, deja el nivel por defecto del proveedor (más alto que "low"). `presets.ts` configura `reasoning_effort: "low"` para Gemini y Groq (Cerebras no lo necesita, no razona) y **todos** los métodos (`enhance()`, `interpret()`, `extractDateTime()`, `runAgent()`) mandan ese mismo valor.
 
-- **`runAgent()`** (modo agente: prompt largo + JSON estricto, ver `docs/13-modo-agente.md`) necesita ALGO de razonamiento para armar el JSON — manda el valor configurado en `presets.ts` (`reasoning_effort: "low"` para Gemini y Groq; Cerebras no lo necesita) con `max_tokens` holgado (1600) y timeout propio (20s por defecto vs. 8s del resto), porque esos tokens de razonamiento salen del mismo presupuesto que la respuesta y razonar tarda más cuanto más crece el catálogo + historial.
-- **`enhance()`/`interpret()`/`extractDateTime()`** son prompts cortos y libres (reformular un párrafo, elegir una opción, extraer una fecha) que no necesitan razonar nada — mandan `reasoning_effort: "none"` explícito (no el valor de `runAgent()`) para apagarlo del todo. Esto cambió dos veces, las dos por un fallo real, no por teoría:
-  1. Primero se probó mandando el mismo valor que `runAgent()` ("low") también acá: con Groq, `enhance()` devolvía el borrador **sin ningún cambio** — el modelo, con el esfuerzo bajo pero no nulo, optaba por la respuesta "más segura" frente a las reglas de "no inventar/conservar datos".
-  2. Se pasó a no mandar el campo (asumiendo que un prompt corto no lo necesita) — pero sin el campo el modelo sigue razonando por default: en el diagnóstico real (`pnpm ai:doctor`, sept-2026) **Gemini hacía timeout** en `enhance()` (>8s en un prompt corto) y **Groq devolvía vacío** (`finish_reason=length`, se quedaba sin `max_tokens` pensando).
-  3. Ahora se manda `"none"` — a diferencia de "low", apaga el razonamiento por completo en vez de solo bajarlo. Si esto reintroduce el problema del punto 1, hay que revisarlo de nuevo con una key real (`pnpm ai:doctor`).
+`runAgent()` (modo agente: prompt largo + JSON estricto, ver `docs/13-modo-agente.md`) además usa `max_tokens` holgado (1600) y timeout propio (20s por defecto vs. 8s del resto), porque esos tokens de razonamiento salen del mismo presupuesto que la respuesta y razonar tarda más cuanto más crece el catálogo + historial.
 
-Ambos son configurables sin tocar código:
+Que sea el MISMO valor en todos los métodos no fue la primera opción — se llegó ahí probando las otras dos con keys reales y viendo que fallaban peor (`pnpm ai:doctor`, sept-2026):
+
+1. **No mandar nada** en `enhance()`/`interpret()`/`extractDateTime()` (asumiendo que un prompt corto no necesita razonar): **Gemini hacía timeout** en `enhance()` (>8s en un prompt corto) y **Groq devolvía vacío** (`finish_reason=length`, se quedaba sin `max_tokens` pensando) — omitir el campo no apaga el razonamiento, así que fue peor que mandar algo.
+2. **Mandar `"none"` explícito** para apagarlo del todo: **ninguno de los dos proveedores lo acepta**. Groq devuelve HTTP 400 con el mensaje textual `` `reasoning_effort` must be one of `low`, `medium`, or `high` ``; Gemini también 400 (`INVALID_ARGUMENT`) con el mismo cambio. `"none"` no es un valor válido del enum en ninguno de los dos.
+
+Con esas dos descartadas por evidencia real, queda un límite conocido (no un bug): con Groq (`openai/gpt-oss-20b`) y `reasoning_effort: "low"`, `enhance()` puede devolver el borrador **sin ningún cambio** — el modelo, con el esfuerzo bajo pero no nulo, opta por la respuesta "más segura" frente a las reglas de "no inventar/conservar datos" en vez de arriesgarse a reformular. Si hace falta que `enhance()` con Groq reformule de verdad, el próximo experimento (no probado todavía) sería `"medium"` específicamente para Groq vía `AI_REASONING_EFFORT`.
+
+Configurable sin tocar código:
 
 ```bash
-# "none" | "low" | "medium" | "high". Vacío ("") fuerza a NO mandar el campo.
+# "low" | "medium" | "high" (valores reales del enum — "none" NO es válido,
+# los proveedores lo rechazan con HTTP 400). Vacío ("") fuerza a NO mandar
+# el campo — no lo recomendamos: peor que "low" (ver arriba).
 # AI_REASONING_EFFORT=
 
 # Timeout de runAgent en ms (default 20000). En Vercel Hobby el límite de
@@ -121,7 +126,7 @@ Ambos son configurables sin tocar código:
 # AI_AGENT_TIMEOUT_MS=
 ```
 
-Si `pnpm ai:doctor` reporta que `runAgent` falla con "respuesta vacía (finish_reason=length)", el modelo se quedó sin tokens pensando — la primera prueba es bajar `AI_REASONING_EFFORT` a `"none"`. Si en cambio tarda pero eventualmente respondería, subí `AI_AGENT_TIMEOUT_MS`.
+Si `pnpm ai:doctor` reporta que `runAgent` falla con "respuesta vacía (finish_reason=length)", el modelo se quedó sin tokens pensando: `reasoning_effort` ya está en el mínimo válido (`"low"`) y `max_tokens` (1600) es fijo en código, así que no hay una variable de entorno que lo arregle — hace falta subir ese `max_tokens` en `openai-compatible.ts`. Si en cambio la IA tarda pero eventualmente respondería (no es un problema de tokens sino de tiempo), subí `AI_AGENT_TIMEOUT_MS`.
 
 ### Cuota compartida entre negocios
 

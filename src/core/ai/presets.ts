@@ -8,7 +8,14 @@
  * hechas desde el servidor, no desde Venezuela).
  */
 
-export type ReasoningEffort = "none" | "low" | "medium" | "high";
+/**
+ * Valores reales del enum de `reasoning_effort` — confirmado con keys reales
+ * (`pnpm ai:doctor`, sept-2026) que `"none"` NO es válido: Groq y Gemini
+ * devuelven HTTP 400 (Groq, textual: "must be one of low, medium, or high").
+ * Ver el comentario largo de `reasoningEffort` en
+ * `openai-compatible.ts#OpenAICompatibleOptions` para la historia completa.
+ */
+export type ReasoningEffort = "low" | "medium" | "high";
 
 export interface AIPreset {
   /** URL base SIN `/chat/completions` (formato OpenAI-compatible). */
