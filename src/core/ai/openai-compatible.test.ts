@@ -204,16 +204,18 @@ describe("OpenAICompatibleProvider.enhance — respuesta vacía", () => {
   });
 });
 
-describe("reasoning_effort — solo runAgent() lo manda", () => {
-  // Regresión real: con reasoningEffort configurado (como en producción para
-  // Groq/Gemini), enhance() con Groq (openai/gpt-oss-20b) devolvía el
-  // borrador SIN NINGÚN cambio — el modelo, con el esfuerzo de razonamiento
-  // bajo, optaba por la respuesta "más segura" frente a las reglas de no
-  // inventar/conservar datos: copiar el texto de entrada tal cual. enhance()/
-  // interpret()/extractDateTime() no tienen el problema que reasoning_effort
-  // resuelve (prompt largo + JSON estricto), así que no deben mandarlo nunca,
-  // aunque el provider tenga uno configurado.
-  it("enhance() NO manda reasoning_effort aunque el provider tenga uno configurado", async () => {
+describe("reasoning_effort en enhance()/interpret()/extractDateTime()", () => {
+  // Historia real (ver el comentario de `reasoningEffort` en
+  // `OpenAICompatibleOptions`): primero se mandaba el valor configurado
+  // ("low") también en enhance() — Groq (openai/gpt-oss-20b) devolvía el
+  // borrador SIN NINGÚN cambio, el modelo optaba por la respuesta "más
+  // segura". Se pasó a no mandar nada, pero eso resultó PEOR: sin el campo,
+  // el modelo igual razona por defecto — Gemini hacía timeout en `enhance()`
+  // y Groq devolvía vacío (`finish_reason=length`), visto en `pnpm ai:doctor`
+  // real (sept-2026). Ahora se manda `"none"` explícito: distinto del valor
+  // configurado para runAgent(), apaga el razonamiento del todo en vez de
+  // bajarlo.
+  it("enhance() manda reasoning_effort=\"none\" (no el valor configurado) si el provider razona", async () => {
     let bodyVisto: Record<string, unknown> | null = null;
     const provider = new OpenAICompatibleProvider({
       name: "groq",
@@ -230,10 +232,10 @@ describe("reasoning_effort — solo runAgent() lo manda", () => {
       }) as unknown as typeof fetch,
     });
     await provider.enhance(ctx);
-    expect(bodyVisto!.reasoning_effort).toBeUndefined();
+    expect(bodyVisto!.reasoning_effort).toBe("none");
   });
 
-  it("interpret() y extractDateTime() tampoco lo mandan", async () => {
+  it("interpret() y extractDateTime() también mandan \"none\" si el provider razona", async () => {
     const bodies: Record<string, unknown>[] = [];
     const fetchImpl = vi.fn(async (_url, init) => {
       bodies.push(JSON.parse((init as RequestInit).body as string));
@@ -260,8 +262,28 @@ describe("reasoning_effort — solo runAgent() lo manda", () => {
 
     expect(bodies).toHaveLength(2);
     for (const body of bodies) {
-      expect(body.reasoning_effort).toBeUndefined();
+      expect(body.reasoning_effort).toBe("none");
     }
+  });
+
+  it("no manda reasoning_effort si el provider no tiene uno configurado (Cerebras/custom)", async () => {
+    let bodyVisto: Record<string, unknown> | null = null;
+    const provider = new OpenAICompatibleProvider({
+      name: "cerebras",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      // sin reasoningEffort — Cerebras no lo necesita
+      fetchImpl: vi.fn(async (_url, init) => {
+        bodyVisto = JSON.parse((init as RequestInit).body as string);
+        return new Response(
+          JSON.stringify({ choices: [{ message: { content: "reformulado" } }] }),
+          { status: 200 },
+        );
+      }) as unknown as typeof fetch,
+    });
+    await provider.enhance(ctx);
+    expect(bodyVisto!.reasoning_effort).toBeUndefined();
   });
 });
 

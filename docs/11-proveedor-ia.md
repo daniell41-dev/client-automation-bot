@@ -100,13 +100,15 @@ GROQ_API_KEY=
 
 Verificar que funciona: `pnpm ai:doctor` — revisa cada proveedor configurado (auth + una llamada real de `enhance()` y otra de `runAgent()`) y muestra el error EXACTO si algo falla, sin adivinar.
 
-### Modelos que razonan: `reasoning_effort` SOLO en modo agente
+### Modelos que razonan: `reasoning_effort` distinto en cada método
 
-Gemini 3 y `gpt-oss` (el modelo de Groq) "piensan" antes de responder salvo que se les baje el esfuerzo explícitamente. En `runAgent()` (modo agente: prompt largo + JSON estricto, ver `docs/13-modo-agente.md`) esos tokens de razonamiento salen del mismo `max_tokens` que la respuesta — un modelo que piensa de más puede gastar todo el presupuesto y devolver contenido vacío, o tardar más de lo que da el timeout. Por eso:
+Gemini 3 y `gpt-oss` (el modelo de Groq) "piensan" antes de responder — **incluso si no se les manda `reasoning_effort` en absoluto**: el campo no es "on/off", es "cuánto"; omitirlo no lo apaga, deja el nivel por defecto del proveedor. Eso importa distinto según el método:
 
-- `presets.ts` define `reasoning_effort: "low"` por defecto para Gemini y Groq (Cerebras no lo necesita), pero **`OpenAICompatibleProvider` solo lo manda en `runAgent()`** — es el único método con ese problema.
-- `enhance()`/`interpret()`/`extractDateTime()` **nunca** lo mandan, aunque el preset lo tenga configurado: son prompts cortos y libres (reformular un párrafo, elegir una opción, extraer una fecha), sin la presión de un JSON estricto. Bajarles el esfuerzo de razonamiento no ahorra nada ahí y puede salir caro: en producción, con Groq (`openai/gpt-oss-20b`) y `reasoning_effort: "low"`, `enhance()` devolvía el borrador **sin ningún cambio** — el modelo, al no "pensar" lo suficiente, optaba por la respuesta más segura frente a las reglas de "no inventar/conservar datos": copiar el texto de entrada tal cual.
-- `runAgent()` usa además su propio timeout, más holgado que el resto de las llamadas (20s por defecto vs. 8s de `enhance()`/`interpret()`), porque razonar tarda más y ese tiempo crece con el catálogo + historial del negocio.
+- **`runAgent()`** (modo agente: prompt largo + JSON estricto, ver `docs/13-modo-agente.md`) necesita ALGO de razonamiento para armar el JSON — manda el valor configurado en `presets.ts` (`reasoning_effort: "low"` para Gemini y Groq; Cerebras no lo necesita) con `max_tokens` holgado (1600) y timeout propio (20s por defecto vs. 8s del resto), porque esos tokens de razonamiento salen del mismo presupuesto que la respuesta y razonar tarda más cuanto más crece el catálogo + historial.
+- **`enhance()`/`interpret()`/`extractDateTime()`** son prompts cortos y libres (reformular un párrafo, elegir una opción, extraer una fecha) que no necesitan razonar nada — mandan `reasoning_effort: "none"` explícito (no el valor de `runAgent()`) para apagarlo del todo. Esto cambió dos veces, las dos por un fallo real, no por teoría:
+  1. Primero se probó mandando el mismo valor que `runAgent()` ("low") también acá: con Groq, `enhance()` devolvía el borrador **sin ningún cambio** — el modelo, con el esfuerzo bajo pero no nulo, optaba por la respuesta "más segura" frente a las reglas de "no inventar/conservar datos".
+  2. Se pasó a no mandar el campo (asumiendo que un prompt corto no lo necesita) — pero sin el campo el modelo sigue razonando por default: en el diagnóstico real (`pnpm ai:doctor`, sept-2026) **Gemini hacía timeout** en `enhance()` (>8s en un prompt corto) y **Groq devolvía vacío** (`finish_reason=length`, se quedaba sin `max_tokens` pensando).
+  3. Ahora se manda `"none"` — a diferencia de "low", apaga el razonamiento por completo en vez de solo bajarlo. Si esto reintroduce el problema del punto 1, hay que revisarlo de nuevo con una key real (`pnpm ai:doctor`).
 
 Ambos son configurables sin tocar código:
 
