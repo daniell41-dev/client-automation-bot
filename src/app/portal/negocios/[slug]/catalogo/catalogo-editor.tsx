@@ -14,7 +14,7 @@ import { servicesSchema } from "@/core/config-schema";
 import { guardarConfigParcial, type ActionState } from "@/app/portal/actions";
 import { Card, EmptyState, SearchInput, Toggle } from "@/components/ui";
 import { PhonePreview } from "@/components/phone-preview";
-import { catalogLabel } from "@/components/rubro-visual";
+import { catalogCopy, rubroVisual } from "@/components/rubro-visual";
 
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
 const inputCls =
@@ -111,7 +111,12 @@ export function CatalogoEditor({
     setFieldErrors(errors);
   };
 
-  const esMenu = catalogLabel(rubro) === "Menú";
+  // T-18: el icono de cada ítem usaba SIEMPRE los colores de "gastro"
+  // (04-catalogo.png es justo un negocio gastro) — con `rubroVisual` sale
+  // del rubro real, como ya hace `RubroTile` en el resto del portal.
+  const { bg: iconBg, ink: iconInk } = rubroVisual(rubro);
+  const { categoriaPlaceholder, previewSaludo, previewSustantivo, previewCta } =
+    catalogCopy(rubro);
 
   return (
     <div className="flex flex-wrap items-start gap-5 fade-up">
@@ -154,7 +159,9 @@ export function CatalogoEditor({
                     : "border-line bg-surface hover:bg-surface-3"
                 }`}
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-rubro-gastro-bg text-sm font-extrabold text-rubro-gastro-ink">
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] text-sm font-extrabold ${iconBg} ${iconInk}`}
+                >
                   {(s.name || "·").slice(0, 1).toUpperCase()}
                 </span>
                 <span className="min-w-0 flex-1 leading-tight">
@@ -233,7 +240,7 @@ export function CatalogoEditor({
                   onChange={(e) =>
                     patchService(selected.id, { categoria: e.target.value })
                   }
-                  placeholder={esMenu ? "Entradas" : "Faciales"}
+                  placeholder={categoriaPlaceholder}
                 />
               </div>
               <div className="sm:col-span-2">
@@ -296,11 +303,11 @@ export function CatalogoEditor({
         botName={botName}
         online={botActivo}
         messages={[
-          { role: "in", text: esMenu ? "¡Hola! ¿Qué tienen hoy?" : "¡Hola! ¿Qué servicios ofrecen?" },
+          { role: "in", text: previewSaludo },
           {
             role: "out",
             text: selected?.name
-              ? `¡Hola! Te comparto ${esMenu ? "nuestro plato" : "nuestro servicio"}:`
+              ? `¡Hola! Te comparto ${previewSustantivo}:`
               : "¡Hola! Este es nuestro catálogo:",
           },
         ]}
@@ -311,7 +318,7 @@ export function CatalogoEditor({
                 nombre: selected.name || "(sin nombre)",
                 precio: precio.format(selected.price),
                 descripcion: selected.description,
-                cta: esMenu ? "Agregar al pedido" : "Reservar turno",
+                cta: previewCta,
               }
             : undefined
         }
