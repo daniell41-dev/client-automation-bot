@@ -6,7 +6,9 @@
  */
 
 import { useActionState, useState } from "react";
+import type { FormEvent } from "react";
 import type { BusinessConfig, PersonaConfig } from "@/core/types";
+import { personaSchema } from "@/core/config-schema";
 import {
   actualizarWhatsapp,
   guardarConfigParcial,
@@ -59,18 +61,33 @@ export function ConfiguracionEditor({
   const [notifyPhoneNumber, setNotifyPhoneNumber] = useState(notifyPhoneNumberInicial);
   const [botName, setBotName] = useState(persona.name);
   const [tono, setTono] = useState<Tono>(tonoActual(persona.tone));
+  const [botNameError, setBotNameError] = useState<string>();
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     guardarConfigParcial,
     {},
   );
 
+  const nuevaPersona = { ...persona, name: botName, tone: TONOS[tono] };
   const patch = {
     direccion: direccion || undefined,
     notifyPhoneNumber: notifyPhoneNumber.trim() || undefined,
-    personas: {
-      ...personas,
-      whatsapp: { ...persona, name: botName || "Asistente", tone: TONOS[tono] },
-    },
+    personas: { ...personas, whatsapp: nuevaPersona },
+  };
+
+  /**
+   * Mismo schema que valida `guardarConfigParcial` en el servidor (T-12):
+   * antes había un fallback silencioso a "Asistente" cuando el nombre
+   * quedaba vacío — con eso el servidor nunca veía un nombre inválido. Ahora
+   * el error se ve al toque, sin ida y vuelta.
+   */
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    const result = personaSchema.safeParse(nuevaPersona);
+    if (result.success) {
+      setBotNameError(undefined);
+      return;
+    }
+    e.preventDefault();
+    setBotNameError(result.error.issues[0]?.message);
   };
 
   return (
@@ -151,11 +168,17 @@ export function ConfiguracionEditor({
           <div className="max-w-sm">
             <label className={labelCls}>Nombre del bot</label>
             <input
-              className={inputCls}
+              className={`${inputCls} ${botNameError ? "border-warn-ink" : ""}`}
               value={botName}
-              onChange={(e) => setBotName(e.target.value)}
+              onChange={(e) => {
+                setBotName(e.target.value);
+                if (botNameError) setBotNameError(undefined);
+              }}
               placeholder="Asistente"
             />
+            {botNameError && (
+              <p className="mt-1 text-xs text-warn-ink">{botNameError}</p>
+            )}
           </div>
           <div>
             <label className={labelCls}>Tono de las respuestas</label>
@@ -175,7 +198,7 @@ export function ConfiguracionEditor({
       </Card>
 
       {/* Guardar */}
-      <form action={formAction} className="space-y-3">
+      <form action={formAction} onSubmit={handleSubmit} noValidate className="space-y-3">
         <input type="hidden" name="slug" value={slug} />
         <input type="hidden" name="patch" value={JSON.stringify(patch)} />
         {state.error && (

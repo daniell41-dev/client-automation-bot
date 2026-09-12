@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseBusinessConfig } from "@/core/config-schema";
+import { parseBusinessConfig, personaSchema, serviceSchema, servicesSchema } from "@/core/config-schema";
 import { esteticaBella } from "@/businesses/estetica-bella/config";
 
 describe("parseBusinessConfig", () => {
@@ -62,5 +62,68 @@ describe("parseBusinessConfig — pedidos y notifyPhoneNumber", () => {
     const parsed = parseBusinessConfig(JSON.parse(JSON.stringify(esteticaBella)));
     expect(parsed?.pedidos).toBeUndefined();
     expect(parsed?.notifyPhoneNumber).toBeUndefined();
+  });
+});
+
+/**
+ * T-12: estos sub-schemas se exportan para que los editores del portal
+ * (Catálogo, Configuración) validen en el CLIENTE con el mismo objeto Zod
+ * que corre acá adentro de `businessConfigSchema` — nunca una copia que se
+ * pueda desalinear.
+ */
+describe("serviceSchema / servicesSchema (exportados para el editor de Catálogo)", () => {
+  const base = {
+    id: "unas",
+    name: "Uñas",
+    description: "Manicura completa",
+    price: 15000,
+    durationMinutes: 45,
+  };
+
+  it("acepta un servicio válido", () => {
+    expect(serviceSchema.safeParse(base).success).toBe(true);
+  });
+
+  it("rechaza un nombre vacío, con el mensaje que el editor muestra", () => {
+    const result = serviceSchema.safeParse({ ...base, name: "" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe("El nombre es obligatorio.");
+      expect(result.error.issues[0].path).toEqual(["name"]);
+    }
+  });
+
+  it("rechaza un precio negativo", () => {
+    const result = serviceSchema.safeParse({ ...base, price: -100 });
+    expect(result.success).toBe(false);
+  });
+
+  it("servicesSchema rechaza un catálogo vacío", () => {
+    expect(servicesSchema.safeParse([]).success).toBe(false);
+  });
+
+  it("servicesSchema ubica el error en el índice del ítem que falla (no en el primero)", () => {
+    const result = servicesSchema.safeParse([base, { ...base, id: "otro", name: "" }]);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].path[0]).toBe(1);
+      expect(result.error.issues[0].path[1]).toBe("name");
+    }
+  });
+});
+
+describe("personaSchema (exportado para el editor de Configuración)", () => {
+  it("acepta una persona válida", () => {
+    expect(
+      personaSchema.safeParse({ name: "Isabella", tone: "cálida", language: "es" }).success,
+    ).toBe(true);
+  });
+
+  it("rechaza el nombre del bot vacío, con el mensaje que el editor muestra", () => {
+    const result = personaSchema.safeParse({ name: "", tone: "cálida", language: "es" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe("El nombre del bot es obligatorio.");
+    }
   });
 });

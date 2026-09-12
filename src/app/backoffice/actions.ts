@@ -16,14 +16,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { plantilla } from "@/businesses/_template/config";
 import { invalidateBusinessCache } from "@/businesses/business-cache";
+import { actualizarNegocioSchema, crearNegocioSchema } from "@/app/backoffice/negocio-schema";
 import type { BusinessConfig } from "@/core/types";
 
 export interface ActionState {
   error?: string;
   ok?: string;
 }
-
-const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 async function requireAdmin(): Promise<string | null> {
   const me = await getUserRole();
@@ -60,19 +59,25 @@ export async function crearNegocio(
   const denied = await requireAdmin();
   if (denied) return { error: denied };
 
-  const nombre = String(formData.get("nombre") ?? "").trim();
-  const slug = String(formData.get("slug") ?? "").trim().toLowerCase();
-  const ownerId = String(formData.get("owner_id") ?? "");
-  const rubroId = String(formData.get("rubro_id") ?? "");
-  const whatsapp = String(formData.get("whatsapp_phone_number_id") ?? "").trim();
-  const plan = String(formData.get("plan") ?? "free") === "pro" ? "pro" : "free";
-
-  if (!nombre || !ownerId || !rubroId) {
-    return { error: "Nombre, cliente dueño y rubro son obligatorios." };
+  const parsed = crearNegocioSchema.safeParse({
+    nombre: String(formData.get("nombre") ?? "").trim(),
+    slug: String(formData.get("slug") ?? "").trim().toLowerCase(),
+    owner_id: String(formData.get("owner_id") ?? ""),
+    rubro_id: String(formData.get("rubro_id") ?? ""),
+    whatsapp_phone_number_id: String(formData.get("whatsapp_phone_number_id") ?? "").trim(),
+    plan: String(formData.get("plan") ?? "free") === "pro" ? "pro" : "free",
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
   }
-  if (!SLUG_RE.test(slug)) {
-    return { error: "El slug debe ir en kebab-case (ej. mi-negocio)." };
-  }
+  const {
+    nombre,
+    slug,
+    owner_id: ownerId,
+    rubro_id: rubroId,
+    whatsapp_phone_number_id: whatsapp,
+    plan,
+  } = parsed.data;
 
   const supabase = await createUserClient();
 
@@ -124,12 +129,17 @@ export async function actualizarNegocio(
   const denied = await requireAdmin();
   if (denied) return { error: denied };
 
-  const id = String(formData.get("id") ?? "");
-  const nombre = String(formData.get("nombre") ?? "").trim();
-  const ownerId = String(formData.get("owner_id") ?? "");
-  const whatsapp = String(formData.get("whatsapp_phone_number_id") ?? "").trim();
-  const plan = String(formData.get("plan") ?? "free") === "pro" ? "pro" : "free";
-  if (!id || !nombre || !ownerId) return { error: "Faltan datos del negocio." };
+  const parsed = actualizarNegocioSchema.safeParse({
+    id: String(formData.get("id") ?? ""),
+    nombre: String(formData.get("nombre") ?? "").trim(),
+    owner_id: String(formData.get("owner_id") ?? ""),
+    whatsapp_phone_number_id: String(formData.get("whatsapp_phone_number_id") ?? "").trim(),
+    plan: String(formData.get("plan") ?? "free") === "pro" ? "pro" : "free",
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+  const { id, nombre, owner_id: ownerId, whatsapp_phone_number_id: whatsapp, plan } = parsed.data;
 
   const supabase = await createUserClient();
   const { data: actual } = await supabase

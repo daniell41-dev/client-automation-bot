@@ -13,21 +13,13 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createUserClient } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
-import {
-  actualizarNegocio,
-  eliminarNegocio,
-  toggleBotActivoNegocio,
-} from "@/app/backoffice/actions";
-import { ActionForm } from "@/components/action-form";
+import { eliminarNegocio, toggleBotActivoNegocio } from "@/app/backoffice/actions";
+import { EditarNegocioForm } from "@/app/backoffice/negocios/[id]/editar-negocio-form";
 import { Card, Pill } from "@/components/ui";
 import { RubroTile, camposDelNegocio, tipoCitas } from "@/components/rubro-visual";
 import { ArrowLeft } from "lucide-react";
 
 export const dynamic = "force-dynamic";
-
-const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
-const inputCls =
-  "input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft";
 
 interface RubroInfo {
   nombre: string;
@@ -131,51 +123,14 @@ export default async function DetalleNegocioPage({
       </Card>
 
       <Card title="Datos del negocio">
-        <ActionForm action={actualizarNegocio} submitLabel="Guardar cambios">
-          <input type="hidden" name="id" value={negocio.id} />
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className={labelCls}>Nombre del negocio</label>
-              <input
-                name="nombre"
-                required
-                defaultValue={config.name}
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Cliente dueño</label>
-              <select
-                name="owner_id"
-                required
-                defaultValue={negocio.owner_id}
-                className={inputCls}
-              >
-                {(clientes ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.email}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>WhatsApp (phone_number_id)</label>
-              <input
-                name="whatsapp_phone_number_id"
-                defaultValue={negocio.whatsapp_phone_number_id ?? ""}
-                className={inputCls}
-                placeholder="Sin conectar"
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Plan</label>
-              <select name="plan" defaultValue={config.plan ?? "free"} className={inputCls}>
-                <option value="free">Free</option>
-                <option value="pro">Pro</option>
-              </select>
-            </div>
-          </div>
-        </ActionForm>
+        <EditarNegocioForm
+          negocioId={negocio.id}
+          nombre={config.name}
+          ownerId={negocio.owner_id}
+          whatsappId={negocio.whatsapp_phone_number_id ?? ""}
+          plan={config.plan ?? "free"}
+          clientes={clientes ?? []}
+        />
       </Card>
 
       <Card title="Zona de riesgo" subtitle="No se puede deshacer.">
