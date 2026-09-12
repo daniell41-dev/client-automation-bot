@@ -7,6 +7,7 @@ import Link from "next/link";
 import { createUserClient } from "@/lib/supabase/server";
 import { crearRubro, eliminarRubro } from "@/app/backoffice/actions";
 import { ActionForm } from "@/components/action-form";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Card, Pill } from "@/components/ui";
 import { RubroTile, camposDelNegocio, tipoCitas } from "@/components/rubro-visual";
 import { Info } from "lucide-react";
@@ -118,15 +119,20 @@ export default async function RubrosPage() {
                   >
                     Editar plantilla
                   </Link>
-                  <form action={eliminarRubro}>
-                    <input type="hidden" name="id" value={r.id} />
-                    <button
-                      type="submit"
-                      className="text-xs font-semibold text-warn-ink hover:underline"
-                    >
-                      Eliminar
-                    </button>
-                  </form>
+                  <ConfirmDeleteButton
+                    action={eliminarRubro}
+                    hiddenFields={{ id: r.id }}
+                    title={`¿Eliminar "${r.nombre}"?`}
+                    description="No se puede deshacer."
+                    blockedReason={
+                      negociosCount > 0
+                        ? `Este rubro tiene ${negociosCount} ${negociosCount === 1 ? "negocio" : "negocios"} asociados. No se puede eliminar mientras los tenga.`
+                        : undefined
+                    }
+                    confirmLabel="Sí, eliminar"
+                    triggerLabel="Eliminar"
+                    triggerClassName="text-xs font-semibold text-warn-ink hover:underline"
+                  />
                 </span>
               </div>
             </div>

@@ -210,15 +210,20 @@ export async function toggleBotActivoNegocio(formData: FormData): Promise<void> 
   revalidatePath("/backoffice/negocios");
 }
 
-export async function eliminarNegocio(formData: FormData): Promise<void> {
+export async function eliminarNegocio(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const denied = await requireAdmin();
-  if (denied) return;
+  if (denied) return { error: denied };
 
   const id = String(formData.get("id") ?? "");
-  if (!id) return;
+  if (!id) return { error: "Falta el negocio." };
 
   const supabase = await createUserClient();
-  await supabase.from("negocios").delete().eq("id", id);
+  const { error } = await supabase.from("negocios").delete().eq("id", id);
+  if (error) return { error: `No se pudo eliminar: ${error.message}` };
+
   invalidateBusinessCache();
   revalidatePath("/backoffice/negocios");
   redirect("/backoffice/negocios");
@@ -369,16 +374,33 @@ export async function actualizarRubroTemplate(
   return { ok: "Plantilla actualizada." };
 }
 
-export async function eliminarRubro(formData: FormData): Promise<void> {
+export async function eliminarRubro(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const denied = await requireAdmin();
-  if (denied) return;
+  if (denied) return { error: denied };
 
   const id = String(formData.get("id") ?? "");
-  if (!id) return;
+  if (!id) return { error: "Falta el rubro." };
 
   const supabase = await createUserClient();
-  await supabase.from("rubros").delete().eq("id", id);
+  const { error } = await supabase.from("rubros").delete().eq("id", id);
+  if (error) {
+    return {
+      // 23503 = foreign_key_violation: el diálogo ya avisa esto ANTES de
+      // confirmar (ver rubros/page.tsx), pero la situación pudo cambiar
+      // entre que se abrió y se confirmó — nunca se confía solo en el chequeo
+      // del cliente.
+      error:
+        error.code === "23503"
+          ? "No se puede eliminar: todavía tiene negocios asociados."
+          : `No se pudo eliminar: ${error.message}`,
+    };
+  }
+
   revalidatePath("/backoffice/rubros");
+  return { ok: "Plantilla eliminada." };
 }
 
 // ── Asignaciones ─────────────────────────────────────────────────────────────
@@ -410,14 +432,20 @@ export async function asignarRubro(
   return { ok: "Rubro asignado." };
 }
 
-export async function quitarAsignacion(formData: FormData): Promise<void> {
+export async function quitarAsignacion(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
   const denied = await requireAdmin();
-  if (denied) return;
+  if (denied) return { error: denied };
 
   const id = String(formData.get("id") ?? "");
-  if (!id) return;
+  if (!id) return { error: "Falta la asignación." };
 
   const supabase = await createUserClient();
-  await supabase.from("asignaciones").delete().eq("id", id);
+  const { error } = await supabase.from("asignaciones").delete().eq("id", id);
+  if (error) return { error: `No se pudo quitar: ${error.message}` };
+
   revalidatePath("/backoffice/asignaciones");
+  return { ok: "Asignación quitada." };
 }

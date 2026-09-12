@@ -15,6 +15,7 @@ import { createUserClient } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { eliminarNegocio, toggleBotActivoNegocio } from "@/app/backoffice/actions";
 import { EditarNegocioForm } from "@/app/backoffice/negocios/[id]/editar-negocio-form";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Card, Pill } from "@/components/ui";
 import { RubroTile, camposDelNegocio, tipoCitas } from "@/components/rubro-visual";
 import { ArrowLeft } from "lucide-react";
@@ -59,12 +60,16 @@ export default async function DetalleNegocioPage({
             Contactá a soporte técnico antes de reactivarlo, o eliminalo si fue una
             prueba.
           </p>
-          <form action={eliminarNegocio} className="mt-4">
-            <input type="hidden" name="id" value={negocio.id} />
-            <button type="submit" className="text-sm font-semibold text-warn-ink hover:underline">
-              Eliminar negocio
-            </button>
-          </form>
+          <div className="mt-4">
+            <ConfirmDeleteButton
+              action={eliminarNegocio}
+              hiddenFields={{ id: negocio.id }}
+              title="¿Eliminar este negocio?"
+              description="No se puede deshacer. Se borran también sus leads y sesiones."
+              confirmLabel="Sí, eliminar negocio"
+              triggerLabel="Eliminar negocio"
+            />
+          </div>
         </Card>
       </div>
     );
@@ -134,12 +139,14 @@ export default async function DetalleNegocioPage({
       </Card>
 
       <Card title="Zona de riesgo" subtitle="No se puede deshacer.">
-        <form action={eliminarNegocio}>
-          <input type="hidden" name="id" value={negocio.id} />
-          <button type="submit" className="text-sm font-semibold text-warn-ink hover:underline">
-            Eliminar negocio
-          </button>
-        </form>
+        <ConfirmDeleteButton
+          action={eliminarNegocio}
+          hiddenFields={{ id: negocio.id }}
+          title={`¿Eliminar "${config.name}"?`}
+          description="No se puede deshacer. Se borran también sus leads y sesiones."
+          confirmLabel="Sí, eliminar negocio"
+          triggerLabel="Eliminar negocio"
+        />
       </Card>
     </div>
   );

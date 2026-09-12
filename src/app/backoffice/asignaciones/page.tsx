@@ -6,6 +6,7 @@
 import { createUserClient } from "@/lib/supabase/server";
 import { asignarRubro, quitarAsignacion } from "@/app/backoffice/actions";
 import { ActionForm } from "@/components/action-form";
+import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { DataTable } from "@/components/data-table";
 import { Avatar, Card } from "@/components/ui";
 
@@ -92,15 +93,15 @@ export default async function AsignacionesPage() {
             <span key="f" className="text-ink-mid">
               {new Date(a.created_at).toLocaleDateString("es-CO")}
             </span>,
-            <form key="q" action={quitarAsignacion}>
-              <input type="hidden" name="id" value={a.id} />
-              <button
-                type="submit"
-                className="text-sm font-semibold text-warn-ink hover:underline"
-              >
-                Quitar
-              </button>
-            </form>,
+            <ConfirmDeleteButton
+              key="q"
+              action={quitarAsignacion}
+              hiddenFields={{ id: a.id }}
+              title="¿Quitar esta asignación?"
+              description={`${a.profiles?.email ?? "Este cliente"} no va a poder crear más negocios en "${a.rubros?.nombre ?? "este rubro"}" (los que ya tiene no se ven afectados).`}
+              confirmLabel="Sí, quitar"
+              triggerLabel="Quitar"
+            />,
           ],
         }))}
       />
