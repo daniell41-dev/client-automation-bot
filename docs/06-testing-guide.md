@@ -269,7 +269,9 @@ para probarlo de verdad.
 
 **No corre por defecto.** `pnpm test` lo salta si no hay `TEST_DATABASE_URL`
 configurada — así el resto de la suite sigue verde en cualquier máquina sin
-Postgres instalado.
+Postgres instalado. **En CI sí corre** (T-14): `.github/workflows/ci.yml` levanta
+un Postgres de servicio y exporta `TEST_DATABASE_URL`, así que `pnpm test` ya lo
+incluye en cada PR, sin un paso aparte.
 
 ### Levantar una base desechable
 

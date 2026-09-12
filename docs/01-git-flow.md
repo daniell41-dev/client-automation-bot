@@ -50,6 +50,46 @@ es: el agente desarrolla en su rama de sesión y el mantenedor abre/mergea los P
 
 ---
 
+## 🤖 CI y GitHub App de Claude (T-14)
+
+### Plantilla de PR
+
+`.github/pull_request_template.md` precarga el cuerpo de todo PR nuevo con la
+estructura obligatoria de la sección 5 de `docs/14-plan-de-trabajo.md`: **Qué
+cambió**, **Por qué**, **Cómo probarlo** (checklist ejecutable, sin leer el
+diff) y **Qué NO cubre**. GitHub lo aplica solo — no hace falta pasar `--body`
+a mano salvo que se quiera reemplazar el contenido.
+
+### CI (`.github/workflows/ci.yml`)
+
+Corre en cada PR y en cada push a `develop`/`main`: `pnpm lint`, `pnpm exec tsc
+--noEmit`, `pnpm test` y `pnpm build`, en ese orden — el mismo checklist que ya
+se corre a mano antes de cada push (ver `docs/03-team-guide.md`).
+
+El job levanta un contenedor de **Postgres 16 como servicio** y expone
+`TEST_DATABASE_URL` apuntándole. Con eso, `supabase/tests/rls.test.ts` (T-03) y
+`supabase/tests/cascade.test.ts` (T-08) — que corren las migraciones reales de
+`supabase/migrations/` y se saltan solos si no hay `TEST_DATABASE_URL` (ver
+`docs/06-testing-guide.md`) — dejan de saltarse y quedan cubiertos por el mismo
+`pnpm test`, sin un paso aparte.
+
+### Habilitar `@claude` en issues y PRs
+
+La GitHub Action que responde a menciones de `@claude` en issues y PRs
+**no se instala desde este repo**: se activa una sola vez, desde Claude Code,
+con:
+
+```
+/install-github-app
+```
+
+Ese comando instala la GitHub App en `daniell41-dev/client-automation-bot`,
+guarda la API key como secret del repo y agrega el workflow correspondiente.
+Solo lo corre el mantenedor (necesita autorizar la app en GitHub); no es parte
+de `pnpm install` ni de la CI de arriba.
+
+---
+
 ## 🔄 Flujo de trabajo por fase
 
 ```
@@ -143,17 +183,12 @@ git push                                   # siguientes
 ```bash
 # Con GitHub CLI (si está disponible)
 gh pr create --base develop --head feature/7-templating \
-  --title "feat: templating engine" \
-  --body "## Cambios
-- Motor de plantillas {{var}}
-
-## Testing
-- ✅ pnpm lint
-- ✅ pnpm test
-- ✅ pnpm build
-
-Closes #7"
+  --title "feat: templating engine"
 ```
+
+Sin `--body`, GitHub precarga `.github/pull_request_template.md` (ver más arriba)
+— completar ahí "Qué cambió", "Por qué", "Cómo probarlo" y "Qué NO cubre" antes
+de abrir el PR.
 
 > En Claude Code on the web los PRs se crean con las herramientas de GitHub (MCP); el
 > resultado es el mismo.
