@@ -72,3 +72,40 @@ describe("GoogleSheetsLeadRepository", () => {
     expect(list.map((l) => l.id)).toEqual(["b", "a"]);
   });
 });
+
+describe("GoogleSheetsLeadRepository — appointmentAt/confirmedAt (T-20)", () => {
+  it("guarda y recupera las dos columnas nuevas (O y P)", async () => {
+    const sheets = makeFakeSheets();
+    const repo = new GoogleSheetsLeadRepository(sheets);
+    await repo.save(
+      makeLead({
+        appointmentAt: "2026-07-15T20:00:00.000Z",
+        confirmedAt: "2026-06-28T10:05:00.000Z",
+      }),
+    );
+
+    const rows = sheets.dump("Leads");
+    expect(rows[1][14]).toBe("2026-07-15T20:00:00.000Z"); // columna O
+    expect(rows[1][15]).toBe("2026-06-28T10:05:00.000Z"); // columna P
+
+    const found = await repo.getById("lead-1");
+    expect(found?.appointmentAt).toBe("2026-07-15T20:00:00.000Z");
+    expect(found?.confirmedAt).toBe("2026-06-28T10:05:00.000Z");
+  });
+
+  it("una fila vieja de 14 columnas (sin O/P) vuelve con ambas en undefined", async () => {
+    const sheets = makeFakeSheets();
+    const repo = new GoogleSheetsLeadRepository(sheets);
+    await repo.save(makeLead());
+
+    // Simula una fila escrita antes de T-20: recorta a las 14 columnas viejas.
+    const rows = sheets.dump("Leads");
+    rows[1] = rows[1].slice(0, 14);
+
+    const found = await repo.getById("lead-1");
+    expect(found?.appointmentAt).toBeUndefined();
+    expect(found?.confirmedAt).toBeUndefined();
+    // El resto de la fila sigue leyéndose bien.
+    expect(found?.name).toBe("Ana");
+  });
+});
