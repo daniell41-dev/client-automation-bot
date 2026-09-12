@@ -30,6 +30,27 @@ Los IDs de modelo y sus límites gratis **no son estables** — ya pasó una vez
 
 **`pnpm ai:doctor` es la fuente de verdad, no esta tabla ni el código.** Si reporta que el modelo configurado (o el default) ya no existe, imprime la lista real de modelos disponibles para tu key — copiá uno de ahí a `GEMINI_MODEL`/`GROQ_MODEL`/`CEREBRAS_MODEL` en `.env.local` y listo.
 
+### Alarma automática de deprecación (T-15)
+
+Esperar a notarlo en una prueba real (como pasó con Groq, ver arriba) no escala.
+`.github/workflows/ai-doctor-alarm.yml` corre `pnpm ai:doctor` en CI los **lunes y
+jueves a las 09:00 UTC**, contra los secrets `GEMINI_API_KEY`/`GROQ_API_KEY`/
+`CEREBRAS_API_KEY` del repo, y si algún proveedor **configurado** (tiene su key)
+falla, abre un issue con el error exacto y el catálogo de modelos disponibles
+para esa key (o comenta el issue ya abierto, si la alarma sigue sonando). Un
+proveedor sin key configurada nunca genera issue — eso no es una falla, es que
+ese proveedor no está en uso.
+
+- `ai-doctor.ts` escribe ese reporte estructurado cuando corre con
+  `AI_DOCTOR_REPORT_PATH` seteada (solo en CI; en la terminal no cambia nada).
+- `ai-doctor-report-issue.ts` lo lee y abre/comenta el issue vía la API de
+  GitHub, usando el `GITHUB_TOKEN` que Actions inyecta solo.
+
+**Probarla a mano:** desde la pestaña Actions → "Alarma de deprecación de
+modelos IA" → *Run workflow*, completar el input `groq_model` con algo
+inexistente (p. ej. `modelo-que-no-existe`) y correrlo — Groq va a fallar la
+llamada real y el workflow debe abrir un issue nuevo con ese error exacto.
+
 ## Cómo se usa en el código
 
 Gemini, Groq y Cerebras exponen el mismo protocolo (`POST {baseURL}/chat/completions`, formato OpenAI). Un solo adaptador (`OpenAICompatibleProvider`) sirve para los tres — y para un Ollama propio — solo cambiando `baseURL`/`model`.
@@ -111,3 +132,5 @@ Una sola key de Gemini sirve a **todos** los negocios del SaaS (no es por negoci
 - `src/core/ai/resilient.ts` — la cadena de respaldo.
 - `src/core/ai/factory.ts` — `createLLMProvider()`, arma la cadena desde el entorno.
 - `scripts/ai-doctor.ts` — diagnóstico agnóstico de proveedor.
+- `scripts/ai-doctor-report-issue.ts` — abre/comenta el issue de la alarma (T-15) a partir del reporte de `ai-doctor.ts`.
+- `.github/workflows/ai-doctor-alarm.yml` — la corre programada (lunes/jueves) y permite dispararla a mano.
