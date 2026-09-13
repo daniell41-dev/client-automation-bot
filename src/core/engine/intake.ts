@@ -49,8 +49,12 @@ export function isGreeting(text: string): boolean {
   return GREETING_WORDS.some((w) => n.includes(w));
 }
 
-/** Palabras que cuentan como un "sí" para confirmar (normalizadas, sin tildes). */
-const AFFIRMATIVE_WORDS = [
+/**
+ * Afirmaciones inequívocas: en español no significan otra cosa, así que
+ * alcanza con que aparezcan como palabra completa en cualquier parte del
+ * mensaje ("dale, el viernes entonces").
+ */
+const AFFIRMATIVE_STRONG = [
   "si",
   "sip",
   "claro",
@@ -66,14 +70,50 @@ const AFFIRMATIVE_WORDS = [
   "de una",
   "correcto",
   "obvio",
-  // Variantes regionales (Venezuela y alrededores).
-  "vale",
-  "va",
-  "hecho",
-  "sale",
+  // Variantes regionales sin otro significado (Venezuela, Colombia, México).
   "simon",
   "sisas",
 ];
+
+/**
+ * Afirmaciones que TAMBIÉN son palabras de uso diario, y por eso solo cuentan
+ * cuando son todo lo que dijo el cliente:
+ *   - "sale" y "vale" son la forma normal de preguntar el precio en media
+ *     Latinoamérica ("¿cuánto sale?", "¿cuánto vale?");
+ *   - "va" es el verbo ir ("¿va a estar disponible el sábado?");
+ *   - "hecho" es un participio ("hecho un lío, no entiendo").
+ *
+ * Tomarlas como un "sí" en cualquier posición hacía que una pregunta de precio
+ * confirmara la cita. El costo de equivocarse es asimétrico: confirmar escribe
+ * `confirmedAt`, crea el evento de calendario y le manda el aviso a la dueña
+ * (ver `handleIncoming`), mientras que no reconocer un "sí" solo cuesta un
+ * turno más de conversación. Ante la duda, no se confirma.
+ */
+const AFFIRMATIVE_WEAK = ["vale", "va", "sale", "hecho"];
+
+/**
+ * Cortesía que puede acompañar a una afirmación pelada sin cambiarle el
+ * sentido ("vale, gracias"). Se descarta antes de decidir si la palabra
+ * ambigua era TODO lo que dijo el cliente.
+ */
+const AFFIRMATIVE_FILLER = ["por favor", "gracias", "pues", "entonces"];
+
+/**
+ * Marcas de duda o negación que desactivan el "si": al doblar el texto se
+ * pierde la tilde, así que el "sí" de confirmar y la conjunción condicional
+ * quedan idénticos ("no sé si me sale bien"). Se prefiere perder alguna
+ * confirmación legítima ocasional ("sí, no hay problema" → se re-pregunta)
+ * antes que agendar una cita que el cliente nunca pidió.
+ */
+const DOUBT_WORDS = ["no", "quizas", "tal vez", "capaz", "depende"];
+
+/** Puntuación que `expandChatSpanish` deja como token suelto ("hola?" → "hola ?"). */
+const PUNCTUATION_TOKENS = ["¿", "?", "¡", "!", ".", ",", ";", ":"];
+
+/** ¿Alguna de `needles` está en el mensaje (frase completa o palabra suelta)? */
+function hasAny(needles: string[], texto: string, words: string[]): boolean {
+  return needles.some((w) => (w.includes(" ") ? texto.includes(w) : words.includes(w)));
+}
 
 /**
  * ¿El mensaje es una afirmación/confirmación?
@@ -84,10 +124,30 @@ const AFFIRMATIVE_WORDS = [
  */
 export function isAffirmative(text: string): boolean {
   const n = normalizeMessage(text);
-  const words = n.split(/\s+/);
-  return AFFIRMATIVE_WORDS.some((w) =>
-    w.includes(" ") ? n.includes(w) : words.includes(w),
-  );
+  if (!n) return false;
+  const words = n.split(/\s+/).filter(Boolean);
+
+  const hayDuda = hasAny(DOUBT_WORDS, n, words);
+  const fuertes = hayDuda ? AFFIRMATIVE_STRONG.filter((w) => w !== "si") : AFFIRMATIVE_STRONG;
+  if (hasAny(fuertes, n, words)) return true;
+
+  // Las ambiguas solo valen si son TODO lo que dijo el cliente: se quitan
+  // ellas, la puntuación y la cortesía, y no puede quedar nada más. "vale"
+  // confirma; "¿cuánto vale?" deja "cuanto" y por lo tanto no confirma.
+  if (!words.some((w) => AFFIRMATIVE_WEAK.includes(w))) return false;
+  const resto = words
+    .filter((w) => !AFFIRMATIVE_WEAK.includes(w) && !PUNCTUATION_TOKENS.includes(w))
+    .join(" ");
+  return stripFiller(resto) === "";
+}
+
+/** Quita la cortesía de `AFFIRMATIVE_FILLER` comparando por palabra completa. */
+function stripFiller(texto: string): string {
+  let resto = ` ${texto} `;
+  for (const filler of AFFIRMATIVE_FILLER) {
+    resto = resto.split(` ${filler} `).join(" ");
+  }
+  return resto.trim();
 }
 
 /** Servicios que el bot puede ofrecer (excluye los marcados `disponible: false`). */

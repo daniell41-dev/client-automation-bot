@@ -91,10 +91,18 @@ export const ABBREVIATIONS: Record<string, string> = {
   okis: "ok",
   okey: "ok",
   nel: "no",
-  sale: "si",
-  simon: "si",
-  sisas: "si",
 };
+
+// Ojo: "sale", "simon" y "sisas" NO van acá aunque signifiquen "si". Este
+// diccionario reescribe el texto ENTERO del cliente, y el resultado no solo
+// alimenta el reconocimiento: `normalizeDateText` lo usa para la fecha que el
+// bot le REPITE al cliente en la plantilla de confirmacion. Con "sale" aca,
+// "el sabado que sale mejor" se le devolvia como "el sabado que si mejor", y
+// "cuanto sale" (preguntar el precio en media Latinoamerica) se convertia en
+// "cuanto si" — que isAffirmative leia como un "si" y confirmaba la cita.
+// Son sinonimos regionales de confirmacion, no abreviaturas: viven en
+// `AFFIRMATIVE_STRONG`/`AFFIRMATIVE_WEAK` de `intake.ts`, donde solo afectan
+// a la deteccion de confirmaciones y no reescriben nada.
 
 /** Repeticion de 3+ letras iguales seguidas ("holaaa", "siiii", "porfaaa"). */
 const REPEATED_LETTERS = /([a-zñáéíóú])\1{2,}/gi;
