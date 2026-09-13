@@ -509,6 +509,18 @@ describe("respond — cita vigente tras confirmar (T-20)", () => {
     expect(messages[0].text).toContain("Laura");
   });
 
+  // Regresión: un número suelto en una despedida se tomaba como "elegir el
+  // servicio 2", y este bloque limpia fecha y modalidad para la reserva nueva
+  // — o sea, la cita confirmada perdía la fecha por un "nos vemos el 2".
+  it("una despedida con un número NO se toma como una reserva nueva", () => {
+    const confirmado = leadConfirmado();
+    const { lead } = respond(confirmado, msg("gracias, nos vemos el 2"), config, now);
+
+    expect(lead.stage).toBe("datos_completos");
+    expect(lead.serviceId).toBe("limpieza-facial");
+    expect(lead.tentativeDate).toBe("el viernes");
+  });
+
   it("con messages.citaVigente configurado, usa ESE texto en vez del default", () => {
     const configConCitaVigente: BusinessConfig = {
       ...config,
