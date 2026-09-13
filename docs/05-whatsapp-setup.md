@@ -62,6 +62,12 @@ cualquiera falsifique mensajes.
 > Importante: la firma se calcula sobre el **raw body**, así que hay que leer el cuerpo
 > como texto antes de hacer `JSON.parse`.
 
+Si `WHATSAPP_APP_SECRET` **no está configurado**, el webhook responde `503` y no procesa
+nada: sin el secreto no hay forma de distinguir un evento de Meta de uno de cualquier
+otro, y la URL del webhook es pública. Para probar sin Meta usá `pnpm sim` o
+`/api/dev/simulate`; si aun así necesitás postearle al webhook real a mano en desarrollo,
+`WHATSAPP_ALLOW_UNSIGNED=true` lo habilita (nunca en producción).
+
 ## 5. La ventana de 24 horas
 
 WhatsApp solo permite mensajes **de formato libre** dentro de las **24 horas** posteriores
