@@ -30,6 +30,7 @@ import { interpretableOptions, respond } from "@/core/engine/responder";
 import { runAgentTurn } from "@/core/ai/agent";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
 import { validarCita } from "@/core/engine/horarios";
+import { citaCumplida, cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 
 /**
@@ -66,7 +67,15 @@ export async function handleIncoming(
   calendar?: CalendarApi,
   notifier?: OwnerNotifier,
 ): Promise<HandleResult> {
-  const existing = await repo.findByContact(message.businessSlug, message.from);
+  let existing = await repo.findByContact(message.businessSlug, message.from);
+
+  // T-20: si la cita del lead ya se cumplió (pasó su fecha, o pasaron los 7
+  // días sin fecha exacta), se cierra ANTES de que el agente o el motor
+  // determinista vean el mensaje — así los dos caminos reciben al cliente
+  // como alguien que vuelve, no como una cita pendiente de hace semanas.
+  if (existing && citaCumplida(existing, now, config.timezone ?? DEFAULT_TIMEZONE)) {
+    existing = cerrarCitaCumplida(existing, now);
+  }
 
   // Para canales sin persona propia (ej. "mock"), se usa la de whatsapp como fallback.
   const persona = config.personas?.[message.channel] ?? config.personas?.whatsapp;
