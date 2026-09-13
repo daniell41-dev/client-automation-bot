@@ -30,6 +30,7 @@ const MESSAGE_LABELS: Record<keyof BusinessConfig["messages"], string> = {
   serviceInfo: "Info de un servicio",
   captured: "Cita agendada (mensaje final)",
   fallback: "No entendí (fallback)",
+  citaVigente: "Recordatorio de cita vigente (ya confirmó, escribe de nuevo)",
 };
 
 const inputCls =
@@ -235,7 +236,7 @@ export function ConfigForm({
                 <textarea
                   className={inputCls}
                   rows={2}
-                  value={config.messages[key]}
+                  value={config.messages[key] ?? ""}
                   onChange={(e) => setMessage(key, e.target.value)}
                 />
               </div>

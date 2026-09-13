@@ -463,6 +463,107 @@ describe("respond — el bot no debe secuestrar mensajes que no son la respuesta
   });
 });
 
+describe("respond — cita vigente tras confirmar (T-20)", () => {
+  function leadConfirmado() {
+    let r = respond(null, msg("limpieza facial"), config, now);
+    r = respond(r.lead, msg("Laura"), config, now);
+    r = respond(r.lead, msg("el viernes"), config, now);
+    r = respond(r.lead, msg("sí"), config, now);
+    expect(r.lead.stage).toBe("datos_completos");
+    return r.lead;
+  }
+
+  it("un saludo NO baja el stage ni re-manda el menú: recuerda la cita vigente", () => {
+    const confirmado = leadConfirmado();
+    const { lead, messages } = respond(confirmado, msg("Hola"), config, now);
+
+    expect(lead.stage).toBe("datos_completos"); // antes del fix, caía a "menu_enviado"
+    expect(lead.serviceId).toBe("limpieza-facial");
+    expect(lead.tentativeDate).toBe("el viernes");
+    expect(messages[0].options).toBeUndefined(); // no se re-manda el menú
+    expect(messages[0].text).toContain("Limpieza facial");
+    expect(messages[0].text).toContain("el viernes");
+  });
+
+  it("un mensaje cualquiera que no matchea nada usa el default de citaVigente", () => {
+    const confirmado = leadConfirmado();
+    const { lead, messages } = respond(confirmado, msg("gracias!"), config, now);
+
+    expect(lead.stage).toBe("datos_completos");
+    expect(messages[0].text).toContain("Laura");
+  });
+
+  it("con messages.citaVigente configurado, usa ESE texto en vez del default", () => {
+    const configConCitaVigente: BusinessConfig = {
+      ...config,
+      messages: { ...config.messages, citaVigente: "Tu turno de {{servicio}} sigue en pie." },
+    };
+    let r = respond(null, msg("limpieza facial"), configConCitaVigente, now);
+    r = respond(r.lead, msg("Laura"), configConCitaVigente, now);
+    r = respond(r.lead, msg("el viernes"), configConCitaVigente, now);
+    r = respond(r.lead, msg("sí"), configConCitaVigente, now);
+
+    const { messages } = respond(r.lead, msg("Hola"), configConCitaVigente, now);
+    expect(messages[0].text).toBe("Tu turno de Limpieza facial sigue en pie.");
+  });
+
+  it("una regla rápida responde igual que siempre, sin tocar la cita", () => {
+    const configConReglas: BusinessConfig = {
+      ...config,
+      ai: { enabled: true, reglas: [{ keywords: ["horario"], respuesta: "Atendemos 9 a 20 h." }] },
+    };
+    let r = respond(null, msg("limpieza facial"), configConReglas, now);
+    r = respond(r.lead, msg("Laura"), configConReglas, now);
+    r = respond(r.lead, msg("el viernes"), configConReglas, now);
+    r = respond(r.lead, msg("sí"), configConReglas, now);
+
+    const { lead, messages } = respond(r.lead, msg("¿a qué horario abren?"), configConReglas, now);
+    expect(messages[0].text).toBe("Atendemos 9 a 20 h.");
+    expect(lead.stage).toBe("datos_completos");
+    expect(lead.serviceId).toBe("limpieza-facial");
+  });
+
+  it("elegir OTRO servicio arranca una reserva nueva: limpia la fecha vieja y pide fecha de nuevo", () => {
+    const confirmado = leadConfirmado();
+    const { lead, messages } = respond(confirmado, msg("uñas"), config, now);
+
+    expect(lead.serviceId).toBe("unas");
+    expect(lead.tentativeDate).toBeUndefined(); // la fecha del viernes ya no aplica
+    expect(lead.name).toBe("Laura"); // el nombre SÍ se conserva
+    expect(lead.stage).toBe("esperando_fecha");
+    expect(messages[0].text).toContain("Uñas");
+    expect(messages[0].text).toContain("¿Qué día");
+
+    // Y el flujo se puede completar de nuevo con normalidad.
+    const final = respond(respond(lead, msg("mañana"), config, now).lead, msg("sí"), config, now).lead;
+    expect(final.stage).toBe("datos_completos");
+    expect(final.serviceId).toBe("unas");
+    expect(final.tentativeDate).toBe("mañana");
+  });
+
+  it("elegir otro servicio con pedidos habilitado vuelve a preguntar la modalidad (no reusa la vieja)", () => {
+    const configConPedidos: BusinessConfig = {
+      ...config,
+      pedidos: {
+        enabled: true,
+        pregunta: "¿Retirás en el local o comés acá?",
+        opciones: ["Retirar en el local", "Comer aquí"],
+      },
+    };
+    let r = respond(null, msg("limpieza facial"), configConPedidos, now);
+    r = respond(r.lead, msg("Laura"), configConPedidos, now);
+    r = respond(r.lead, msg("retiro en el local"), configConPedidos, now);
+    r = respond(r.lead, msg("el viernes"), configConPedidos, now);
+    r = respond(r.lead, msg("sí"), configConPedidos, now);
+    expect(r.lead.stage).toBe("datos_completos");
+
+    const { lead, messages } = respond(r.lead, msg("uñas"), configConPedidos, now);
+    expect(lead.entrega).toBeUndefined();
+    expect(lead.stage).toBe("esperando_entrega");
+    expect(messages[0].options).toEqual(["Retirar en el local", "Comer aquí"]);
+  });
+});
+
 describe("respond — comando de reinicio", () => {
   it("'cancelar' en cualquier etapa arranca de cero, conservando el mismo lead", () => {
     let r = respond(null, msg("uñas"), config, now);

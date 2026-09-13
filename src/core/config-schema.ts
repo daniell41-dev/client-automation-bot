@@ -73,6 +73,7 @@ const messagesSchema = z.object({
   serviceInfo: z.string(),
   captured: z.string(),
   fallback: z.string(),
+  citaVigente: z.string().optional(),
 });
 
 const followUpSchema = z.object({

@@ -165,6 +165,14 @@ export interface MessageTemplates {
   captured: string;
   /** Respuesta cuando no se entendió el mensaje. */
   fallback: string;
+  /**
+   * Recordatorio de la cita vigente (T-20): lo que responde el motor
+   * determinista cuando el lead ya confirmó (`datos_completos`) y escribe
+   * algo que no es ni elegir otro servicio ni una regla rápida (un saludo,
+   * un "gracias", etc.) — sin bajar el stage ni re-mandar el menú. Opcional:
+   * sin configurar, se usa un default razonable (ver `responder.ts`).
+   */
+  citaVigente?: string;
 }
 
 /**

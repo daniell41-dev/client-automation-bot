@@ -15,7 +15,12 @@ import type {
 import type { LeadRepository } from "@/core/storage/repository";
 import type { LeadRow, SupabaseDb } from "@/core/storage/adapters/supabase/api";
 
-function toRow(lead: Lead, negocioId: string | undefined): LeadRow {
+/**
+ * Exportadas (T-20): el portal las reutiliza en `marcarAtendido`
+ * (`app/portal/actions.ts`) para el cierre manual — un solo lugar con el
+ * mapeo `Lead` ↔ fila de `leads`, en vez de duplicar la lista de columnas.
+ */
+export function toRow(lead: Lead, negocioId: string | undefined): LeadRow {
   return {
     id: lead.id,
     business_slug: lead.businessSlug,
@@ -37,7 +42,7 @@ function toRow(lead: Lead, negocioId: string | undefined): LeadRow {
   };
 }
 
-function fromRow(row: LeadRow): Lead {
+export function fromRow(row: LeadRow): Lead {
   return {
     id: row.id,
     businessSlug: row.business_slug,

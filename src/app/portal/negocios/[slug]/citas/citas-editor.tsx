@@ -6,18 +6,34 @@
  */
 
 import { useActionState, useState } from "react";
-import { CalendarDays, Plus, X } from "lucide-react";
+import { CalendarDays, Check, Plus, X } from "lucide-react";
 import type { DiaAtencion, PedidosConfig, Service } from "@/core/types";
-import { guardarConfigParcial, type ActionState } from "@/app/portal/actions";
+import { guardarConfigParcial, marcarAtendido, type ActionState } from "@/app/portal/actions";
 import { Card, EmptyState, Pill, Toggle } from "@/components/ui";
 import { PhonePreview } from "@/components/phone-preview";
 import { MAX_TRAMOS_POR_DIA, NOMBRES_DIA } from "./horarios-form";
+import type { Reserva } from "./reservas";
 
-export interface ProximaReserva {
-  id: string;
-  nombre: string;
-  servicio: string;
-  fecha: string;
+/** Botón "Marcar atendida" de una reserva pasada — su propio `useActionState` (T-20). */
+function MarcarAtendidoButton({ leadId }: { leadId: string }) {
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(
+    marcarAtendido,
+    {},
+  );
+  return (
+    <form action={formAction} className="flex flex-col items-end gap-1">
+      <input type="hidden" name="leadId" value={leadId} />
+      <button
+        type="submit"
+        disabled={pending}
+        className="inline-flex items-center gap-1 rounded-[8px] border border-line px-2.5 py-1 text-xs font-bold text-ink-mid transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+      >
+        <Check className="h-3.5 w-3.5" />
+        {pending ? "Cerrando…" : "Marcar atendida"}
+      </button>
+      {state.error && <span className="text-[11px] text-warn-ink">{state.error}</span>}
+    </form>
+  );
 }
 
 const timeCls =
@@ -31,7 +47,8 @@ export function CitasEditor({
   initialServices,
   initialHorarios,
   initialPedidos,
-  reservas,
+  proximas,
+  pasadas,
   botName,
   botActivo,
 }: {
@@ -40,7 +57,9 @@ export function CitasEditor({
   /** Exactamente 7 filas (una por día) — armadas por `buildSieteFilas` en `page.tsx`. */
   initialHorarios: DiaAtencion[];
   initialPedidos: PedidosConfig;
-  reservas: ProximaReserva[];
+  /** Ya separadas por `splitReservas` en `page.tsx` (T-20). */
+  proximas: Reserva[];
+  pasadas: Reserva[];
   botName: string;
   botActivo: boolean;
 }) {
@@ -288,14 +307,14 @@ export function CitasEditor({
 
         {/* Próximas reservas */}
         <Card title="Próximas reservas">
-          {reservas.length === 0 ? (
+          {proximas.length === 0 ? (
             <EmptyState
               title="Sin reservas por ahora."
               subtitle="Las citas que confirme el bot van a aparecer acá."
             />
           ) : (
             <ul className="divide-y divide-line">
-              {reservas.map((r) => (
+              {proximas.map((r) => (
                 <li key={r.id} className="flex items-center gap-3 py-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-tint text-xs font-bold text-primary">
                     {r.nombre.slice(0, 2).toUpperCase()}
@@ -314,6 +333,34 @@ export function CitasEditor({
             </ul>
           )}
         </Card>
+
+        {/* Pasadas sin cerrar: el cierre automático todavía no las tomó (el
+            cliente no volvió a escribir) — el dueño las cierra a mano acá. */}
+        {pasadas.length > 0 && (
+          <Card
+            title="Citas pasadas sin cerrar"
+            subtitle="El bot las cierra solo cuando el cliente vuelve a escribir. Si no, cerralas acá."
+          >
+            <ul className="divide-y divide-line">
+              {pasadas.map((r) => (
+                <li key={r.id} className="flex items-center gap-3 py-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-warn-bg text-xs font-bold text-warn-ink">
+                    {r.nombre.slice(0, 2).toUpperCase()}
+                  </span>
+                  <span className="min-w-0 flex-1 leading-tight">
+                    <span className="block truncate text-sm font-bold text-ink">
+                      {r.nombre}
+                    </span>
+                    <span className="block truncate text-[13px] text-ink-soft">
+                      {r.servicio} · {r.fecha}
+                    </span>
+                  </span>
+                  <MarcarAtendidoButton leadId={r.id} />
+                </li>
+              ))}
+            </ul>
+          </Card>
+        )}
 
         {/* Guardar */}
         <form action={formAction} className="space-y-3">
