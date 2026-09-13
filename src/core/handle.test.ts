@@ -601,3 +601,45 @@ describe("handleIncoming — validación de horario de atención (T-20)", () => 
     expect(repo.leads[0].appointmentAt).toBe("2026-06-30T15:00:00-05:00");
   });
 });
+
+describe("handleIncoming — cierre automático de la cita cumplida (T-20)", () => {
+  it("un lead con cita de la semana pasada sale en recurrente/inicio y NO crea un segundo evento", async () => {
+    const repo = new InMemoryRepo();
+    const cal = makeFakeCalendar();
+    await driveUntilConfirm(repo, fakeLLM(), cal);
+    await handleIncoming(msg("sí"), config, repo, new Date("2026-06-23T10:00:00.000Z"), fakeLLM(), undefined, cal);
+    expect(cal.events).toHaveLength(1);
+    // La cita quedó para "2026-06-30T15:00:00-05:00" (fakeLLM). Un mensaje
+    // varios días después de esa fecha debe encontrar la cita ya cumplida.
+    const muchoDespues = new Date("2026-07-10T10:00:00.000Z");
+
+    const { messages: replies } = await handleIncoming(msg("Hola"), config, repo, muchoDespues, fakeLLM(), undefined, cal);
+
+    expect(repo.leads).toHaveLength(1);
+    // El cierre pasa ANTES de procesar el mensaje: el lead entra a "Hola" ya
+    // en recurrente/inicio, y el motor determinista lo lleva de ahí al menú
+    // normal (igual que a cualquier lead nuevo) — no se queda pegado a la
+    // cita vieja.
+    expect(repo.leads[0].state).toBe("recurrente");
+    expect(repo.leads[0].stage).toBe("menu_enviado");
+    expect(repo.leads[0].name).toBe("Laura"); // se conserva: es un cliente que vuelve
+    expect(repo.leads[0].appointmentAt).toBeUndefined();
+    expect(cal.events).toHaveLength(1); // ningún evento nuevo por el "Hola"
+    expect(replies.length).toBeGreaterThan(0);
+  });
+
+  it("una cita confirmada el mismo día NO se cierra (todavía no pasó el fin del día de la cita)", async () => {
+    const repo = new InMemoryRepo();
+    await driveUntilConfirm(repo, fakeLLM(), undefined);
+    await handleIncoming(msg("sí"), config, repo, new Date("2026-06-30T10:00:00-05:00"), fakeLLM());
+
+    await handleIncoming(msg("gracias!"), config, repo, new Date("2026-06-30T20:00:00-05:00"), fakeLLM());
+
+    // Nota: no se afirma nada sobre `stage` acá — el bug ya documentado del
+    // motor determinista con "datos_completos" (T-20, PR 6) es un problema
+    // aparte; lo que importa para PR 4 es que el cierre automático no
+    // dispare de más el mismo día.
+    expect(repo.leads[0].state).not.toBe("recurrente");
+    expect(repo.leads[0].appointmentAt).toBe("2026-06-30T15:00:00-05:00");
+  });
+});
