@@ -31,6 +31,7 @@ import { runAgentTurn } from "@/core/ai/agent";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
 import { validarCita } from "@/core/engine/horarios";
 import { citaCumplida, cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
+import { inactivo, limpiarDatosCapturados, reseteablePorInactividad } from "@/core/engine/session-lifecycle";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 
 /**
@@ -73,8 +74,23 @@ export async function handleIncoming(
   // días sin fecha exacta), se cierra ANTES de que el agente o el motor
   // determinista vean el mensaje — así los dos caminos reciben al cliente
   // como alguien que vuelve, no como una cita pendiente de hace semanas.
-  if (existing && citaCumplida(existing, now, config.timezone ?? DEFAULT_TIMEZONE)) {
+  const seCerroPorCumplida =
+    existing !== null && citaCumplida(existing, now, config.timezone ?? DEFAULT_TIMEZONE);
+  if (existing && seCerroPorCumplida) {
     existing = cerrarCitaCumplida(existing, now);
+  }
+
+  // T-20: reinicio por inactividad (24h). Dos cosas separadas (ver
+  // `session-lifecycle.ts`): el hilo de charla se vacía SIEMPRE que pasó el
+  // umbral (se mide sobre `lastInboundAt`, existe con o sin IA); los datos
+  // capturados solo se resetean si el lead quedó a medias — una cita ya
+  // confirmada nunca se toca acá. El `!seCerroPorCumplida` evita pisar el
+  // cierre de arriba: ese ya dejó al lead en "recurrente"/"inicio", y esta
+  // limpieza (pensada para el que quedó a medias) lo mandaría a "nuevo".
+  const reiniciarHilo = existing !== null && inactivo(existing.lastInboundAt, now);
+  if (existing && reiniciarHilo && !seCerroPorCumplida && reseteablePorInactividad(existing)) {
+    existing = { ...existing };
+    limpiarDatosCapturados(existing);
   }
 
   // Para canales sin persona propia (ej. "mock"), se usa la de whatsapp como fallback.
@@ -88,7 +104,7 @@ export async function handleIncoming(
 
   if (modoAgente) {
     if (llm && sessionRepo && persona) {
-      session = await sessionRepo.getOrCreate(message.businessSlug, message.from, message.channel);
+      session = await getOrCreateSession(sessionRepo, message, reiniciarHilo);
       result = await runAgentTurn(existing, message, config, llm, persona, session.history, now);
       usedAgent = result !== null;
       if (!usedAgent) {
@@ -210,8 +226,7 @@ export async function handleIncoming(
     return { messages, modo: "guiado", motivoFallback };
   }
 
-  const sessionParaEnhance =
-    session ?? (await sessionRepo.getOrCreate(message.businessSlug, message.from, message.channel));
+  const sessionParaEnhance = session ?? (await getOrCreateSession(sessionRepo, message, reiniciarHilo));
 
   sessionParaEnhance.history.push({
     role: "user",
@@ -239,6 +254,27 @@ export async function handleIncoming(
 
   await sessionRepo.save(sessionParaEnhance);
   return { messages: enhanced, modo: "guiado", motivoFallback };
+}
+
+/**
+ * Trae (o crea) la sesión del contacto y, si tocaba reiniciar el hilo por
+ * inactividad (T-20), la devuelve con el historial vacío. Hay DOS lugares en
+ * `handleIncoming` que necesitan la sesión (modo agente y `enhance()` del
+ * guiado) — este helper evita que el reinicio del hilo quede cableado en uno
+ * solo de los dos.
+ */
+async function getOrCreateSession(
+  sessionRepo: SessionRepository,
+  message: IncomingMessage,
+  reiniciarHilo: boolean,
+): Promise<SessionMemory> {
+  const session = await sessionRepo.getOrCreate(
+    message.businessSlug,
+    message.from,
+    message.channel,
+  );
+  if (reiniciarHilo) session.history = [];
+  return session;
 }
 
 /**

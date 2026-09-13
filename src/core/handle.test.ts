@@ -57,13 +57,22 @@ const config: BusinessConfig = {
   followUps: [],
 };
 
+/**
+ * `timestamp` por defecto es "ahora mismo" (igual que en producción, donde el
+ * mensaje entrante llega y se procesa prácticamente en el mismo instante) —
+ * no un valor fijo: desde que `handleIncoming` compara `lastInboundAt` contra
+ * `now` (T-20, inactividad de 24h), un timestamp viejo fijo dispararía un
+ * reseteo por "inactividad" falso en cualquier test que no pase su propio
+ * `now`. Los tests que SÍ quieren simular una fecha puntual (p. ej. para
+ * `extractDateTime`) pasan `now` explícito a `handleIncoming`, no acá.
+ */
 function msg(text: string): IncomingMessage {
   return {
     channel: "mock",
     businessSlug: "estetica-bella",
     from: "57300000000",
     text,
-    timestamp: "2026-06-21T10:00:00.000Z",
+    timestamp: new Date().toISOString(),
   };
 }
 
@@ -640,6 +649,70 @@ describe("handleIncoming — cierre automático de la cita cumplida (T-20)", () 
     // aparte; lo que importa para PR 4 es que el cierre automático no
     // dispare de más el mismo día.
     expect(repo.leads[0].state).not.toBe("recurrente");
+    expect(repo.leads[0].appointmentAt).toBe("2026-06-30T15:00:00-05:00");
+  });
+});
+
+describe("handleIncoming — reinicio por inactividad (T-20)", () => {
+  const configGuiadoConPersona: BusinessConfig = {
+    ...config,
+    personas: {
+      whatsapp: { name: "Isabella", tone: "cálida", language: "español colombiano" },
+    },
+    // "guiado" explícito: así el turno pasa siempre por enhance()/sessionRepo,
+    // sin depender de si el fake del agente decide usarse o no.
+    ai: { enabled: true, modo: "guiado" },
+  };
+
+  function msgAt(text: string, timestamp: string): IncomingMessage {
+    return {
+      channel: "mock",
+      businessSlug: "estetica-bella",
+      from: "57300000000",
+      text,
+      timestamp,
+    };
+  }
+
+  it("tras 25h de inactividad, un lead a medias vuelve a 'nuevo' y el hilo de charla arranca vacío", async () => {
+    const repo = new InMemoryRepo();
+    const sessionRepo = new SessionMemoryRepository();
+    const t0 = new Date("2026-06-01T10:00:00.000Z");
+    await handleIncoming(msgAt("limpieza facial", t0.toISOString()), configGuiadoConPersona, repo, t0, fakeLLM(), sessionRepo);
+    await handleIncoming(msgAt("Laura", t0.toISOString()), configGuiadoConPersona, repo, t0, fakeLLM(), sessionRepo);
+    expect(repo.leads[0].stage).toBe("esperando_fecha");
+    expect(repo.leads[0].name).toBe("Laura");
+
+    const t1 = new Date(t0.getTime() + 25 * 60 * 60 * 1000); // +25h: inactivo
+    await handleIncoming(msgAt("Hola", t1.toISOString()), configGuiadoConPersona, repo, t1, fakeLLM(), sessionRepo);
+
+    // Los datos capturados (nombre, servicio) se perdieron: el lead vuelve a
+    // "nuevo" y el "Hola" lo lleva de ahí al menú normal, como a cualquiera.
+    expect(repo.leads[0].name).toBeUndefined();
+    expect(repo.leads[0].serviceId).toBeUndefined();
+    expect(repo.leads[0].state).toBe("nuevo");
+
+    // El hilo de charla arrancó vacío: solo quedan las 2 entradas de ESTE
+    // turno (usuario + asistente), no las de los dos turnos previos.
+    const session = await sessionRepo.getOrCreate("estetica-bella", "57300000000", "mock");
+    expect(session.history).toHaveLength(2);
+    expect(session.history[0]).toMatchObject({ role: "user", text: "Hola" });
+  });
+
+  it("una cita futura confirmada NO se toca aunque pasen 25h sin que el cliente escriba", async () => {
+    const repo = new InMemoryRepo();
+    const t0 = new Date("2026-06-20T10:00:00.000Z"); // bien antes de la cita (2026-06-30)
+    await handleIncoming(msgAt("limpieza facial", t0.toISOString()), config, repo, t0, fakeLLM());
+    await handleIncoming(msgAt("Laura", t0.toISOString()), config, repo, t0, fakeLLM());
+    await handleIncoming(msgAt("mañana a las 3", t0.toISOString()), config, repo, t0, fakeLLM());
+    await handleIncoming(msgAt("sí", t0.toISOString()), config, repo, t0, fakeLLM());
+    expect(repo.leads[0].stage).toBe("datos_completos");
+
+    const t1 = new Date(t0.getTime() + 25 * 60 * 60 * 1000); // +25h, sigue antes de la cita
+    await handleIncoming(msgAt("gracias!", t1.toISOString()), config, repo, t1, fakeLLM());
+
+    expect(repo.leads[0].stage).toBe("datos_completos");
+    expect(repo.leads[0].name).toBe("Laura");
     expect(repo.leads[0].appointmentAt).toBe("2026-06-30T15:00:00-05:00");
   });
 });

@@ -30,6 +30,7 @@ import {
   normalizeDateText,
 } from "@/core/engine/intake";
 import { transition } from "@/core/engine/lead-state";
+import { limpiarDatosCapturados } from "@/core/engine/session-lifecycle";
 
 export interface RespondResult {
   /** Lead creado o actualizado tras procesar el mensaje. */
@@ -134,13 +135,8 @@ export function respond(
   // de nuevo" arranca de cero (mismo id/contacto, pero se borra lo
   // capturado). Es la vía de escape si la conversación quedó confusa.
   if (existing && isResetRequest(message.text)) {
-    lead.state = "nuevo";
-    lead.stage = "menu_enviado";
-    lead.name = undefined;
-    lead.serviceId = undefined;
-    lead.tentativeDate = undefined;
-    lead.entrega = undefined;
-    lead.notes = undefined;
+    limpiarDatosCapturados(lead);
+    lead.stage = "menu_enviado"; // acá sí se manda el menú de una, no queda en "inicio"
     reply(render(config.messages.welcome, leadVars(lead, config)), menuOptions(config));
     return { lead, messages };
   }
