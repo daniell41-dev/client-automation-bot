@@ -31,6 +31,7 @@ import {
   matchEntrega,
   normalizeDateText,
 } from "@/core/engine/intake";
+import { DEFAULT_TIMEZONE } from "@/core/timezone";
 
 /** Cuántos mensajes SEGUIDOS fuera de tema tolera el bot antes de cerrar la charla. */
 const OFF_TOPIC_LIMIT = 3;
@@ -72,6 +73,7 @@ function buildAgentInput(
   persona: PersonaConfig,
   history: ConversationTurn[],
   message: string,
+  now: Date,
 ): AgentTurnInput {
   return {
     businessName: config.name,
@@ -103,6 +105,8 @@ function buildAgentInput(
     },
     history,
     message,
+    nowISO: now.toISOString(),
+    timezone: config.timezone ?? DEFAULT_TIMEZONE,
   };
 }
 
@@ -133,7 +137,7 @@ export async function runAgentTurn(
   let wasAlreadyConfirmed = !pidioReinicioExplicito && existing?.stage === "datos_completos";
   const offTopicCountBefore = lead.offTopicCount ?? 0;
 
-  const input = buildAgentInput(lead, config, persona, history, message.text);
+  const input = buildAgentInput(lead, config, persona, history, message.text, now);
 
   let aiResult;
   try {

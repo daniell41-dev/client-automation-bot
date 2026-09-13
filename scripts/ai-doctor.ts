@@ -29,6 +29,7 @@ import { AI_PRESETS, type AIPreset, type PresetName } from "@/core/ai/presets";
 import { createLLMProvider, resolveAgentTimeoutMs, resolveReasoningEffort } from "@/core/ai/factory";
 import { availableServices } from "@/core/engine/intake";
 import { esteticaBella } from "@/businesses/estetica-bella/config";
+import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { loadEnvLocal } from "./load-env";
 
 const PRESET_NAMES: PresetName[] = ["gemini", "groq", "cerebras"];
@@ -74,6 +75,8 @@ async function checkAgentMode(provider: OpenAICompatibleProvider): Promise<boole
     lead: { yaConfirmado: false, offTopicCount: 0 },
     history: [],
     message: "Hola, quiero información de limpieza facial",
+    nowISO: new Date().toISOString(),
+    timezone: esteticaBella.timezone ?? DEFAULT_TIMEZONE,
   });
   const ms = Date.now() - start;
 
