@@ -84,6 +84,36 @@ describe("isAffirmative", () => {
     expect(isAffirmative("sale")).toBe(true);
     expect(isAffirmative("hecho")).toBe(true);
   });
+
+  it("acepta la variante regional con cortesía o puntuación alrededor", () => {
+    expect(isAffirmative("vale!")).toBe(true);
+    expect(isAffirmative("vale, gracias")).toBe(true);
+    expect(isAffirmative("sale pues")).toBe(true);
+    expect(isAffirmative("va, por favor")).toBe(true);
+  });
+
+  // Regresión: "sale"/"vale" son la forma normal de preguntar el precio en
+  // media Latinoamérica, y "va" el verbo ir. Tomarlos como un "sí" hacía que
+  // una pregunta de precio confirmara la cita, con evento de calendario y
+  // aviso a la dueña incluidos.
+  it("NO confirma cuando la palabra ambigua es parte de una pregunta", () => {
+    expect(isAffirmative("¿cuánto sale?")).toBe(false);
+    expect(isAffirmative("cuanto sale la limpieza")).toBe(false);
+    expect(isAffirmative("¿cuánto vale?")).toBe(false);
+    expect(isAffirmative("vale la pena?")).toBe(false);
+    expect(isAffirmative("¿a qué hora sale?")).toBe(false);
+    expect(isAffirmative("¿va a estar disponible el sábado?")).toBe(false);
+    expect(isAffirmative("cuánto va a costar")).toBe(false);
+    expect(isAffirmative("hecho un lío, no entiendo")).toBe(false);
+  });
+
+  // Al doblar el texto se pierde la tilde: el "sí" de confirmar y la
+  // conjunción condicional quedan idénticos.
+  it("NO confirma un 'si' condicional acompañado de duda o negación", () => {
+    expect(isAffirmative("no sé si me sale bien")).toBe(false);
+    expect(isAffirmative("si no puedo, te aviso")).toBe(false);
+    expect(isAffirmative("quizás si consigo quien me cuide")).toBe(false);
+  });
 });
 
 describe("normalizeMessage", () => {
@@ -215,6 +245,14 @@ describe("normalizeDateText", () => {
 
   it("no toca un texto que ya es una fecha natural", () => {
     expect(normalizeDateText("el viernes")).toBe("el viernes");
+  });
+
+  // Esta fecha se le muestra de vuelta al cliente en la plantilla de
+  // confirmación: reescribir "sale" como "si" la dejaba ilegible.
+  it("no reescribe 'sale' dentro de la fecha que se le repite al cliente", () => {
+    expect(normalizeDateText("el sábado que sale mejor")).toBe(
+      "el sábado que sale mejor",
+    );
   });
 
   it("quita el filler 'para' para no duplicarlo con la plantilla", () => {

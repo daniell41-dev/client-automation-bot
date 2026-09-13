@@ -461,6 +461,22 @@ describe("respond — el bot no debe secuestrar mensajes que no son la respuesta
     r = respond(r.lead, msg("Cambiar fecha"), config, now);
     expect(r.lead.stage).toBe("esperando_fecha");
   });
+
+  // Regresión de punta a punta: "¿cuánto sale?" daba por confirmada la cita,
+  // lo que además dispara el evento de calendario y el aviso a la dueña en
+  // `handleIncoming`. El cliente preguntaba el precio y salía agendado.
+  it("en esperando_confirmacion, una pregunta de precio NO confirma la cita", () => {
+    for (const pregunta of ["¿cuánto sale?", "¿cuánto vale?", "¿a qué hora sale?"]) {
+      let r = respond(null, msg("uñas"), config, now);
+      r = respond(r.lead, msg("Carlos"), config, now);
+      r = respond(r.lead, msg("hoy"), config, now);
+      expect(r.lead.stage).toBe("esperando_confirmacion");
+
+      r = respond(r.lead, msg(pregunta), config, now);
+      expect(r.lead.stage).not.toBe("datos_completos");
+      expect(r.lead.state).not.toBe("agendado");
+    }
+  });
 });
 
 describe("respond — cita vigente tras confirmar (T-20)", () => {
