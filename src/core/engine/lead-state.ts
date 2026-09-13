@@ -12,7 +12,9 @@ import type { LeadState } from "@/core/types";
 const ALLOWED_TRANSITIONS: Record<LeadState, LeadState[]> = {
   nuevo: ["interesado", "perdido"],
   interesado: ["agendado", "perdido"],
-  agendado: ["pagado", "interesado", "perdido"],
+  // "recurrente" (T-20): la cita se dio por cumplida sola, sin pasar por
+  // "pagado" — el bot no sabe si se cobró, solo que ya pasó la fecha.
+  agendado: ["pagado", "interesado", "perdido", "recurrente"],
   pagado: ["recurrente", "perdido"],
   recurrente: ["agendado", "pagado", "perdido"],
   // Un lead perdido puede reactivarse si vuelve a escribir.

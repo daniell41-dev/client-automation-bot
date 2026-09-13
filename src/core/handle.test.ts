@@ -57,13 +57,22 @@ const config: BusinessConfig = {
   followUps: [],
 };
 
+/**
+ * `timestamp` por defecto es "ahora mismo" (igual que en producción, donde el
+ * mensaje entrante llega y se procesa prácticamente en el mismo instante) —
+ * no un valor fijo: desde que `handleIncoming` compara `lastInboundAt` contra
+ * `now` (T-20, inactividad de 24h), un timestamp viejo fijo dispararía un
+ * reseteo por "inactividad" falso en cualquier test que no pase su propio
+ * `now`. Los tests que SÍ quieren simular una fecha puntual (p. ej. para
+ * `extractDateTime`) pasan `now` explícito a `handleIncoming`, no acá.
+ */
 function msg(text: string): IncomingMessage {
   return {
     channel: "mock",
     businessSlug: "estetica-bella",
     from: "57300000000",
     text,
-    timestamp: "2026-06-21T10:00:00.000Z",
+    timestamp: new Date().toISOString(),
   };
 }
 
@@ -148,6 +157,31 @@ describe("handleIncoming — agendar en calendario al confirmar", () => {
 
     await handleIncoming(msg("gracias!"), config, repo, new Date(), fakeLLM(), undefined, cal);
 
+    expect(cal.events).toHaveLength(1);
+  });
+
+  it("un saludo después de confirmar tampoco crea un segundo evento (T-20: bug de 'datos_completos')", async () => {
+    // Antes del fix, "Hola" caía en el saludo genérico del motor determinista,
+    // bajaba el stage a "menu_enviado" y — si el cliente volvía a confirmar —
+    // se disparaba un segundo evento con una fecha vieja. Fechas explícitas
+    // (no `driveUntilConfirm`/`new Date()`) para que quede claro que el
+    // "Hola" llega el MISMO día de la cita — no se confunde con el cierre
+    // automático por cita cumplida del PR 4.
+    const repo = new InMemoryRepo();
+    const cal = makeFakeCalendar();
+    const now = new Date("2026-06-29T10:00:00-05:00"); // un día antes de la cita
+    await handleIncoming(msg("limpieza facial"), config, repo, now, fakeLLM(), undefined, cal);
+    await handleIncoming(msg("Laura"), config, repo, now, fakeLLM(), undefined, cal);
+    await handleIncoming(msg("mañana a las 3"), config, repo, now, fakeLLM(), undefined, cal);
+    await handleIncoming(msg("sí"), config, repo, now, fakeLLM(), undefined, cal);
+    expect(repo.leads[0].stage).toBe("datos_completos");
+
+    // "Hola" llega el mismo día de la cita (2026-06-30), un rato después.
+    await handleIncoming(
+      msg("Hola"), config, repo, new Date("2026-06-30T16:00:00-05:00"), fakeLLM(), undefined, cal,
+    );
+
+    expect(repo.leads[0].stage).toBe("datos_completos"); // no retrocedió
     expect(cal.events).toHaveLength(1);
   });
 
@@ -598,6 +632,112 @@ describe("handleIncoming — validación de horario de atención (T-20)", () => 
     await handleIncoming(msg("mañana a las 3"), config, repo, new Date(), fakeLLM());
 
     expect(repo.leads[0].stage).toBe("esperando_confirmacion");
+    expect(repo.leads[0].appointmentAt).toBe("2026-06-30T15:00:00-05:00");
+  });
+});
+
+describe("handleIncoming — cierre automático de la cita cumplida (T-20)", () => {
+  it("un lead con cita de la semana pasada sale en recurrente/inicio y NO crea un segundo evento", async () => {
+    const repo = new InMemoryRepo();
+    const cal = makeFakeCalendar();
+    await driveUntilConfirm(repo, fakeLLM(), cal);
+    await handleIncoming(msg("sí"), config, repo, new Date("2026-06-23T10:00:00.000Z"), fakeLLM(), undefined, cal);
+    expect(cal.events).toHaveLength(1);
+    // La cita quedó para "2026-06-30T15:00:00-05:00" (fakeLLM). Un mensaje
+    // varios días después de esa fecha debe encontrar la cita ya cumplida.
+    const muchoDespues = new Date("2026-07-10T10:00:00.000Z");
+
+    const { messages: replies } = await handleIncoming(msg("Hola"), config, repo, muchoDespues, fakeLLM(), undefined, cal);
+
+    expect(repo.leads).toHaveLength(1);
+    // El cierre pasa ANTES de procesar el mensaje: el lead entra a "Hola" ya
+    // en recurrente/inicio, y el motor determinista lo lleva de ahí al menú
+    // normal (igual que a cualquier lead nuevo) — no se queda pegado a la
+    // cita vieja.
+    expect(repo.leads[0].state).toBe("recurrente");
+    expect(repo.leads[0].stage).toBe("menu_enviado");
+    expect(repo.leads[0].name).toBe("Laura"); // se conserva: es un cliente que vuelve
+    expect(repo.leads[0].appointmentAt).toBeUndefined();
+    expect(cal.events).toHaveLength(1); // ningún evento nuevo por el "Hola"
+    expect(replies.length).toBeGreaterThan(0);
+  });
+
+  it("una cita confirmada el mismo día NO se cierra (todavía no pasó el fin del día de la cita)", async () => {
+    const repo = new InMemoryRepo();
+    await driveUntilConfirm(repo, fakeLLM(), undefined);
+    await handleIncoming(msg("sí"), config, repo, new Date("2026-06-30T10:00:00-05:00"), fakeLLM());
+
+    await handleIncoming(msg("gracias!"), config, repo, new Date("2026-06-30T20:00:00-05:00"), fakeLLM());
+
+    // Nota: no se afirma nada sobre `stage` acá — el bug ya documentado del
+    // motor determinista con "datos_completos" (T-20, PR 6) es un problema
+    // aparte; lo que importa para PR 4 es que el cierre automático no
+    // dispare de más el mismo día.
+    expect(repo.leads[0].state).not.toBe("recurrente");
+    expect(repo.leads[0].appointmentAt).toBe("2026-06-30T15:00:00-05:00");
+  });
+});
+
+describe("handleIncoming — reinicio por inactividad (T-20)", () => {
+  const configGuiadoConPersona: BusinessConfig = {
+    ...config,
+    personas: {
+      whatsapp: { name: "Isabella", tone: "cálida", language: "español colombiano" },
+    },
+    // "guiado" explícito: así el turno pasa siempre por enhance()/sessionRepo,
+    // sin depender de si el fake del agente decide usarse o no.
+    ai: { enabled: true, modo: "guiado" },
+  };
+
+  function msgAt(text: string, timestamp: string): IncomingMessage {
+    return {
+      channel: "mock",
+      businessSlug: "estetica-bella",
+      from: "57300000000",
+      text,
+      timestamp,
+    };
+  }
+
+  it("tras 25h de inactividad, un lead a medias vuelve a 'nuevo' y el hilo de charla arranca vacío", async () => {
+    const repo = new InMemoryRepo();
+    const sessionRepo = new SessionMemoryRepository();
+    const t0 = new Date("2026-06-01T10:00:00.000Z");
+    await handleIncoming(msgAt("limpieza facial", t0.toISOString()), configGuiadoConPersona, repo, t0, fakeLLM(), sessionRepo);
+    await handleIncoming(msgAt("Laura", t0.toISOString()), configGuiadoConPersona, repo, t0, fakeLLM(), sessionRepo);
+    expect(repo.leads[0].stage).toBe("esperando_fecha");
+    expect(repo.leads[0].name).toBe("Laura");
+
+    const t1 = new Date(t0.getTime() + 25 * 60 * 60 * 1000); // +25h: inactivo
+    await handleIncoming(msgAt("Hola", t1.toISOString()), configGuiadoConPersona, repo, t1, fakeLLM(), sessionRepo);
+
+    // Los datos capturados (nombre, servicio) se perdieron: el lead vuelve a
+    // "nuevo" y el "Hola" lo lleva de ahí al menú normal, como a cualquiera.
+    expect(repo.leads[0].name).toBeUndefined();
+    expect(repo.leads[0].serviceId).toBeUndefined();
+    expect(repo.leads[0].state).toBe("nuevo");
+
+    // El hilo de charla arrancó vacío: solo quedan las 2 entradas de ESTE
+    // turno (usuario + asistente), no las de los dos turnos previos.
+    const session = await sessionRepo.getOrCreate("estetica-bella", "57300000000", "mock");
+    expect(session.history).toHaveLength(2);
+    expect(session.history[0]).toMatchObject({ role: "user", text: "Hola" });
+  });
+
+  it("una cita futura confirmada NO se toca aunque pasen 25h sin que el cliente escriba", async () => {
+    const repo = new InMemoryRepo();
+    const t0 = new Date("2026-06-20T10:00:00.000Z"); // bien antes de la cita (2026-06-30)
+    await handleIncoming(msgAt("limpieza facial", t0.toISOString()), config, repo, t0, fakeLLM());
+    await handleIncoming(msgAt("Laura", t0.toISOString()), config, repo, t0, fakeLLM());
+    await handleIncoming(msgAt("mañana a las 3", t0.toISOString()), config, repo, t0, fakeLLM());
+    await handleIncoming(msgAt("sí", t0.toISOString()), config, repo, t0, fakeLLM());
+    expect(repo.leads[0].stage).toBe("datos_completos");
+
+    const t1 = new Date(t0.getTime() + 25 * 60 * 60 * 1000); // +25h, sigue antes de la cita
+    await handleIncoming(msgAt("gracias!", t1.toISOString()), config, repo, t1, fakeLLM());
+
+    expect(repo.leads[0].stage).toBe("datos_completos");
+    expect(repo.leads[0].name).toBe("Laura");
     expect(repo.leads[0].appointmentAt).toBe("2026-06-30T15:00:00-05:00");
   });
 });

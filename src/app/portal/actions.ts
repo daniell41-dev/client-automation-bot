@@ -14,6 +14,9 @@ import { revalidatePath } from "next/cache";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { invalidateBusinessCache } from "@/businesses/business-cache";
+import { cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
+import { fromRow, toRow } from "@/core/storage/adapters/supabase/leads";
+import type { LeadRow } from "@/core/storage/adapters/supabase/api";
 
 export interface ActionState {
   error?: string;
@@ -150,6 +153,58 @@ export async function toggleBotActivo(formData: FormData): Promise<void> {
 
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`, "layout");
+}
+
+/**
+ * Cierre manual de una cita ya cumplida (T-20), desde la sección Citas del
+ * portal. Reutiliza `cerrarCitaCumplida` (`core/engine/appointment-lifecycle.ts`)
+ * — la misma función que usa el cierre automático — así "cerrar una cita"
+ * tiene una sola definición, la use el camino automático o el manual.
+ *
+ * Usa `createUserClient()` (no la service role del bot): RLS
+ * (`leads_own`/`leads_own_update`, migración 0008) garantiza que el dueño
+ * solo pueda leer y cerrar leads de SUS propios negocios.
+ */
+export async function marcarAtendido(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const me = await getUserRole();
+  if (!me) return { error: "No autorizado." };
+
+  const leadId = String(formData.get("leadId") ?? "");
+  if (!leadId) return { error: "Falta la cita." };
+
+  const supabase = await createUserClient();
+  const { data: row } = await supabase
+    .from("leads")
+    .select("*")
+    .eq("id", leadId)
+    .maybeSingle();
+  if (!row) return { error: "Cita no encontrada o sin permisos." };
+
+  const lead = fromRow(row as LeadRow);
+  if (lead.stage !== "datos_completos") {
+    return { error: "Esta cita no está confirmada, no hay nada que cerrar." };
+  }
+
+  let cerrado;
+  try {
+    cerrado = cerrarCitaCumplida(lead, new Date());
+  } catch (err) {
+    return { error: `No se pudo cerrar la cita: ${err instanceof Error ? err.message : String(err)}` };
+  }
+
+  const { data, error } = await supabase
+    .from("leads")
+    .update(toRow(cerrado, (row as LeadRow).negocio_id ?? undefined))
+    .eq("id", leadId)
+    .select("id");
+  if (error) return { error: `No se pudo cerrar la cita: ${error.message}` };
+  if (!data?.length) return { error: "Cita no encontrada o sin permisos." };
+
+  revalidatePath(`/portal/negocios/${lead.businessSlug}/citas`);
+  return { ok: "Cita marcada como atendida." };
 }
 
 export async function actualizarWhatsapp(

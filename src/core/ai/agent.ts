@@ -32,6 +32,7 @@ import {
   normalizeDateText,
 } from "@/core/engine/intake";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
+import { limpiarDatosCapturados } from "@/core/engine/session-lifecycle";
 
 /** Cuántos mensajes SEGUIDOS fuera de tema tolera el bot antes de cerrar la charla. */
 const OFF_TOPIC_LIMIT = 3;
@@ -40,17 +41,6 @@ const OFF_TOPIC_LIMIT = 3;
 function buildClosingMessage(nombre: string | undefined): string {
   const saludo = nombre ? `${nombre}, ` : "";
   return `${saludo}fue un gusto charlar 😊 Si más adelante te interesa algún servicio, escribime cuando quieras.`;
-}
-
-/** Borra lo capturado dejando el lead como recién llegado (mismo id/contacto). */
-function limpiarDatos(lead: Lead): void {
-  lead.state = "nuevo";
-  lead.stage = "inicio";
-  lead.name = undefined;
-  lead.serviceId = undefined;
-  lead.tentativeDate = undefined;
-  lead.entrega = undefined;
-  lead.offTopicCount = 0;
 }
 
 /**
@@ -132,7 +122,7 @@ export async function runAgentTurn(
   // (mismo comportamiento que el motor determinista, sin gastar la decisión
   // en algo que ya es explícito).
   const pidioReinicioExplicito = isResetRequest(message.text);
-  if (pidioReinicioExplicito) limpiarDatos(lead);
+  if (pidioReinicioExplicito) limpiarDatosCapturados(lead);
 
   let wasAlreadyConfirmed = !pidioReinicioExplicito && existing?.stage === "datos_completos";
   const offTopicCountBefore = lead.offTopicCount ?? 0;
@@ -160,7 +150,7 @@ export async function runAgentTurn(
   // nada", "cambié de idea"). Se limpia ANTES de aplicar el resto de las
   // acciones, para que un `elegir_servicio` del MISMO turno sobreviva.
   if (aiResult.acciones.some((a) => a.tipo === "reiniciar")) {
-    limpiarDatos(lead);
+    limpiarDatosCapturados(lead);
     wasAlreadyConfirmed = false;
   }
 
@@ -251,13 +241,7 @@ export async function runAgentTurn(
       const nuevoCount = offTopicCountBefore + 1;
       if (nuevoCount >= OFF_TOPIC_LIMIT) {
         const nombrePrevio = lead.name;
-        lead.state = "nuevo";
-        lead.stage = "inicio";
-        lead.name = undefined;
-        lead.serviceId = undefined;
-        lead.tentativeDate = undefined;
-        lead.entrega = undefined;
-        lead.offTopicCount = 0;
+        limpiarDatosCapturados(lead);
         respuestaFinal = buildClosingMessage(nombrePrevio);
       } else {
         lead.offTopicCount = nuevoCount;
