@@ -160,6 +160,31 @@ describe("handleIncoming — agendar en calendario al confirmar", () => {
     expect(cal.events).toHaveLength(1);
   });
 
+  it("un saludo después de confirmar tampoco crea un segundo evento (T-20: bug de 'datos_completos')", async () => {
+    // Antes del fix, "Hola" caía en el saludo genérico del motor determinista,
+    // bajaba el stage a "menu_enviado" y — si el cliente volvía a confirmar —
+    // se disparaba un segundo evento con una fecha vieja. Fechas explícitas
+    // (no `driveUntilConfirm`/`new Date()`) para que quede claro que el
+    // "Hola" llega el MISMO día de la cita — no se confunde con el cierre
+    // automático por cita cumplida del PR 4.
+    const repo = new InMemoryRepo();
+    const cal = makeFakeCalendar();
+    const now = new Date("2026-06-29T10:00:00-05:00"); // un día antes de la cita
+    await handleIncoming(msg("limpieza facial"), config, repo, now, fakeLLM(), undefined, cal);
+    await handleIncoming(msg("Laura"), config, repo, now, fakeLLM(), undefined, cal);
+    await handleIncoming(msg("mañana a las 3"), config, repo, now, fakeLLM(), undefined, cal);
+    await handleIncoming(msg("sí"), config, repo, now, fakeLLM(), undefined, cal);
+    expect(repo.leads[0].stage).toBe("datos_completos");
+
+    // "Hola" llega el mismo día de la cita (2026-06-30), un rato después.
+    await handleIncoming(
+      msg("Hola"), config, repo, new Date("2026-06-30T16:00:00-05:00"), fakeLLM(), undefined, cal,
+    );
+
+    expect(repo.leads[0].stage).toBe("datos_completos"); // no retrocedió
+    expect(cal.events).toHaveLength(1);
+  });
+
   it("si la fecha es ambigua (null) no agenda, deja nota y NO rompe el flujo", async () => {
     const repo = new InMemoryRepo();
     const cal = makeFakeCalendar();

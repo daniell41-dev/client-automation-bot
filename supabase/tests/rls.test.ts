@@ -2,8 +2,8 @@
  * Test de integración de Row Level Security: dos clientes, cada uno con un
  * rubro asignado, contra las políticas REALES de `supabase/migrations/`.
  *
- * Corre las migraciones (0001 → 0002 → 0003) tal cual se aplicarían en
- * Supabase, con un shim mínimo de `auth` (ver `00-auth-shim.sql`) para poder
+ * Corre las migraciones (0001 → 0008) tal cual se aplicarían en Supabase,
+ * con un shim mínimo de `auth` (ver `00-auth-shim.sql`) para poder
  * simular `auth.uid()` sin levantar el stack completo. Sin esto, un bug como
  * el de T-03 (columnas sin calificar que Postgres resuelve contra la tabla
  * equivocada) es indetectable leyendo el SQL: hay que ejecutarlo.
@@ -72,8 +72,10 @@ const CLIENTE_A = randomUUID();
 const CLIENTE_B = randomUUID();
 const RUBRO_A = randomUUID();
 const RUBRO_B = randomUUID();
+const LEAD_A = randomUUID();
+const LEAD_B = randomUUID();
 
-describe.skipIf(!TEST_DATABASE_URL)("RLS: rubros y negocios (supabase/migrations)", () => {
+describe.skipIf(!TEST_DATABASE_URL)("RLS: rubros, negocios y leads (supabase/migrations)", () => {
   let releaseLock: () => Promise<void>;
 
   beforeAll(async () => {
@@ -91,6 +93,11 @@ describe.skipIf(!TEST_DATABASE_URL)("RLS: rubros y negocios (supabase/migrations
     await adminQuery(readSql(MIGRATIONS_DIR, "0001_schema_inicial.sql"));
     await adminQuery(readSql(MIGRATIONS_DIR, "0002_sesiones_cliente.sql"));
     await adminQuery(readSql(MIGRATIONS_DIR, "0003_fix_rls.sql"));
+    await adminQuery(readSql(MIGRATIONS_DIR, "0004_mensajes_procesados.sql"));
+    await adminQuery(readSql(MIGRATIONS_DIR, "0005_uso_ia.sql"));
+    await adminQuery(readSql(MIGRATIONS_DIR, "0006_negocio_id_fk.sql"));
+    await adminQuery(readSql(MIGRATIONS_DIR, "0007_cita_fechas.sql"));
+    await adminQuery(readSql(MIGRATIONS_DIR, "0008_leads_own_update.sql"));
     await adminQuery(readSql(__dirname, "01-grants.sql"));
 
     // Dos clientes; cada uno con SOLO su propio rubro asignado.
@@ -108,6 +115,23 @@ describe.skipIf(!TEST_DATABASE_URL)("RLS: rubros y negocios (supabase/migrations
       `insert into public.asignaciones (user_id, rubro_id) values ($1, $2), ($3, $4)`,
       [CLIENTE_A, RUBRO_A, CLIENTE_B, RUBRO_B],
     );
+
+    // Un negocio por cliente, y un lead ya agendado en cada uno — para probar
+    // `leads_own_update` (0008, T-20): A solo puede tocar SU lead.
+    await adminQuery(
+      `insert into public.negocios (owner_id, rubro_id, slug, config) values
+         ($1, $2, 'rls-negocio-a', '{}'::jsonb),
+         ($3, $4, 'rls-negocio-b', '{}'::jsonb)`,
+      [CLIENTE_A, RUBRO_A, CLIENTE_B, RUBRO_B],
+    );
+    await adminQuery(
+      `insert into public.leads
+         (id, business_slug, channel, contact, state, stage, created_at, updated_at, last_inbound_at)
+       values
+         ($1, 'rls-negocio-a', 'whatsapp', '5730000001', 'agendado', 'datos_completos', now(), now(), now()),
+         ($2, 'rls-negocio-b', 'whatsapp', '5730000002', 'agendado', 'datos_completos', now(), now(), now())`,
+      [LEAD_A, LEAD_B],
+    );
   });
 
   afterAll(async () => {
@@ -118,34 +142,71 @@ describe.skipIf(!TEST_DATABASE_URL)("RLS: rubros y negocios (supabase/migrations
     await releaseLock();
   });
 
-  it("el cliente A lee el rubro que tiene asignado (antes de 0003: 0 filas)", async () => {
-    const rows = await queryAs(CLIENTE_A, "select id from public.rubros where id = $1", [RUBRO_A]);
-    expect(rows).toHaveLength(1);
-  });
+  describe("rubros y negocios", () => {
+    it("el cliente A lee el rubro que tiene asignado (antes de 0003: 0 filas)", async () => {
+      const rows = await queryAs(CLIENTE_A, "select id from public.rubros where id = $1", [RUBRO_A]);
+      expect(rows).toHaveLength(1);
+    });
 
-  it("el cliente A NO ve el rubro asignado solo a B", async () => {
-    const rows = await queryAs(CLIENTE_A, "select id from public.rubros where id = $1", [RUBRO_B]);
-    expect(rows).toHaveLength(0);
-  });
+    it("el cliente A NO ve el rubro asignado solo a B", async () => {
+      const rows = await queryAs(CLIENTE_A, "select id from public.rubros where id = $1", [RUBRO_B]);
+      expect(rows).toHaveLength(0);
+    });
 
-  it("el cliente A NO puede crear un negocio en el rubro de B (antes de 0003: sí podía)", async () => {
-    await expect(
-      queryAs(
+    it("el cliente A NO puede crear un negocio en el rubro de B (antes de 0003: sí podía)", async () => {
+      await expect(
+        queryAs(
+          CLIENTE_A,
+          `insert into public.negocios (owner_id, rubro_id, slug, config) values ($1, $2, $3, '{}'::jsonb)`,
+          [CLIENTE_A, RUBRO_B, `robado-${randomUUID()}`],
+        ),
+      ).rejects.toThrow(/row-level security/i);
+    });
+
+    it("el cliente A SÍ puede crear un negocio en su propio rubro (el fix no rompe el caso legítimo)", async () => {
+      const slug = `propio-${randomUUID()}`;
+      await queryAs(
         CLIENTE_A,
         `insert into public.negocios (owner_id, rubro_id, slug, config) values ($1, $2, $3, '{}'::jsonb)`,
-        [CLIENTE_A, RUBRO_B, `robado-${randomUUID()}`],
-      ),
-    ).rejects.toThrow(/row-level security/i);
+        [CLIENTE_A, RUBRO_A, slug],
+      );
+      const rows = await queryAs(CLIENTE_A, "select id from public.negocios where slug = $1", [slug]);
+      expect(rows).toHaveLength(1);
+    });
   });
 
-  it("el cliente A SÍ puede crear un negocio en su propio rubro (el fix no rompe el caso legítimo)", async () => {
-    const slug = `propio-${randomUUID()}`;
-    await queryAs(
-      CLIENTE_A,
-      `insert into public.negocios (owner_id, rubro_id, slug, config) values ($1, $2, $3, '{}'::jsonb)`,
-      [CLIENTE_A, RUBRO_A, slug],
-    );
-    const rows = await queryAs(CLIENTE_A, "select id from public.negocios where slug = $1", [slug]);
-    expect(rows).toHaveLength(1);
+  describe("leads_own_update (0008, T-20)", () => {
+    it("el dueño A puede actualizar SU propio lead (marcarAtendido)", async () => {
+      const rows = await queryAs(
+        CLIENTE_A,
+        "update public.leads set state = 'recurrente', stage = 'inicio' where id = $1 returning state",
+        [LEAD_A],
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].state).toBe("recurrente");
+    });
+
+    it("el dueño A NO puede tocar el lead de B (RLS lo excluye del update: 0 filas, sin error)", async () => {
+      const rows = await queryAs(
+        CLIENTE_A,
+        "update public.leads set state = 'recurrente' where id = $1 returning id",
+        [LEAD_B],
+      );
+      expect(rows).toHaveLength(0);
+
+      // El lead de B sigue intacto (lo confirma su propio dueño).
+      const deB = await queryAs(CLIENTE_B, "select state from public.leads where id = $1", [LEAD_B]);
+      expect(deB[0].state).toBe("agendado");
+    });
+
+    it("el dueño B SÍ puede actualizar el suyo (el fix no rompe el caso legítimo)", async () => {
+      const rows = await queryAs(
+        CLIENTE_B,
+        "update public.leads set state = 'recurrente', stage = 'inicio' where id = $1 returning state",
+        [LEAD_B],
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].state).toBe("recurrente");
+    });
   });
 });

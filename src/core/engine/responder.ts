@@ -50,6 +50,15 @@ export interface RespondResult {
 /** Respuestas rápidas para el paso de confirmación de cita. */
 const CONFIRM_OPTIONS = ["Sí, confirmar", "Cambiar fecha"];
 
+/**
+ * Recordatorio de la cita vigente (T-20) cuando `config.messages.citaVigente`
+ * no está configurado. Campo opcional a propósito: hacerlo obligatorio en
+ * `MessageTemplates` forzaría a tocar todos los configs y plantillas
+ * existentes por un mensaje que la mayoría de los negocios ni necesita editar.
+ */
+const DEFAULT_CITA_VIGENTE =
+  "¡Hola {{nombre}}! Ya tenés agendado {{servicio}} para {{fecha}}. Si necesitás cambiar algo o tenés otra consulta, contame 🙂";
+
 /** Crea un lead nuevo a partir del primer mensaje. Exportado: lo reutiliza `agent.ts`. */
 export function createLead(message: IncomingMessage, now: Date): Lead {
   const iso = now.toISOString();
@@ -281,7 +290,42 @@ export function respond(
     return { lead, messages };
   }
 
-  // 2) Selección de servicio (desde inicio, menú, info o datos completos).
+  // 1c) Ya se confirmó una cita y no hay ningún dato pendiente que capturar.
+  // Bloque propio ANTES de la selección de servicio (2) y del saludo (4): sin
+  // esto, un "Hola" caía en el saludo genérico y bajaba el stage a
+  // "menu_enviado" perdiendo la cita ya hecha; y elegir OTRO servicio
+  // arrastraba la fecha/modalidad de la cita anterior porque `nextAfterName`
+  // las encontraba ya cargadas y saltaba directo a confirmar con ellas.
+  if (lead.stage === "datos_completos") {
+    const nuevoServicio = matchService(message.text, config.services);
+    if (nuevoServicio) {
+      // Reserva nueva sobre una ya confirmada: se conserva el nombre, se
+      // limpia lo que era de la cita anterior (no aplica a este servicio) y
+      // se pide de nuevo lo que falte. Mismo criterio que ya usa el modo
+      // agente (`agent.ts`) ante esta misma situación.
+      lead.serviceId = nuevoServicio.id;
+      lead.tentativeDate = undefined;
+      lead.entrega = undefined;
+      lead.appointmentAt = undefined;
+      const info = render(config.messages.serviceInfo, serviceVars(nuevoServicio, config));
+      const next = nextAfterName();
+      reply(joinParts(info, next.text), next.options);
+      return { lead, messages };
+    }
+
+    const rule = matchRule(message.text, config.ai?.reglas);
+    if (rule) {
+      reply(rule.respuesta);
+      return { lead, messages };
+    }
+
+    // Saludo o cualquier otra cosa: se recuerda la cita vigente sin bajar el
+    // stage ni re-mandar el menú (la cita sigue en pie).
+    reply(render(config.messages.citaVigente ?? DEFAULT_CITA_VIGENTE, leadVars(lead, config)));
+    return { lead, messages };
+  }
+
+  // 2) Selección de servicio (desde inicio, menú o info).
   const service = matchService(message.text, config.services);
   if (service) {
     lead.serviceId = service.id;
