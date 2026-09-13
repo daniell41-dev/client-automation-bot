@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createHmac } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -75,11 +76,21 @@ function makePayload(messageId: string, text = "Hola") {
   };
 }
 
-function makeRequest(payload: unknown): Request {
+/** App Secret de prueba: el webhook exige firma válida (ver `POST` en route.ts). */
+const APP_SECRET = "test-app-secret";
+
+/** Request firmada igual que la manda Meta: HMAC-SHA256 del cuerpo crudo. */
+function makeRequest(payload: unknown, secret: string | null = APP_SECRET): Request {
+  const body = JSON.stringify(payload);
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (secret) {
+    headers["x-hub-signature-256"] =
+      "sha256=" + createHmac("sha256", secret).update(body, "utf8").digest("hex");
+  }
   return new Request("http://localhost/api/webhook/whatsapp", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    headers,
+    body,
   });
 }
 
@@ -94,12 +105,15 @@ describe("POST /api/webhook/whatsapp", () => {
     // Sin credenciales de IA/WhatsApp/Supabase → engine determinista, sin
     // llamadas de red reales.
     delete process.env.WHATSAPP_ACCESS_TOKEN;
-    delete process.env.WHATSAPP_APP_SECRET;
     delete process.env.GEMINI_API_KEY;
     delete process.env.GROQ_API_KEY;
     delete process.env.CEREBRAS_API_KEY;
     delete process.env.SUPABASE_URL;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // El webhook exige firma válida: el camino normal de estos tests es el
+    // mismo que en producción (App Secret configurado + request firmada).
+    process.env.WHATSAPP_APP_SECRET = APP_SECRET;
+    delete process.env.WHATSAPP_ALLOW_UNSIGNED;
     afterCalls.length = 0;
     resolveMock.mockReset();
     resolveMock.mockResolvedValue({ config: business, esDemo: false });
@@ -134,7 +148,6 @@ describe("POST /api/webhook/whatsapp", () => {
   });
 
   it("responde 401 con firma inválida y no agenda procesamiento", async () => {
-    process.env.WHATSAPP_APP_SECRET = "shh";
     const request = new Request("http://localhost/api/webhook/whatsapp", {
       method: "POST",
       headers: {
@@ -148,6 +161,35 @@ describe("POST /api/webhook/whatsapp", () => {
 
     expect(response.status).toBe(401);
     expect(afterCalls).toHaveLength(0);
+  });
+
+  it("responde 401 si la request viene sin firma", async () => {
+    const response = await POST(makeRequest(makePayload("wamid.NO-SIG"), null));
+
+    expect(response.status).toBe(401);
+    expect(afterCalls).toHaveLength(0);
+  });
+
+  // Regresión: la validación vivía dentro de un `if (appSecret)`, así que un
+  // despliegue sin la variable procesaba cualquier POST de cualquiera.
+  it("sin WHATSAPP_APP_SECRET falla cerrado: 503 y nada de procesamiento", async () => {
+    delete process.env.WHATSAPP_APP_SECRET;
+
+    const response = await POST(makeRequest(makePayload("wamid.NO-SECRET"), null));
+
+    expect(response.status).toBe(503);
+    expect(afterCalls).toHaveLength(0);
+    expect(resolveMock).not.toHaveBeenCalled();
+  });
+
+  it("WHATSAPP_ALLOW_UNSIGNED=true es la salida explícita para desarrollo", async () => {
+    delete process.env.WHATSAPP_APP_SECRET;
+    process.env.WHATSAPP_ALLOW_UNSIGNED = "true";
+
+    const response = await POST(makeRequest(makePayload("wamid.UNSIGNED-OK"), null));
+
+    expect(response.status).toBe(200);
+    expect(afterCalls).toHaveLength(1);
   });
 });
 

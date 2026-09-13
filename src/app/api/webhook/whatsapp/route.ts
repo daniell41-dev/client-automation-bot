@@ -57,6 +57,30 @@ export async function GET(request: Request): Promise<Response> {
 export async function POST(request: Request): Promise<Response> {
   const appSecret = process.env.WHATSAPP_APP_SECRET;
 
+  // Falla CERRADO: sin App Secret no hay forma de saber si el evento lo mandó
+  // Meta, y la URL del webhook es pública por definición. Antes la validación
+  // vivía dentro de un `if (appSecret)`, así que un despliegue al que le
+  // faltara la variable procesaba cualquier POST: bastaba con un
+  // `phone_number_id` registrado para crear leads falsos, agotar la cuota de
+  // IA del negocio y hacer que el bot le mandara WhatsApps a números
+  // arbitrarios desde la cuenta del cliente.
+  //
+  // Para probar sin Meta está `/api/dev/simulate` (y `pnpm sim`);
+  // `WHATSAPP_ALLOW_UNSIGNED=true` queda como salida explícita para quien
+  // necesite postear al webhook real a mano en desarrollo.
+  if (!appSecret) {
+    if (process.env.WHATSAPP_ALLOW_UNSIGNED !== "true") {
+      console.error(
+        "[Webhook] WHATSAPP_APP_SECRET no está configurado: no se puede validar la firma " +
+          "del evento, se rechaza. En desarrollo, WHATSAPP_ALLOW_UNSIGNED=true lo permite.",
+      );
+      return new Response("Webhook not configured", { status: 503 });
+    }
+    console.warn(
+      "[Webhook] WHATSAPP_ALLOW_UNSIGNED=true: procesando un evento SIN validar la firma.",
+    );
+  }
+
   // El raw body es necesario para validar la firma antes de parsear. Esto es
   // síncrono/local (sin I/O de red) — corre antes del ACK sin costo real.
   const rawBody = await request.text();

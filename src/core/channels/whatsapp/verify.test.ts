@@ -35,6 +35,20 @@ describe("verifyChallenge", () => {
       }),
     ).toBeNull();
   });
+
+  // Regresión: el handler pasa `WHATSAPP_VERIFY_TOKEN ?? ""`. Sin la guarda,
+  // un despliegue sin esa variable aceptaba el handshake de cualquiera que
+  // mandara el token vacío.
+  it("devuelve null si no hay token esperado configurado, aunque coincidan", () => {
+    expect(
+      verifyChallenge({
+        mode: "subscribe",
+        token: "",
+        challenge: "12345",
+        expectedToken: "",
+      }),
+    ).toBeNull();
+  });
 });
 
 describe("verifySignature", () => {
