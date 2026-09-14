@@ -23,6 +23,7 @@ import { resolveBusinessByPhoneNumberId } from "@/businesses/resolve";
 import {
   createAiUsageRepository,
   createCalendar,
+  createInventoryRepository,
   createLeadRepository,
   createMessageDedupeRepository,
   createSessionRepository,
@@ -145,6 +146,7 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
         ? createSessionRepository(business, resolved.negocioId)
         : undefined;
       const calendar = createCalendar(business) ?? undefined;
+      const inventory = createInventoryRepository();
 
       // Mismo canal para responderle al cliente y para avisarle a la dueña
       // (es el número de WhatsApp Business del negocio en ambos casos).
@@ -170,6 +172,8 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
         sessionRepo,
         calendar,
         channel,
+        inventory,
+        resolved.negocioId ?? business.slug,
       );
 
       if (channel) {

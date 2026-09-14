@@ -24,6 +24,7 @@ import type {
 } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
 import type { SessionRepository } from "@/core/storage/session-repository";
+import type { InventoryRepository } from "@/core/storage/inventory-repository";
 import type { ILLMProvider } from "@/core/ai/provider";
 import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { interpretableOptions, respond } from "@/core/engine/responder";
@@ -68,6 +69,10 @@ export async function handleIncoming(
   sessionRepo?: SessionRepository,
   calendar?: CalendarApi,
   notifier?: OwnerNotifier,
+  /** T-21: repositorio de stock — sin él, un pedido se confirma sin validar inventario (comportamiento de antes del PR4). */
+  inventory?: InventoryRepository,
+  /** UUID real del negocio en Supabase, o su slug como fallback — ver `negocio` en `AiUsageEntry`. */
+  negocioParaStock?: string,
 ): Promise<HandleResult> {
   let existing = await repo.findByContact(message.businessSlug, message.from);
 
@@ -193,16 +198,48 @@ export async function handleIncoming(
   const justConfirmed =
     existing?.stage !== "datos_completos" && lead.stage === "datos_completos";
   if (justConfirmed) {
-    // T-20: siempre, incluso sin `calendar`/`llm` (un negocio sin IA nunca va
-    // a tener `appointmentAt`, pero necesita `confirmedAt` para que el cierre
-    // automático de la cita — que a falta de fecha exacta se basa en "hace
-    // cuántos días se confirmó" — funcione igual).
-    lead.confirmedAt = now.toISOString();
-    if (calendar && llm) {
-      await scheduleConfirmedAppointment(lead, config, now, llm, calendar);
+    // T-21: un pedido se valida/descuenta ANTES de darlo por confirmado — si
+    // no alcanza el stock, se REVIERTE la confirmación que ya aplicó el
+    // motor (determinista o agente) y se le explica al cliente qué falta, en
+    // vez de agendar/avisar a la dueña algo que no se puede cumplir.
+    let stockOk = true;
+    const esPedidoConfirmado = (lead.items?.length ?? 0) > 0;
+    if (esPedidoConfirmado && inventory) {
+      const resultado = await inventory.decrementCart(
+        negocioParaStock ?? config.slug,
+        lead.items!.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
+      );
+      if (!resultado.ok) {
+        stockOk = false;
+        const nombres = (resultado.faltantes ?? [])
+          .map((id) => config.services.find((s) => s.id === id)?.name ?? id)
+          .join(", ");
+        // Mismo criterio que `limpiarDatosCapturados`: reset de estado
+        // manejado por el motor, no una transición del usuario — se asigna
+        // directo en vez de pasar por `transition()`.
+        lead.state = existing?.state ?? "interesado";
+        lead.stage = "carrito_abierto";
+        messages = [
+          {
+            to: message.from,
+            text: `Uy, justo se nos acabó el stock de: ${nombres}. Ajustá la cantidad o elegí otra cosa y seguimos 🙏`,
+          },
+        ];
+      }
     }
-    if (notifier && config.notifyPhoneNumber) {
-      await notifyOwner(lead, config, notifier);
+
+    if (stockOk) {
+      // T-20: siempre, incluso sin `calendar`/`llm` (un negocio sin IA nunca va
+      // a tener `appointmentAt`, pero necesita `confirmedAt` para que el cierre
+      // automático de la cita — que a falta de fecha exacta se basa en "hace
+      // cuántos días se confirmó" — funcione igual).
+      lead.confirmedAt = now.toISOString();
+      if (calendar && llm) {
+        await scheduleConfirmedAppointment(lead, config, now, llm, calendar);
+      }
+      if (notifier && config.notifyPhoneNumber) {
+        await notifyOwner(lead, config, notifier);
+      }
     }
   }
 

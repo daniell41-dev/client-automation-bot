@@ -1,0 +1,33 @@
+/**
+ * Stock por producto (T-21): se valida y descuenta atómicamente al confirmar
+ * un pedido. Vive en su propia tabla (no en `negocios.config`) — ver el
+ * comentario de la migración 0010 para el porqué.
+ */
+
+/** Una línea del carrito a descontar. */
+export interface StockItem {
+  serviceId: string;
+  cantidad: number;
+}
+
+/** Resultado de intentar descontar un carrito completo. */
+export interface StockResult {
+  ok: boolean;
+  /** `serviceId` de los productos sin stock suficiente (solo si `ok` es `false`). */
+  faltantes?: string[];
+}
+
+export interface InventoryRepository {
+  /**
+   * Fija (reemplaza) el stock de un producto — lo que el dueño escribió en
+   * el editor de catálogo del portal. No es un delta: cada llamada dice
+   * "hoy hay N unidades", no "sumale N".
+   */
+  setStock(negocio: string, serviceId: string, stock: number): Promise<void>;
+  /**
+   * Valida y descuenta TODO el carrito de una — o nada, si algún producto no
+   * alcanza. Un producto sin stock configurado (nunca se llamó `setStock`)
+   * se considera sin límite y nunca bloquea la operación.
+   */
+  decrementCart(negocio: string, items: StockItem[]): Promise<StockResult>;
+}
