@@ -152,6 +152,28 @@ describe("matchService", () => {
   it("devuelve undefined si no hay coincidencia", () => {
     expect(matchService("hola que tal", services)).toBeUndefined();
   });
+
+  it("acepta la selección con palabras de selección y cortesía alrededor", () => {
+    expect(matchService("la 2", services)?.id).toBe("unas");
+    expect(matchService("opción 1", services)?.id).toBe("limpieza-facial");
+    expect(matchService("quiero el 2", services)?.id).toBe("unas");
+    expect(matchService("la 2 por favor", services)?.id).toBe("unas");
+    expect(matchService("¿2?", services)?.id).toBe("unas");
+  });
+
+  // Regresión: el match por número buscaba CUALQUIER cifra de 1-2 dígitos en
+  // cualquier parte del mensaje, así que una frase normal que mencionaba un
+  // número elegía servicio y arrancaba el funnel sola. "gracias, nos vemos el
+  // 2" era el peor caso: sobre una cita ya confirmada, la trataba como reserva
+  // nueva y le borraba la fecha (ver el bloque `datos_completos` de responder).
+  it("NO elige servicio por un número suelto dentro de una frase", () => {
+    expect(matchService("somos 2 personas, se puede?", services)).toBeUndefined();
+    expect(matchService("tengo 3 preguntas", services)).toBeUndefined();
+    expect(matchService("puede ser a las 2", services)).toBeUndefined();
+    expect(matchService("mi hija tiene 1 año", services)).toBeUndefined();
+    expect(matchService("gracias, nos vemos el 2", services)).toBeUndefined();
+    expect(matchService("el 2 de octubre puedo", services)).toBeUndefined();
+  });
 });
 
 describe("availableServices y disponibilidad", () => {
@@ -223,6 +245,12 @@ describe("matchEntrega", () => {
   it("devuelve undefined si no coincide con nada", () => {
     expect(matchEntrega("no sé", opciones)).toBeUndefined();
     expect(matchEntrega("5", opciones)).toBeUndefined();
+  });
+
+  // Comparte `menuSelectionIndex` con matchService: mismo bug, misma guarda.
+  it("NO elige modalidad por un número suelto dentro de una frase", () => {
+    expect(matchEntrega("somos 2 personas", opciones)).toBeUndefined();
+    expect(matchEntrega("llego 2 horas antes", opciones)).toBeUndefined();
   });
 });
 

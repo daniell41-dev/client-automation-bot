@@ -156,6 +156,66 @@ export function availableServices(services: Service[]): Service[] {
 }
 
 /**
+ * Palabras que pueden acompañar a un número cuando el cliente está ELIGIENDO
+ * de una lista ("la 2", "opción 3", "quiero el 1"). Cualquier otra palabra
+ * alrededor del número indica que el número es parte de una frase normal, no
+ * una selección.
+ */
+const SELECTOR_WORDS = [
+  "opcion",
+  "opciones",
+  "numero",
+  "nro",
+  "n",
+  "la",
+  "el",
+  "me",
+  "interesa",
+  "quiero",
+  "dame",
+  "deme",
+  "elijo",
+  "escojo",
+  "prefiero",
+];
+
+/** Cortesía que puede cerrar una selección ("la 2 por favor"). */
+const SELECTION_TRAILING = ["por", "favor", "gracias"];
+
+/**
+ * Índice (0-based) que eligió el cliente por número de lista, o `null` si el
+ * mensaje no es una selección.
+ *
+ * Antes alcanzaba con que apareciera CUALQUIER número de una o dos cifras en
+ * cualquier parte del mensaje. Eso hacía que "somos 2 personas, se puede?"
+ * eligiera el servicio 2 y arrancara el funnel con algo que el cliente nunca
+ * pidió, y que un "gracias, nos vemos el 2" después de agendar se tomara como
+ * una reserva nueva, borrándole la fecha a la cita ya confirmada (ver el
+ * bloque `datos_completos` de `responder.ts`).
+ *
+ * Ahora el número tiene que ser el mensaje entero, o venir acompañado solo de
+ * palabras de selección. El sesgo es a NO reconocer de más: perder una
+ * selección válida cuesta que el bot repita el menú y el cliente reintente;
+ * reconocer de más le cambia el servicio sin que se entere.
+ */
+function menuSelectionIndex(normalizedText: string, count: number): number | null {
+  const tokens = normalizedText
+    .split(/\s+/)
+    .filter((t) => t && !PUNCTUATION_TOKENS.includes(t));
+
+  while (tokens.length > 0 && SELECTION_TRAILING.includes(tokens[tokens.length - 1])) {
+    tokens.pop();
+  }
+
+  const numero = tokens.pop();
+  if (!numero || !/^\d{1,2}$/.test(numero)) return null;
+  if (!tokens.every((t) => SELECTOR_WORDS.includes(t))) return null;
+
+  const index = Number.parseInt(numero, 10) - 1;
+  return index >= 0 && index < count ? index : null;
+}
+
+/**
  * Resuelve el servicio al que se refiere el cliente.
  *
  * Prioridad: nombre del servicio o palabra clave (más específico) y, si no hay
@@ -177,14 +237,10 @@ export function matchService(
     }
   }
 
-  // 2) Por número de menú (1-based).
-  const numberMatch = n.match(/\b(\d{1,2})\b/);
-  if (numberMatch) {
-    const index = Number.parseInt(numberMatch[1], 10) - 1;
-    if (index >= 0 && index < offered.length) return offered[index];
-  }
-
-  return undefined;
+  // 2) Por número de menú (1-based), solo si el mensaje ES una selección y no
+  // una frase que casualmente trae un número (ver `menuSelectionIndex`).
+  const index = menuSelectionIndex(n, offered.length);
+  return index === null ? undefined : offered[index];
 }
 
 /**
@@ -214,14 +270,10 @@ export function matchEntrega(
     if (opcionWords.some((w) => words.includes(w))) return opcion;
   }
 
-  // 3) Por número de la lista (1-based).
-  const numberMatch = n.match(/\b(\d{1,2})\b/);
-  if (numberMatch) {
-    const index = Number.parseInt(numberMatch[1], 10) - 1;
-    if (index >= 0 && index < opciones.length) return opciones[index];
-  }
-
-  return undefined;
+  // 3) Por número de la lista (1-based). Mismo criterio que `matchService`:
+  // el número tiene que ser una selección, no una cifra suelta en una frase.
+  const index = menuSelectionIndex(n, opciones.length);
+  return index === null ? undefined : opciones[index];
 }
 
 /**
