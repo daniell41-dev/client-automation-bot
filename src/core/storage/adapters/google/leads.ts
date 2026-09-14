@@ -8,6 +8,7 @@
  */
 
 import type {
+  CartItem,
   Channel,
   ConversationStage,
   FollowUpThreshold,
@@ -37,10 +38,11 @@ const HEADERS = [
   "notes",
   "appointmentAt",
   "confirmedAt",
+  "items",
 ] as const;
 
-const LAST_COL = "P"; // 16 columnas (T-20: appointmentAt/confirmedAt agregadas al final —
-// una fila vieja de 14 columnas simplemente no tiene O/P, que `fromRow` lee como `undefined`)
+const LAST_COL = "Q"; // 17 columnas (T-21: `items` agregada al final —
+// una fila vieja de 14 o 16 columnas simplemente no tiene O/P/Q, que `fromRow` lee como `undefined`)
 
 function toRow(lead: Lead): string[] {
   return [
@@ -60,6 +62,8 @@ function toRow(lead: Lead): string[] {
     lead.notes ?? "",
     lead.appointmentAt ?? "",
     lead.confirmedAt ?? "",
+    // T-21: igual criterio que `followUpsSent` — un array, se guarda como JSON.
+    lead.items ? JSON.stringify(lead.items) : "",
   ];
 }
 
@@ -71,6 +75,16 @@ function fromRow(row: string[]): Lead {
     if (Array.isArray(parsed)) followUpsSent = parsed as FollowUpThreshold[];
   } catch {
     followUpsSent = [];
+  }
+  let items: CartItem[] | undefined;
+  const rawItems = cell(16);
+  if (rawItems) {
+    try {
+      const parsed = JSON.parse(rawItems);
+      if (Array.isArray(parsed)) items = parsed as CartItem[];
+    } catch {
+      items = undefined;
+    }
   }
   return {
     id: cell(0),
@@ -89,6 +103,7 @@ function fromRow(row: string[]): Lead {
     notes: cell(13) || undefined,
     appointmentAt: cell(14) || undefined,
     confirmedAt: cell(15) || undefined,
+    items,
   };
 }
 

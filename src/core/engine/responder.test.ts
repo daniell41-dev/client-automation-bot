@@ -658,3 +658,157 @@ describe("respond — ítem sin duración (T-21)", () => {
     expect(messages[0].text).toContain("60 minutos");
   });
 });
+
+describe("respond — flujo de pedido (T-21)", () => {
+  const tienda: BusinessConfig = {
+    ...config,
+    slug: "tienda",
+    name: "Tienda Test",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Producto", plural: "Productos" } },
+    services: [
+      {
+        id: "harina",
+        name: "Harina 1 Kg",
+        description: "Harina pan tradicional",
+        price: 5000,
+        keywords: ["harina"],
+      },
+      {
+        id: "aceite",
+        name: "Aceite 1 Lt",
+        description: "Aceite vegetal",
+        price: 12000,
+        keywords: ["aceite"],
+      },
+    ],
+  };
+
+  it("recorrido completo: dos productos distintos, total correcto, y pasa a 'pagado' al confirmar", () => {
+    let r = respond(null, msg("harina"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_nombre");
+    expect(r.messages[0].text).toContain("Harina 1 Kg");
+
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    // No pregunta fecha ni modalidad de entrega: pasa directo a la cantidad.
+    expect(r.lead.stage).toBe("esperando_cantidad");
+    expect(r.lead.tentativeDate).toBeUndefined();
+    expect(r.messages[0].text).not.toMatch(/fecha|agend/i);
+
+    r = respond(r.lead, msg("2"), tienda, now);
+    expect(r.lead.stage).toBe("carrito_abierto");
+    expect(r.lead.items).toEqual([{ serviceId: "harina", cantidad: 2 }]);
+    expect(r.messages[0].text).toContain("2x Harina 1 Kg");
+    expect(r.messages[0].options).toContain("Aceite 1 Lt");
+    expect(r.messages[0].options).toContain("No, eso es todo");
+
+    r = respond(r.lead, msg("aceite"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_cantidad");
+    expect(r.lead.serviceId).toBe("aceite");
+
+    r = respond(r.lead, msg("una"), tienda, now);
+    expect(r.lead.stage).toBe("carrito_abierto");
+    expect(r.lead.items).toEqual([
+      { serviceId: "harina", cantidad: 2 },
+      { serviceId: "aceite", cantidad: 1 },
+    ]);
+    expect(r.messages[0].text).toContain("2x Harina 1 Kg");
+    expect(r.messages[0].text).toContain("1x Aceite 1 Lt");
+
+    r = respond(r.lead, msg("no, eso es todo"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+    expect(r.messages[0].text).toContain("Total");
+    expect(r.messages[0].options).toEqual(["Sí, confirmar", "Agregar más"]);
+
+    r = respond(r.lead, msg("sí"), tienda, now);
+    expect(r.lead.state).toBe("pagado");
+    expect(r.lead.stage).toBe("datos_completos");
+    expect(r.messages[0].text).toContain("Total");
+    expect(r.messages[0].text).toContain("Laura");
+    expect(r.messages[0].text).toContain("confirmado");
+  });
+
+  it("no confirmar el pedido vuelve al carrito en vez de pedir una fecha", () => {
+    let r = respond(null, msg("harina"), tienda, now);
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    r = respond(r.lead, msg("2"), tienda, now);
+    r = respond(r.lead, msg("no, eso es todo"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+
+    r = respond(r.lead, msg("mejor no"), tienda, now);
+    expect(r.lead.stage).toBe("carrito_abierto");
+    expect(r.lead.items).toEqual([{ serviceId: "harina", cantidad: 2 }]); // no se perdió lo cargado
+    expect(r.lead.state).not.toBe("pagado");
+  });
+
+  it("una cantidad no reconocible re-pregunta en vez de guardar cualquier cosa", () => {
+    let r = respond(null, msg("harina"), tienda, now);
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    r = respond(r.lead, msg("no sé cuántas"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_cantidad");
+    expect(r.lead.items).toBeUndefined();
+    expect(r.unrecognized).toBe(true);
+  });
+
+  it("recordatorio de pedido vigente tras confirmar: usa pedidoVigente, no citaVigente", () => {
+    let r = respond(null, msg("harina"), tienda, now);
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    r = respond(r.lead, msg("2"), tienda, now);
+    r = respond(r.lead, msg("no"), tienda, now);
+    r = respond(r.lead, msg("sí"), tienda, now);
+    expect(r.lead.stage).toBe("datos_completos");
+
+    const { lead, messages } = respond(r.lead, msg("gracias!"), tienda, now);
+    expect(lead.stage).toBe("datos_completos");
+    expect(messages[0].text).toContain("pedido confirmado");
+    expect(messages[0].text).not.toMatch(/agendado|turno|cita/i);
+  });
+
+  it("pedir de nuevo tras un pedido confirmado arranca un pedido NUEVO (limpia el carrito viejo)", () => {
+    let r = respond(null, msg("harina"), tienda, now);
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    r = respond(r.lead, msg("2"), tienda, now);
+    r = respond(r.lead, msg("no"), tienda, now);
+    r = respond(r.lead, msg("sí"), tienda, now);
+    expect(r.lead.stage).toBe("datos_completos");
+
+    const { lead } = respond(r.lead, msg("aceite"), tienda, now);
+    expect(lead.serviceId).toBe("aceite");
+    expect(lead.items).toBeUndefined(); // el carrito viejo (2 harinas, ya pagado) no se arrastra
+    expect(lead.stage).toBe("esperando_cantidad");
+  });
+
+  const taller: BusinessConfig = {
+    ...config,
+    slug: "taller",
+    name: "Taller Mecánico Test",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Ítem", plural: "Ítems" } },
+    services: [
+      {
+        id: "cambio-aceite",
+        name: "Cambio de aceite",
+        description: "Cambio de aceite y filtro",
+        price: 80000,
+        durationMinutes: 30,
+        reservable: true,
+        keywords: ["cambio de aceite"],
+      },
+      {
+        id: "filtro-aceite",
+        name: "Filtro de aceite",
+        description: "Repuesto filtro de aceite",
+        price: 25000,
+        keywords: ["filtro"],
+      },
+    ],
+  };
+
+  it("taller mecánico: el service reservable agenda fecha, el repuesto pide cantidad — mismo negocio", () => {
+    let cita = respond(null, msg("cambio de aceite"), taller, now);
+    cita = respond(cita.lead, msg("Carlos"), taller, now);
+    expect(cita.lead.stage).toBe("esperando_fecha");
+
+    let pedido = respond(null, msg("filtro de aceite"), taller, now);
+    pedido = respond(pedido.lead, msg("Carlos"), taller, now);
+    expect(pedido.lead.stage).toBe("esperando_cantidad");
+  });
+});

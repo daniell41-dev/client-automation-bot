@@ -38,6 +38,11 @@ export function toRow(lead: Lead, negocioId: string | undefined): LeadRow {
     notes: lead.notes ?? null,
     appointment_at: lead.appointmentAt ?? null,
     confirmed_at: lead.confirmedAt ?? null,
+    // T-21: sin mapear acá, un pedido armado en varios turnos ("2 harinas",
+    // después "1 aceite") se perdería entre un webhook y el siguiente al
+    // recargar el lead desde la base — no es el mismo caso que `entrega`
+    // (una sola pregunta, rara vez sobrevive más de un mensaje sin cerrarse).
+    items: lead.items ?? null,
     negocio_id: negocioId ?? null,
   };
 }
@@ -60,6 +65,7 @@ export function fromRow(row: LeadRow): Lead {
     notes: row.notes ?? undefined,
     appointmentAt: row.appointment_at ?? undefined,
     confirmedAt: row.confirmed_at ?? undefined,
+    items: row.items ?? undefined,
   };
 }
 

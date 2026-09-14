@@ -32,6 +32,7 @@ import { buildCalendarEvent } from "@/core/engine/calendar-event";
 import { validarCita } from "@/core/engine/horarios";
 import { citaCumplida, cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
 import { inactivo, limpiarDatosCapturados, reseteablePorInactividad } from "@/core/engine/session-lifecycle";
+import { resumenCarrito } from "@/core/engine/flows/pedido";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 
 /**
@@ -333,12 +334,18 @@ async function notifyOwner(
   notifier: OwnerNotifier,
 ): Promise<void> {
   const service = config.services.find((s) => s.id === lead.serviceId);
+  // T-21: un carrito (varios productos posibles) se resume aparte — no tiene
+  // sentido reducirlo a "Servicio: <un nombre>" como una cita.
+  const esPedido = (lead.items?.length ?? 0) > 0;
   const lines = [
     `🔔 ${config.name}: confirmación nueva`,
     `Cliente: ${lead.name ?? lead.contact}`,
-    service ? `${config.pedidos?.enabled ? "Pedido" : "Servicio"}: ${service.name}` : null,
+    esPedido ? resumenCarrito(lead.items!, config.services, config) : null,
+    !esPedido && service
+      ? `${config.pedidos?.enabled ? "Pedido" : "Servicio"}: ${service.name}`
+      : null,
     lead.entrega ? `Modalidad: ${lead.entrega}` : null,
-    lead.tentativeDate ? `Fecha/hora: ${lead.tentativeDate}` : null,
+    !esPedido && lead.tentativeDate ? `Fecha/hora: ${lead.tentativeDate}` : null,
   ].filter((line): line is string => Boolean(line));
 
   try {

@@ -311,6 +311,42 @@ describe("handleIncoming — avisa a la dueña por WhatsApp al confirmar", () =>
   });
 });
 
+const tiendaConNotify: BusinessConfig = {
+  ...config,
+  slug: "tienda",
+  name: "Tienda Test",
+  notifyPhoneNumber: "573009998888",
+  catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Producto", plural: "Productos" } },
+  services: [
+    { id: "harina", name: "Harina 1 Kg", description: "Harina pan", price: 5000, keywords: ["harina"] },
+    { id: "aceite", name: "Aceite 1 Lt", description: "Aceite vegetal", price: 12000, keywords: ["aceite"] },
+  ],
+};
+
+describe("handleIncoming — avisa a la dueña con el carrito completo (T-21)", () => {
+  it("resume el pedido (varios productos + total) en vez de 'Servicio: <uno>'", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+    await handleIncoming(msg("harina"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("Laura"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("2"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("aceite"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("1"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("no, eso es todo"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+
+    await handleIncoming(msg("sí"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+
+    expect(notifier.sent).toHaveLength(1);
+    expect(notifier.sent[0].text).toContain("2x Harina 1 Kg");
+    expect(notifier.sent[0].text).toContain("1x Aceite 1 Lt");
+    expect(notifier.sent[0].text).toContain("Total");
+    expect(notifier.sent[0].text).not.toContain("Servicio:");
+    expect(notifier.sent[0].text).not.toContain("Fecha/hora:");
+
+    expect(repo.leads[0].state).toBe("pagado");
+  });
+});
+
 /** LLM falso configurable para probar la red de seguridad del intérprete. */
 function fakeLLMWithInterpret(interpreted: string | null): {
   llm: ILLMProvider;
