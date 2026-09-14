@@ -630,3 +630,31 @@ describe("respond — comando de reinicio", () => {
     expect(r.messages[0].options).toEqual(["Limpieza facial", "Uñas"]);
   });
 });
+
+describe("respond — ítem sin duración (T-21)", () => {
+  const tienda: BusinessConfig = {
+    ...config,
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Producto", plural: "Productos" } },
+    services: [
+      {
+        id: "harina-pan",
+        name: "Harina 1 Kg",
+        description: "Harina pan tradicional",
+        price: 5000,
+        keywords: ["harina"],
+      },
+    ],
+  };
+
+  it("la variable {{duracion}} queda vacía en vez de decir 'undefined minutos'", () => {
+    const { messages } = respond(null, msg("harina"), tienda, now);
+    expect(messages[0].text).toContain("Harina 1 Kg");
+    expect(messages[0].text).not.toContain("undefined");
+    expect(messages[0].text).not.toContain("NaN");
+  });
+
+  it("un servicio CON duración la sigue mostrando igual que siempre", () => {
+    const { messages } = respond(null, msg("limpieza facial"), config, now);
+    expect(messages[0].text).toContain("60 minutos");
+  });
+});

@@ -183,9 +183,14 @@ export function ConfigForm({
                     className={inputCls}
                     type="number"
                     min={1}
-                    value={service.durationMinutes}
+                    value={service.durationMinutes ?? ""}
                     onChange={(e) =>
-                      setService(i, { durationMinutes: Number(e.target.value) })
+                      // T-21: vacío = sin duración (un producto), no 0 — que
+                      // el schema rechaza por `positive()`. Es justo el caso
+                      // que dejaba una plantilla de tienda sin poder guardarse.
+                      setService(i, {
+                        durationMinutes: e.target.value === "" ? undefined : Number(e.target.value),
+                      })
                     }
                   />
                 </div>

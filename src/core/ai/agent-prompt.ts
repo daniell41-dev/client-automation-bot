@@ -25,7 +25,10 @@ function buildCatalogBlock(input: AgentTurnInput): string {
   return input.services
     .map((s) => {
       const categoria = s.categoria ? ` (${s.categoria})` : "";
-      return `- id="${s.id}" | ${s.name}${categoria}: ${s.description}. Precio: ${formatPrice(input, s.price)}. Duración: ${s.durationMinutes} minutos.`;
+      // T-21: los ítems que se venden no tienen duración — nombrarla igual le
+      // daría a la IA un dato inventado sobre el que después razona.
+      const duracion = s.durationMinutes ? ` Duración: ${s.durationMinutes} minutos.` : "";
+      return `- id="${s.id}" | ${s.name}${categoria}: ${s.description}. Precio: ${formatPrice(input, s.price)}.${duracion}`;
     })
     .join("\n");
 }

@@ -36,9 +36,22 @@ export const plantilla: BusinessConfig = {
       categoria: "General", // categoría visible en el catálogo del portal
       disponible: true, // en false, el bot no lo ofrece (toggle del portal)
       reservable: true, // aparece en "Servicios reservables" (citas)
+      // modo: "cita",  // T-21: fuerza el camino de ESTE ítem ("cita" | "pedido").
+      //                // Sin declararlo se deduce de `reservable` y del rubro.
+      // stock: 12,     // solo para ítems que se venden (modo "pedido")
     },
     // Agrega más servicios aquí…
   ],
+
+  // T-21 — Forma del catálogo de este rubro. Todo opcional: sin este bloque,
+  // el negocio se comporta como siempre (todo se agenda como una cita).
+  // Descomentar y ajustar en un rubro que VENDE en vez de agendar:
+  //
+  // catalogo: {
+  //   etiqueta: { singular: "Producto", plural: "Productos" },
+  //   modoPorDefecto: "pedido",  // camino de los ítems que no lo declaran
+  //   campos: { duracion: false, stock: true, categoria: true },
+  // },
 
   messages: {
     welcome: "¡Hola! ¿Qué servicio te interesa?",

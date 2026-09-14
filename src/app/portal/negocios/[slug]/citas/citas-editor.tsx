@@ -146,7 +146,9 @@ export function CitasEditor({
                     {s.name}
                   </span>
                   <span className="block text-[13px] text-ink-soft">
-                    {s.durationMinutes} min{s.categoria ? ` · ${s.categoria}` : ""}
+                    {[s.durationMinutes ? `${s.durationMinutes} min` : null, s.categoria]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 </span>
                 <Toggle

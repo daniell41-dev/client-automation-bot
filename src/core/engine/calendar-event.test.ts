@@ -98,3 +98,21 @@ describe("buildCalendarEvent", () => {
     expect(ev.summary).toBe("Limpieza facial - 57300");
   });
 });
+
+describe("buildCalendarEvent — duración ausente (T-21)", () => {
+  it("un ítem sin duración no crea un evento de duración cero", () => {
+    // La duración pasó a ser opcional porque un producto no dura nada. Un
+    // ítem que llega hasta acá debería ser de cita y traerla, pero si no,
+    // un evento con inicio == fin se ve en el calendario como un punto y la
+    // dueña no lo registra como un turno.
+    const sinDuracion: Service = { ...service, durationMinutes: undefined };
+    const ev = buildCalendarEvent(
+      makeLead(),
+      sinDuracion,
+      "2026-06-30T15:00:00-05:00",
+      "America/Bogota",
+    );
+    expect(ev.endISO).not.toBe(ev.startISO);
+    expect(new Date(ev.endISO).getTime() - new Date(ev.startISO).getTime()).toBe(60 * 60_000);
+  });
+});

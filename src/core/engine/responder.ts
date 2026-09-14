@@ -108,7 +108,10 @@ function serviceVars(service: Service, config: BusinessConfig): TemplateVars {
     servicio: service.name,
     descripcion: service.description,
     precio: formatPrice(config, service.price),
-    duracion: `${service.durationMinutes} minutos`,
+    // T-21: vacío cuando el ítem no tiene duración (un producto). La plantilla
+    // `serviceInfo` de un rubro que vende no debería nombrarla; si igual la
+    // nombra, sale la etiqueta sin número en vez de "undefined minutos".
+    duracion: service.durationMinutes ? `${service.durationMinutes} minutos` : "",
     negocio: config.name,
   };
 }
