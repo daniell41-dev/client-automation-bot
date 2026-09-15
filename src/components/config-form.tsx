@@ -10,7 +10,8 @@
  */
 
 import { useActionState, useState } from "react";
-import type { BusinessConfig, Service } from "@/core/types";
+import type { BusinessConfig, CatalogoConfig, Service } from "@/core/types";
+import { esCita } from "@/core/engine/modo-item";
 
 export interface ConfigActionState {
   error?: string;
@@ -75,6 +76,25 @@ export function ConfigForm({
   const setMessage = (key: keyof BusinessConfig["messages"], value: string) =>
     set("messages", { ...config.messages, [key]: value });
 
+  // T-21: el bloque que declara qué persigue el bot de este rubro. Vive acá
+  // (y no en una pantalla aparte) porque es el mismo lugar donde ya se arma
+  // la plantilla completa — separarlo obligaría a guardar dos veces.
+  const setCatalogo = (patch: Partial<CatalogoConfig>) =>
+    set("catalogo", { ...config.catalogo, ...patch });
+  const setCatalogoCampos = (patch: Partial<NonNullable<CatalogoConfig["campos"]>>) =>
+    setCatalogo({ campos: { ...config.catalogo?.campos, ...patch } });
+
+  // Sin ningún ítem que se agende, los mensajes de "cita" no tienen con qué
+  // llenarse — mostrarlos igual sería pedirle al admin que redacte un texto
+  // para un paso del funnel que nunca corre en este rubro.
+  const hayItemDeCita = config.services.some((s) => esCita(s, config.catalogo));
+  const MENSAJES_SOLO_CITA = new Set<keyof BusinessConfig["messages"]>([
+    "askDate",
+    "askConfirm",
+    "captured",
+    "citaVigente",
+  ]);
+
   const persona = config.personas?.whatsapp ?? { name: "", tone: "", language: "" };
   const setPersona = (patch: Partial<typeof persona>) => {
     const next = { ...persona, ...patch };
@@ -121,6 +141,84 @@ export function ConfigForm({
               onChange={(e) => set("bookingUrl", e.target.value || undefined)}
               placeholder="https://calendly.com/…"
             />
+          </div>
+        </div>
+      </section>
+
+      {/* Catálogo de este rubro (T-21) */}
+      <section className={sectionCls}>
+        <h2 className="mb-1 text-sm font-semibold text-slate-800">Catálogo de este rubro</h2>
+        <p className="mb-4 text-xs text-slate-500">
+          Qué persigue el bot con los ítems de este rubro. Sin tocar nada acá, se
+          comporta como una cita (igual que antes de esto existir).
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelCls}>Cómo se llama UN ítem (singular)</label>
+            <input
+              className={inputCls}
+              value={config.catalogo?.etiqueta?.singular ?? ""}
+              onChange={(e) =>
+                setCatalogo({
+                  etiqueta: {
+                    plural: config.catalogo?.etiqueta?.plural ?? "",
+                    singular: e.target.value,
+                  },
+                })
+              }
+              placeholder="Servicio / Producto / Plato / Repuesto"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Cómo se llaman VARIOS ítems (plural)</label>
+            <input
+              className={inputCls}
+              value={config.catalogo?.etiqueta?.plural ?? ""}
+              onChange={(e) =>
+                setCatalogo({
+                  etiqueta: {
+                    singular: config.catalogo?.etiqueta?.singular ?? "",
+                    plural: e.target.value,
+                  },
+                })
+              }
+              placeholder="Servicios / Productos / Platos / Repuestos"
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Camino por defecto de un ítem nuevo</label>
+            <select
+              className={inputCls}
+              value={config.catalogo?.modoPorDefecto ?? "cita"}
+              onChange={(e) =>
+                setCatalogo({ modoPorDefecto: e.target.value === "pedido" ? "pedido" : "cita" })
+              }
+            >
+              <option value="cita">Se agenda (cita/turno)</option>
+              <option value="pedido">Se vende (pedido)</option>
+            </select>
+            <p className="mt-1 text-xs text-slate-500">
+              Cada ítem puede anular esto con su propio &quot;Camino&quot; más abajo — un
+              taller mecánico agenda el service y vende el repuesto a la vez.
+            </p>
+          </div>
+          <div className="flex flex-col justify-end gap-2 pb-1">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={config.catalogo?.campos?.duracion !== false}
+                onChange={(e) => setCatalogoCampos({ duracion: e.target.checked })}
+              />
+              Mostrar Duración en el editor de catálogo
+            </label>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={config.catalogo?.campos?.stock === true}
+                onChange={(e) => setCatalogoCampos({ stock: e.target.checked })}
+              />
+              Mostrar Stock en el editor de catálogo
+            </label>
           </div>
         </div>
       </section>
@@ -178,22 +276,58 @@ export function ConfigForm({
                   />
                 </div>
                 <div>
-                  <label className={labelCls}>Duración (minutos)</label>
-                  <input
+                  <label className={labelCls}>Camino de este ítem</label>
+                  <select
                     className={inputCls}
-                    type="number"
-                    min={1}
-                    value={service.durationMinutes ?? ""}
+                    value={service.modo ?? ""}
                     onChange={(e) =>
-                      // T-21: vacío = sin duración (un producto), no 0 — que
-                      // el schema rechaza por `positive()`. Es justo el caso
-                      // que dejaba una plantilla de tienda sin poder guardarse.
                       setService(i, {
-                        durationMinutes: e.target.value === "" ? undefined : Number(e.target.value),
+                        modo: e.target.value === "" ? undefined : (e.target.value as "cita" | "pedido"),
                       })
                     }
-                  />
+                  >
+                    <option value="">Automático (según el rubro)</option>
+                    <option value="cita">Se agenda (cita/turno)</option>
+                    <option value="pedido">Se vende (pedido)</option>
+                  </select>
                 </div>
+                {/* T-21: la Duración solo tiene sentido para un ítem que se
+                    agenda — pedírsela a un producto es lo que dejaba a una
+                    tienda sin poder cargar su catálogo. */}
+                {esCita(service, config.catalogo) && (
+                  <div>
+                    <label className={labelCls}>Duración (minutos)</label>
+                    <input
+                      className={inputCls}
+                      type="number"
+                      min={1}
+                      value={service.durationMinutes ?? ""}
+                      onChange={(e) =>
+                        setService(i, {
+                          durationMinutes:
+                            e.target.value === "" ? undefined : Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                )}
+                {!esCita(service, config.catalogo) && (
+                  <div>
+                    <label className={labelCls}>Stock</label>
+                    <input
+                      className={inputCls}
+                      type="number"
+                      min={0}
+                      value={service.stock ?? ""}
+                      onChange={(e) =>
+                        setService(i, {
+                          stock: e.target.value === "" ? undefined : Number(e.target.value),
+                        })
+                      }
+                      placeholder="Unidades disponibles"
+                    />
+                  </div>
+                )}
                 <div className="sm:col-span-2">
                   <label className={labelCls}>
                     Palabras clave (separadas por coma)
@@ -234,8 +368,9 @@ export function ConfigForm({
           &quot;Info de un servicio&quot; además {"{{descripcion}} {{precio}} {{duracion}}"}.
         </p>
         <div className="space-y-3">
-          {(Object.keys(MESSAGE_LABELS) as (keyof BusinessConfig["messages"])[]).map(
-            (key) => (
+          {(Object.keys(MESSAGE_LABELS) as (keyof BusinessConfig["messages"])[])
+            .filter((key) => hayItemDeCita || !MENSAJES_SOLO_CITA.has(key))
+            .map((key) => (
               <div key={key}>
                 <label className={labelCls}>{MESSAGE_LABELS[key]}</label>
                 <textarea
@@ -245,8 +380,7 @@ export function ConfigForm({
                   onChange={(e) => setMessage(key, e.target.value)}
                 />
               </div>
-            ),
-          )}
+            ))}
         </div>
       </section>
 
