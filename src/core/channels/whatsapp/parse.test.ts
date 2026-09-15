@@ -88,8 +88,8 @@ describe("parseInbound", () => {
     expect(parseInbound(statusPayload)).toEqual([]);
   });
 
-  it("ignora mensajes que no son de texto", () => {
-    const imagePayload = {
+  it("ignora tipos que no son texto ni imagen (audio, sticker, ubicación, ...)", () => {
+    const audioPayload = {
       entry: [
         {
           changes: [
@@ -97,7 +97,7 @@ describe("parseInbound", () => {
               value: {
                 metadata: { phone_number_id: "111" },
                 messages: [
-                  { from: "573009998877", type: "image", image: { id: "x" } },
+                  { from: "573009998877", type: "audio", audio: { id: "x" } },
                 ],
               },
             },
@@ -105,12 +105,92 @@ describe("parseInbound", () => {
         },
       ],
     };
-    expect(parseInbound(imagePayload)).toEqual([]);
+    expect(parseInbound(audioPayload)).toEqual([]);
   });
 
   it("tolera payloads vacíos o inválidos", () => {
     expect(parseInbound(undefined)).toEqual([]);
     expect(parseInbound({})).toEqual([]);
     expect(parseInbound({ entry: [] })).toEqual([]);
+  });
+});
+
+describe("parseInbound — imágenes (T-23.1)", () => {
+  it("extrae una imagen con caption: el texto pasa a ser el caption", () => {
+    const payload = {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: "111" },
+                messages: [
+                  {
+                    from: "573009998877",
+                    id: "wamid.IMG1",
+                    timestamp: "1750500000",
+                    type: "image",
+                    image: { id: "media-1", mime_type: "image/jpeg", caption: "esto tienen?" },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const messages = parseInbound(payload);
+    expect(messages).toHaveLength(1);
+    expect(messages[0].text).toBe("esto tienen?");
+    expect(messages[0].image).toEqual({
+      mediaId: "media-1",
+      mimeType: "image/jpeg",
+      caption: "esto tienen?",
+    });
+  });
+
+  it("extrae una imagen sin caption: el texto queda vacío", () => {
+    const payload = {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: "111" },
+                messages: [
+                  {
+                    from: "573009998877",
+                    type: "image",
+                    image: { id: "media-2", mime_type: "image/png" },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const messages = parseInbound(payload);
+    expect(messages).toHaveLength(1);
+    expect(messages[0].text).toBe("");
+    expect(messages[0].image).toEqual({ mediaId: "media-2", mimeType: "image/png", caption: undefined });
+  });
+
+  it("una imagen sin id de media se descarta (no hay nada que descargar)", () => {
+    const payload = {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: "111" },
+                messages: [{ from: "573009998877", type: "image", image: {} }],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(parseInbound(payload)).toEqual([]);
   });
 });
