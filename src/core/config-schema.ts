@@ -66,6 +66,8 @@ const catalogoSchema = z.object({
       categoria: z.boolean().optional(),
     })
     .optional(),
+  // T-22.2: entero no negativo — 0 es válido (avisar recién cuando se agota).
+  stockMinimo: z.number().int().nonnegative().optional(),
 });
 
 /** El catálogo completo: al menos un producto/servicio (igual regla que `businessConfigSchema`). */
