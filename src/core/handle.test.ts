@@ -44,6 +44,14 @@ class InMemoryInventory implements InventoryRepository {
     this.alertadoEn.set(key, hoy);
     return true;
   }
+  async getStock(negocio: string): Promise<Record<string, number>> {
+    const prefijo = `${negocio}|`;
+    const resultado: Record<string, number> = {};
+    for (const [key, stock] of this.stock.entries()) {
+      if (key.startsWith(prefijo)) resultado[key.slice(prefijo.length)] = stock;
+    }
+    return resultado;
+  }
 }
 
 /** Repositorio en memoria para el test (implementa el contrato). */

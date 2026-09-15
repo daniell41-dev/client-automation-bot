@@ -44,4 +44,11 @@ export interface InventoryRepository {
    * producto bajo mandarían una alerta cada una.
    */
   markLowStockAlert(negocio: string, serviceId: string): Promise<boolean>;
+  /**
+   * T-22.3: stock EN VIVO de todos los productos trackeados de un negocio
+   * (`serviceId` → cantidad). El editor de catálogo del portal lo usa para
+   * no mostrar el número viejo de `negocios.config` — sin esto, guardar el
+   * catálogo sin tocar el stock pisaría lo que ya se descontó por ventas.
+   */
+  getStock(negocio: string): Promise<Record<string, number>>;
 }

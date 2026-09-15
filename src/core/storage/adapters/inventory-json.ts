@@ -99,4 +99,14 @@ export class JsonInventoryRepository implements InventoryRepository {
     await this.writeAll(map);
     return true;
   }
+
+  async getStock(negocio: string): Promise<Record<string, number>> {
+    const map = await this.readAll();
+    const prefijo = `${negocio}|`;
+    const resultado: Record<string, number> = {};
+    for (const [key, fila] of Object.entries(map)) {
+      if (key.startsWith(prefijo)) resultado[key.slice(prefijo.length)] = fila.stock;
+    }
+    return resultado;
+  }
 }

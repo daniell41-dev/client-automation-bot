@@ -127,3 +127,40 @@ describe("JsonInventoryRepository — markLowStockAlert (T-22.2)", () => {
     expect(await repo.markLowStockAlert("tienda-b", "harina")).toBe(true);
   });
 });
+
+describe("JsonInventoryRepository — getStock (T-22.3)", () => {
+  let dir: string;
+  let filePath: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "inventory-json-test-"));
+    filePath = join(dir, "inventario.json");
+  });
+
+  afterEach(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("devuelve el stock EN VIVO de todos los productos trackeados del negocio", async () => {
+    const repo = new JsonInventoryRepository(filePath);
+    await repo.setStock("tienda", "harina", 10);
+    await repo.setStock("tienda", "aceite", 5);
+    await repo.decrementCart("tienda", [{ serviceId: "harina", cantidad: 3 }]);
+
+    expect(await repo.getStock("tienda")).toEqual({ harina: 7, aceite: 5 });
+  });
+
+  it("no mezcla el stock de negocios distintos", async () => {
+    const repo = new JsonInventoryRepository(filePath);
+    await repo.setStock("tienda-a", "harina", 10);
+    await repo.setStock("tienda-b", "harina", 2);
+
+    expect(await repo.getStock("tienda-a")).toEqual({ harina: 10 });
+    expect(await repo.getStock("tienda-b")).toEqual({ harina: 2 });
+  });
+
+  it("sin ningún producto trackeado, devuelve un objeto vacío", async () => {
+    const repo = new JsonInventoryRepository(filePath);
+    expect(await repo.getStock("tienda-sin-stock")).toEqual({});
+  });
+});
