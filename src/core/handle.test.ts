@@ -2,10 +2,36 @@ import { describe, expect, it } from "vitest";
 import { handleIncoming } from "@/core/handle";
 import type { BusinessConfig, DiaAtencion, IncomingMessage, Lead } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
+import type { InventoryRepository, StockItem, StockResult } from "@/core/storage/inventory-repository";
 import type { AgentTurnInput, ILLMProvider } from "@/core/ai/provider";
 import type { AgentResponse } from "@/core/ai/agent-schema";
 import { makeFakeCalendar } from "@/core/storage/adapters/google/fake-calendar";
 import { SessionMemoryRepository } from "@/core/storage/adapters/session-memory";
+
+/** Inventario en memoria para tests: mismo algoritmo (validar todo, después descontar todo). */
+class InMemoryInventory implements InventoryRepository {
+  stock = new Map<string, number>();
+  private key(negocio: string, serviceId: string): string {
+    return `${negocio}|${serviceId}`;
+  }
+  async setStock(negocio: string, serviceId: string, stock: number): Promise<void> {
+    this.stock.set(this.key(negocio, serviceId), stock);
+  }
+  async decrementCart(negocio: string, items: StockItem[]): Promise<StockResult> {
+    const faltantes: string[] = [];
+    for (const item of items) {
+      const disponible = this.stock.get(this.key(negocio, item.serviceId));
+      if (disponible !== undefined && disponible < item.cantidad) faltantes.push(item.serviceId);
+    }
+    if (faltantes.length > 0) return { ok: false, faltantes };
+    for (const item of items) {
+      const key = this.key(negocio, item.serviceId);
+      const disponible = this.stock.get(key);
+      if (disponible !== undefined) this.stock.set(key, disponible - item.cantidad);
+    }
+    return { ok: true };
+  }
+}
 
 /** Repositorio en memoria para el test (implementa el contrato). */
 class InMemoryRepo implements LeadRepository {
@@ -343,6 +369,76 @@ describe("handleIncoming — avisa a la dueña con el carrito completo (T-21)", 
     expect(notifier.sent[0].text).not.toContain("Servicio:");
     expect(notifier.sent[0].text).not.toContain("Fecha/hora:");
 
+    expect(repo.leads[0].state).toBe("pagado");
+  });
+});
+
+describe("handleIncoming — valida y descuenta stock al confirmar (T-21, PR4)", () => {
+  async function driveHastaConfirmar(
+    repo: LeadRepository,
+    inventory: InventoryRepository,
+    notifier: ReturnType<typeof fakeNotifier>,
+  ) {
+    await handleIncoming(msg("harina"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg("Laura"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg("2"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg("no, eso es todo"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    return handleIncoming(msg("sí"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+  }
+
+  it("con stock suficiente, confirma y descuenta", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-1", "harina", 10);
+    const notifier = fakeNotifier();
+
+    const { messages } = await driveHastaConfirmar(repo, inventory, notifier);
+
+    expect(repo.leads[0].state).toBe("pagado");
+    expect(repo.leads[0].stage).toBe("datos_completos");
+    expect(messages[0].text).toContain("confirmado");
+    expect(inventory.stock.get("tienda-1|harina")).toBe(8); // 10 - 2
+    expect(notifier.sent).toHaveLength(1); // sí se avisó a la dueña
+  });
+
+  it("sin stock suficiente, REVIERTE la confirmación y avisa qué falta", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-1", "harina", 1); // pide 2, solo hay 1
+    const notifier = fakeNotifier();
+
+    const { messages } = await driveHastaConfirmar(repo, inventory, notifier);
+
+    expect(repo.leads[0].state).not.toBe("pagado");
+    expect(repo.leads[0].stage).toBe("carrito_abierto"); // vuelve al carrito, no queda a medias
+    expect(repo.leads[0].items).toEqual([{ serviceId: "harina", cantidad: 2 }]); // no se pierde el carrito
+    expect(messages[0].text).toContain("Harina 1 Kg");
+    expect(inventory.stock.get("tienda-1|harina")).toBe(1); // NO se descontó nada
+    expect(notifier.sent).toHaveLength(0); // nunca se avisó algo que no se pudo cumplir
+  });
+
+  it("un producto sin stock configurado nunca bloquea la confirmación", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory(); // "harina" nunca se cargó
+    const notifier = fakeNotifier();
+
+    const { messages } = await driveHastaConfirmar(repo, inventory, notifier);
+
+    expect(repo.leads[0].state).toBe("pagado");
+    expect(messages[0].text).toContain("confirmado");
+  });
+
+  it("sin repositorio de inventario (comportamiento de antes del PR4), confirma sin validar nada", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+
+    let r = await handleIncoming(msg("harina"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    r = await handleIncoming(msg("Laura"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    r = await handleIncoming(msg("2"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    r = await handleIncoming(msg("no, eso es todo"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    r = await handleIncoming(msg("sí"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+
+    expect(r.messages[0].text).toContain("confirmado");
     expect(repo.leads[0].state).toBe("pagado");
   });
 });

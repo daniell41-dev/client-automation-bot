@@ -17,6 +17,8 @@ import { invalidateBusinessCache } from "@/businesses/business-cache";
 import { cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
 import { fromRow, toRow } from "@/core/storage/adapters/supabase/leads";
 import type { LeadRow } from "@/core/storage/adapters/supabase/api";
+import { createInventoryRepository } from "@/core/storage/factory";
+import type { Service } from "@/core/types";
 
 export interface ActionState {
   error?: string;
@@ -122,9 +124,38 @@ export async function guardarConfigParcial(
   if (error) return { error: `No se pudo guardar: ${error.message}` };
   if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
 
+  // T-21: si el patch tocó el catálogo, el stock que el dueño haya escrito
+  // ahí se sincroniza a `inventario` (la tabla que descuenta atómicamente al
+  // confirmar un pedido) — ver migración 0010. Es lo que hace que "editar
+  // stock por ítem" sea, sencillamente, el mismo campo que ya existe en el
+  // editor de catálogo desde T-21/PR2, sin una pantalla aparte.
+  if ("services" in patch) {
+    await sincronizarStock(data[0].id, config.services).catch((err) => {
+      // No bloquea el guardado: el catálogo YA se guardó bien. Sin stock
+      // sincronizado, el peor caso es que ese producto quede "sin límite"
+      // hasta el próximo guardado — nunca que el guardado en sí falle.
+      console.error("[inventario] no se pudo sincronizar el stock:", err);
+    });
+  }
+
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`, "layout");
   return { ok: "Guardado. El bot ya responde con estos cambios." };
+}
+
+/**
+ * Sincroniza `service.stock` (lo que el dueño escribió en el catálogo) a la
+ * tabla `inventario`. Solo toca los ítems que declaran `stock` — uno sin ese
+ * campo sigue "sin límite", nunca se crea una fila para él (ver migración
+ * 0010: sin fila = sin control de stock).
+ */
+async function sincronizarStock(negocioId: string, services: Service[]): Promise<void> {
+  const inventory = createInventoryRepository();
+  await Promise.all(
+    services
+      .filter((s) => s.stock !== undefined)
+      .map((s) => inventory.setStock(negocioId, s.id, s.stock!)),
+  );
 }
 
 /** Toggle "Bot activo / Pausa" de la topbar del panel. */

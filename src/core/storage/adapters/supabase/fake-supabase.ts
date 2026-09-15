@@ -20,6 +20,13 @@ interface UsoIaRow {
   fallbacks: number;
 }
 
+/** Fila de `inventario`, espejo de la migración 0010. */
+interface InventarioRow {
+  negocio_id: string;
+  service_id: string;
+  stock: number;
+}
+
 interface FakeSupabaseDb extends SupabaseDb {
   /** Acceso directo a las filas para asserts y seeding en tests. */
   leads: LeadRow[];
@@ -27,6 +34,7 @@ interface FakeSupabaseDb extends SupabaseDb {
   negocios: NegocioRow[];
   mensajesProcesados: Set<string>;
   usoIa: UsoIaRow[];
+  inventario: InventarioRow[];
 }
 
 export function makeFakeSupabaseDb(): FakeSupabaseDb {
@@ -35,6 +43,7 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
   const negocios: NegocioRow[] = [];
   const mensajesProcesados = new Set<string>();
   const usoIa: UsoIaRow[] = [];
+  const inventario: InventarioRow[] = [];
 
   return {
     leads,
@@ -42,6 +51,7 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
     negocios,
     mensajesProcesados,
     usoIa,
+    inventario,
 
     async selectLeadByContact(businessSlug, contact) {
       return (
@@ -122,6 +132,35 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       } else {
         usoIa.push({ negocio_id: entry.negocioId, proveedor: entry.proveedor, ...delta });
       }
+    },
+
+    async setStock(negocioId, serviceId, stock) {
+      const fila = inventario.find(
+        (i) => i.negocio_id === negocioId && i.service_id === serviceId,
+      );
+      if (fila) fila.stock = stock;
+      else inventario.push({ negocio_id: negocioId, service_id: serviceId, stock });
+    },
+
+    async decrementStockCarrito(negocioId, items) {
+      // Mismo algoritmo que la función SQL: primero se valida TODO, después
+      // se descuenta TODO — nunca queda a mitad de camino.
+      const faltantes: string[] = [];
+      for (const item of items) {
+        const fila = inventario.find(
+          (i) => i.negocio_id === negocioId && i.service_id === item.serviceId,
+        );
+        if (fila && fila.stock < item.cantidad) faltantes.push(item.serviceId);
+      }
+      if (faltantes.length > 0) return { ok: false, faltantes };
+
+      for (const item of items) {
+        const fila = inventario.find(
+          (i) => i.negocio_id === negocioId && i.service_id === item.serviceId,
+        );
+        if (fila) fila.stock -= item.cantidad;
+      }
+      return { ok: true };
     },
   };
 }
