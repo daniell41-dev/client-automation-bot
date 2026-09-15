@@ -52,7 +52,8 @@ export interface AgentServiceSummary {
   name: string;
   description: string;
   price: number;
-  durationMinutes: number;
+  /** Opcional desde T-21: los ítems que se venden no tienen duración. */
+  durationMinutes?: number;
   categoria?: string;
 }
 

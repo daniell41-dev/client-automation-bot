@@ -104,7 +104,9 @@ export default async function DemoPage() {
                   {config.services.map((s) => (
                     <tr key={s.id} className="border-t border-line">
                       <td className="px-4 py-3 font-bold text-ink">{s.name}</td>
-                      <td className="px-4 py-3 text-ink-mid">{s.durationMinutes} min</td>
+                      <td className="px-4 py-3 text-ink-mid">
+                        {s.durationMinutes ? `${s.durationMinutes} min` : "—"}
+                      </td>
                       <td className="px-4 py-3 text-ink-mid">
                         {new Intl.NumberFormat(config.locale ?? "es-CO", {
                           style: "currency",

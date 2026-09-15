@@ -8,6 +8,9 @@
 
 import type { CalendarEvent, Lead, Service } from "@/core/types";
 
+/** Respaldo cuando un ítem de cita no trae duración — ver el comentario de abajo. */
+const DURACION_POR_DEFECTO_MINUTOS = 60;
+
 /**
  * @param lead       Lead confirmado (aporta nombre, contacto y fecha en texto libre).
  * @param service    Servicio elegido (aporta nombre y `durationMinutes`).
@@ -21,7 +24,12 @@ export function buildCalendarEvent(
   timezone: string,
 ): CalendarEvent {
   const startMs = new Date(startISO).getTime();
-  const endISO = new Date(startMs + service.durationMinutes * 60_000).toISOString();
+  // T-21: la duración es opcional (un producto no dura nada). Un ítem que
+  // llega hasta acá debería ser de modo cita y traerla, pero si no está se
+  // asume una hora en vez de crear un evento de duración cero, que en el
+  // calendario se ve como un punto y no como un turno.
+  const duracion = service.durationMinutes ?? DURACION_POR_DEFECTO_MINUTOS;
+  const endISO = new Date(startMs + duracion * 60_000).toISOString();
 
   const who = lead.name?.trim() || lead.contact;
   const description = [

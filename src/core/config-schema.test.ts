@@ -179,3 +179,107 @@ describe("personaSchema (exportado para el editor de Configuración)", () => {
     }
   });
 });
+
+describe("parseBusinessConfig — catálogo por rubro (T-21)", () => {
+  /** Config mínima de una tienda: productos sin duración. */
+  function tienda(overrides: Record<string, unknown> = {}) {
+    return {
+      slug: "tienda-test",
+      name: "Tienda",
+      currency: "COP",
+      services: [
+        {
+          id: "harina-pan",
+          name: "Harina 1 Kg",
+          description: "Harina pan tradicional de Venezuela",
+          price: 5000,
+          keywords: ["harina"],
+        },
+      ],
+      messages: {
+        welcome: "h",
+        askName: "n",
+        askDate: "f",
+        askConfirm: "c",
+        serviceInfo: "i",
+        captured: "k",
+        fallback: "x",
+      },
+      followUps: [],
+      ...overrides,
+    };
+  }
+
+  it("acepta un producto SIN duración — antes de T-21 esto tumbaba la plantilla entera", () => {
+    // Este es el caso exacto que dejaba a un rubro de tienda sin poder
+    // guardarse: `durationMinutes` era `positive()`, así que ni faltando ni
+    // en 0 pasaba, y `crearNegocio` respondía "la plantilla es inválida".
+    expect(parseBusinessConfig(tienda())).not.toBeNull();
+  });
+
+  it("sigue rechazando duración 0 cuando el campo viene (0 no es una duración)", () => {
+    const conCero = tienda({
+      services: [{ id: "x", name: "X", description: "", price: 100, durationMinutes: 0 }],
+    });
+    expect(parseBusinessConfig(conCero)).toBeNull();
+  });
+
+  it("un ítem que se reserva SIGUE necesitando duración", () => {
+    const sinDuracion = tienda({
+      services: [{ id: "x", name: "X", description: "", price: 100, reservable: true }],
+    });
+    expect(parseBusinessConfig(sinDuracion)).toBeNull();
+  });
+
+  it("un ítem con modo 'cita' explícito también la necesita", () => {
+    const sinDuracion = tienda({
+      services: [{ id: "x", name: "X", description: "", price: 100, modo: "cita" }],
+    });
+    expect(parseBusinessConfig(sinDuracion)).toBeNull();
+  });
+
+  it("un ítem con modo 'pedido' no la necesita, aunque esté marcado reservable", () => {
+    const producto = tienda({
+      services: [
+        { id: "x", name: "X", description: "", price: 100, modo: "pedido", reservable: true },
+      ],
+    });
+    expect(parseBusinessConfig(producto)).not.toBeNull();
+  });
+
+  it("conserva el bloque `catalogo` — si no estuviera en el schema, Zod lo descartaría en silencio", () => {
+    // La regresión que esto protege es muda: sin la clave declarada, el
+    // bloque se pierde entre la plantilla del rubro y el config del negocio
+    // y el bot vuelve a comportarse como si todo fuera una cita.
+    const conCatalogo = tienda({
+      catalogo: {
+        etiqueta: { singular: "Producto", plural: "Productos" },
+        modoPorDefecto: "pedido",
+        campos: { duracion: false, stock: true, categoria: true },
+      },
+    });
+    const parsed = parseBusinessConfig(conCatalogo);
+    expect(parsed?.catalogo?.modoPorDefecto).toBe("pedido");
+    expect(parsed?.catalogo?.etiqueta?.singular).toBe("Producto");
+    expect(parsed?.catalogo?.campos?.stock).toBe(true);
+  });
+
+  it("acepta stock en un producto y rechaza uno negativo", () => {
+    const conStock = tienda({
+      services: [{ id: "x", name: "X", description: "", price: 100, stock: 12 }],
+    });
+    expect(parseBusinessConfig(conStock)?.services[0].stock).toBe(12);
+
+    const negativo = tienda({
+      services: [{ id: "x", name: "X", description: "", price: 100, stock: -1 }],
+    });
+    expect(parseBusinessConfig(negativo)).toBeNull();
+  });
+
+  it("estética sigue validando igual que antes (no cambió nada para el rubro que ya funciona)", () => {
+    const parsed = parseBusinessConfig(JSON.parse(JSON.stringify(esteticaBella)));
+    expect(parsed).not.toBeNull();
+    expect(parsed?.services.every((s) => s.durationMinutes! > 0)).toBe(true);
+    expect(parsed?.catalogo).toBeUndefined();
+  });
+});

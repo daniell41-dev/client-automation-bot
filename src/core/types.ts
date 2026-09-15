@@ -45,6 +45,15 @@ export interface PersonaConfig {
 /** Umbrales de seguimiento soportados en el MVP. */
 export type FollowUpThreshold = "2h" | "1d" | "3d";
 
+/**
+ * Qué persigue el bot cuando el cliente elige este ítem (T-21).
+ *
+ * El camino es del ÍTEM, no del negocio: un taller mecánico agenda el service
+ * y vende el repuesto en la misma conversación, así que un enum por negocio
+ * no alcanzaría. Ver `core/engine/modo-item.ts`.
+ */
+export type ModoItem = "cita" | "pedido";
+
 /** Un servicio que ofrece el negocio (lo personaliza cada `BusinessConfig`). */
 export interface Service {
   /** Identificador estable (p. ej. "limpieza-facial"). */
@@ -55,8 +64,12 @@ export interface Service {
   description: string;
   /** Precio en la moneda de la config. */
   price: number;
-  /** Duración del servicio en minutos. */
-  durationMinutes: number;
+  /**
+   * Duración en minutos. Opcional desde T-21: una harina no dura nada. Solo
+   * tiene sentido (y es obligatoria) en los ítems de modo "cita", que son los
+   * únicos que ocupan un tramo de agenda y crean un evento de calendario.
+   */
+  durationMinutes?: number;
   /** Palabras clave para detectar el servicio en texto libre del cliente. */
   keywords?: string[];
   /** Categoría visible en el catálogo (p. ej. "Entradas", "Faciales"). */
@@ -65,6 +78,44 @@ export interface Service {
   disponible?: boolean;
   /** Si es `true`, aparece en "Servicios reservables" (citas/turnos). */
   reservable?: boolean;
+  /**
+   * Fuerza el camino de este ítem (T-21). Sin declarar, se deduce de
+   * `reservable` y del rubro — ver `modoDelItem`.
+   */
+  modo?: ModoItem;
+  /**
+   * Unidades disponibles, para los ítems que se venden. Es solo el valor que
+   * el dueño carga a mano en el portal; el descuento por venta vive aparte
+   * (ver el PR de inventario), porque este config se reescribe entero en cada
+   * guardado y dos ventas simultáneas se pisarían.
+   */
+  stock?: number;
+}
+
+/**
+ * Cómo es el catálogo de un rubro (T-21): con qué palabra se nombra un ítem,
+ * qué camino siguen los ítems que no lo declaran, y qué campos tiene sentido
+ * mostrarle al dueño.
+ *
+ * Vive en la plantilla del rubro y se copia al negocio al crearlo. Es lo que
+ * antes se adivinaba con una regex sobre el NOMBRE del rubro
+ * (`components/rubro-visual.tsx`): si el rubro se llamaba "Kiosco" en vez de
+ * "Tienda", el producto terminaba ofreciéndose como turno.
+ *
+ * Todo opcional a propósito: un negocio sin este bloque se comporta igual que
+ * antes de T-21.
+ */
+export interface CatalogoConfig {
+  /** Cómo se llama un ítem en este rubro: "Servicio", "Producto", "Plato", "Repuesto". */
+  etiqueta?: { singular: string; plural: string };
+  /** Camino de los ítems que no declaran `modo` ni `reservable`. Default "cita". */
+  modoPorDefecto?: ModoItem;
+  /** Qué campos del ítem tiene sentido editar en este rubro. */
+  campos?: {
+    duracion?: boolean;
+    stock?: boolean;
+    categoria?: boolean;
+  };
 }
 
 /** Una regla rápida del bot: si el mensaje contiene una keyword, responde exacto. */
@@ -197,6 +248,11 @@ export interface BusinessConfig {
   locale?: string;
   /** Catálogo de servicios. */
   services: Service[];
+  /**
+   * Forma del catálogo de este rubro (T-21): etiquetas, camino por defecto de
+   * los ítems y qué campos mostrar. Sin esto, todo se comporta como antes.
+   */
+  catalogo?: CatalogoConfig;
   /** Plantillas de mensajes. */
   messages: MessageTemplates;
   /** Configuración de seguimientos (2h / 1d / 3d). */
