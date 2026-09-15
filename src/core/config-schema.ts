@@ -118,7 +118,9 @@ const messagesSchema = z.object({
   citaVigente: z.string().optional(),
   askCantidad: z.string().optional(),
   askConfirmPedido: z.string().optional(),
+  esperandoAprobacion: z.string().optional(),
   pedidoConfirmado: z.string().optional(),
+  pedidoRechazado: z.string().optional(),
   pedidoVigente: z.string().optional(),
 });
 

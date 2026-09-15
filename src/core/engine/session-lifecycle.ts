@@ -33,9 +33,14 @@ export function inactivo(lastInboundAt: string, now: Date, ttlMs: number = INACT
  * quedó a medias (todavía no confirmó): retomar "¿para cuándo?" tres semanas
  * después de que el cliente desapareció no tiene sentido. Una cita ya
  * confirmada nunca se resetea acá.
+ *
+ * Un pedido "esperando_aprobacion" (T-21/PR5) tampoco: si la dueña tarda en
+ * responder, la demora es DE ELLA, no del cliente — borrarle el carrito
+ * porque el cliente no volvió a escribir en 24h sería perder un pedido que
+ * seguía en trámite.
  */
 export function reseteablePorInactividad(lead: Lead): boolean {
-  return lead.stage !== "datos_completos";
+  return lead.stage !== "datos_completos" && lead.stage !== "esperando_aprobacion";
 }
 
 /**

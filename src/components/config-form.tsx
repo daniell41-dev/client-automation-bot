@@ -34,7 +34,9 @@ const MESSAGE_LABELS: Record<keyof BusinessConfig["messages"], string> = {
   citaVigente: "Recordatorio de cita vigente (ya confirmó, escribe de nuevo)",
   askCantidad: "Pedir cuánto quiere de un producto",
   askConfirmPedido: "Pedir confirmación del pedido (cierre, después del detalle)",
-  pedidoConfirmado: "Pedido confirmado (mensaje final)",
+  esperandoAprobacion: "Pedido en revisión (mientras la dueña acepta o rechaza)",
+  pedidoConfirmado: "Pedido aceptado por la dueña (mensaje final)",
+  pedidoRechazado: "Pedido rechazado por la dueña",
   pedidoVigente: "Recordatorio de pedido vigente (ya confirmó, escribe de nuevo)",
 };
 
@@ -102,7 +104,9 @@ export function ConfigForm({
   const MENSAJES_SOLO_PEDIDO = new Set<keyof BusinessConfig["messages"]>([
     "askCantidad",
     "askConfirmPedido",
+    "esperandoAprobacion",
     "pedidoConfirmado",
+    "pedidoRechazado",
     "pedidoVigente",
   ]);
 

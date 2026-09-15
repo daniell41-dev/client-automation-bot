@@ -402,3 +402,24 @@ describe("buildAgentSystemPrompt — pedido (T-21)", () => {
     expect(prompt).not.toContain("carrito:");
   });
 });
+
+describe("buildAgentSystemPrompt — esperando aprobación de la dueña (T-21/PR5)", () => {
+  const tiendaInput: AgentTurnInput = {
+    ...baseInput,
+    services: [{ id: "harina", name: "Harina 1 Kg", description: "Harina pan", price: 5000, modo: "pedido" }],
+  };
+
+  it("avisa de forma destacada que el pedido ya se mandó a la dueña", () => {
+    const prompt = buildAgentSystemPrompt({
+      ...tiendaInput,
+      lead: { ...tiendaInput.lead, esperandoAprobacion: true },
+    });
+    expect(prompt).toMatch(/ya se le mandó a la dueña/i);
+    expect(prompt).toMatch(/no vuelvas a pedir/i);
+  });
+
+  it("no dice nada de eso si no está esperando aprobación", () => {
+    const prompt = buildAgentSystemPrompt(tiendaInput);
+    expect(prompt).not.toMatch(/ya se le mandó a la dueña/i);
+  });
+});

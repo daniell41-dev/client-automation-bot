@@ -126,6 +126,16 @@ function buildConfirmadoBlock(input: AgentTurnInput): string {
   return `\n\n⚠️ IMPORTANTE: la cita/pedido de este cliente YA ESTÁ CONFIRMADA con los datos de arriba. NO vuelvas a pedirle el nombre, el servicio, la fecha ni la cantidad, y NO uses la acción "confirmar" otra vez. Si te agradece o se despide, respondé con calidez y cerrá. Si pregunta algo sobre su cita/pedido, respondé con esos datos. Si quiere agendar o pedir algo MÁS, tratalo como una reserva NUEVA: declarás "elegir_servicio" y seguís desde cero con ESE ítem (fecha si se agenda, cantidad si se vende) — el carrito/la fecha de lo ya confirmado no aplica acá.`;
 }
 
+/**
+ * Aviso destacado mientras un pedido espera la respuesta de la dueña (T-21,
+ * PR5). Distinto de `buildConfirmadoBlock` — todavía no hay nada resuelto,
+ * la IA no debe decir "confirmado" ni repetir la acción "confirmar".
+ */
+function buildEsperandoAprobacionBlock(input: AgentTurnInput): string {
+  if (!input.lead.esperandoAprobacion) return "";
+  return `\n\n⚠️ IMPORTANTE: este pedido YA SE LE MANDÓ a la dueña para que lo acepte o lo rechace por WhatsApp — todavía NO está confirmado. NO vuelvas a pedir nombre, producto ni cantidad, y NO uses la acción "confirmar" otra vez (ya se usó). Si el cliente pregunta, decile que está en revisión y que en breve le avisás. No le digas que ya quedó confirmado: eso lo decide la dueña, no vos.`;
+}
+
 function buildOffTopicNote(input: AgentTurnInput): string {
   if (input.lead.offTopicCount <= 0) return "";
   const vez = input.lead.offTopicCount === 1 ? "vez" : "veces";
@@ -170,7 +180,7 @@ Sé breve: máximo 2 o 3 frases, con tono de mensaje de WhatsApp real, no de fol
 Catálogo de servicios (los ÚNICOS que existen — nunca inventes otro, otro precio ni otra duración):
 ${buildCatalogBlock(input)}${buildHorariosBlock(input)}${buildPedidosBlock(input)}${buildKnowledgeBlock(input)}${buildReglasBlock(input)}
 
-Datos que ya tenés de este cliente: ${buildDatosConocidos(input)}.${buildConfirmadoBlock(input)}${buildOffTopicNote(input)}
+Datos que ya tenés de este cliente: ${buildDatosConocidos(input)}.${buildConfirmadoBlock(input)}${buildEsperandoAprobacionBlock(input)}${buildOffTopicNote(input)}
 
 Acciones disponibles (declará las que correspondan a este turno, pueden ser varias si el cliente dio varios datos juntos, o ninguna):
 - "elegir_servicio": el cliente eligió (o cambió) de servicio. Usá el id EXACTO del catálogo de arriba.
@@ -178,7 +188,7 @@ Acciones disponibles (declará las que correspondan a este turno, pueden ser var
 - "guardar_fecha": el cliente dio una fecha/hora real (no una pregunta). Solo para ítems marcados [SE AGENDA] — un ítem [SE VENDE] nunca necesita fecha.
 - "guardar_modalidad": SOLO si este negocio pregunta modalidad de entrega (ver arriba) — usá el texto EXACTO de una de sus opciones.
 - "guardar_cantidad": el cliente dijo cuánto quiere de un ítem [SE VENDE] ("2 harinas", "una nomás"). Usá el id EXACTO del catálogo y la cantidad como número. Si en el mismo pedido pide VARIOS productos distintos, declará una acción "guardar_cantidad" por cada uno.
-- "confirmar": para un ítem [SE AGENDA], SOLO cuando ya tengas nombre + servicio + fecha (+ modalidad, si este negocio la usa). Para un ítem [SE VENDE], SOLO cuando tengas nombre + al menos un producto cargado (ver "carrito" en los datos que ya tenés) y el cliente haya dicho que no quiere agregar nada más. Si falta algo, pedilo en tu respuesta y NO declares esta acción.
+- "confirmar": para un ítem [SE AGENDA], SOLO cuando ya tengas nombre + servicio + fecha (+ modalidad, si este negocio la usa) — tu respuesta puede decir que quedó confirmado/agendado. Para un ítem [SE VENDE], SOLO cuando tengas nombre + al menos un producto cargado (ver "carrito" en los datos que ya tenés) y el cliente haya dicho que no quiere agregar nada más — OJO: un pedido NO queda confirmado al toque, pasa a revisión de la dueña, así que tu respuesta tiene que decir algo como "quedó en revisión, en un momento te confirmo" — nunca "confirmado" ni "listo". Si falta algo, pedilo en tu respuesta y NO declares esta acción.
 - "fuera_de_contexto": el mensaje no tiene NADA que ver con este negocio (política, deportes, chistes, otro tema totalmente ajeno). Respondé breve y amablemente, y redirigí hacia el negocio.
 - "reiniciar": el cliente dice que los datos que tenemos están MAL o quiere empezar de cero ("yo no pedí nada", "ese no es mi nombre", "cambié de idea", "empecemos de nuevo", "cancelá todo"). Borra todo lo capturado. Es tu ÚNICA forma de corregir un dato viejo o equivocado: las demás acciones solo agregan, no borran. Si sospechás que un dato guardado no corresponde a esta conversación, usá esta acción en vez de seguir adelante con él.
 

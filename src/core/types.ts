@@ -29,7 +29,8 @@ export type ConversationStage =
   | "esperando_entrega" // se le preguntó la modalidad (retirar / comer en el local)
   | "esperando_cantidad" // T-21: se le preguntó cuánto quiere de UN producto del carrito
   | "carrito_abierto" // T-21: tiene ≥1 producto cargado, se le preguntó si quiere algo más
-  | "datos_completos"; // ya tenemos lo necesario (cita agendada, o pedido confirmado)
+  | "esperando_aprobacion" // T-21/PR5: el cliente confirmó el pedido, se le avisó a la dueña por WhatsApp y se espera su sí/no
+  | "datos_completos"; // ya tenemos lo necesario (cita agendada, o pedido aceptado por la dueña)
 
 /** Plataforma por la que llega/sale un mensaje. */
 export type Channel = "whatsapp" | "instagram" | "mock";
@@ -242,14 +243,25 @@ export interface MessageTemplates {
    */
   askConfirmPedido?: string;
   /**
-   * T-21: cierre cuando el cliente confirma el pedido (análogo a `captured`,
-   * pero sin fecha/agenda: el motor le antepone el detalle del carrito y el
-   * total, este texto es solo el remate).
+   * T-21/PR5: lo que se le dice al cliente justo después de confirmar el
+   * pedido, mientras se espera que la dueña lo acepte o lo rechace por
+   * WhatsApp — el motor le antepone el detalle del carrito y el total, este
+   * texto es solo el cierre ("quedó en revisión").
+   */
+  esperandoAprobacion?: string;
+  /**
+   * T-21/PR5: cierre cuando la DUEÑA acepta el pedido (análogo a `captured`,
+   * pero sin fecha/agenda). Antes del PR5 este texto se usaba apenas el
+   * cliente decía "sí" — ahora se envía recién cuando la dueña aprueba.
    */
   pedidoConfirmado?: string;
+  /** T-21/PR5: lo que se le dice al cliente cuando la dueña RECHAZA el pedido. Variables: {{nombre}}. */
+  pedidoRechazado?: string;
   /**
    * T-21: recordatorio del pedido vigente, análogo a `citaVigente` pero para
-   * un pedido ya confirmado (sin fecha que mencionar).
+   * un pedido ya confirmado (sin fecha que mencionar). Desde el PR5 es en la
+   * práctica inalcanzable en el camino normal (un pedido "pagado" muere de
+   * una, ver `pedido-lifecycle.ts`) — queda como red de seguridad.
    */
   pedidoVigente?: string;
 }

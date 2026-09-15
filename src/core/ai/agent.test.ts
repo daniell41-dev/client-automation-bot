@@ -615,9 +615,9 @@ describe("runAgentTurn — flujo de pedido en modo agente (T-21)", () => {
     ],
   };
 
-  it("guardar_cantidad + confirmar con nombre y carrito confirma el pedido como 'pagado' (no 'agendado')", async () => {
+  it("guardar_cantidad + confirmar con nombre y carrito deja el pedido 'esperando_aprobacion' (no lo cierra directo)", async () => {
     const llm = fakeAgentLLM({
-      respuesta: "¡Gracias Laura! Tu pedido quedó confirmado.",
+      respuesta: "¡Gracias Laura! Tu pedido quedó en revisión.",
       acciones: [
         { tipo: "elegir_servicio", servicioId: "harina" },
         { tipo: "guardar_nombre", nombre: "Laura" },
@@ -636,9 +636,35 @@ describe("runAgentTurn — flujo de pedido en modo agente (T-21)", () => {
     );
 
     expect(result!.lead.items).toEqual([{ serviceId: "harina", cantidad: 2 }]);
-    expect(result!.lead.stage).toBe("datos_completos");
-    expect(result!.lead.state).toBe("pagado"); // nunca "agendado": un pedido no agenda nada
+    // T-21/PR5: NO pasa a "pagado"/"datos_completos" directo — el estado
+    // sigue "interesado" hasta que la dueña acepte o rechace por WhatsApp
+    // (eso lo maneja `handleOwnerApproval` en `handle.ts`, no `agent.ts`).
+    expect(result!.lead.stage).toBe("esperando_aprobacion");
+    expect(result!.lead.state).toBe("interesado");
     expect(result!.lead.tentativeDate).toBeUndefined();
+  });
+
+  it("una vez esperando_aprobacion, un mensaje nuevo NO re-deriva el stage (sticky)", async () => {
+    const leadEsperandoAprobacion: Lead = {
+      id: "lead-1",
+      businessSlug: "tienda",
+      channel: "mock",
+      contact: "57300000000",
+      name: "Laura",
+      serviceId: "harina",
+      items: [{ serviceId: "harina", cantidad: 2 }],
+      state: "interesado",
+      stage: "esperando_aprobacion",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      lastInboundAt: now.toISOString(),
+      followUpsSent: [],
+    };
+    const llm = fakeAgentLLM({ respuesta: "Sigue en revisión, en un momento te aviso 🙏", acciones: [] });
+    const result = await runAgentTurn(leadEsperandoAprobacion, msg("¿ya está?"), tienda, llm, persona, [], now);
+
+    expect(result!.lead.stage).toBe("esperando_aprobacion");
+    expect(result!.lead.items).toEqual([{ serviceId: "harina", cantidad: 2 }]); // el carrito no se toca
   });
 
   it("acepta varios guardar_cantidad en el mismo turno (carrito con más de un producto)", async () => {
@@ -679,7 +705,9 @@ describe("runAgentTurn — flujo de pedido en modo agente (T-21)", () => {
       ],
     });
     const result = await runAgentTurn(null, msg("una harina, soy Laura"), tienda, llm, persona, [], now);
-    expect(result!.lead.stage).toBe("datos_completos");
+    // Sin `tentativeDate` igual llega a "esperando_aprobacion" — `confirmar`
+    // no se bloqueó por falta de fecha (un pedido nunca la exige).
+    expect(result!.lead.stage).toBe("esperando_aprobacion");
   });
 
   it("ignora guardar_cantidad contra un ítem que no existe en el catálogo", async () => {

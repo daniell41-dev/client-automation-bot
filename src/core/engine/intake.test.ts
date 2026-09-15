@@ -4,6 +4,7 @@ import {
   isAffirmative,
   isGreeting,
   isMenuRequest,
+  isNegative,
   isResetRequest,
   looksLikeDate,
   looksLikeDone,
@@ -398,5 +399,18 @@ describe("looksLikeDone (T-21)", () => {
   it("no confunde el nombre de un producto o una respuesta normal con 'terminé'", () => {
     expect(looksLikeDone("una harina más")).toBe(false);
     expect(looksLikeDone("Carlos")).toBe(false);
+  });
+});
+
+describe("isNegative (T-21/PR5)", () => {
+  it("reconoce un rechazo explícito", () => {
+    expect(isNegative("no")).toBe(true);
+    expect(isNegative("rechazo")).toBe(true);
+    expect(isNegative("cancelalo")).toBe(true);
+  });
+
+  it("no confunde una respuesta normal con un rechazo", () => {
+    expect(isNegative("Carlos")).toBe(false);
+    expect(isNegative("sí")).toBe(false);
   });
 });

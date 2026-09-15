@@ -76,6 +76,13 @@ export interface AgentLeadState {
    * algo que ya estaba cerrado.
    */
   yaConfirmado: boolean;
+  /**
+   * T-21/PR5: el cliente ya confirmó el pedido y se está esperando el sí/no
+   * de la dueña por WhatsApp. Distinto de `yaConfirmado` — todavía no hay
+   * nada resuelto. Opcional (default `false`) para no romper fixtures/tests
+   * de antes del PR5 que arman este objeto a mano.
+   */
+  esperandoAprobacion?: boolean;
   /** Cuántas veces seguidas se salió del tema en esta conversación. */
   offTopicCount: number;
   /**

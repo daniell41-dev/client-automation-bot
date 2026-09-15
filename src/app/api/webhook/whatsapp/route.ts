@@ -29,7 +29,7 @@ import {
   createSessionRepository,
 } from "@/core/storage/factory";
 import { createLLMProvider } from "@/core/ai/factory";
-import { handleIncoming } from "@/core/handle";
+import { handleIncoming, handleOwnerApproval } from "@/core/handle";
 import type { IncomingMessage } from "@/core/types";
 
 // Necesitamos el runtime de Node (módulo crypto para la firma HMAC).
@@ -153,6 +153,29 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
       const channel = accessToken
         ? new WhatsAppChannel({ phoneNumberId: parsed.phoneNumberId, accessToken })
         : undefined;
+
+      // T-21/PR5: si quien escribe es la dueña (el número que carga en
+      // "Configuración → Aviso por WhatsApp"), el mensaje NUNCA entra al
+      // funnel de cliente — es su sí/no a un pedido pendiente.
+      if (business.notifyPhoneNumber && parsed.from === business.notifyPhoneNumber) {
+        const ownerMessage: IncomingMessage = {
+          channel: "whatsapp",
+          businessSlug: business.slug,
+          from: parsed.from,
+          text: parsed.text,
+          timestamp: parsed.timestamp,
+        };
+        const { ownerReply, customerReply } = await handleOwnerApproval(
+          ownerMessage,
+          business,
+          repo,
+        );
+        if (channel) {
+          await channel.send(ownerReply);
+          if (customerReply) await channel.send(customerReply);
+        }
+        continue;
+      }
 
       const message: IncomingMessage = {
         channel: "whatsapp",
