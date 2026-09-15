@@ -180,5 +180,11 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       fila.alertado_en = hoy;
       return true;
     },
+
+    async listStock(negocioId) {
+      return inventario
+        .filter((i) => i.negocio_id === negocioId)
+        .map((i) => ({ serviceId: i.service_id, stock: i.stock }));
+    },
   };
 }

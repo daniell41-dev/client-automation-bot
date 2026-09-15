@@ -5,6 +5,7 @@
 import { notFound } from "next/navigation";
 import { createUserClient } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
+import { createInventoryRepository } from "@/core/storage/factory";
 import { CatalogoEditor } from "./catalogo-editor";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export default async function CatalogoPage({
 
   const { data: negocio } = await supabase
     .from("negocios")
-    .select("config, rubros(nombre)")
+    .select("id, config, rubros(nombre)")
     .eq("slug", slug)
     .maybeSingle();
   if (!negocio) notFound();
@@ -29,12 +30,21 @@ export default async function CatalogoPage({
   const rubro =
     (negocio.rubros as unknown as { nombre: string } | null)?.nombre ?? "";
 
+  // T-22.3: el stock que ve el dueño acá es el EN VIVO (lo que ya descontaron
+  // las ventas), no el número viejo guardado en `negocios.config` — sin esto,
+  // abrir el catálogo y guardar sin tocar el stock lo pisaría de vuelta al
+  // valor de antes de vender.
+  const stockEnVivo = negocio.id ? await createInventoryRepository().getStock(negocio.id) : {};
+  const services = config.services.map((s) =>
+    s.id in stockEnVivo ? { ...s, stock: stockEnVivo[s.id] } : s,
+  );
+
   return (
     <CatalogoEditor
       slug={slug}
       rubro={rubro}
       catalogo={config.catalogo}
-      initialServices={config.services}
+      initialServices={services}
       currency={config.currency}
       locale={config.locale ?? "es-CO"}
       botName={config.personas?.whatsapp?.name ?? "Asistente"}

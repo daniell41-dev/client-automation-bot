@@ -123,6 +123,8 @@ export interface SupabaseDb {
    * marcado.
    */
   markLowStockAlert(negocioId: string, serviceId: string): Promise<boolean>;
+  /** Stock EN VIVO de todos los productos trackeados de un negocio (T-22.3). */
+  listStock(negocioId: string): Promise<{ serviceId: string; stock: number }[]>;
 }
 
 /** Implementación real sobre supabase-js. */
@@ -278,6 +280,15 @@ class RealSupabaseDb implements SupabaseDb {
     });
     if (error) throw error;
     return data === true;
+  }
+
+  async listStock(negocioId: string): Promise<{ serviceId: string; stock: number }[]> {
+    const { data, error } = await this.client
+      .from("inventario")
+      .select("service_id, stock")
+      .eq("negocio_id", negocioId);
+    if (error) throw error;
+    return (data ?? []).map((r) => ({ serviceId: r.service_id as string, stock: r.stock as number }));
   }
 }
 
