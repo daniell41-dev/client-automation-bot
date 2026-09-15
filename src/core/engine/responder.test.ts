@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { interpretableOptions, respond } from "@/core/engine/responder";
-import type { BusinessConfig, IncomingMessage } from "@/core/types";
+import type { BusinessConfig, IncomingMessage, Lead } from "@/core/types";
 
 const config: BusinessConfig = {
   slug: "test",
@@ -683,7 +683,7 @@ describe("respond — flujo de pedido (T-21)", () => {
     ],
   };
 
-  it("recorrido completo: dos productos distintos, total correcto, y pasa a 'pagado' al confirmar", () => {
+  it("recorrido completo: dos productos distintos, total correcto, y queda en revisión al confirmar", () => {
     let r = respond(null, msg("harina"), tienda, now);
     expect(r.lead.stage).toBe("esperando_nombre");
     expect(r.messages[0].text).toContain("Harina 1 Kg");
@@ -719,12 +719,28 @@ describe("respond — flujo de pedido (T-21)", () => {
     expect(r.messages[0].text).toContain("Total");
     expect(r.messages[0].options).toEqual(["Sí, confirmar", "Agregar más"]);
 
+    // T-21/PR5: confirmar el pedido NO lo cierra directo — queda en revisión
+    // hasta que la dueña responda por WhatsApp (eso es `handleOwnerApproval`
+    // en `handle.ts`, fuera del motor puro).
     r = respond(r.lead, msg("sí"), tienda, now);
-    expect(r.lead.state).toBe("pagado");
-    expect(r.lead.stage).toBe("datos_completos");
+    expect(r.lead.state).toBe("interesado"); // todavía NO "pagado"
+    expect(r.lead.stage).toBe("esperando_aprobacion");
     expect(r.messages[0].text).toContain("Total");
     expect(r.messages[0].text).toContain("Laura");
-    expect(r.messages[0].text).toContain("confirmado");
+    expect(r.messages[0].text).toContain("revisión");
+  });
+
+  it("mientras espera la aprobación de la dueña, cualquier mensaje repite que sigue en revisión", () => {
+    let r = respond(null, msg("harina"), tienda, now);
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    r = respond(r.lead, msg("2"), tienda, now);
+    r = respond(r.lead, msg("no, eso es todo"), tienda, now);
+    r = respond(r.lead, msg("sí"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_aprobacion");
+
+    const { lead, messages } = respond(r.lead, msg("hola, ¿cómo va?"), tienda, now);
+    expect(lead.stage).toBe("esperando_aprobacion"); // no se mueve
+    expect(messages[0].text).toContain("revisión");
   });
 
   it("no confirmar el pedido vuelve al carrito en vez de pedir una fecha", () => {
@@ -749,29 +765,39 @@ describe("respond — flujo de pedido (T-21)", () => {
     expect(r.unrecognized).toBe(true);
   });
 
-  it("recordatorio de pedido vigente tras confirmar: usa pedidoVigente, no citaVigente", () => {
+  /**
+   * T-21/PR5: `respond()` (motor puro) ya NO es quien confirma un pedido —
+   * eso lo hace `handleOwnerApproval` en `handle.ts` cuando la dueña acepta.
+   * Estos dos tests siguen viviendo acá porque el bloque `datos_completos`
+   * de `respond()` sigue siendo la RED de seguridad si por algún motivo un
+   * pedido llega a `datos_completos`/"pagado" sin pasar por `handle.ts`
+   * (`cerrarPedidoFinalizado` debería interceptarlo antes, pero el motor no
+   * depende de eso) — por eso el lead post-aprobación se arma a mano, no
+   * recorriendo `respond()` de punta a punta.
+   */
+  function leadPedidoConfirmado(): Lead {
     let r = respond(null, msg("harina"), tienda, now);
     r = respond(r.lead, msg("Laura"), tienda, now);
     r = respond(r.lead, msg("2"), tienda, now);
     r = respond(r.lead, msg("no"), tienda, now);
     r = respond(r.lead, msg("sí"), tienda, now);
-    expect(r.lead.stage).toBe("datos_completos");
+    expect(r.lead.stage).toBe("esperando_aprobacion");
+    return { ...r.lead, state: "pagado", stage: "datos_completos", confirmedAt: now.toISOString() };
+  }
 
-    const { lead, messages } = respond(r.lead, msg("gracias!"), tienda, now);
+  it("recordatorio de pedido vigente tras confirmar: usa pedidoVigente, no citaVigente", () => {
+    const confirmado = leadPedidoConfirmado();
+
+    const { lead, messages } = respond(confirmado, msg("gracias!"), tienda, now);
     expect(lead.stage).toBe("datos_completos");
     expect(messages[0].text).toContain("pedido confirmado");
     expect(messages[0].text).not.toMatch(/agendado|turno|cita/i);
   });
 
   it("pedir de nuevo tras un pedido confirmado arranca un pedido NUEVO (limpia el carrito viejo)", () => {
-    let r = respond(null, msg("harina"), tienda, now);
-    r = respond(r.lead, msg("Laura"), tienda, now);
-    r = respond(r.lead, msg("2"), tienda, now);
-    r = respond(r.lead, msg("no"), tienda, now);
-    r = respond(r.lead, msg("sí"), tienda, now);
-    expect(r.lead.stage).toBe("datos_completos");
+    const confirmado = leadPedidoConfirmado();
 
-    const { lead } = respond(r.lead, msg("aceite"), tienda, now);
+    const { lead } = respond(confirmado, msg("aceite"), tienda, now);
     expect(lead.serviceId).toBe("aceite");
     expect(lead.items).toBeUndefined(); // el carrito viejo (2 harinas, ya pagado) no se arrastra
     expect(lead.stage).toBe("esperando_cantidad");

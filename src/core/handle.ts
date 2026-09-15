@@ -32,9 +32,14 @@ import { runAgentTurn } from "@/core/ai/agent";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
 import { validarCita } from "@/core/engine/horarios";
 import { citaCumplida, cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
+import { pedidoFinalizado, cerrarPedidoFinalizado } from "@/core/engine/pedido-lifecycle";
 import { inactivo, limpiarDatosCapturados, reseteablePorInactividad } from "@/core/engine/session-lifecycle";
 import { resumenCarrito } from "@/core/engine/flows/pedido";
+import { interpretarRespuestaDueña } from "@/core/engine/approval";
+import { transition } from "@/core/engine/lead-state";
+import { DEFAULT_PEDIDO_CONFIRMADO, DEFAULT_PEDIDO_RECHAZADO } from "@/core/engine/responder";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
+import { render } from "@/core/engine/templating";
 
 /**
  * Lo mínimo que necesita `handleIncoming` para avisarle a la dueña por
@@ -84,6 +89,15 @@ export async function handleIncoming(
     existing !== null && citaCumplida(existing, now, config.timezone ?? DEFAULT_TIMEZONE);
   if (existing && seCerroPorCumplida) {
     existing = cerrarCitaCumplida(existing, now);
+  }
+
+  // T-21/PR5: un pedido YA ACEPTADO por la dueña muere de una — a diferencia
+  // de una cita, no hay "cuándo se entregó" que esperar (ver
+  // `pedido-lifecycle.ts`). El próximo mensaje del cliente arranca de cero,
+  // nunca ve el recordatorio de "pedido vigente".
+  const seCerroPedido = existing !== null && pedidoFinalizado(existing);
+  if (existing && seCerroPedido) {
+    existing = cerrarPedidoFinalizado(existing, now);
   }
 
   // T-20: reinicio por inactividad (24h). Dos cosas separadas (ver
@@ -198,13 +212,32 @@ export async function handleIncoming(
   const justConfirmed =
     existing?.stage !== "datos_completos" && lead.stage === "datos_completos";
   if (justConfirmed) {
-    // T-21: un pedido se valida/descuenta ANTES de darlo por confirmado — si
-    // no alcanza el stock, se REVIERTE la confirmación que ya aplicó el
-    // motor (determinista o agente) y se le explica al cliente qué falta, en
-    // vez de agendar/avisar a la dueña algo que no se puede cumplir.
+    // T-20: siempre, incluso sin `calendar`/`llm` (un negocio sin IA nunca va
+    // a tener `appointmentAt`, pero necesita `confirmedAt` para que el cierre
+    // automático de la cita — que a falta de fecha exacta se basa en "hace
+    // cuántos días se confirmó" — funcione igual). Un pedido NUNCA llega acá
+    // directo desde T-21/PR5 (pasa primero por `esperando_aprobacion`, ver
+    // abajo) — este bloque queda tal cual estaba para la cita.
+    lead.confirmedAt = now.toISOString();
+    if (calendar && llm) {
+      await scheduleConfirmedAppointment(lead, config, now, llm, calendar);
+    }
+    if (notifier && config.notifyPhoneNumber) {
+      await notifyOwner(lead, config, notifier);
+    }
+  }
+
+  // T-21/PR5: el cliente acaba de confirmar un PEDIDO — antes de avisarle a
+  // la dueña, se valida/descuenta el stock (mismo criterio que el PR4, mudado
+  // acá: ahora el "confirmado" real es que la dueña acepte, no que el
+  // cliente diga "sí"). Si no alcanza, se REVIERTE lo que ya aplicó el motor
+  // (determinista o agente) — nunca se le pide a la dueña que apruebe algo
+  // que no se puede cumplir.
+  const justRequestedApproval =
+    existing?.stage !== "esperando_aprobacion" && lead.stage === "esperando_aprobacion";
+  if (justRequestedApproval) {
     let stockOk = true;
-    const esPedidoConfirmado = (lead.items?.length ?? 0) > 0;
-    if (esPedidoConfirmado && inventory) {
+    if (inventory) {
       const resultado = await inventory.decrementCart(
         negocioParaStock ?? config.slug,
         lead.items!.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
@@ -228,18 +261,8 @@ export async function handleIncoming(
       }
     }
 
-    if (stockOk) {
-      // T-20: siempre, incluso sin `calendar`/`llm` (un negocio sin IA nunca va
-      // a tener `appointmentAt`, pero necesita `confirmedAt` para que el cierre
-      // automático de la cita — que a falta de fecha exacta se basa en "hace
-      // cuántos días se confirmó" — funcione igual).
-      lead.confirmedAt = now.toISOString();
-      if (calendar && llm) {
-        await scheduleConfirmedAppointment(lead, config, now, llm, calendar);
-      }
-      if (notifier && config.notifyPhoneNumber) {
-        await notifyOwner(lead, config, notifier);
-      }
+    if (stockOk && notifier && config.notifyPhoneNumber) {
+      await notifyOwner(lead, config, notifier, { pidiendoAprobacion: true });
     }
   }
 
@@ -369,13 +392,18 @@ async function notifyOwner(
   lead: Lead,
   config: BusinessConfig,
   notifier: OwnerNotifier,
+  opciones: { pidiendoAprobacion?: boolean } = {},
 ): Promise<void> {
   const service = config.services.find((s) => s.id === lead.serviceId);
   // T-21: un carrito (varios productos posibles) se resume aparte — no tiene
   // sentido reducirlo a "Servicio: <un nombre>" como una cita.
   const esPedido = (lead.items?.length ?? 0) > 0;
   const lines = [
-    `🔔 ${config.name}: confirmación nueva`,
+    // T-21/PR5: un pedido todavía no está "confirmado" en este punto — recién
+    // lo está cuando la dueña responde. El título no debe prometer de más.
+    opciones.pidiendoAprobacion
+      ? `🔔 ${config.name}: pedido nuevo, esperando tu aprobación`
+      : `🔔 ${config.name}: confirmación nueva`,
     `Cliente: ${lead.name ?? lead.contact}`,
     esPedido ? resumenCarrito(lead.items!, config.services, config) : null,
     !esPedido && service
@@ -383,6 +411,9 @@ async function notifyOwner(
       : null,
     lead.entrega ? `Modalidad: ${lead.entrega}` : null,
     !esPedido && lead.tentativeDate ? `Fecha/hora: ${lead.tentativeDate}` : null,
+    // T-21/PR5: instrucción explícita — es lo que el webhook interpreta como
+    // la respuesta de la dueña a ESTE pedido (ver `handleOwnerApproval`).
+    opciones.pidiendoAprobacion ? "Respondé SÍ para aceptarlo o NO para rechazarlo." : null,
   ].filter((line): line is string => Boolean(line));
 
   try {
@@ -390,4 +421,81 @@ async function notifyOwner(
   } catch (err) {
     console.error("[Notify] no se pudo avisar a la dueña por WhatsApp:", err);
   }
+}
+
+/** Resultado de procesar la respuesta de la dueña a un aviso de pedido (T-21/PR5). */
+export interface OwnerApprovalResult {
+  /** Mensaje de vuelta a la dueña (acuse de qué se hizo con su respuesta). */
+  ownerReply: OutgoingMessage;
+  /** Mensaje al CLIENTE con el resultado. Ausente si no había nada pendiente o no se entendió la respuesta de la dueña. */
+  customerReply?: OutgoingMessage;
+}
+
+/**
+ * Procesa la respuesta de la dueña (SÍ/NO) a un pedido pendiente de
+ * aprobación (T-21/PR5). El webhook la llama en vez de `handleIncoming`
+ * cuando reconoce que el remitente es `config.notifyPhoneNumber` — nunca se
+ * mezcla con el funnel de cliente.
+ *
+ * Con más de un pedido esperando aprobación a la vez, resuelve el MÁS VIEJO
+ * (FIFO): todavía no hay forma de que la dueña elija explícitamente CUÁL
+ * desde WhatsApp (ver "Qué NO cubre" del PR).
+ */
+export async function handleOwnerApproval(
+  message: IncomingMessage,
+  config: BusinessConfig,
+  repo: LeadRepository,
+  now: Date = new Date(),
+): Promise<OwnerApprovalResult> {
+  const decision = interpretarRespuestaDueña(message.text);
+  if (!decision) {
+    return {
+      ownerReply: { to: message.from, text: "No te entendí — respondé SÍ o NO al pedido pendiente 🙏" },
+    };
+  }
+
+  const pendientes = (await repo.list(config.slug)).filter(
+    (l) => l.stage === "esperando_aprobacion",
+  );
+  if (pendientes.length === 0) {
+    return {
+      ownerReply: { to: message.from, text: "No hay ningún pedido pendiente de aprobación ahora mismo." },
+    };
+  }
+  // FIFO: el que espera hace más tiempo tiene prioridad.
+  pendientes.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
+  const lead = pendientes[0];
+  const resumen = resumenCarrito(lead.items ?? [], config.services, config);
+  const nombreVars = { nombre: lead.name ?? "" };
+
+  if (decision === "aceptado") {
+    lead.state = transition(lead.state, "pagado");
+    lead.stage = "datos_completos";
+    lead.confirmedAt = now.toISOString();
+    await repo.save(lead);
+    return {
+      ownerReply: { to: message.from, text: `Listo, confirmado el pedido de ${lead.name ?? lead.contact} ✅` },
+      customerReply: {
+        to: lead.contact,
+        text: [resumen, render(config.messages.pedidoConfirmado ?? DEFAULT_PEDIDO_CONFIRMADO, nombreVars)]
+          .filter(Boolean)
+          .join("\n\n"),
+      },
+    };
+  }
+
+  // Rechazado: mismo criterio que "reiniciar" — se limpia lo de ESTE pedido,
+  // no toda la identidad del lead (mismo `id`/`contact`).
+  lead.state = transition(lead.state, "perdido");
+  lead.stage = "inicio";
+  lead.serviceId = undefined;
+  lead.items = undefined;
+  await repo.save(lead);
+  return {
+    ownerReply: { to: message.from, text: `Marcado como rechazado el pedido de ${lead.name ?? lead.contact}.` },
+    customerReply: {
+      to: lead.contact,
+      text: render(config.messages.pedidoRechazado ?? DEFAULT_PEDIDO_RECHAZADO, nombreVars),
+    },
+  };
 }

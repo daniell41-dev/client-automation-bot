@@ -472,6 +472,32 @@ export function looksLikeDone(text: string): boolean {
 }
 
 /**
+ * ¿Es un rechazo explícito? Se usa para que la DUEÑA responda "no"/"rechazo"
+ * a un aviso de pedido pendiente (T-21/PR5) — a diferencia de `isAffirmative`
+ * (que interpreta cualquier cosa que no sea un "sí" como negativa dentro del
+ * funnel de CLIENTE), acá el "no reconocido" tiene que quedar como `null`
+ * explícito (ver `interpretarRespuestaDueña`): un mensaje ambiguo de la
+ * dueña no debe rechazar un pedido por accidente.
+ */
+const NEGATIVE_WORDS = [
+  "no",
+  "nel",
+  "rechazo",
+  "rechazar",
+  "rechazado",
+  "no acepto",
+  "cancelalo",
+  "cancelar ese",
+];
+
+export function isNegative(text: string): boolean {
+  const n = normalizeMessage(text);
+  if (!n) return false;
+  const words = n.split(/\s+/).filter(Boolean);
+  return hasAny(NEGATIVE_WORDS, n, words);
+}
+
+/**
  * Frases de relleno al INICIO de una fecha ("Puede ser hoy", "Creo que el
  * viernes"). Ya están "dobladas" (sin tildes): se comparan contra una copia
  * doblada del texto, pero el recorte se aplica sobre el texto ORIGINAL (con

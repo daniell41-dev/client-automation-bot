@@ -71,8 +71,22 @@ const DEFAULT_CITA_VIGENTE =
  */
 const DEFAULT_ASK_CANTIDAD = "¿Cuántas unidades de {{servicio}} querés, {{nombre}}?";
 const DEFAULT_ASK_CONFIRM_PEDIDO = "¿Confirmás tu pedido?";
-const DEFAULT_PEDIDO_CONFIRMADO =
+/**
+ * T-21/PR5: entre que el cliente confirma y la dueña acepta/rechaza por
+ * WhatsApp, el pedido queda "en revisión" — ya no se confirma directo, ver
+ * el bloque `esperando_confirmacion`.
+ */
+const DEFAULT_ESPERANDO_APROBACION =
+  "¡Gracias {{nombre}}! Tu pedido quedó en revisión, en un momento te confirmamos 🙏";
+/**
+ * Exportado (T-21/PR5): `handle.ts` lo usa para el mensaje al cliente cuando
+ * la DUEÑA acepta — ya no se envía desde acá (ver el bloque `esperando_confirmacion`).
+ */
+export const DEFAULT_PEDIDO_CONFIRMADO =
   "¡Gracias {{nombre}}! Tu pedido quedó confirmado. En breve te contactamos para coordinar la entrega.";
+/** Exportado (T-21/PR5): `handle.ts` lo usa cuando la dueña rechaza el pedido. */
+export const DEFAULT_PEDIDO_RECHAZADO =
+  "Uy {{nombre}}, no pudimos confirmar tu pedido esta vez. Cualquier cosa contame y vemos qué opciones hay 🙏";
 const DEFAULT_PEDIDO_VIGENTE =
   "¡Hola {{nombre}}! Ya tenés un pedido confirmado con nosotros. Si querés hacer un pedido nuevo o tenés otra consulta, contame 🙂";
 
@@ -407,14 +421,16 @@ export function respond(
 
     if (isAffirmative(message.text)) {
       if (esPedido) {
-        // "pagado" directo desde "interesado": un pedido no pasa por
-        // "agendado", no hay nada que agendar en una venta (ver `lead-state.ts`).
-        lead.state = transition(lead.state, "pagado");
-        lead.stage = "datos_completos";
+        // T-21/PR5: NO pasa a "pagado" todavía — queda en revisión hasta que
+        // la dueña acepte o rechace por WhatsApp (ver `handle.ts`, que es
+        // quien descuenta el stock y le manda el aviso en este mismo punto).
+        // El estado sigue "interesado": recién se mueve a "pagado"/"perdido"
+        // cuando la dueña responde.
+        lead.stage = "esperando_aprobacion";
         reply(
           joinParts(
             resumenPedido,
-            render(config.messages.pedidoConfirmado ?? DEFAULT_PEDIDO_CONFIRMADO, leadVars(lead, config)),
+            render(config.messages.esperandoAprobacion ?? DEFAULT_ESPERANDO_APROBACION, leadVars(lead, config)),
           ),
         );
         return { lead, messages };
@@ -448,11 +464,20 @@ export function respond(
     return { lead, messages };
   }
 
-  // 1c) Ya se confirmó una cita (o un pedido) y no hay ningún dato pendiente
-  // que capturar. Bloque propio ANTES de la selección de servicio (2) y del
-  // saludo (4): sin esto, un "Hola" caía en el saludo genérico y bajaba el
-  // stage a "menu_enviado" perdiendo la cita/pedido ya hecho; y elegir OTRO
-  // ítem arrastraba la fecha/modalidad/carrito anterior porque
+  // 1b-bis) Pedido en revisión (T-21/PR5): ya se avisó a la dueña por
+  // WhatsApp y se espera su sí/no — no hay nada que el cliente pueda hacer
+  // acá salvo esperar (o "cancelar", que ya se maneja arriba de todo el
+  // funnel). Siempre la misma respuesta, sin importar qué escriba.
+  if (lead.stage === "esperando_aprobacion") {
+    reply(render(config.messages.esperandoAprobacion ?? DEFAULT_ESPERANDO_APROBACION, leadVars(lead, config)));
+    return { lead, messages };
+  }
+
+  // 1c) Ya se confirmó una cita (o se aceptó un pedido) y no hay ningún dato
+  // pendiente que capturar. Bloque propio ANTES de la selección de servicio
+  // (2) y del saludo (4): sin esto, un "Hola" caía en el saludo genérico y
+  // bajaba el stage a "menu_enviado" perdiendo la cita/pedido ya hecho; y
+  // elegir OTRO ítem arrastraba la fecha/modalidad/carrito anterior porque
   // `nextAfterName` las encontraba ya cargadas y saltaba directo a confirmar
   // con ellas.
   if (lead.stage === "datos_completos") {

@@ -101,6 +101,9 @@ function buildAgentInput(
       tentativeDate: lead.tentativeDate,
       entrega: lead.entrega,
       yaConfirmado: lead.stage === "datos_completos",
+      // T-21/PR5: distinto de `yaConfirmado` — todavía no hay nada resuelto,
+      // solo se está esperando el sí/no de la dueña.
+      esperandoAprobacion: lead.stage === "esperando_aprobacion",
       offTopicCount: lead.offTopicCount ?? 0,
       // T-21: se resuelve el nombre acá (no en el prompt) para que la IA no
       // tenga que cruzar `servicioId` contra el catálogo ella misma.
@@ -142,6 +145,11 @@ export async function runAgentTurn(
   if (pidioReinicioExplicito) limpiarDatosCapturados(lead);
 
   let wasAlreadyConfirmed = !pidioReinicioExplicito && existing?.stage === "datos_completos";
+  // T-21/PR5: un pedido ya confirmado por el CLIENTE pero todavía esperando
+  // el sí/no de la dueña es sticky igual que `wasAlreadyConfirmed` — sin
+  // esto, el siguiente mensaje del cliente re-derivaba el stage y lo hacía
+  // volver a "carrito_abierto" como si nunca hubiera confirmado nada.
+  let wasAwaitingApproval = !pidioReinicioExplicito && existing?.stage === "esperando_aprobacion";
   const offTopicCountBefore = lead.offTopicCount ?? 0;
 
   const input = buildAgentInput(lead, config, persona, history, message.text, now);
@@ -169,6 +177,7 @@ export async function runAgentTurn(
   if (aiResult.acciones.some((a) => a.tipo === "reiniciar")) {
     limpiarDatosCapturados(lead);
     wasAlreadyConfirmed = false;
+    wasAwaitingApproval = false;
   }
 
   let sawOffTopic = false;
@@ -262,22 +271,34 @@ export async function runAgentTurn(
       !!lead.tentativeDate &&
       (!config.pedidos?.enabled || !!lead.entrega);
 
-  if (confirmarPedido && listoParaConfirmar && !wasAlreadyConfirmed) {
-    // "pagado" directo desde "interesado" para un pedido: no hay nada que
-    // agendar en una venta (mismo criterio que `responder.ts`/`lead-state.ts`).
-    lead.state = transition(lead.state, esPedido ? "pagado" : "agendado");
-    lead.stage = "datos_completos";
+  if (confirmarPedido && listoParaConfirmar && !wasAlreadyConfirmed && !wasAwaitingApproval) {
+    if (esPedido) {
+      // T-21/PR5: NO pasa a "pagado" todavía — el estado sigue "interesado"
+      // hasta que la dueña acepte o rechace (`handle.ts` es quien descuenta
+      // el stock y le manda el aviso justo en esta transición).
+      lead.stage = "esperando_aprobacion";
+    } else {
+      lead.state = transition(lead.state, "agendado");
+      lead.stage = "datos_completos";
+    }
   } else if (wasAlreadyConfirmed && !hadNewServiceSelection) {
     lead.stage = "datos_completos"; // sticky: ya se confirmó, no se re-deriva
+  } else if (wasAwaitingApproval) {
+    // T-21/PR5: sticky SIN excepción — mientras se espera la respuesta de la
+    // dueña, ni un "sí" ni mencionar otro producto cambian nada (mismo
+    // criterio que el bloque `esperando_aprobacion` del motor determinista).
+    lead.stage = "esperando_aprobacion";
   } else {
     lead.stage = deriveStage(lead, config);
   }
 
   let respuestaFinal = aiResult.respuesta;
 
-  // El conteo de "fuera de tema" no aplica una vez que ya se confirmó: una
-  // charla informal DESPUÉS de agendar no debe borrar una cita ya hecha.
-  if (lead.stage !== "datos_completos") {
+  // El conteo de "fuera de tema" no aplica una vez que ya se confirmó (ni
+  // mientras se espera la respuesta de la dueña, T-21/PR5): una charla
+  // informal después de agendar/pedir no debe borrar una cita o un pedido ya
+  // en trámite.
+  if (lead.stage !== "datos_completos" && lead.stage !== "esperando_aprobacion") {
     if (sawOffTopic) {
       const nuevoCount = offTopicCountBefore + 1;
       if (nuevoCount >= OFF_TOPIC_LIMIT) {
