@@ -6,12 +6,14 @@ import {
   isMenuRequest,
   isResetRequest,
   looksLikeDate,
+  looksLikeDone,
   matchEntrega,
   matchRule,
   matchService,
   normalize,
   normalizeDateText,
   normalizeMessage,
+  parseCantidad,
 } from "@/core/engine/intake";
 import type { Service } from "@/core/types";
 
@@ -354,5 +356,47 @@ describe("isResetRequest", () => {
   it("no confunde una respuesta normal con un pedido de reinicio", () => {
     expect(isResetRequest("Carlos")).toBe(false);
     expect(isResetRequest("el viernes")).toBe(false);
+  });
+});
+
+describe("parseCantidad (T-21)", () => {
+  it("reconoce un dígito suelto o acompañado", () => {
+    expect(parseCantidad("2")).toBe(2);
+    expect(parseCantidad("dame 3")).toBe(3);
+    expect(parseCantidad("quiero 12 unidades")).toBe(12);
+  });
+
+  it("reconoce las palabras número de uso común", () => {
+    expect(parseCantidad("una")).toBe(1);
+    expect(parseCantidad("quiero dos")).toBe(2);
+    expect(parseCantidad("cinco por favor")).toBe(5);
+  });
+
+  it("prioriza el dígito sobre la palabra si aparecen los dos", () => {
+    expect(parseCantidad("quiero 2 o tres")).toBe(2);
+  });
+
+  it("devuelve undefined si no hay ninguna cantidad reconocible", () => {
+    expect(parseCantidad("no sé cuántas")).toBeUndefined();
+    expect(parseCantidad("¿me repites las opciones?")).toBeUndefined();
+    expect(parseCantidad("")).toBeUndefined();
+  });
+
+  it("no acepta cero ni negativos", () => {
+    expect(parseCantidad("0")).toBeUndefined();
+  });
+});
+
+describe("looksLikeDone (T-21)", () => {
+  it("reconoce que el cliente ya terminó de agregar productos", () => {
+    expect(looksLikeDone("no")).toBe(true);
+    expect(looksLikeDone("nada más, gracias")).toBe(true);
+    expect(looksLikeDone("eso es todo")).toBe(true);
+    expect(looksLikeDone("ya está")).toBe(true);
+  });
+
+  it("no confunde el nombre de un producto o una respuesta normal con 'terminé'", () => {
+    expect(looksLikeDone("una harina más")).toBe(false);
+    expect(looksLikeDone("Carlos")).toBe(false);
   });
 });

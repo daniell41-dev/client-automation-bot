@@ -28,7 +28,12 @@ function buildCatalogBlock(input: AgentTurnInput): string {
       // T-21: los ítems que se venden no tienen duración — nombrarla igual le
       // daría a la IA un dato inventado sobre el que después razona.
       const duracion = s.durationMinutes ? ` Duración: ${s.durationMinutes} minutos.` : "";
-      return `- id="${s.id}" | ${s.name}${categoria}: ${s.description}. Precio: ${formatPrice(input, s.price)}.${duracion}`;
+      // T-21: cada ítem le dice a la IA cuál de los dos caminos le toca — sin
+      // esto tendría que adivinar si pedir fecha o cantidad, y un negocio con
+      // los dos tipos (taller) necesita la señal por ítem, no por negocio.
+      const camino =
+        s.modo === "pedido" ? " [SE VENDE: pedí cantidad, nunca fecha]" : " [SE AGENDA: pedí fecha]";
+      return `- id="${s.id}" | ${s.name}${categoria}: ${s.description}. Precio: ${formatPrice(input, s.price)}.${duracion}${camino}`;
     })
     .join("\n");
 }
@@ -89,12 +94,24 @@ function buildReglasBlock(input: AgentTurnInput): string {
   return `\n\nRespuestas oficiales del negocio para estos temas (usá el mismo contenido; podés adaptar el tono, no el dato):\n${lineas}`;
 }
 
+/** Carrito del pedido en curso (T-21), como texto legible para el prompt ("2x Harina 1 Kg, 1x Aceite 1 Lt — Total: $22.000"). */
+function buildCarritoTexto(input: AgentTurnInput): string | null {
+  if (!input.lead.items?.length) return null;
+  const lineas = input.lead.items.map((i) => `${i.cantidad}x ${i.nombre}`).join(", ");
+  const total = input.lead.items.reduce((sum, item) => {
+    const service = input.services.find((s) => s.id === item.servicioId);
+    return service ? sum + service.price * item.cantidad : sum;
+  }, 0);
+  return `carrito: ${lineas} — Total: ${formatPrice(input, total)}`;
+}
+
 function buildDatosConocidos(input: AgentTurnInput): string {
   const partes = [
     input.lead.name ? `nombre: ${input.lead.name}` : null,
     input.lead.serviceId ? `servicio elegido (id): ${input.lead.serviceId}` : null,
     input.lead.tentativeDate ? `fecha tentativa: ${input.lead.tentativeDate}` : null,
     input.lead.entrega ? `modalidad de entrega: ${input.lead.entrega}` : null,
+    buildCarritoTexto(input),
   ].filter((p): p is string => p !== null);
   return partes.length > 0 ? partes.join(", ") : "ninguno todavía";
 }
@@ -106,7 +123,7 @@ function buildDatosConocidos(input: AgentTurnInput): string {
  */
 function buildConfirmadoBlock(input: AgentTurnInput): string {
   if (!input.lead.yaConfirmado) return "";
-  return `\n\n⚠️ IMPORTANTE: la cita/pedido de este cliente YA ESTÁ CONFIRMADA con los datos de arriba. NO vuelvas a pedirle el nombre, el servicio ni la fecha, y NO uses la acción "confirmar" otra vez. Si te agradece o se despide, respondé con calidez y cerrá. Si pregunta algo sobre su cita, respondé con esos datos. Si quiere agendar algo MÁS (otro servicio), tratalo como una reserva NUEVA: declarás "elegir_servicio" y le pedís la fecha de esa nueva cita.`;
+  return `\n\n⚠️ IMPORTANTE: la cita/pedido de este cliente YA ESTÁ CONFIRMADA con los datos de arriba. NO vuelvas a pedirle el nombre, el servicio, la fecha ni la cantidad, y NO uses la acción "confirmar" otra vez. Si te agradece o se despide, respondé con calidez y cerrá. Si pregunta algo sobre su cita/pedido, respondé con esos datos. Si quiere agendar o pedir algo MÁS, tratalo como una reserva NUEVA: declarás "elegir_servicio" y seguís desde cero con ESE ítem (fecha si se agenda, cantidad si se vende) — el carrito/la fecha de lo ya confirmado no aplica acá.`;
 }
 
 function buildOffTopicNote(input: AgentTurnInput): string {
@@ -158,9 +175,10 @@ Datos que ya tenés de este cliente: ${buildDatosConocidos(input)}.${buildConfir
 Acciones disponibles (declará las que correspondan a este turno, pueden ser varias si el cliente dio varios datos juntos, o ninguna):
 - "elegir_servicio": el cliente eligió (o cambió) de servicio. Usá el id EXACTO del catálogo de arriba.
 - "guardar_nombre": el cliente dio su nombre real (no una pregunta, no un saludo).
-- "guardar_fecha": el cliente dio una fecha/hora real (no una pregunta).
+- "guardar_fecha": el cliente dio una fecha/hora real (no una pregunta). Solo para ítems marcados [SE AGENDA] — un ítem [SE VENDE] nunca necesita fecha.
 - "guardar_modalidad": SOLO si este negocio pregunta modalidad de entrega (ver arriba) — usá el texto EXACTO de una de sus opciones.
-- "confirmar": SOLO cuando ya tengas nombre + servicio + fecha (+ modalidad, si este negocio la usa). Si falta algo, pedilo en tu respuesta y NO declares esta acción.
+- "guardar_cantidad": el cliente dijo cuánto quiere de un ítem [SE VENDE] ("2 harinas", "una nomás"). Usá el id EXACTO del catálogo y la cantidad como número. Si en el mismo pedido pide VARIOS productos distintos, declará una acción "guardar_cantidad" por cada uno.
+- "confirmar": para un ítem [SE AGENDA], SOLO cuando ya tengas nombre + servicio + fecha (+ modalidad, si este negocio la usa). Para un ítem [SE VENDE], SOLO cuando tengas nombre + al menos un producto cargado (ver "carrito" en los datos que ya tenés) y el cliente haya dicho que no quiere agregar nada más. Si falta algo, pedilo en tu respuesta y NO declares esta acción.
 - "fuera_de_contexto": el mensaje no tiene NADA que ver con este negocio (política, deportes, chistes, otro tema totalmente ajeno). Respondé breve y amablemente, y redirigí hacia el negocio.
 - "reiniciar": el cliente dice que los datos que tenemos están MAL o quiere empezar de cero ("yo no pedí nada", "ese no es mi nombre", "cambié de idea", "empecemos de nuevo", "cancelá todo"). Borra todo lo capturado. Es tu ÚNICA forma de corregir un dato viejo o equivocado: las demás acciones solo agregan, no borran. Si sospechás que un dato guardado no corresponde a esta conversación, usá esta acción en vez de seguir adelante con él.
 

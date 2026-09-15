@@ -11,7 +11,10 @@ import type { LeadState } from "@/core/types";
 /** Transiciones permitidas desde cada estado. */
 const ALLOWED_TRANSITIONS: Record<LeadState, LeadState[]> = {
   nuevo: ["interesado", "perdido"],
-  interesado: ["agendado", "perdido"],
+  // "pagado" (T-21): un pedido confirmado va directo acá, sin pasar por
+  // "agendado" — no hay nada que "agendar" en una venta. `agendado` sigue
+  // siendo el destino de una CITA confirmada (ver engine/flows/pedido.ts).
+  interesado: ["agendado", "pagado", "perdido"],
   // "recurrente" (T-20): la cita se dio por cumplida sola, sin pasar por
   // "pagado" — el bot no sabe si se cobró, solo que ya pasó la fecha.
   agendado: ["pagado", "interesado", "perdido", "recurrente"],

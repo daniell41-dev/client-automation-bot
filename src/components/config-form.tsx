@@ -32,6 +32,10 @@ const MESSAGE_LABELS: Record<keyof BusinessConfig["messages"], string> = {
   captured: "Cita agendada (mensaje final)",
   fallback: "No entendí (fallback)",
   citaVigente: "Recordatorio de cita vigente (ya confirmó, escribe de nuevo)",
+  askCantidad: "Pedir cuánto quiere de un producto",
+  askConfirmPedido: "Pedir confirmación del pedido (cierre, después del detalle)",
+  pedidoConfirmado: "Pedido confirmado (mensaje final)",
+  pedidoVigente: "Recordatorio de pedido vigente (ya confirmó, escribe de nuevo)",
 };
 
 const inputCls =
@@ -88,11 +92,18 @@ export function ConfigForm({
   // llenarse — mostrarlos igual sería pedirle al admin que redacte un texto
   // para un paso del funnel que nunca corre en este rubro.
   const hayItemDeCita = config.services.some((s) => esCita(s, config.catalogo));
+  const hayItemDePedido = config.services.some((s) => !esCita(s, config.catalogo));
   const MENSAJES_SOLO_CITA = new Set<keyof BusinessConfig["messages"]>([
     "askDate",
     "askConfirm",
     "captured",
     "citaVigente",
+  ]);
+  const MENSAJES_SOLO_PEDIDO = new Set<keyof BusinessConfig["messages"]>([
+    "askCantidad",
+    "askConfirmPedido",
+    "pedidoConfirmado",
+    "pedidoVigente",
   ]);
 
   const persona = config.personas?.whatsapp ?? { name: "", tone: "", language: "" };
@@ -369,7 +380,11 @@ export function ConfigForm({
         </p>
         <div className="space-y-3">
           {(Object.keys(MESSAGE_LABELS) as (keyof BusinessConfig["messages"])[])
-            .filter((key) => hayItemDeCita || !MENSAJES_SOLO_CITA.has(key))
+            .filter(
+              (key) =>
+                (hayItemDeCita || !MENSAJES_SOLO_CITA.has(key)) &&
+                (hayItemDePedido || !MENSAJES_SOLO_PEDIDO.has(key)),
+            )
             .map((key) => (
               <div key={key}>
                 <label className={labelCls}>{MESSAGE_LABELS[key]}</label>

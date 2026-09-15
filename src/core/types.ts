@@ -27,7 +27,9 @@ export type ConversationStage =
   | "esperando_fecha" // se le pidió la fecha tentativa
   | "esperando_confirmacion" // se le pidió confirmar la cita (Sí/cambiar fecha)
   | "esperando_entrega" // se le preguntó la modalidad (retirar / comer en el local)
-  | "datos_completos"; // ya tenemos nombre + servicio + fecha y la cita está agendada
+  | "esperando_cantidad" // T-21: se le preguntó cuánto quiere de UN producto del carrito
+  | "carrito_abierto" // T-21: tiene ≥1 producto cargado, se le preguntó si quiere algo más
+  | "datos_completos"; // ya tenemos lo necesario (cita agendada, o pedido confirmado)
 
 /** Plataforma por la que llega/sale un mensaje. */
 export type Channel = "whatsapp" | "instagram" | "mock";
@@ -53,6 +55,13 @@ export type FollowUpThreshold = "2h" | "1d" | "3d";
  * no alcanzaría. Ver `core/engine/modo-item.ts`.
  */
 export type ModoItem = "cita" | "pedido";
+
+/** Un ítem del carrito de un pedido (T-21): qué producto y cuántas unidades. */
+export interface CartItem {
+  /** `Service.id` del producto. */
+  serviceId: string;
+  cantidad: number;
+}
 
 /** Un servicio que ofrece el negocio (lo personaliza cada `BusinessConfig`). */
 export interface Service {
@@ -224,6 +233,25 @@ export interface MessageTemplates {
    * sin configurar, se usa un default razonable (ver `responder.ts`).
    */
   citaVigente?: string;
+  /** T-21: pedir cuánto quiere de un producto. Variables: {{nombre}} {{servicio}}. */
+  askCantidad?: string;
+  /**
+   * T-21: pedir confirmación de un pedido (varios ítems, no una fecha). El
+   * motor le antepone el detalle del carrito y el total — este texto es solo
+   * el cierre ("¿confirmás tu pedido?"), no necesita variables.
+   */
+  askConfirmPedido?: string;
+  /**
+   * T-21: cierre cuando el cliente confirma el pedido (análogo a `captured`,
+   * pero sin fecha/agenda: el motor le antepone el detalle del carrito y el
+   * total, este texto es solo el remate).
+   */
+  pedidoConfirmado?: string;
+  /**
+   * T-21: recordatorio del pedido vigente, análogo a `citaVigente` pero para
+   * un pedido ya confirmado (sin fecha que mencionar).
+   */
+  pedidoVigente?: string;
 }
 
 /**
@@ -343,6 +371,14 @@ export interface Lead {
   tentativeDate?: string;
   /** Modalidad elegida cuando `config.pedidos.enabled` (texto de la opción). */
   entrega?: string;
+  /**
+   * Carrito de un pedido (T-21): ítems y cantidades. Solo lo usan los ítems
+   * de modo "pedido" — un ítem de cita nunca lo toca, sigue viviendo en
+   * `serviceId`/`tentativeDate`. Que este array tenga contenido es, en la
+   * práctica, la señal de "esta conversación es un pedido, no una cita" (ver
+   * `engine/flows/pedido.ts`).
+   */
+  items?: CartItem[];
   /**
    * Cuántos mensajes SEGUIDOS se fue del tema del negocio (modo agente). Se
    * resetea a 0 apenas vuelve a hablar del negocio; al llegar al límite, el

@@ -33,6 +33,8 @@ import {
 } from "@/core/engine/intake";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { limpiarDatosCapturados } from "@/core/engine/session-lifecycle";
+import { modoDelItem } from "@/core/engine/modo-item";
+import { agregarAlCarrito } from "@/core/engine/flows/pedido";
 
 /** Cuántos mensajes SEGUIDOS fuera de tema tolera el bot antes de cerrar la charla. */
 const OFF_TOPIC_LIMIT = 3;
@@ -52,6 +54,13 @@ function buildClosingMessage(nombre: string | undefined): string {
 function deriveStage(lead: Lead, config: BusinessConfig): ConversationStage {
   if (!lead.serviceId) return "menu_enviado";
   if (!lead.name) return "esperando_nombre";
+  const service = config.services.find((s) => s.id === lead.serviceId);
+  // T-21: un ítem de modo "pedido" nunca pasa por entrega/fecha — sin esta
+  // rama, `deriveStage` le pedía una fecha para siempre a quien elige un
+  // producto (nunca hay `tentativeDate` que llenar en una venta).
+  if (service && modoDelItem(service, config.catalogo) === "pedido") {
+    return (lead.items?.length ?? 0) > 0 ? "carrito_abierto" : "esperando_cantidad";
+  }
   if (config.pedidos?.enabled && !lead.entrega) return "esperando_entrega";
   if (!lead.tentativeDate) return "esperando_fecha";
   return "esperando_confirmacion";
@@ -80,6 +89,7 @@ function buildAgentInput(
       price: s.price,
       durationMinutes: s.durationMinutes,
       categoria: s.categoria,
+      modo: modoDelItem(s, config.catalogo),
     })),
     horarios: config.horarios,
     pedidos: config.pedidos?.enabled
@@ -92,6 +102,13 @@ function buildAgentInput(
       entrega: lead.entrega,
       yaConfirmado: lead.stage === "datos_completos",
       offTopicCount: lead.offTopicCount ?? 0,
+      // T-21: se resuelve el nombre acá (no en el prompt) para que la IA no
+      // tenga que cruzar `servicioId` contra el catálogo ella misma.
+      items: lead.items?.map((i) => ({
+        servicioId: i.serviceId,
+        nombre: config.services.find((s) => s.id === i.serviceId)?.name ?? i.serviceId,
+        cantidad: i.cantidad,
+      })),
     },
     history,
     message,
@@ -197,6 +214,20 @@ export async function runAgentTurn(
         if (fecha && looksLikeDate(fecha)) lead.tentativeDate = fecha;
         break;
       }
+      case "guardar_cantidad": {
+        // T-21: solo se acepta contra un ítem real Y de modo "pedido" — la
+        // IA no puede cargarle "cantidad" a algo que se agenda (misma
+        // validación contra el catálogo real que el resto de las acciones).
+        const servicio = availableServices(config.services).find(
+          (s) => s.id === accion.servicioId,
+        );
+        const cantidad = Math.round(accion.cantidad);
+        if (servicio && modoDelItem(servicio, config.catalogo) === "pedido" && cantidad > 0) {
+          lead.items = agregarAlCarrito(lead.items, servicio.id, cantidad);
+          if (lead.state === "nuevo") lead.state = "interesado";
+        }
+        break;
+      }
       case "fuera_de_contexto":
         sawOffTopic = true;
         break;
@@ -209,22 +240,32 @@ export async function runAgentTurn(
 
   const hadNewServiceSelection = aiResult.acciones.some((a) => a.tipo === "elegir_servicio");
   if (wasAlreadyConfirmed && hadNewServiceSelection) {
-    // Nueva reserva tras una ya confirmada (cliente que vuelve a pedir algo
-    // más): se conserva el nombre, se piden de nuevo fecha/modalidad para
-    // este servicio nuevo — la fecha anterior ya no aplica.
+    // Nueva reserva/pedido tras uno ya confirmado (cliente que vuelve a pedir
+    // algo más): se conserva el nombre, se limpia lo del anterior — la
+    // fecha/carrito viejo no aplican a este ítem nuevo (T-21: "pedir de
+    // nuevo" es un pedido NUEVO, no un agregado al ya entregado).
     lead.tentativeDate = undefined;
     lead.entrega = undefined;
+    lead.items = undefined;
   }
 
+  const servicioElegido = config.services.find((s) => s.id === lead.serviceId);
+  const esPedido = !!servicioElegido && modoDelItem(servicioElegido, config.catalogo) === "pedido";
+
   const confirmarPedido = aiResult.acciones.some((a) => a.tipo === "confirmar");
-  const listoParaConfirmar =
-    !!lead.name &&
-    !!lead.serviceId &&
-    !!lead.tentativeDate &&
-    (!config.pedidos?.enabled || !!lead.entrega);
+  const listoParaConfirmar = esPedido
+    ? // Un pedido no tiene fecha ni modalidad que exigir: alcanza con el
+      // nombre y con que el carrito tenga algo cargado.
+      !!lead.name && (lead.items?.length ?? 0) > 0
+    : !!lead.name &&
+      !!lead.serviceId &&
+      !!lead.tentativeDate &&
+      (!config.pedidos?.enabled || !!lead.entrega);
 
   if (confirmarPedido && listoParaConfirmar && !wasAlreadyConfirmed) {
-    lead.state = transition(lead.state, "agendado");
+    // "pagado" directo desde "interesado" para un pedido: no hay nada que
+    // agendar en una venta (mismo criterio que `responder.ts`/`lead-state.ts`).
+    lead.state = transition(lead.state, esPedido ? "pagado" : "agendado");
     lead.stage = "datos_completos";
   } else if (wasAlreadyConfirmed && !hadNewServiceSelection) {
     lead.stage = "datos_completos"; // sticky: ya se confirmó, no se re-deriva
