@@ -4,7 +4,7 @@
  * (Groq, OpenAI…) lo inyecta la capa de aplicación.
  */
 
-import type { ConversationTurn, DiaAtencion, PersonaConfig, QuickRule } from "@/core/types";
+import type { ConversationTurn, DiaAtencion, ModoItem, PersonaConfig, QuickRule } from "@/core/types";
 import type { AgentResponse } from "@/core/ai/agent-schema";
 
 export interface LLMContext {
@@ -55,6 +55,13 @@ export interface AgentServiceSummary {
   /** Opcional desde T-21: los ítems que se venden no tienen duración. */
   durationMinutes?: number;
   categoria?: string;
+  /**
+   * T-21: qué persigue el bot con este ítem (ya resuelto con `modoDelItem` —
+   * la IA no tiene que adivinarlo). "cita" pide fecha; "pedido" pide
+   * cantidad y no fecha. Opcional (default "cita", igual que `modoDelItem`)
+   * para no romper fixtures/tests de antes de T-21 que arman este objeto a mano.
+   */
+  modo?: ModoItem;
 }
 
 /** Lo que el motor ya sabe del cliente antes de este turno. */
@@ -69,8 +76,21 @@ export interface AgentLeadState {
    * algo que ya estaba cerrado.
    */
   yaConfirmado: boolean;
+  /**
+   * T-21/PR5: el cliente ya confirmó el pedido y se está esperando el sí/no
+   * de la dueña por WhatsApp. Distinto de `yaConfirmado` — todavía no hay
+   * nada resuelto. Opcional (default `false`) para no romper fixtures/tests
+   * de antes del PR5 que arman este objeto a mano.
+   */
+  esperandoAprobacion?: boolean;
   /** Cuántas veces seguidas se salió del tema en esta conversación. */
   offTopicCount: number;
+  /**
+   * T-21: carrito de un pedido en curso — ya resuelto a nombre + cantidad
+   * (la IA no tiene que cruzar `servicioId` contra el catálogo ella misma).
+   * Vacío/ausente si no hay ítems de pedido cargados todavía.
+   */
+  items?: { servicioId: string; nombre: string; cantidad: number }[];
 }
 
 /** Contexto completo que necesita la IA para decidir un turno en modo agente. */

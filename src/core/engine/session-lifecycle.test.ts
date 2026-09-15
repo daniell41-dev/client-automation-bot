@@ -51,6 +51,10 @@ describe("reseteablePorInactividad", () => {
     expect(reseteablePorInactividad(baseLead({ stage: "datos_completos" }))).toBe(false);
   });
 
+  it("un pedido esperando_aprobacion (T-21/PR5) tampoco es reseteable — la demora es de la dueña", () => {
+    expect(reseteablePorInactividad(baseLead({ stage: "esperando_aprobacion" }))).toBe(false);
+  });
+
   it.each([
     "menu_enviado",
     "info_enviada",
@@ -58,6 +62,8 @@ describe("reseteablePorInactividad", () => {
     "esperando_fecha",
     "esperando_confirmacion",
     "esperando_entrega",
+    "esperando_cantidad",
+    "carrito_abierto",
   ] as const)("un lead en '%s' sí es reseteable", (stage) => {
     expect(reseteablePorInactividad(baseLead({ stage }))).toBe(true);
   });

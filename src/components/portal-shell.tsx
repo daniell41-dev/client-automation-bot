@@ -26,11 +26,14 @@ import { Logo } from "@/components/logo";
 import { RubroTile, catalogLabel } from "@/components/rubro-visual";
 import { Pill } from "@/components/ui";
 import { seccionVisible, type PortalSeccion } from "@/config/portal-scope";
+import type { CatalogoConfig } from "@/core/types";
 
 export interface ShellNegocio {
   slug: string;
   nombre: string;
   rubro: string;
+  /** T-21: forma del catálogo de este negocio — ver `CatalogoConfig`. */
+  catalogo?: CatalogoConfig;
   botActivo: boolean;
 }
 
@@ -66,7 +69,7 @@ export function PortalShell({
     { href: base, label: "Resumen", Icon: LayoutGrid, group: "GESTIÓN DEL BOT", seccion: "resumen" },
     {
       href: `${base}/catalogo`,
-      label: catalogLabel(negocio.rubro),
+      label: catalogLabel(negocio.rubro, negocio.catalogo),
       Icon: ShoppingBag,
       group: "GESTIÓN DEL BOT",
       seccion: "catalogo",
@@ -111,7 +114,7 @@ export function PortalShell({
 
   const subtitles: Record<string, string> = {
     Resumen: `Panorama del bot en ${negocio.nombre}`,
-    [catalogLabel(negocio.rubro)]: "Lo que el bot puede ofrecer y vender por WhatsApp",
+    [catalogLabel(negocio.rubro, negocio.catalogo)]: "Lo que el bot puede ofrecer y vender por WhatsApp",
     "Citas y reservas": "Turnos y reservas que el bot agenda automáticamente",
     "Respuestas y flujos": "Cómo responde el bot: IA entrenada + reglas de respaldo",
     Conversaciones: "Chats de tus clientes en tiempo real",

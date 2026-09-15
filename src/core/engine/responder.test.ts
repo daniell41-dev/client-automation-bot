@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { interpretableOptions, respond } from "@/core/engine/responder";
-import type { BusinessConfig, IncomingMessage } from "@/core/types";
+import type { BusinessConfig, IncomingMessage, Lead } from "@/core/types";
 
 const config: BusinessConfig = {
   slug: "test",
@@ -656,5 +656,185 @@ describe("respond — ítem sin duración (T-21)", () => {
   it("un servicio CON duración la sigue mostrando igual que siempre", () => {
     const { messages } = respond(null, msg("limpieza facial"), config, now);
     expect(messages[0].text).toContain("60 minutos");
+  });
+});
+
+describe("respond — flujo de pedido (T-21)", () => {
+  const tienda: BusinessConfig = {
+    ...config,
+    slug: "tienda",
+    name: "Tienda Test",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Producto", plural: "Productos" } },
+    services: [
+      {
+        id: "harina",
+        name: "Harina 1 Kg",
+        description: "Harina pan tradicional",
+        price: 5000,
+        keywords: ["harina"],
+      },
+      {
+        id: "aceite",
+        name: "Aceite 1 Lt",
+        description: "Aceite vegetal",
+        price: 12000,
+        keywords: ["aceite"],
+      },
+    ],
+  };
+
+  it("recorrido completo: dos productos distintos, total correcto, y queda en revisión al confirmar", () => {
+    let r = respond(null, msg("harina"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_nombre");
+    expect(r.messages[0].text).toContain("Harina 1 Kg");
+
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    // No pregunta fecha ni modalidad de entrega: pasa directo a la cantidad.
+    expect(r.lead.stage).toBe("esperando_cantidad");
+    expect(r.lead.tentativeDate).toBeUndefined();
+    expect(r.messages[0].text).not.toMatch(/fecha|agend/i);
+
+    r = respond(r.lead, msg("2"), tienda, now);
+    expect(r.lead.stage).toBe("carrito_abierto");
+    expect(r.lead.items).toEqual([{ serviceId: "harina", cantidad: 2 }]);
+    expect(r.messages[0].text).toContain("2x Harina 1 Kg");
+    expect(r.messages[0].options).toContain("Aceite 1 Lt");
+    expect(r.messages[0].options).toContain("No, eso es todo");
+
+    r = respond(r.lead, msg("aceite"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_cantidad");
+    expect(r.lead.serviceId).toBe("aceite");
+
+    r = respond(r.lead, msg("una"), tienda, now);
+    expect(r.lead.stage).toBe("carrito_abierto");
+    expect(r.lead.items).toEqual([
+      { serviceId: "harina", cantidad: 2 },
+      { serviceId: "aceite", cantidad: 1 },
+    ]);
+    expect(r.messages[0].text).toContain("2x Harina 1 Kg");
+    expect(r.messages[0].text).toContain("1x Aceite 1 Lt");
+
+    r = respond(r.lead, msg("no, eso es todo"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+    expect(r.messages[0].text).toContain("Total");
+    expect(r.messages[0].options).toEqual(["Sí, confirmar", "Agregar más"]);
+
+    // T-21/PR5: confirmar el pedido NO lo cierra directo — queda en revisión
+    // hasta que la dueña responda por WhatsApp (eso es `handleOwnerApproval`
+    // en `handle.ts`, fuera del motor puro).
+    r = respond(r.lead, msg("sí"), tienda, now);
+    expect(r.lead.state).toBe("interesado"); // todavía NO "pagado"
+    expect(r.lead.stage).toBe("esperando_aprobacion");
+    expect(r.messages[0].text).toContain("Total");
+    expect(r.messages[0].text).toContain("Laura");
+    expect(r.messages[0].text).toContain("revisión");
+  });
+
+  it("mientras espera la aprobación de la dueña, cualquier mensaje repite que sigue en revisión", () => {
+    let r = respond(null, msg("harina"), tienda, now);
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    r = respond(r.lead, msg("2"), tienda, now);
+    r = respond(r.lead, msg("no, eso es todo"), tienda, now);
+    r = respond(r.lead, msg("sí"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_aprobacion");
+
+    const { lead, messages } = respond(r.lead, msg("hola, ¿cómo va?"), tienda, now);
+    expect(lead.stage).toBe("esperando_aprobacion"); // no se mueve
+    expect(messages[0].text).toContain("revisión");
+  });
+
+  it("no confirmar el pedido vuelve al carrito en vez de pedir una fecha", () => {
+    let r = respond(null, msg("harina"), tienda, now);
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    r = respond(r.lead, msg("2"), tienda, now);
+    r = respond(r.lead, msg("no, eso es todo"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+
+    r = respond(r.lead, msg("mejor no"), tienda, now);
+    expect(r.lead.stage).toBe("carrito_abierto");
+    expect(r.lead.items).toEqual([{ serviceId: "harina", cantidad: 2 }]); // no se perdió lo cargado
+    expect(r.lead.state).not.toBe("pagado");
+  });
+
+  it("una cantidad no reconocible re-pregunta en vez de guardar cualquier cosa", () => {
+    let r = respond(null, msg("harina"), tienda, now);
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    r = respond(r.lead, msg("no sé cuántas"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_cantidad");
+    expect(r.lead.items).toBeUndefined();
+    expect(r.unrecognized).toBe(true);
+  });
+
+  /**
+   * T-21/PR5: `respond()` (motor puro) ya NO es quien confirma un pedido —
+   * eso lo hace `handleOwnerApproval` en `handle.ts` cuando la dueña acepta.
+   * Estos dos tests siguen viviendo acá porque el bloque `datos_completos`
+   * de `respond()` sigue siendo la RED de seguridad si por algún motivo un
+   * pedido llega a `datos_completos`/"pagado" sin pasar por `handle.ts`
+   * (`cerrarPedidoFinalizado` debería interceptarlo antes, pero el motor no
+   * depende de eso) — por eso el lead post-aprobación se arma a mano, no
+   * recorriendo `respond()` de punta a punta.
+   */
+  function leadPedidoConfirmado(): Lead {
+    let r = respond(null, msg("harina"), tienda, now);
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    r = respond(r.lead, msg("2"), tienda, now);
+    r = respond(r.lead, msg("no"), tienda, now);
+    r = respond(r.lead, msg("sí"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_aprobacion");
+    return { ...r.lead, state: "pagado", stage: "datos_completos", confirmedAt: now.toISOString() };
+  }
+
+  it("recordatorio de pedido vigente tras confirmar: usa pedidoVigente, no citaVigente", () => {
+    const confirmado = leadPedidoConfirmado();
+
+    const { lead, messages } = respond(confirmado, msg("gracias!"), tienda, now);
+    expect(lead.stage).toBe("datos_completos");
+    expect(messages[0].text).toContain("pedido confirmado");
+    expect(messages[0].text).not.toMatch(/agendado|turno|cita/i);
+  });
+
+  it("pedir de nuevo tras un pedido confirmado arranca un pedido NUEVO (limpia el carrito viejo)", () => {
+    const confirmado = leadPedidoConfirmado();
+
+    const { lead } = respond(confirmado, msg("aceite"), tienda, now);
+    expect(lead.serviceId).toBe("aceite");
+    expect(lead.items).toBeUndefined(); // el carrito viejo (2 harinas, ya pagado) no se arrastra
+    expect(lead.stage).toBe("esperando_cantidad");
+  });
+
+  const taller: BusinessConfig = {
+    ...config,
+    slug: "taller",
+    name: "Taller Mecánico Test",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Ítem", plural: "Ítems" } },
+    services: [
+      {
+        id: "cambio-aceite",
+        name: "Cambio de aceite",
+        description: "Cambio de aceite y filtro",
+        price: 80000,
+        durationMinutes: 30,
+        reservable: true,
+        keywords: ["cambio de aceite"],
+      },
+      {
+        id: "filtro-aceite",
+        name: "Filtro de aceite",
+        description: "Repuesto filtro de aceite",
+        price: 25000,
+        keywords: ["filtro"],
+      },
+    ],
+  };
+
+  it("taller mecánico: el service reservable agenda fecha, el repuesto pide cantidad — mismo negocio", () => {
+    let cita = respond(null, msg("cambio de aceite"), taller, now);
+    cita = respond(cita.lead, msg("Carlos"), taller, now);
+    expect(cita.lead.stage).toBe("esperando_fecha");
+
+    let pedido = respond(null, msg("filtro de aceite"), taller, now);
+    pedido = respond(pedido.lead, msg("Carlos"), taller, now);
+    expect(pedido.lead.stage).toBe("esperando_cantidad");
   });
 });

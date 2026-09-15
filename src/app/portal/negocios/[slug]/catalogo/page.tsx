@@ -33,6 +33,7 @@ export default async function CatalogoPage({
     <CatalogoEditor
       slug={slug}
       rubro={rubro}
+      catalogo={config.catalogo}
       initialServices={config.services}
       currency={config.currency}
       locale={config.locale ?? "es-CO"}

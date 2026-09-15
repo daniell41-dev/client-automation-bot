@@ -401,6 +401,103 @@ export function isResetRequest(text: string): boolean {
 }
 
 /**
+ * Palabras número de uso común al pedir pocas unidades (T-21): "dos harinas",
+ * "una", "quiero cinco". A partir de un dígito suelto ("15") ya alcanza con
+ * el regex de abajo, así que la lista solo cubre lo chico.
+ */
+const NUMBER_WORDS: Record<string, number> = {
+  un: 1,
+  uno: 1,
+  una: 1,
+  dos: 2,
+  tres: 3,
+  cuatro: 4,
+  cinco: 5,
+  seis: 6,
+  siete: 7,
+  ocho: 8,
+  nueve: 9,
+  diez: 10,
+};
+
+/**
+ * Cantidad que pide el cliente para UN producto del carrito (T-21): "2",
+ * "dame 3", "una", "quiero cinco". `undefined` si el mensaje no trae ninguna
+ * — el llamador vuelve a preguntar en vez de guardar cualquier cosa como si
+ * fuera la cantidad (mismo criterio que `looksLikeDate`).
+ *
+ * Prioriza el dígito sobre la palabra: si el cliente escribe "quiero 2 o 3",
+ * mejor quedarse con el primer número explícito que con adivinar cuál de las
+ * dos palabras cuenta.
+ */
+export function parseCantidad(text: string): number | undefined {
+  const n = normalizeMessage(text);
+  if (!n) return undefined;
+  const digitos = n.match(/\b\d{1,3}\b/);
+  if (digitos) {
+    const value = Number.parseInt(digitos[0], 10);
+    return value > 0 ? value : undefined;
+  }
+  const words = n.split(/\s+/).filter(Boolean);
+  for (const word of words) {
+    if (word in NUMBER_WORDS) return NUMBER_WORDS[word];
+  }
+  return undefined;
+}
+
+/**
+ * Señales de que el cliente terminó de agregar productos al pedido ("no",
+ * "nada más", "eso es todo") en respuesta a "¿algo más?". Es la inversa de
+ * `isAffirmative`: acá un "no" cierra el carrito, no lo confirma.
+ */
+const DONE_KEYWORDS = [
+  "no",
+  "nada mas",
+  "nada por ahora",
+  "eso es todo",
+  "eso seria todo",
+  "solo eso",
+  "solamente eso",
+  "ya esta",
+  "ya no",
+  "asi esta bien",
+  "es todo",
+];
+
+export function looksLikeDone(text: string): boolean {
+  const n = normalizeMessage(text);
+  if (!n) return false;
+  const words = n.split(/\s+/).filter(Boolean);
+  return hasAny(DONE_KEYWORDS, n, words);
+}
+
+/**
+ * ¿Es un rechazo explícito? Se usa para que la DUEÑA responda "no"/"rechazo"
+ * a un aviso de pedido pendiente (T-21/PR5) — a diferencia de `isAffirmative`
+ * (que interpreta cualquier cosa que no sea un "sí" como negativa dentro del
+ * funnel de CLIENTE), acá el "no reconocido" tiene que quedar como `null`
+ * explícito (ver `interpretarRespuestaDueña`): un mensaje ambiguo de la
+ * dueña no debe rechazar un pedido por accidente.
+ */
+const NEGATIVE_WORDS = [
+  "no",
+  "nel",
+  "rechazo",
+  "rechazar",
+  "rechazado",
+  "no acepto",
+  "cancelalo",
+  "cancelar ese",
+];
+
+export function isNegative(text: string): boolean {
+  const n = normalizeMessage(text);
+  if (!n) return false;
+  const words = n.split(/\s+/).filter(Boolean);
+  return hasAny(NEGATIVE_WORDS, n, words);
+}
+
+/**
  * Frases de relleno al INICIO de una fecha ("Puede ser hoy", "Creo que el
  * viernes"). Ya están "dobladas" (sin tildes): se comparan contra una copia
  * doblada del texto, pero el recorte se aplica sobre el texto ORIGINAL (con

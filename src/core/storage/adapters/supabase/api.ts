@@ -31,6 +31,8 @@ export interface LeadRow {
   appointment_at?: string | null;
   /** ISO de cuándo se confirmó la cita/pedido (T-20). Ver `Lead.confirmedAt`. */
   confirmed_at?: string | null;
+  /** Carrito de un pedido en curso (T-21, migración 0009). Ver `Lead.items`. */
+  items?: { serviceId: string; cantidad: number }[] | null;
   /**
    * FK de conveniencia a `negocios.id` (T-08): `business_slug` sigue siendo
    * lo que usan el motor y las políticas de RLS. `null`/ausente cuando el
@@ -97,6 +99,20 @@ export interface SupabaseDb {
     tokensOut?: number;
     fallbacks?: number;
   }): Promise<void>;
+  /**
+   * Fija (reemplaza) el stock de un producto — ver migración 0010. Lo llama
+   * el portal al guardar el catálogo, para cada ítem con `stock` declarado.
+   */
+  setStock(negocioId: string, serviceId: string, stock: number): Promise<void>;
+  /**
+   * Descuenta atómicamente TODO un carrito, o nada si algún producto no
+   * alcanza — vía `descontar_stock_carrito` (bloquea las filas involucradas
+   * por el resto de la transacción, ver el comentario de la migración 0010).
+   */
+  decrementStockCarrito(
+    negocioId: string,
+    items: { serviceId: string; cantidad: number }[],
+  ): Promise<{ ok: boolean; faltantes?: string[] }>;
 }
 
 /** Implementación real sobre supabase-js. */
@@ -209,6 +225,28 @@ class RealSupabaseDb implements SupabaseDb {
       p_fallbacks: entry.fallbacks ?? 0,
     });
     if (error) throw error;
+  }
+
+  async setStock(negocioId: string, serviceId: string, stock: number): Promise<void> {
+    const { error } = await this.client.rpc("fijar_stock", {
+      p_negocio_id: negocioId,
+      p_service_id: serviceId,
+      p_stock: stock,
+    });
+    if (error) throw error;
+  }
+
+  async decrementStockCarrito(
+    negocioId: string,
+    items: { serviceId: string; cantidad: number }[],
+  ): Promise<{ ok: boolean; faltantes?: string[] }> {
+    const { data, error } = await this.client.rpc("descontar_stock_carrito", {
+      p_negocio_id: negocioId,
+      p_items: items.map((i) => ({ service_id: i.serviceId, cantidad: i.cantidad })),
+    });
+    if (error) throw error;
+    const result = data as { ok: boolean; faltantes?: string[] };
+    return { ok: result.ok, faltantes: result.faltantes };
   }
 }
 

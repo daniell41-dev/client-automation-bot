@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { parseBusinessConfig } from "@/core/config-schema";
+import type { CatalogoConfig } from "@/core/types";
 
 export interface RubroVisual {
   bg: string;
@@ -47,12 +48,36 @@ export function rubroVisual(rubroNombre: string | null | undefined): RubroVisual
   return { bg: "bg-primary-tint", ink: "text-primary-hover", Icon: Store };
 }
 
-/** Etiqueta de la sección de catálogo según el rubro (Menú/Servicios/Catálogo). */
-export function catalogLabel(rubroNombre: string | null | undefined): string {
+/**
+ * Etiqueta PLURAL de la sección de catálogo (Menú/Servicios/Productos/…).
+ *
+ * T-21: si el rubro declaró `catalogo.etiqueta`, ese dato manda — es lo que
+ * reemplaza la adivinanza. El regex sobre el NOMBRE del rubro queda como
+ * respaldo para los rubros que todavía no lo declaran (ninguno debería
+ * cambiar de comportamiento al desplegar esto).
+ */
+export function catalogLabel(
+  rubroNombre: string | null | undefined,
+  catalogo?: CatalogoConfig,
+): string {
+  if (catalogo?.etiqueta?.plural) return catalogo.etiqueta.plural;
   const name = rubroNombre ?? "";
   if (/gastro|restaur|comida|parrilla|caf|pizz/i.test(name)) return "Menú";
   if (/servicio|peluquer|estetic|belleza|barber|salud|spa/i.test(name)) return "Servicios";
   return "Catálogo";
+}
+
+/**
+ * Etiqueta SINGULAR de un ítem del catálogo (Plato/Servicio/Producto/…),
+ * para títulos como "Editar producto" o los chips de "campos del negocio".
+ */
+export function catalogItemLabel(
+  rubroNombre: string | null | undefined,
+  catalogo?: CatalogoConfig,
+): string {
+  if (catalogo?.etiqueta?.singular) return catalogo.etiqueta.singular;
+  const label = catalogLabel(rubroNombre, catalogo);
+  return label === "Menú" ? "Plato" : label === "Servicios" ? "Servicio" : "Producto";
 }
 
 /** Textos del editor de Catálogo (T-18) que dependen del rubro — placeholder de categoría y copy del preview de WhatsApp. */
@@ -63,7 +88,32 @@ export interface CatalogCopy {
   previewCta: string;
 }
 
-export function catalogCopy(rubroNombre: string | null | undefined): CatalogCopy {
+export function catalogCopy(
+  rubroNombre: string | null | undefined,
+  catalogo?: CatalogoConfig,
+): CatalogCopy {
+  // T-21: con `catalogo` declarado, el copy sale de la ETIQUETA y del MODO
+  // (cita/pedido), no de adivinar el rubro por su nombre — "Kiosco" o
+  // "Bodega" nunca iban a matchear el regex de comercio.
+  if (catalogo?.etiqueta) {
+    const singular = catalogo.etiqueta.singular.toLowerCase();
+    const plural = catalogo.etiqueta.plural.toLowerCase();
+    if (catalogo.modoPorDefecto === "cita") {
+      return {
+        categoriaPlaceholder: "Categoría",
+        previewSaludo: `¡Hola! ¿Qué ${plural} ofrecen?`,
+        previewSustantivo: `nuestro ${singular}`,
+        previewCta: "Reservar turno",
+      };
+    }
+    return {
+      categoriaPlaceholder: "Categoría",
+      previewSaludo: "¡Hola! ¿Qué tienen disponible?",
+      previewSustantivo: `nuestro ${singular}`,
+      previewCta: "Agregar al pedido",
+    };
+  }
+
   const label = catalogLabel(rubroNombre);
   if (label === "Menú") {
     return {
@@ -104,20 +154,39 @@ export function camposDelNegocio(
   template: unknown,
 ): string[] {
   const config = parseBusinessConfig(template);
-  const label = catalogLabel(rubroNombre);
-  const itemLabel = label === "Menú" ? "Plato" : label === "Servicios" ? "Servicio" : "Producto";
-  const campos = [itemLabel, "Precio", "Duración", "Categoría", "Disponible"];
+  const catalogo = config?.catalogo;
+  const itemLabel = catalogItemLabel(rubroNombre, catalogo);
+  const camposConf = catalogo?.campos;
+  const campos = [itemLabel, "Precio"];
+  // Default `true` cuando el rubro no declaró `catalogo.campos`: preserva
+  // exactamente los chips de antes de T-21 para todo lo que ya está cargado.
+  if (camposConf?.duracion !== false) campos.push("Duración");
+  if (camposConf?.categoria !== false) campos.push("Categoría");
+  if (camposConf?.stock) campos.push("Stock");
+  campos.push("Disponible");
   if (config?.ai) campos.push("IA + reglas");
   return campos;
 }
 
-/** Tipo de citas/reservas que ofrece un negocio creado desde este rubro. */
+/**
+ * Tipo de citas/reservas que ofrece un negocio creado desde este rubro.
+ *
+ * A propósito NO usa `modoDelItem`/`esCita`: esas funciones, sin nada
+ * declarado, caen a "cita" por diseño (preservan el comportamiento del
+ * MOTOR). Acá el objetivo es el opuesto — un indicador informativo que solo
+ * cuenta una señal EXPLÍCITA (`reservable`/`modo: "cita"`), o se volvería
+ * "Turnos" para casi cualquier rubro y dejaría de decir algo.
+ */
 export function tipoCitas(rubroNombre: string | null | undefined, template: unknown): string {
   const config = parseBusinessConfig(template);
   if (!config) return "—";
-  if (config.services.some((s) => s.reservable)) {
-    return catalogLabel(rubroNombre) === "Menú" ? "Reserva de mesa" : "Turnos";
+  if (config.services.some((s) => s.reservable === true || s.modo === "cita")) {
+    return catalogLabel(rubroNombre, config.catalogo) === "Menú" ? "Reserva de mesa" : "Turnos";
   }
+  // Un rubro que vende (sin ningún ítem de cita explícito) no está "sin
+  // citas" por descuido — es la forma correcta de atender, y decirlo así en
+  // vez de "Sin citas" evita que se lea como una plantilla a medio terminar.
+  if (config.catalogo?.modoPorDefecto === "pedido") return "Pedidos por WhatsApp";
   return "Sin citas";
 }
 

@@ -34,6 +34,7 @@ export default async function NegocioLayout({
       nombre: config?.name ?? n.slug,
       rubro:
         (n.rubros as unknown as { nombre: string } | null)?.nombre ?? "Negocio",
+      catalogo: config?.catalogo,
       botActivo: config?.botActivo !== false,
     };
   });

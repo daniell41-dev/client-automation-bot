@@ -9,24 +9,29 @@
 import { useActionState, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Plus } from "lucide-react";
-import type { Service } from "@/core/types";
+import type { CatalogoConfig, Service } from "@/core/types";
 import { servicesSchema } from "@/core/config-schema";
 import { guardarConfigParcial, type ActionState } from "@/app/portal/actions";
 import { Card, EmptyState, SearchInput, Toggle } from "@/components/ui";
 import { PhonePreview } from "@/components/phone-preview";
-import { catalogCopy, rubroVisual } from "@/components/rubro-visual";
+import { catalogCopy, catalogItemLabel, rubroVisual } from "@/components/rubro-visual";
 
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
 const inputCls =
   "input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft";
 
-function nuevoItem(n: number): Service {
+/**
+ * Un ítem nuevo arranca con duración solo si el rubro muestra ese campo
+ * (T-21): en una tienda, un producto recién agregado no tiene por qué nacer
+ * con "30 minutos" — nadie se lo va a sacar si no lo ve.
+ */
+function nuevoItem(n: number, conDuracion: boolean): Service {
   return {
     id: `item-${Date.now()}-${n}`,
     name: "",
     description: "",
     price: 0,
-    durationMinutes: 30,
+    durationMinutes: conDuracion ? 30 : undefined,
     categoria: "",
     disponible: true,
   };
@@ -35,6 +40,7 @@ function nuevoItem(n: number): Service {
 export function CatalogoEditor({
   slug,
   rubro,
+  catalogo,
   initialServices,
   currency,
   locale,
@@ -43,6 +49,8 @@ export function CatalogoEditor({
 }: {
   slug: string;
   rubro: string;
+  /** T-21: forma del catálogo de este negocio — qué campos mostrar y cómo llamar a un ítem. */
+  catalogo?: CatalogoConfig;
   initialServices: Service[];
   currency: string;
   locale: string;
@@ -80,8 +88,15 @@ export function CatalogoEditor({
   const patchService = (id: string, patch: Partial<Service>) =>
     setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
 
+  // T-21: qué campos tiene sentido pedirle a ESTE rubro. `undefined` en
+  // `catalogo.campos` = comportamiento previo a T-21 (mostrar Duración,
+  // ocultar Stock) — así ningún rubro ya cargado pierde un campo que ya usaba.
+  const mostrarDuracion = catalogo?.campos?.duracion !== false;
+  const mostrarStock = catalogo?.campos?.stock === true;
+  const itemLabel = catalogItemLabel(rubro, catalogo);
+
   const agregar = () => {
-    const item = nuevoItem(services.length + 1);
+    const item = nuevoItem(services.length + 1, mostrarDuracion);
     setServices((prev) => [...prev, item]);
     setSelectedId(item.id);
   };
@@ -116,7 +131,7 @@ export function CatalogoEditor({
   // del rubro real, como ya hace `RubroTile` en el resto del portal.
   const { bg: iconBg, ink: iconInk } = rubroVisual(rubro);
   const { categoriaPlaceholder, previewSaludo, previewSustantivo, previewCta } =
-    catalogCopy(rubro);
+    catalogCopy(rubro, catalogo);
 
   return (
     <div className="flex flex-wrap items-start gap-5 fade-up">
@@ -144,7 +159,7 @@ export function CatalogoEditor({
         {visibles.length === 0 ? (
           <EmptyState
             title={search ? "Sin resultados." : "Tu catálogo está vacío."}
-            subtitle={search ? undefined : "Agregá tu primer producto o servicio."}
+            subtitle={search ? undefined : `Agregá tu primer ${itemLabel.toLowerCase()}.`}
           />
         ) : (
           <div className="space-y-2">
@@ -185,7 +200,7 @@ export function CatalogoEditor({
         {/* Editar producto */}
         {selected && (
           <Card
-            title="Editar producto"
+            title={`Editar ${itemLabel.toLowerCase()}`}
             action={
               <span className="flex items-center gap-2 text-sm text-ink-mid">
                 Disponible
@@ -243,6 +258,40 @@ export function CatalogoEditor({
                   placeholder={categoriaPlaceholder}
                 />
               </div>
+              {mostrarDuracion && (
+                <div>
+                  <label className={labelCls}>Duración (minutos)</label>
+                  <input
+                    className={inputCls}
+                    type="number"
+                    min={1}
+                    value={selected.durationMinutes ?? ""}
+                    onChange={(e) =>
+                      patchService(selected.id, {
+                        durationMinutes:
+                          e.target.value === "" ? undefined : Number(e.target.value),
+                      })
+                    }
+                  />
+                </div>
+              )}
+              {mostrarStock && (
+                <div>
+                  <label className={labelCls}>Stock</label>
+                  <input
+                    className={inputCls}
+                    type="number"
+                    min={0}
+                    value={selected.stock ?? ""}
+                    onChange={(e) =>
+                      patchService(selected.id, {
+                        stock: e.target.value === "" ? undefined : Number(e.target.value),
+                      })
+                    }
+                    placeholder="Unidades disponibles"
+                  />
+                </div>
+              )}
               <div className="sm:col-span-2">
                 <label className={labelCls}>Descripción</label>
                 <textarea

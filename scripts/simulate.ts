@@ -28,7 +28,7 @@ import { resolveBusinessBySlug } from "@/businesses/resolve";
 import { handleIncoming } from "@/core/handle";
 import { nextAction } from "@/core/engine/lead-state";
 import { createLLMProvider } from "@/core/ai/factory";
-import { createAiUsageRepository, createCalendar } from "@/core/storage/factory";
+import { createAiUsageRepository, createCalendar, createInventoryRepository } from "@/core/storage/factory";
 import { SessionMemoryRepository } from "@/core/storage/adapters/session-memory";
 import { JsonLeadRepository } from "@/core/storage/adapters/json";
 import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
@@ -133,6 +133,7 @@ async function sendMessage(
     timestamp: new Date().toISOString(),
   };
   const calendar = createCalendar(business) ?? undefined;
+  const inventory = createInventoryRepository();
   const { messages: replies, modo, motivoFallback } = await handleIncoming(
     message,
     business,
@@ -141,6 +142,9 @@ async function sendMessage(
     llm ?? undefined,
     sessionRepo,
     calendar,
+    undefined,
+    inventory,
+    business.slug,
   );
   for (const reply of replies) {
     console.log(`🤖 Bot: ${reply.text}`);

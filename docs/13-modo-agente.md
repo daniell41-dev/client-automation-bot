@@ -30,7 +30,7 @@ La IA responde con un JSON estricto (`agent-schema.ts`):
 }
 ```
 
-Siete acciones posibles: `elegir_servicio`, `guardar_nombre`, `guardar_fecha`, `guardar_modalidad`, `confirmar`, `fuera_de_contexto` y `reiniciar`. La IA puede declarar varias en un mismo turno — si el cliente da todos sus datos de una ("quiero uñas, soy Carlos, mañana"), el bot no necesita tres idas y vueltas para procesarlo.
+Ocho acciones posibles: `elegir_servicio`, `guardar_nombre`, `guardar_fecha`, `guardar_modalidad`, `guardar_cantidad` (T-21), `confirmar`, `fuera_de_contexto` y `reiniciar`. La IA puede declarar varias en un mismo turno — si el cliente da todos sus datos de una ("quiero uñas, soy Carlos, mañana"), el bot no necesita tres idas y vueltas para procesarlo.
 
 `reiniciar` merece mención aparte: es la **única forma que tiene la IA de CORREGIR** un dato guardado, porque las demás acciones solo agregan. Cuando el cliente dice "yo no pedí nada", "ese no es mi nombre" o "cambié de idea", la IA la declara y se borra lo capturado. Si en el mismo turno también declara `elegir_servicio`, el servicio nuevo sobrevive (el borrado se aplica primero). Además, el motor detecta de forma determinista las palabras explícitas ("cancelar", "empezar de nuevo") y limpia **antes** de llamar a la IA, para que el agente vea un estado en blanco.
 
@@ -44,7 +44,8 @@ Cada acción se valida en `agent.ts` contra el estado real **antes** de aplicars
 | `guardar_nombre` | Se descarta si "parece" un saludo, un pedido de menú o un pedido de reinicio (reusa `isGreeting`/`isMenuRequest`/`isResetRequest` de `docs/12` — ya no son solo guardas del motor determinista, ahora también blindan al agente). |
 | `guardar_fecha` | Solo se guarda si `looksLikeDate()` confirma que el texto habla de una fecha real (misma guarda de `docs/12`). |
 | `guardar_modalidad` | Debe coincidir (exacto o vía `matchEntrega`) con una de las opciones reales configuradas. |
-| `confirmar` | Solo se aplica si YA hay nombre + servicio + fecha (+ modalidad, si el negocio la usa). Si la IA la declara antes de tiempo, se ignora — el motor decide cuándo está realmente completo, no la IA. |
+| `guardar_cantidad` (T-21) | El `servicioId` debe existir en el catálogo real Y ser un ítem de modo "pedido" (`modoDelItem`, ver `docs/14`) — la IA no puede cargarle cantidad a algo que se agenda. Se acumula en `lead.items`, sumando si el producto ya estaba en el carrito. |
+| `confirmar` | Para un ítem que se agenda: solo se aplica si YA hay nombre + servicio + fecha (+ modalidad, si el negocio la usa). Para un ítem que se vende (T-21): solo si hay nombre + al menos un producto en el carrito — nunca exige fecha. Si la IA la declara antes de tiempo, se ignora — el motor decide cuándo está realmente completo, no la IA. |
 | `fuera_de_contexto` | Alimenta el contador de desvíos (ver abajo); no toca los datos del lead. |
 | `reiniciar` | Borra lo capturado (mismo `id`/contacto). Se aplica ANTES que el resto de las acciones del turno. |
 

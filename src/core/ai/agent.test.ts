@@ -595,6 +595,223 @@ describe("runAgentTurn — la IA sabe si la cita ya está confirmada", () => {
   });
 });
 
+describe("runAgentTurn — flujo de pedido en modo agente (T-21)", () => {
+  const tienda: BusinessConfig = {
+    ...config,
+    slug: "tienda",
+    name: "Tienda Test",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Producto", plural: "Productos" } },
+    services: [
+      { id: "harina", name: "Harina 1 Kg", description: "Harina pan", price: 5000 },
+      { id: "aceite", name: "Aceite 1 Lt", description: "Aceite vegetal", price: 12000 },
+      {
+        id: "asesoria",
+        name: "Asesoría personalizada",
+        description: "Visita en el local",
+        price: 0,
+        durationMinutes: 20,
+        reservable: true,
+      },
+    ],
+  };
+
+  it("guardar_cantidad + confirmar con nombre y carrito deja el pedido 'esperando_aprobacion' (no lo cierra directo)", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "¡Gracias Laura! Tu pedido quedó en revisión.",
+      acciones: [
+        { tipo: "elegir_servicio", servicioId: "harina" },
+        { tipo: "guardar_nombre", nombre: "Laura" },
+        { tipo: "guardar_cantidad", servicioId: "harina", cantidad: 2 },
+        { tipo: "confirmar" },
+      ],
+    });
+    const result = await runAgentTurn(
+      null,
+      msg("quiero 2 harinas, soy Laura"),
+      tienda,
+      llm,
+      persona,
+      [],
+      now,
+    );
+
+    expect(result!.lead.items).toEqual([{ serviceId: "harina", cantidad: 2 }]);
+    // T-21/PR5: NO pasa a "pagado"/"datos_completos" directo — el estado
+    // sigue "interesado" hasta que la dueña acepte o rechace por WhatsApp
+    // (eso lo maneja `handleOwnerApproval` en `handle.ts`, no `agent.ts`).
+    expect(result!.lead.stage).toBe("esperando_aprobacion");
+    expect(result!.lead.state).toBe("interesado");
+    expect(result!.lead.tentativeDate).toBeUndefined();
+  });
+
+  it("una vez esperando_aprobacion, un mensaje nuevo NO re-deriva el stage (sticky)", async () => {
+    const leadEsperandoAprobacion: Lead = {
+      id: "lead-1",
+      businessSlug: "tienda",
+      channel: "mock",
+      contact: "57300000000",
+      name: "Laura",
+      serviceId: "harina",
+      items: [{ serviceId: "harina", cantidad: 2 }],
+      state: "interesado",
+      stage: "esperando_aprobacion",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      lastInboundAt: now.toISOString(),
+      followUpsSent: [],
+    };
+    const llm = fakeAgentLLM({ respuesta: "Sigue en revisión, en un momento te aviso 🙏", acciones: [] });
+    const result = await runAgentTurn(leadEsperandoAprobacion, msg("¿ya está?"), tienda, llm, persona, [], now);
+
+    expect(result!.lead.stage).toBe("esperando_aprobacion");
+    expect(result!.lead.items).toEqual([{ serviceId: "harina", cantidad: 2 }]); // el carrito no se toca
+  });
+
+  it("acepta varios guardar_cantidad en el mismo turno (carrito con más de un producto)", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "Anotado: 2 harinas y 1 aceite.",
+      acciones: [
+        { tipo: "elegir_servicio", servicioId: "harina" },
+        { tipo: "guardar_nombre", nombre: "Laura" },
+        { tipo: "guardar_cantidad", servicioId: "harina", cantidad: 2 },
+        { tipo: "guardar_cantidad", servicioId: "aceite", cantidad: 1 },
+      ],
+    });
+    const result = await runAgentTurn(
+      null,
+      msg("quiero 2 harinas y 1 aceite, soy Laura"),
+      tienda,
+      llm,
+      persona,
+      [],
+      now,
+    );
+
+    expect(result!.lead.items).toEqual([
+      { serviceId: "harina", cantidad: 2 },
+      { serviceId: "aceite", cantidad: 1 },
+    ]);
+    expect(result!.lead.stage).toBe("carrito_abierto"); // hay carrito, pero no se confirmó
+  });
+
+  it("sin fecha (un pedido nunca la necesita), 'confirmar' NO se bloquea por falta de tentativeDate", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "¡Gracias!",
+      acciones: [
+        { tipo: "elegir_servicio", servicioId: "harina" },
+        { tipo: "guardar_nombre", nombre: "Laura" },
+        { tipo: "guardar_cantidad", servicioId: "harina", cantidad: 1 },
+        { tipo: "confirmar" },
+      ],
+    });
+    const result = await runAgentTurn(null, msg("una harina, soy Laura"), tienda, llm, persona, [], now);
+    // Sin `tentativeDate` igual llega a "esperando_aprobacion" — `confirmar`
+    // no se bloqueó por falta de fecha (un pedido nunca la exige).
+    expect(result!.lead.stage).toBe("esperando_aprobacion");
+  });
+
+  it("ignora guardar_cantidad contra un ítem que no existe en el catálogo", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "hola",
+      acciones: [{ tipo: "guardar_cantidad", servicioId: "no-existe", cantidad: 3 }],
+    });
+    const result = await runAgentTurn(null, msg("quiero 3"), tienda, llm, persona, [], now);
+    expect(result!.lead.items).toBeUndefined();
+  });
+
+  it("ignora guardar_cantidad contra un ítem de modo cita (no se vende, se agenda)", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "hola",
+      acciones: [{ tipo: "guardar_cantidad", servicioId: "asesoria", cantidad: 2 }],
+    });
+    const result = await runAgentTurn(null, msg("2 asesorías"), tienda, llm, persona, [], now);
+    expect(result!.lead.items).toBeUndefined();
+  });
+
+  it("sin carrito, 'confirmar' NO cierra el pedido aunque la IA lo declare", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "¿Cuánto querés?",
+      acciones: [
+        { tipo: "elegir_servicio", servicioId: "harina" },
+        { tipo: "guardar_nombre", nombre: "Laura" },
+        { tipo: "confirmar" },
+      ],
+    });
+    const result = await runAgentTurn(null, msg("quiero harina, soy Laura"), tienda, llm, persona, [], now);
+    expect(result!.lead.stage).not.toBe("datos_completos");
+    expect(result!.lead.state).not.toBe("pagado");
+  });
+
+  it("pedir de nuevo tras un pedido confirmado limpia el carrito viejo (pedido nuevo, no un agregado)", async () => {
+    const leadConfirmado: Lead = {
+      id: "lead-1",
+      businessSlug: "tienda",
+      channel: "mock",
+      contact: "57300000000",
+      name: "Laura",
+      serviceId: "harina",
+      items: [{ serviceId: "harina", cantidad: 2 }],
+      state: "pagado",
+      stage: "datos_completos",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      lastInboundAt: now.toISOString(),
+      followUpsSent: [],
+    };
+    const llm = fakeAgentLLM({
+      respuesta: "¡Dale! ¿Cuánto aceite querés?",
+      acciones: [{ tipo: "elegir_servicio", servicioId: "aceite" }],
+    });
+    const result = await runAgentTurn(leadConfirmado, msg("también quiero aceite"), tienda, llm, persona, [], now);
+
+    expect(result!.lead.serviceId).toBe("aceite");
+    expect(result!.lead.items).toBeUndefined(); // el carrito viejo (ya pagado) no se arrastra
+    expect(result!.lead.stage).toBe("esperando_cantidad");
+  });
+
+  it("le pasa a la IA el catálogo con el modo resuelto y el carrito ya cargado", async () => {
+    let serviciosVistos: { id: string; modo?: string }[] = [];
+    let itemsVistos: unknown;
+    const llm: ILLMProvider = {
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent(input) {
+        serviciosVistos = input.services;
+        itemsVistos = input.lead.items;
+        return { respuesta: "hola", acciones: [] };
+      },
+    };
+    const leadConCarrito: Lead = {
+      id: "lead-1",
+      businessSlug: "tienda",
+      channel: "mock",
+      contact: "57300000000",
+      name: "Laura",
+      serviceId: "harina",
+      items: [{ serviceId: "harina", cantidad: 2 }],
+      state: "interesado",
+      stage: "carrito_abierto",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      lastInboundAt: now.toISOString(),
+      followUpsSent: [],
+    };
+
+    await runAgentTurn(leadConCarrito, msg("también aceite"), tienda, llm, persona, [], now);
+
+    expect(serviciosVistos.find((s) => s.id === "harina")?.modo).toBe("pedido");
+    expect(serviciosVistos.find((s) => s.id === "asesoria")?.modo).toBe("cita");
+    expect(itemsVistos).toEqual([{ servicioId: "harina", nombre: "Harina 1 Kg", cantidad: 2 }]);
+  });
+});
+
 describe("runAgentTurn — le pasa a la IA las reglas rápidas del negocio", () => {
   it("propaga config.ai.reglas en el input del agente", async () => {
     let reglasVistas: unknown = "sin-tocar";

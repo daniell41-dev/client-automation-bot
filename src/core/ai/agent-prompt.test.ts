@@ -356,3 +356,70 @@ describe("parseAgentResponse — rescates cuando el JSON no es válido a la prim
     expect(!result.ok && result.motivo).toBe("no-json");
   });
 });
+
+describe("buildAgentSystemPrompt — pedido (T-21)", () => {
+  const tiendaInput: AgentTurnInput = {
+    ...baseInput,
+    services: [
+      { id: "harina", name: "Harina 1 Kg", description: "Harina pan", price: 5000, modo: "pedido" },
+      { id: "corte", name: "Corte de cabello", description: "Corte clásico", price: 20000, durationMinutes: 30, modo: "cita" },
+    ],
+  };
+
+  it("marca cada ítem con su camino ([SE VENDE] o [SE AGENDA])", () => {
+    const prompt = buildAgentSystemPrompt(tiendaInput);
+    expect(prompt).toMatch(/Harina 1 Kg.*\[SE VENDE/);
+    expect(prompt).toMatch(/Corte de cabello.*\[SE AGENDA/);
+  });
+
+  it("un ítem sin `modo` declarado se marca [SE AGENDA] (default = cita)", () => {
+    const prompt = buildAgentSystemPrompt(baseInput); // servicios de baseInput no traen `modo`
+    const lineaCatalogo = prompt.split("\n").find((l) => l.includes('id="limpieza-facial"'));
+    expect(lineaCatalogo).toContain("[SE AGENDA");
+    expect(lineaCatalogo).not.toContain("[SE VENDE");
+  });
+
+  it("explica la acción guardar_cantidad y el criterio de confirmar para un pedido", () => {
+    const prompt = buildAgentSystemPrompt(tiendaInput);
+    expect(prompt).toContain('"guardar_cantidad"');
+    expect(prompt).toMatch(/al menos un producto cargado/i);
+  });
+
+  it("incluye el carrito y el total en los datos que ya tiene del cliente", () => {
+    const prompt = buildAgentSystemPrompt({
+      ...tiendaInput,
+      lead: {
+        ...tiendaInput.lead,
+        items: [{ servicioId: "harina", nombre: "Harina 1 Kg", cantidad: 2 }],
+      },
+    });
+    expect(prompt).toContain("carrito: 2x Harina 1 Kg");
+    expect(prompt).toContain("Total");
+  });
+
+  it("sin carrito, no menciona 'carrito:' en los datos conocidos", () => {
+    const prompt = buildAgentSystemPrompt(tiendaInput);
+    expect(prompt).not.toContain("carrito:");
+  });
+});
+
+describe("buildAgentSystemPrompt — esperando aprobación de la dueña (T-21/PR5)", () => {
+  const tiendaInput: AgentTurnInput = {
+    ...baseInput,
+    services: [{ id: "harina", name: "Harina 1 Kg", description: "Harina pan", price: 5000, modo: "pedido" }],
+  };
+
+  it("avisa de forma destacada que el pedido ya se mandó a la dueña", () => {
+    const prompt = buildAgentSystemPrompt({
+      ...tiendaInput,
+      lead: { ...tiendaInput.lead, esperandoAprobacion: true },
+    });
+    expect(prompt).toMatch(/ya se le mandó a la dueña/i);
+    expect(prompt).toMatch(/no vuelvas a pedir/i);
+  });
+
+  it("no dice nada de eso si no está esperando aprobación", () => {
+    const prompt = buildAgentSystemPrompt(tiendaInput);
+    expect(prompt).not.toMatch(/ya se le mandó a la dueña/i);
+  });
+});

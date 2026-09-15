@@ -17,6 +17,7 @@ import { parseBusinessConfig } from "@/core/config-schema";
 import { plantilla } from "@/businesses/_template/config";
 import { invalidateBusinessCache } from "@/businesses/business-cache";
 import { actualizarNegocioSchema, crearNegocioSchema } from "@/app/backoffice/negocio-schema";
+import { createInventoryRepository } from "@/core/storage/factory";
 import type { BusinessConfig } from "@/core/types";
 
 export interface ActionState {
@@ -116,6 +117,17 @@ export async function crearNegocio(
 
   const asignacionError = await asegurarAsignacion(supabase, ownerId, rubroId);
   if (asignacionError) return { error: asignacionError };
+
+  // T-21: si el rubro trae ítems con stock precargado (ej. un rubro de
+  // tienda), el negocio nuevo arranca protegido de una — sin esto, el dueño
+  // tendría que abrir y volver a guardar el catálogo una vez antes de que el
+  // stock empezara a controlarse (ver `sincronizarStock` en portal/actions.ts).
+  const inventory = createInventoryRepository();
+  await Promise.all(
+    config.services
+      .filter((s) => s.stock !== undefined)
+      .map((s) => inventory.setStock(negocio.id, s.id, s.stock!)),
+  ).catch((err) => console.error("[inventario] no se pudo precargar el stock inicial:", err));
 
   invalidateBusinessCache();
   revalidatePath("/backoffice/negocios");

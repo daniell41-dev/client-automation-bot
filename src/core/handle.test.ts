@@ -1,11 +1,37 @@
 import { describe, expect, it } from "vitest";
-import { handleIncoming } from "@/core/handle";
+import { handleIncoming, handleOwnerApproval } from "@/core/handle";
 import type { BusinessConfig, DiaAtencion, IncomingMessage, Lead } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
+import type { InventoryRepository, StockItem, StockResult } from "@/core/storage/inventory-repository";
 import type { AgentTurnInput, ILLMProvider } from "@/core/ai/provider";
 import type { AgentResponse } from "@/core/ai/agent-schema";
 import { makeFakeCalendar } from "@/core/storage/adapters/google/fake-calendar";
 import { SessionMemoryRepository } from "@/core/storage/adapters/session-memory";
+
+/** Inventario en memoria para tests: mismo algoritmo (validar todo, después descontar todo). */
+class InMemoryInventory implements InventoryRepository {
+  stock = new Map<string, number>();
+  private key(negocio: string, serviceId: string): string {
+    return `${negocio}|${serviceId}`;
+  }
+  async setStock(negocio: string, serviceId: string, stock: number): Promise<void> {
+    this.stock.set(this.key(negocio, serviceId), stock);
+  }
+  async decrementCart(negocio: string, items: StockItem[]): Promise<StockResult> {
+    const faltantes: string[] = [];
+    for (const item of items) {
+      const disponible = this.stock.get(this.key(negocio, item.serviceId));
+      if (disponible !== undefined && disponible < item.cantidad) faltantes.push(item.serviceId);
+    }
+    if (faltantes.length > 0) return { ok: false, faltantes };
+    for (const item of items) {
+      const key = this.key(negocio, item.serviceId);
+      const disponible = this.stock.get(key);
+      if (disponible !== undefined) this.stock.set(key, disponible - item.cantidad);
+    }
+    return { ok: true };
+  }
+}
 
 /** Repositorio en memoria para el test (implementa el contrato). */
 class InMemoryRepo implements LeadRepository {
@@ -308,6 +334,209 @@ describe("handleIncoming — avisa a la dueña por WhatsApp al confirmar", () =>
 
     expect(replies.length).toBeGreaterThan(0);
     expect(repo.leads[0].stage).toBe("datos_completos");
+  });
+});
+
+const tiendaConNotify: BusinessConfig = {
+  ...config,
+  slug: "tienda",
+  name: "Tienda Test",
+  notifyPhoneNumber: "573009998888",
+  catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Producto", plural: "Productos" } },
+  services: [
+    { id: "harina", name: "Harina 1 Kg", description: "Harina pan", price: 5000, keywords: ["harina"] },
+    { id: "aceite", name: "Aceite 1 Lt", description: "Aceite vegetal", price: 12000, keywords: ["aceite"] },
+  ],
+};
+
+describe("handleIncoming — avisa a la dueña con el carrito completo (T-21)", () => {
+  it("resume el pedido (varios productos + total) al pedir aprobación, en vez de 'Servicio: <uno>'", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+    await handleIncoming(msg("harina"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("Laura"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("2"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("aceite"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("1"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("no, eso es todo"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+
+    await handleIncoming(msg("sí"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+
+    expect(notifier.sent).toHaveLength(1);
+    expect(notifier.sent[0].text).toContain("2x Harina 1 Kg");
+    expect(notifier.sent[0].text).toContain("1x Aceite 1 Lt");
+    expect(notifier.sent[0].text).toContain("Total");
+    expect(notifier.sent[0].text).not.toContain("Servicio:");
+    expect(notifier.sent[0].text).not.toContain("Fecha/hora:");
+    // T-21/PR5: todavía NO está confirmado — recién lo está cuando la dueña responda.
+    expect(notifier.sent[0].text).toContain("esperando tu aprobación");
+    expect(notifier.sent[0].text).toContain("SÍ");
+
+    expect(repo.leads[0].state).toBe("interesado");
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion");
+  });
+});
+
+describe("handleIncoming — valida y descuenta stock al pedir aprobación (T-21, PR4+PR5)", () => {
+  async function driveHastaConfirmar(
+    repo: LeadRepository,
+    inventory: InventoryRepository,
+    notifier: ReturnType<typeof fakeNotifier>,
+  ) {
+    await handleIncoming(msg("harina"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg("Laura"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg("2"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg("no, eso es todo"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    return handleIncoming(msg("sí"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+  }
+
+  it("con stock suficiente, descuenta y le pide aprobación a la dueña", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-1", "harina", 10);
+    const notifier = fakeNotifier();
+
+    const { messages } = await driveHastaConfirmar(repo, inventory, notifier);
+
+    expect(repo.leads[0].state).toBe("interesado"); // todavía no "pagado"
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion");
+    expect(messages[0].text).toContain("revisión");
+    expect(inventory.stock.get("tienda-1|harina")).toBe(8); // 10 - 2, ya descontado
+    expect(notifier.sent).toHaveLength(1); // sí se avisó a la dueña
+  });
+
+  it("sin stock suficiente, REVIERTE la confirmación y avisa qué falta", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-1", "harina", 1); // pide 2, solo hay 1
+    const notifier = fakeNotifier();
+
+    const { messages } = await driveHastaConfirmar(repo, inventory, notifier);
+
+    expect(repo.leads[0].state).not.toBe("pagado");
+    expect(repo.leads[0].stage).toBe("carrito_abierto"); // vuelve al carrito, no queda a medias
+    expect(repo.leads[0].items).toEqual([{ serviceId: "harina", cantidad: 2 }]); // no se pierde el carrito
+    expect(messages[0].text).toContain("Harina 1 Kg");
+    expect(inventory.stock.get("tienda-1|harina")).toBe(1); // NO se descontó nada
+    expect(notifier.sent).toHaveLength(0); // nunca se le pide aprobación a la dueña por algo que no se puede cumplir
+  });
+
+  it("un producto sin stock configurado nunca bloquea la confirmación", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory(); // "harina" nunca se cargó
+    const notifier = fakeNotifier();
+
+    const { messages } = await driveHastaConfirmar(repo, inventory, notifier);
+
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion");
+    expect(messages[0].text).toContain("revisión");
+    expect(notifier.sent).toHaveLength(1);
+  });
+
+  it("sin repositorio de inventario (comportamiento de antes del PR4), pide aprobación sin validar nada", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+
+    let r = await handleIncoming(msg("harina"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    r = await handleIncoming(msg("Laura"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    r = await handleIncoming(msg("2"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    r = await handleIncoming(msg("no, eso es todo"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    r = await handleIncoming(msg("sí"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+
+    expect(r.messages[0].text).toContain("revisión");
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion");
+  });
+});
+
+describe("handleOwnerApproval — la dueña acepta o rechaza por WhatsApp (T-21, PR5)", () => {
+  function ownerMsg(text: string): IncomingMessage {
+    return { channel: "whatsapp", businessSlug: "tienda", from: "573009998888", text, timestamp: new Date().toISOString() };
+  }
+
+  async function driveHastaAprobacion(repo: LeadRepository): Promise<void> {
+    await handleIncoming(msg("harina"), tiendaConNotify, repo);
+    await handleIncoming(msg("Laura"), tiendaConNotify, repo);
+    await handleIncoming(msg("2"), tiendaConNotify, repo);
+    await handleIncoming(msg("no, eso es todo"), tiendaConNotify, repo);
+    await handleIncoming(msg("sí"), tiendaConNotify, repo);
+  }
+
+  it("SÍ acepta el pedido: pasa a 'pagado', y el cliente recibe la confirmación", async () => {
+    const repo = new InMemoryRepo();
+    await driveHastaAprobacion(repo);
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion");
+
+    const { ownerReply, customerReply } = await handleOwnerApproval(ownerMsg("sí"), tiendaConNotify, repo);
+
+    expect(ownerReply.text).toContain("Laura");
+    expect(customerReply?.to).toBe("57300000000");
+    expect(customerReply?.text).toContain("2x Harina 1 Kg");
+    expect(customerReply?.text).toContain("confirmado");
+    expect(repo.leads[0].state).toBe("pagado");
+    expect(repo.leads[0].stage).toBe("datos_completos");
+    expect(repo.leads[0].confirmedAt).toBeDefined();
+  });
+
+  it("NO rechaza el pedido: pasa a 'perdido', y el cliente recibe el aviso de rechazo", async () => {
+    const repo = new InMemoryRepo();
+    await driveHastaAprobacion(repo);
+
+    const { ownerReply, customerReply } = await handleOwnerApproval(ownerMsg("no"), tiendaConNotify, repo);
+
+    expect(ownerReply.text).toContain("rechazado");
+    expect(customerReply?.to).toBe("57300000000");
+    expect(customerReply?.text).toContain("Laura");
+    expect(repo.leads[0].state).toBe("perdido");
+    expect(repo.leads[0].stage).toBe("inicio"); // muere de una, no queda a medias
+    expect(repo.leads[0].items).toBeUndefined();
+  });
+
+  it("una respuesta ambigua no acepta ni rechaza nada — pide que aclare", async () => {
+    const repo = new InMemoryRepo();
+    await driveHastaAprobacion(repo);
+
+    const { ownerReply, customerReply } = await handleOwnerApproval(ownerMsg("quién es?"), tiendaConNotify, repo);
+
+    expect(ownerReply.text).toMatch(/SÍ|NO/);
+    expect(customerReply).toBeUndefined();
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion"); // no se tocó
+  });
+
+  it("sin ningún pedido pendiente, avisa que no hay nada que aprobar", async () => {
+    const repo = new InMemoryRepo();
+    const { ownerReply, customerReply } = await handleOwnerApproval(ownerMsg("sí"), tiendaConNotify, repo);
+
+    expect(ownerReply.text).toContain("No hay ningún pedido pendiente");
+    expect(customerReply).toBeUndefined();
+  });
+
+  it("con dos pedidos pendientes, resuelve el más viejo primero (FIFO)", async () => {
+    const repo = new InMemoryRepo();
+    await driveHastaAprobacion(repo); // Laura, contact 57300000000
+
+    // Segundo cliente, pedido más nuevo.
+    const msg2 = (text: string): IncomingMessage => ({
+      channel: "mock",
+      businessSlug: "tienda",
+      from: "57300000001",
+      text,
+      timestamp: new Date().toISOString(),
+    });
+    await handleIncoming(msg2("harina"), tiendaConNotify, repo);
+    await handleIncoming(msg2("Carlos"), tiendaConNotify, repo);
+    await handleIncoming(msg2("1"), tiendaConNotify, repo);
+    await handleIncoming(msg2("no"), tiendaConNotify, repo);
+    await handleIncoming(msg2("sí"), tiendaConNotify, repo);
+
+    expect(repo.leads.filter((l) => l.stage === "esperando_aprobacion")).toHaveLength(2);
+
+    const { ownerReply } = await handleOwnerApproval(ownerMsg("sí"), tiendaConNotify, repo);
+    expect(ownerReply.text).toContain("Laura"); // el primero en pedir, no Carlos
+
+    const laura = repo.leads.find((l) => l.contact === "57300000000")!;
+    const carlos = repo.leads.find((l) => l.contact === "57300000001")!;
+    expect(laura.state).toBe("pagado");
+    expect(carlos.stage).toBe("esperando_aprobacion"); // el segundo sigue esperando
   });
 });
 

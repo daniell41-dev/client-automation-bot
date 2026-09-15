@@ -116,6 +116,12 @@ const messagesSchema = z.object({
   captured: z.string(),
   fallback: z.string(),
   citaVigente: z.string().optional(),
+  askCantidad: z.string().optional(),
+  askConfirmPedido: z.string().optional(),
+  esperandoAprobacion: z.string().optional(),
+  pedidoConfirmado: z.string().optional(),
+  pedidoRechazado: z.string().optional(),
+  pedidoVigente: z.string().optional(),
 });
 
 const followUpSchema = z.object({

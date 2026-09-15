@@ -128,3 +128,50 @@ describe("SupabaseLeadRepository — appointmentAt/confirmedAt (T-20)", () => {
     expect(found?.confirmedAt).toBeUndefined();
   });
 });
+
+describe("SupabaseLeadRepository — carrito de pedido (T-21)", () => {
+  it("guarda y recupera el carrito completo, con varios productos", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseLeadRepository(db);
+    await repo.save(
+      makeLead({
+        items: [
+          { serviceId: "harina", cantidad: 2 },
+          { serviceId: "aceite", cantidad: 1 },
+        ],
+      }),
+    );
+
+    expect(db.leads[0].items).toEqual([
+      { serviceId: "harina", cantidad: 2 },
+      { serviceId: "aceite", cantidad: 1 },
+    ]);
+
+    const found = await repo.getById("lead-1");
+    expect(found?.items).toEqual([
+      { serviceId: "harina", cantidad: 2 },
+      { serviceId: "aceite", cantidad: 1 },
+    ]);
+  });
+
+  it("sin carrito, viaja como null y vuelve como undefined (mismo criterio que name/serviceId)", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseLeadRepository(db);
+    await repo.save(makeLead({ items: undefined }));
+
+    expect(db.leads[0].items).toBeNull();
+    const found = await repo.getById("lead-1");
+    expect(found?.items).toBeUndefined();
+  });
+
+  it("una fila vieja (sin la columna, previa a la migración 0009) vuelve con items en undefined", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseLeadRepository(db);
+    await repo.save(makeLead());
+
+    delete db.leads[0].items;
+
+    const found = await repo.getById("lead-1");
+    expect(found?.items).toBeUndefined();
+  });
+});

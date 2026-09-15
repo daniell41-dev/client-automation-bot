@@ -12,11 +12,13 @@ import type { LeadRepository } from "@/core/storage/repository";
 import type { SessionRepository } from "@/core/storage/session-repository";
 import type { MessageDedupeRepository } from "@/core/storage/dedupe-repository";
 import type { AiUsageRepository } from "@/core/storage/usage-repository";
+import type { InventoryRepository } from "@/core/storage/inventory-repository";
 import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { JsonLeadRepository } from "@/core/storage/adapters/json";
 import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
 import { JsonMessageDedupeRepository } from "@/core/storage/adapters/dedupe-json";
 import { JsonAiUsageRepository } from "@/core/storage/adapters/usage-json";
+import { JsonInventoryRepository } from "@/core/storage/adapters/inventory-json";
 import { createSheetsApi } from "@/core/storage/adapters/google/auth";
 import { createCalendarApi } from "@/core/storage/adapters/google/calendar";
 import { GoogleSheetsLeadRepository } from "@/core/storage/adapters/google/leads";
@@ -26,6 +28,7 @@ import { SupabaseLeadRepository } from "@/core/storage/adapters/supabase/leads";
 import { SupabaseSessionRepository } from "@/core/storage/adapters/supabase/sessions";
 import { SupabaseMessageDedupeRepository } from "@/core/storage/adapters/supabase/dedupe";
 import { SupabaseAiUsageRepository } from "@/core/storage/adapters/supabase/usage";
+import { SupabaseInventoryRepository } from "@/core/storage/adapters/supabase/inventory";
 
 /**
  * Repositorio de leads: Supabase > Sheets del negocio > JSON local.
@@ -86,4 +89,16 @@ export function createMessageDedupeRepository(): MessageDedupeRepository {
 export function createAiUsageRepository(): AiUsageRepository {
   const db = createSupabaseDb();
   return db ? new SupabaseAiUsageRepository(db) : new JsonAiUsageRepository();
+}
+
+/**
+ * Repositorio de stock (T-21): Supabase (descuento atómico real, ver
+ * migración 0010) > JSON local (leer-restar-escribir, sin garantía de
+ * concurrencia — suficiente para desarrollo de un solo proceso). Sin Sheets,
+ * mismo motivo que el resto del bookkeeping técnico: no es un dato que un
+ * negocio necesite ver en su propia planilla.
+ */
+export function createInventoryRepository(): InventoryRepository {
+  const db = createSupabaseDb();
+  return db ? new SupabaseInventoryRepository(db) : new JsonInventoryRepository();
 }

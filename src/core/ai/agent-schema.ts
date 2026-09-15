@@ -20,7 +20,17 @@ const agentActionSchema = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("guardar_fecha"), fecha: z.string().min(1) }),
   /** El cliente eligió una modalidad de entrega (retirar / comer en el local, etc.). */
   z.object({ tipo: z.literal("guardar_modalidad"), modalidad: z.string().min(1) }),
-  /** Ya hay nombre + servicio + fecha (+ modalidad si aplica): confirmar la cita/pedido. */
+  /**
+   * T-21: el cliente dio la cantidad de UN producto del pedido (no una cita).
+   * `servicioId` debe ser un ítem de modo "pedido" del catálogo real —
+   * `agent.ts` lo valida igual que `elegir_servicio`.
+   */
+  z.object({
+    tipo: z.literal("guardar_cantidad"),
+    servicioId: z.string().min(1),
+    cantidad: z.number().positive(),
+  }),
+  /** Ya hay nombre + servicio + fecha (+ modalidad si aplica), o nombre + carrito con algo: confirmar la cita/pedido. */
   z.object({ tipo: z.literal("confirmar") }),
   /** El mensaje no tiene nada que ver con el negocio (charla ajena al contexto de venta). */
   z.object({ tipo: z.literal("fuera_de_contexto") }),
