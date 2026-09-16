@@ -67,6 +67,21 @@ export interface NegocioRow {
   es_demo: boolean;
 }
 
+/** Fila de la tabla `comprobantes` (T-24.1, migración 0013). */
+export interface ComprobanteRow {
+  id: string;
+  negocio_id: string;
+  lead_id?: string | null;
+  referencia?: string | null;
+  monto?: number | null;
+  moneda?: string | null;
+  banco?: string | null;
+  fecha_comprobante?: string | null;
+  estado: "pendiente" | "aprobado" | "rechazado";
+  señales?: unknown;
+  created_at: string;
+}
+
 /** Operaciones mínimas sobre la base que necesitan los adaptadores del bot. */
 export interface SupabaseDb {
   selectLeadByContact(businessSlug: string, contact: string): Promise<LeadRow | null>;
@@ -113,6 +128,22 @@ export interface SupabaseDb {
     negocioId: string,
     items: { serviceId: string; cantidad: number }[],
   ): Promise<{ ok: boolean; faltantes?: string[] }>;
+  /**
+   * Inserta un comprobante nuevo (T-24.1, migración 0013). Lanza — nunca
+   * devuelve un booleano de "ok/no ok" — si `referencia` ya se usó en este
+   * negocio (`comprobantes_ref_unica`), para que quien llama decida
+   * explícitamente qué decirle al cliente/dueña ante el rechazo.
+   */
+  insertComprobante(row: {
+    negocioId: string;
+    leadId?: string;
+    referencia?: string;
+    monto?: number;
+    moneda?: string;
+    banco?: string;
+    fechaComprobante?: string;
+    señales?: unknown;
+  }): Promise<ComprobanteRow>;
 }
 
 /** Implementación real sobre supabase-js. */
@@ -247,6 +278,34 @@ class RealSupabaseDb implements SupabaseDb {
     if (error) throw error;
     const result = data as { ok: boolean; faltantes?: string[] };
     return { ok: result.ok, faltantes: result.faltantes };
+  }
+
+  async insertComprobante(row: {
+    negocioId: string;
+    leadId?: string;
+    referencia?: string;
+    monto?: number;
+    moneda?: string;
+    banco?: string;
+    fechaComprobante?: string;
+    señales?: unknown;
+  }): Promise<ComprobanteRow> {
+    const { data, error } = await this.client
+      .from("comprobantes")
+      .insert({
+        negocio_id: row.negocioId,
+        lead_id: row.leadId ?? null,
+        referencia: row.referencia ?? null,
+        monto: row.monto ?? null,
+        moneda: row.moneda ?? null,
+        banco: row.banco ?? null,
+        fecha_comprobante: row.fechaComprobante ?? null,
+        señales: row.señales ?? null,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as ComprobanteRow;
   }
 }
 
