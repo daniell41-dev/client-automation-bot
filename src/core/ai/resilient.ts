@@ -56,7 +56,12 @@ export class ResilientProvider implements ILLMProvider {
   }
 
   /** Nunca lanza: un fallo al registrar telemetría no puede romper la respuesta real. */
-  private async registrar(proveedor: string, llamadas: number, fallbacks = 0): Promise<void> {
+  private async registrar(
+    proveedor: string,
+    llamadas: number,
+    fallbacks = 0,
+    imagenes = 0,
+  ): Promise<void> {
     if (!this.usage) return;
     try {
       await this.usage.repo.registrar({
@@ -64,6 +69,7 @@ export class ResilientProvider implements ILLMProvider {
         proveedor,
         llamadas,
         fallbacks,
+        imagenes,
       });
     } catch (err) {
       console.error("[AI] no se pudo registrar el uso en uso_ia:", err);
@@ -163,13 +169,13 @@ export class ResilientProvider implements ILLMProvider {
       if (!provider.supportsVision || !provider.describeImage) continue;
       try {
         const result = await provider.describeImage(input);
-        await this.registrar(provider.model ?? "?", 1);
+        await this.registrar(provider.model ?? "?", 1, 0, 1);
         if (result) return result;
         console.error(
           `[AI] ${provider.model ?? "proveedor"} devolvió un JSON inválido en describeImage, probando el siguiente`,
         );
       } catch (err) {
-        await this.registrar(provider.model ?? "?", 1);
+        await this.registrar(provider.model ?? "?", 1, 0, 1);
         console.error(
           `[AI] ${provider.model ?? "proveedor"} falló (describeImage), probando el siguiente:`,
           err,

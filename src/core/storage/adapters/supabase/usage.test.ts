@@ -11,7 +11,15 @@ describe("SupabaseAiUsageRepository", () => {
     await repo.registrar({ negocio: "neg-1", proveedor: "gemini", llamadas: 1 });
 
     expect(db.usoIa).toEqual([
-      { negocio_id: "neg-1", proveedor: "gemini", llamadas: 2, tokens_in: 0, tokens_out: 0, fallbacks: 0 },
+      {
+        negocio_id: "neg-1",
+        proveedor: "gemini",
+        llamadas: 2,
+        tokens_in: 0,
+        tokens_out: 0,
+        fallbacks: 0,
+        imagenes: 0,
+      },
     ]);
   });
 
@@ -34,8 +42,44 @@ describe("SupabaseAiUsageRepository", () => {
     await repo.registrar({ negocio: "neg-1", proveedor: "fallback_plantilla", fallbacks: 1 });
 
     expect(db.usoIa).toEqual([
-      { negocio_id: "neg-1", proveedor: "gemini", llamadas: 1, tokens_in: 100, tokens_out: 40, fallbacks: 0 },
-      { negocio_id: "neg-1", proveedor: "fallback_plantilla", llamadas: 0, tokens_in: 0, tokens_out: 0, fallbacks: 1 },
+      {
+        negocio_id: "neg-1",
+        proveedor: "gemini",
+        llamadas: 1,
+        tokens_in: 100,
+        tokens_out: 40,
+        fallbacks: 0,
+        imagenes: 0,
+      },
+      {
+        negocio_id: "neg-1",
+        proveedor: "fallback_plantilla",
+        llamadas: 0,
+        tokens_in: 0,
+        tokens_out: 0,
+        fallbacks: 1,
+        imagenes: 0,
+      },
+    ]);
+  });
+
+  it("registra imagenes por separado de las llamadas (T-23.5)", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseAiUsageRepository(db);
+
+    await repo.registrar({ negocio: "neg-1", proveedor: "gemini", llamadas: 1, imagenes: 1 });
+    await repo.registrar({ negocio: "neg-1", proveedor: "gemini", llamadas: 1 });
+
+    expect(db.usoIa).toEqual([
+      {
+        negocio_id: "neg-1",
+        proveedor: "gemini",
+        llamadas: 2,
+        tokens_in: 0,
+        tokens_out: 0,
+        fallbacks: 0,
+        imagenes: 1,
+      },
     ]);
   });
 });

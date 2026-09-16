@@ -234,7 +234,7 @@ describe("ResilientProvider — registra consumo en uso_ia (T-07)", () => {
     await chain.enhance(ctx);
 
     expect(usageRepo.entries).toEqual([
-      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0 },
+      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0, imagenes: 0 },
     ]);
   });
 
@@ -248,8 +248,8 @@ describe("ResilientProvider — registra consumo en uso_ia (T-07)", () => {
     await chain.enhance(ctx);
 
     expect(usageRepo.entries).toEqual([
-      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0 },
-      { negocio: "neg-1", proveedor: "groq-y", llamadas: 1, fallbacks: 0 },
+      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0, imagenes: 0 },
+      { negocio: "neg-1", proveedor: "groq-y", llamadas: 1, fallbacks: 0, imagenes: 0 },
     ]);
   });
 
@@ -263,9 +263,9 @@ describe("ResilientProvider — registra consumo en uso_ia (T-07)", () => {
     await chain.enhance(ctx);
 
     expect(usageRepo.entries).toEqual([
-      { negocio: "neg-1", proveedor: "uno", llamadas: 1, fallbacks: 0 },
-      { negocio: "neg-1", proveedor: "dos", llamadas: 1, fallbacks: 0 },
-      { negocio: "neg-1", proveedor: FALLBACK_PROVIDER, llamadas: 0, fallbacks: 1 },
+      { negocio: "neg-1", proveedor: "uno", llamadas: 1, fallbacks: 0, imagenes: 0 },
+      { negocio: "neg-1", proveedor: "dos", llamadas: 1, fallbacks: 0, imagenes: 0 },
+      { negocio: "neg-1", proveedor: FALLBACK_PROVIDER, llamadas: 0, fallbacks: 1, imagenes: 0 },
     ]);
   });
 
@@ -290,8 +290,8 @@ describe("ResilientProvider — registra consumo en uso_ia (T-07)", () => {
     await chain.runAgent(input);
 
     expect(usageRepo.entries).toEqual([
-      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0 },
-      { negocio: "neg-1", proveedor: FALLBACK_PROVIDER, llamadas: 0, fallbacks: 1 },
+      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0, imagenes: 0 },
+      { negocio: "neg-1", proveedor: FALLBACK_PROVIDER, llamadas: 0, fallbacks: 1, imagenes: 0 },
     ]);
   });
 

@@ -363,6 +363,12 @@ export interface IncomingMessage {
   timestamp: string;
   /** Nombre de perfil del contacto, si la plataforma lo provee. */
   contactName?: string;
+  /**
+   * Presente si el mensaje trae una foto (T-23.5). `text` ya trae el caption
+   * (o "" si no vino uno) — este campo es solo lo que hace falta para
+   * descargarla: nunca se guarda la imagen en sí, solo se procesa en memoria.
+   */
+  image?: { mediaId: string; mimeType: string };
 }
 
 /** Mensaje saliente normalizado que un canal debe entregar. */
