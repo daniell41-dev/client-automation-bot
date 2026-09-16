@@ -23,11 +23,13 @@ interface UsoIaRow {
   imagenes: number;
 }
 
-/** Fila de `inventario`, espejo de la migración 0010. */
+/** Fila de `inventario`, espejo de las migraciones 0010 y 0011. */
 interface InventarioRow {
   negocio_id: string;
   service_id: string;
   stock: number;
+  /** T-22.2: qué día se avisó por última vez que este producto quedó bajo. */
+  alertado_en?: string | null;
 }
 
 /** Llaves de Wompi de un negocio, espejo de las columnas de la migración 0014. */
@@ -173,13 +175,29 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       }
       if (faltantes.length > 0) return { ok: false, faltantes };
 
+      // T-22.2: solo los productos SÍ trackeados entran en `restante`.
+      const restante: { serviceId: string; stock: number }[] = [];
       for (const item of items) {
         const fila = inventario.find(
           (i) => i.negocio_id === negocioId && i.service_id === item.serviceId,
         );
-        if (fila) fila.stock -= item.cantidad;
+        if (fila) {
+          fila.stock -= item.cantidad;
+          restante.push({ serviceId: item.serviceId, stock: fila.stock });
+        }
       }
-      return { ok: true };
+      return { ok: true, restante };
+    },
+
+    async markLowStockAlert(negocioId, serviceId) {
+      const fila = inventario.find(
+        (i) => i.negocio_id === negocioId && i.service_id === serviceId,
+      );
+      if (!fila) return false;
+      const hoy = new Date().toISOString().slice(0, 10);
+      if (fila.alertado_en === hoy) return false;
+      fila.alertado_en = hoy;
+      return true;
     },
 
     async insertComprobante(row) {
