@@ -129,7 +129,17 @@ export interface SupabaseDb {
   decrementStockCarrito(
     negocioId: string,
     items: { serviceId: string; cantidad: number }[],
-  ): Promise<{ ok: boolean; faltantes?: string[] }>;
+  ): Promise<{
+    ok: boolean;
+    faltantes?: string[];
+    restante?: { serviceId: string; stock: number }[];
+  }>;
+  /**
+   * Marca la alerta de stock bajo de HOY para (negocio, producto) — ver
+   * migración 0011. `true` la primera vez del día, `false` si ya se había
+   * marcado.
+   */
+  markLowStockAlert(negocioId: string, serviceId: string): Promise<boolean>;
   /**
    * Inserta un comprobante nuevo (T-24.1, migración 0013). Lanza — nunca
    * devuelve un booleano de "ok/no ok" — si `referencia` ya se usó en este
@@ -276,14 +286,35 @@ class RealSupabaseDb implements SupabaseDb {
   async decrementStockCarrito(
     negocioId: string,
     items: { serviceId: string; cantidad: number }[],
-  ): Promise<{ ok: boolean; faltantes?: string[] }> {
+  ): Promise<{
+    ok: boolean;
+    faltantes?: string[];
+    restante?: { serviceId: string; stock: number }[];
+  }> {
     const { data, error } = await this.client.rpc("descontar_stock_carrito", {
       p_negocio_id: negocioId,
       p_items: items.map((i) => ({ service_id: i.serviceId, cantidad: i.cantidad })),
     });
     if (error) throw error;
-    const result = data as { ok: boolean; faltantes?: string[] };
-    return { ok: result.ok, faltantes: result.faltantes };
+    const result = data as {
+      ok: boolean;
+      faltantes?: string[];
+      restante?: { service_id: string; stock: number }[];
+    };
+    return {
+      ok: result.ok,
+      faltantes: result.faltantes,
+      restante: result.restante?.map((r) => ({ serviceId: r.service_id, stock: r.stock })),
+    };
+  }
+
+  async markLowStockAlert(negocioId: string, serviceId: string): Promise<boolean> {
+    const { data, error } = await this.client.rpc("marcar_alerta_stock_bajo", {
+      p_negocio_id: negocioId,
+      p_service_id: serviceId,
+    });
+    if (error) throw error;
+    return data === true;
   }
 
   async insertComprobante(row: {

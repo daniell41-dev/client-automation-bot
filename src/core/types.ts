@@ -126,6 +126,12 @@ export interface CatalogoConfig {
     stock?: boolean;
     categoria?: boolean;
   };
+  /**
+   * T-22.2: unidades o menos a partir de las cuales se le avisa al dueño que
+   * un producto se está por acabar. Opcional — sin declarar, el motor usa un
+   * default razonable (ver `DEFAULT_STOCK_MINIMO` en `handle.ts`).
+   */
+  stockMinimo?: number;
 }
 
 /** Una regla rápida del bot: si el mensaje contiene una keyword, responde exacto. */

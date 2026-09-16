@@ -236,6 +236,28 @@ export function ConfigForm({
               Mostrar Stock en el editor de catálogo
             </label>
           </div>
+          {/* T-22.2: solo tiene sentido un umbral de aviso si este rubro
+              muestra el campo Stock — sin stock que trackear, no hay nada
+              que cruce ningún umbral. */}
+          {config.catalogo?.campos?.stock === true && (
+            <div>
+              <label className={labelCls}>Avisar cuando el stock llegue a (o menos de)</label>
+              <input
+                className={inputCls}
+                type="number"
+                min={0}
+                value={config.catalogo?.stockMinimo ?? 3}
+                onChange={(e) =>
+                  setCatalogo({
+                    stockMinimo: e.target.value === "" ? undefined : Number(e.target.value),
+                  })
+                }
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Una sola alerta por producto por día, aunque se venda varias veces.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 

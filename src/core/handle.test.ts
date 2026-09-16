@@ -16,6 +16,7 @@ import { SessionMemoryRepository } from "@/core/storage/adapters/session-memory"
 /** Inventario en memoria para tests: mismo algoritmo (validar todo, después descontar todo). */
 class InMemoryInventory implements InventoryRepository {
   stock = new Map<string, number>();
+  alertadoEn = new Map<string, string>();
   private key(negocio: string, serviceId: string): string {
     return `${negocio}|${serviceId}`;
   }
@@ -29,12 +30,24 @@ class InMemoryInventory implements InventoryRepository {
       if (disponible !== undefined && disponible < item.cantidad) faltantes.push(item.serviceId);
     }
     if (faltantes.length > 0) return { ok: false, faltantes };
+    const restante: { serviceId: string; stock: number }[] = [];
     for (const item of items) {
       const key = this.key(negocio, item.serviceId);
       const disponible = this.stock.get(key);
-      if (disponible !== undefined) this.stock.set(key, disponible - item.cantidad);
+      if (disponible !== undefined) {
+        const nuevo = disponible - item.cantidad;
+        this.stock.set(key, nuevo);
+        restante.push({ serviceId: item.serviceId, stock: nuevo });
+      }
     }
-    return { ok: true };
+    return { ok: true, restante };
+  }
+  async markLowStockAlert(negocio: string, serviceId: string): Promise<boolean> {
+    const key = this.key(negocio, serviceId);
+    const hoy = new Date().toISOString().slice(0, 10);
+    if (this.alertadoEn.get(key) === hoy) return false;
+    this.alertadoEn.set(key, hoy);
+    return true;
   }
 }
 
@@ -450,6 +463,118 @@ describe("handleIncoming — valida y descuenta stock al pedir aprobación (T-21
 
     expect(r.messages[0].text).toContain("revisión");
     expect(repo.leads[0].stage).toBe("esperando_aprobacion");
+  });
+});
+
+describe("handleIncoming — alerta de stock bajo al dueño (T-22.2)", () => {
+  async function driveHastaConfirmar(
+    repo: LeadRepository,
+    inventory: InventoryRepository,
+    notifier: ReturnType<typeof fakeNotifier>,
+    config: BusinessConfig = tiendaConNotify,
+  ) {
+    await handleIncoming(msg("harina"), config, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg("Laura"), config, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg("2"), config, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg("no, eso es todo"), config, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    return handleIncoming(msg("sí"), config, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+  }
+
+  it("con el default (3), vender hasta dejar 2 unidades avisa a la dueña en el mismo mensaje", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-1", "harina", 4); // 4 - 2 = 2, <= umbral default 3
+    const notifier = fakeNotifier();
+
+    await driveHastaConfirmar(repo, inventory, notifier);
+
+    expect(notifier.sent).toHaveLength(1); // una sola llamada a la dueña
+    expect(notifier.sent[0].text).toContain("esperando tu aprobación");
+    expect(notifier.sent[0].text).toContain("Quedan 2 unidades de Harina 1 Kg");
+  });
+
+  it("con stock por encima del umbral, no avisa nada", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-1", "harina", 10); // 10 - 2 = 8, muy por encima
+    const notifier = fakeNotifier();
+
+    await driveHastaConfirmar(repo, inventory, notifier);
+
+    expect(notifier.sent[0].text).not.toContain("Quedan");
+  });
+
+  it("una segunda venta el mismo día no repite la alerta", async () => {
+    // Dos clientes distintos comprando lo mismo — la alerta es POR PRODUCTO,
+    // no por lead, así que da lo mismo que sea el mismo cliente o no.
+    function msg2(text: string): IncomingMessage {
+      return { channel: "mock", businessSlug: "estetica-bella", from: "57300000099", text, timestamp: new Date().toISOString() };
+    }
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-1", "harina", 6);
+    const notifier = fakeNotifier();
+
+    // Primera venta (Laura): 6 -> 4 (todavía por encima del umbral 3, sin alerta).
+    await driveHastaConfirmar(repo, inventory, notifier);
+    expect(notifier.sent[0].text).not.toContain("Quedan");
+
+    // Segunda venta, mismo día, OTRO cliente: 4 -> 2, cruza el umbral,
+    // primera alerta del día.
+    await handleIncoming(msg2("harina"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg2("Carlos"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg2("2"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg2("no"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg2("sí"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    expect(notifier.sent[1].text).toContain("Quedan 2 unidades de Harina 1 Kg");
+
+    // Tercera venta el MISMO día, un tercer cliente: 2 -> 1, sigue bajo el
+    // umbral, pero NO repite la alerta.
+    function msg3(text: string): IncomingMessage {
+      return { channel: "mock", businessSlug: "estetica-bella", from: "57300000098", text, timestamp: new Date().toISOString() };
+    }
+    await handleIncoming(msg3("harina"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg3("Ana"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg3("1"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg3("no"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg3("sí"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    expect(notifier.sent[2].text).not.toContain("Quedan"); // sin segunda alerta
+  });
+
+  it("respeta catalogo.stockMinimo del negocio en vez del default", async () => {
+    const tiendaUmbralAlto: BusinessConfig = {
+      ...tiendaConNotify,
+      catalogo: { ...tiendaConNotify.catalogo, stockMinimo: 20 },
+    };
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-1", "harina", 30); // 30 - 2 = 28, sigue bajo el umbral de 20? no, 28 > 20
+    const notifier = fakeNotifier();
+
+    await driveHastaConfirmar(repo, inventory, notifier, tiendaUmbralAlto);
+    expect(notifier.sent[0].text).not.toContain("Quedan");
+
+    // Con un umbral de 20, bajar a 15 sí debería avisar.
+    const repo2 = new InMemoryRepo();
+    const inventory2 = new InMemoryInventory();
+    await inventory2.setStock("tienda-1", "harina", 17);
+    const notifier2 = fakeNotifier();
+    await driveHastaConfirmar(repo2, inventory2, notifier2, tiendaUmbralAlto);
+    expect(notifier2.sent[0].text).toContain("Quedan 15 unidades de Harina 1 Kg");
+  });
+
+  it("sin repositorio de inventario, no intenta alertar nada (no rompe)", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+
+    await handleIncoming(msg("harina"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("Laura"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("2"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("no, eso es todo"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    const { messages } = await handleIncoming(msg("sí"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+
+    expect(messages[0].text).toContain("revisión");
+    expect(notifier.sent[0].text).not.toContain("Quedan");
   });
 });
 
