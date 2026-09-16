@@ -173,6 +173,26 @@ export interface PedidosConfig {
   opciones: string[];
 }
 
+/**
+ * Confirmación de pago (T-24.4, Nivel 1 — triaje asistido, `docs/15-plan-vision-tienda.md` §1.6).
+ * Sin esto (default), el flujo sigue igual que antes de T-24: la dueña
+ * aprueba el pedido con un SÍ/NO plano, sin comprobante de por medio.
+ */
+export interface PagosConfig {
+  /**
+   * Si es `true`, al confirmar el pedido el bot NO le avisa a la dueña
+   * todavía — le pide al cliente que pague y mande la foto del comprobante.
+   * Recién cuando llega la foto se le avisa a la dueña (con los datos leídos
+   * + las señales de riesgo) para que apruebe o rechace.
+   */
+  requiereComprobante?: boolean;
+  /**
+   * Cuenta/teléfono real que el negocio usa para cobrar (Nequi, Bancolombia,
+   * Pago Móvil...) — para la señal "destino no coincide" de `señales-pago.ts`.
+   */
+  telefonoDestino?: string;
+}
+
 /** Un tramo horario dentro de un día, "HH:MM" 24hs. */
 export interface HourRange {
   /** Hora de apertura "HH:MM". */
@@ -264,6 +284,14 @@ export interface MessageTemplates {
    * una, ver `pedido-lifecycle.ts`) — queda como red de seguridad.
    */
   pedidoVigente?: string;
+  /**
+   * T-24.4: se le dice al cliente en vez de `esperandoAprobacion` cuando el
+   * negocio tiene `pagos.requiereComprobante` — acá todavía no se avisó a la
+   * dueña, se espera que el cliente pague y mande la foto del comprobante.
+   * Nunca debe sonar a confirmación (§1.6): el motor le antepone el detalle
+   * del carrito y el total, este texto es solo el pedido de la foto.
+   */
+  pedirComprobante?: string;
 }
 
 /**
@@ -319,6 +347,8 @@ export interface BusinessConfig {
    * pedido (usa el mismo número de WhatsApp Business del negocio para enviar).
    */
   notifyPhoneNumber?: string;
+  /** Confirmación de pago (T-24.4) — Nivel 1 del plan de pagos, ver `docs/15-plan-vision-tienda.md` §1.6. */
+  pagos?: PagosConfig;
   /** Persona del bot por canal. Si un canal no está, se omite la IA para ese canal. */
   personas?: Partial<Record<Channel, PersonaConfig>>;
   /** Almacenamiento propio del negocio (multi-tenant). Sin esto cae a JSON local. */

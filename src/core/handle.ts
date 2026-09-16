@@ -26,17 +26,20 @@ import type {
 import type { LeadRepository } from "@/core/storage/repository";
 import type { SessionRepository } from "@/core/storage/session-repository";
 import type { InventoryRepository } from "@/core/storage/inventory-repository";
+import type { ComprobanteRepository } from "@/core/storage/comprobante-repository";
 import type { ILLMProvider } from "@/core/ai/provider";
+import type { PaymentReceiptDescription } from "@/core/ai/payment-receipt-schema";
 import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { interpretableOptions, respond } from "@/core/engine/responder";
 import { buscarProducto } from "@/core/engine/buscar-producto";
+import { calcularSeñalesPago, type Señal } from "@/core/engine/señales-pago";
 import { runAgentTurn } from "@/core/ai/agent";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
 import { validarCita } from "@/core/engine/horarios";
 import { citaCumplida, cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
 import { pedidoFinalizado, cerrarPedidoFinalizado } from "@/core/engine/pedido-lifecycle";
 import { inactivo, limpiarDatosCapturados, reseteablePorInactividad } from "@/core/engine/session-lifecycle";
-import { resumenCarrito } from "@/core/engine/flows/pedido";
+import { resumenCarrito, totalCarrito } from "@/core/engine/flows/pedido";
 import { interpretarRespuestaDueña } from "@/core/engine/approval";
 import { transition } from "@/core/engine/lead-state";
 import { DEFAULT_PEDIDO_CONFIRMADO, DEFAULT_PEDIDO_RECHAZADO } from "@/core/engine/responder";
@@ -183,6 +186,109 @@ async function handleImageMessage(
   return imageReply(message, texto, resumenImagen, sessionRepo, now);
 }
 
+/** Default si el negocio no configuró `messages.pedirComprobante` (T-24.4). */
+const DEFAULT_PEDIR_COMPROBANTE =
+  "Para confirmar tu pedido, hacé el pago y mandanos la foto del comprobante 📸";
+
+/**
+ * §1.6, no negociable: el cliente NUNCA se entera de "pago confirmado" acá —
+ * solo que se lo pasamos a la dueña. La confirmación real llega recién
+ * cuando ella responde (reusa `handleOwnerApproval`, sin cambios).
+ */
+function respuestaComprobanteRecibido(config: BusinessConfig): string {
+  return `Recibí tu comprobante, se lo paso a ${config.name} para confirmar y te aviso 🙏`;
+}
+
+const FALLBACK_COMPROBANTE_ILEGIBLE =
+  "No pude leer bien el comprobante — ¿me lo reenviás más claro, por favor?";
+
+/**
+ * T-24.4: orquesta el turno de un comprobante de pago. Orden fijo:
+ * descargar media -> `describePaymentReceipt` -> calcular señales contra
+ * los comprobantes previos del negocio -> guardar (best-effort: una
+ * referencia repetida ya quedó capturada en las señales ANTES del intento
+ * de guardado, así que un fallo acá no le oculta nada a la dueña) -> avisar
+ * a la dueña con el resumen + señales, nunca confirmar nada al cliente.
+ */
+async function handlePaymentReceiptMessage(
+  message: IncomingMessage,
+  config: BusinessConfig,
+  lead: Lead,
+  llm: ILLMProvider,
+  sessionRepo: SessionRepository | undefined,
+  mediaDownloader: MediaDownloader,
+  notifier: OwnerNotifier | undefined,
+  comprobantes: ComprobanteRepository | undefined,
+  negocioParaStock: string | undefined,
+  now: Date,
+): Promise<HandleResult> {
+  const media = await mediaDownloader(message.image!.mediaId);
+  if (!media) {
+    return imageReply(
+      message,
+      FALLBACK_COMPROBANTE_ILEGIBLE,
+      "[comprobante] (no se pudo descargar)",
+      sessionRepo,
+      now,
+    );
+  }
+
+  const descripcion = await llm.describePaymentReceipt?.({
+    base64: media.base64,
+    mimeType: media.mimeType,
+    caption: message.text || undefined,
+  });
+  if (!descripcion || descripcion.legible === "ilegible") {
+    return imageReply(message, FALLBACK_COMPROBANTE_ILEGIBLE, "[comprobante] (ilegible)", sessionRepo, now);
+  }
+
+  const negocio = negocioParaStock ?? config.slug;
+  const total = totalCarrito(lead.items ?? [], config.services);
+
+  let señales: Señal[] = [];
+  if (comprobantes) {
+    try {
+      const previos = await comprobantes.listar(negocio);
+      señales = calcularSeñalesPago(
+        descripcion,
+        { total },
+        {
+          telefonoDestino: config.pagos?.telefonoDestino,
+          comprobantesPrevios: previos.map((p) => ({
+            referencia: p.referencia,
+            contacto: p.leadId ?? "",
+            creadoEn: p.creadoEn,
+          })),
+        },
+        lead.id,
+        now,
+      );
+      await comprobantes.crear({
+        negocio,
+        leadId: lead.id,
+        referencia: descripcion.referencia,
+        monto: descripcion.monto,
+        moneda: descripcion.moneda,
+        banco: descripcion.banco,
+        fechaComprobante: descripcion.fechaISO,
+        señales,
+      });
+    } catch (err) {
+      console.error("[Pagos] no se pudo guardar el comprobante (las señales ya se calcularon igual):", err);
+    }
+  }
+
+  if (notifier && config.notifyPhoneNumber) {
+    await notifyOwner(lead, config, notifier, {
+      pidiendoAprobacion: true,
+      comprobante: { descripcion, señales },
+    });
+  }
+
+  const resumenImagen = `[comprobante] ${[descripcion.banco, descripcion.referencia].filter(Boolean).join(" ")}`;
+  return imageReply(message, respuestaComprobanteRecibido(config), resumenImagen, sessionRepo, now);
+}
+
 export async function handleIncoming(
   message: IncomingMessage,
   config: BusinessConfig,
@@ -198,20 +304,43 @@ export async function handleIncoming(
   negocioParaStock?: string,
   /** T-23.5: sin esto, un mensaje con foto cae directo al mensaje de respaldo (nunca al funnel de texto de una vez). */
   mediaDownloader?: MediaDownloader,
+  /** T-24.4: sin esto, un comprobante de pago no se guarda ni se cruza contra señales (igual se le avisa a la dueña). */
+  comprobantes?: ComprobanteRepository,
 ): Promise<HandleResult> {
-  // T-23.5: un mensaje con imagen es un camino aparte, completamente distinto
-  // del funnel de cita/pedido — no toca `existing` ni el resto del ciclo de
-  // vida del lead (ver "Qué NO cubre" del PR: la imagen es informativa para
-  // esta respuesta, el cliente sigue escribiendo el nombre/cantidad como
-  // siempre para avanzar el pedido).
+  let existing = await repo.findByContact(message.businessSlug, message.from);
+
+  // T-23.5/T-24.4: un mensaje con imagen es un camino aparte, completamente
+  // distinto del funnel de cita/pedido de texto. Dos sub-caminos según el
+  // estado del lead: si el negocio pide comprobante (`config.pagos`) y el
+  // pedido ya está "esperando_aprobacion", la foto es un COMPROBANTE DE PAGO
+  // (T-24.4); si no, es una foto de PRODUCTO (T-23.5) — ninguno de los dos
+  // toca el resto del ciclo de vida del lead ni lo persiste por sí solo.
   if (message.image) {
+    const esperandoComprobante =
+      existing !== null &&
+      existing.stage === "esperando_aprobacion" &&
+      config.pagos?.requiereComprobante === true &&
+      (existing.items?.length ?? 0) > 0;
+
+    if (esperandoComprobante && llm && mediaDownloader) {
+      return handlePaymentReceiptMessage(
+        message,
+        config,
+        existing!,
+        llm,
+        sessionRepo,
+        mediaDownloader,
+        notifier,
+        comprobantes,
+        negocioParaStock,
+        now,
+      );
+    }
     if (llm && mediaDownloader) {
       return handleImageMessage(message, config, llm, sessionRepo, mediaDownloader, now);
     }
     return { messages: [{ to: message.from, text: FALLBACK_VISION }], modo: "guiado" };
   }
-
-  let existing = await repo.findByContact(message.businessSlug, message.from);
 
   // T-20: si la cita del lead ya se cumplió (pasó su fecha, o pasaron los 7
   // días sin fecha exacta), se cierra ANTES de que el agente o el motor
@@ -393,8 +522,19 @@ export async function handleIncoming(
       }
     }
 
-    if (stockOk && notifier && config.notifyPhoneNumber) {
-      await notifyOwner(lead, config, notifier, { pidiendoAprobacion: true });
+    if (stockOk) {
+      if (config.pagos?.requiereComprobante) {
+        // T-24.4: reemplaza el disparador de SÍ/NO plano — no se avisa a la
+        // dueña todavía, se le pide el comprobante al cliente. Recién cuando
+        // llega la foto (`handlePaymentReceiptMessage`) se le avisa a ella.
+        const resumenPedido = resumenCarrito(lead.items!, config.services, config);
+        const pedirTexto = render(config.messages.pedirComprobante ?? DEFAULT_PEDIR_COMPROBANTE, {
+          nombre: lead.name ?? "",
+        });
+        messages = [{ to: message.from, text: [resumenPedido, pedirTexto].filter(Boolean).join("\n\n") }];
+      } else if (notifier && config.notifyPhoneNumber) {
+        await notifyOwner(lead, config, notifier, { pidiendoAprobacion: true });
+      }
     }
   }
 
@@ -520,11 +660,27 @@ async function scheduleConfirmedAppointment(
  * No usa IA (mensaje interno, no de cara al cliente); si falla el envío no
  * rompe la conversación con el cliente, solo se registra el error.
  */
+/** T-24.4: una línea legible con lo que se leyó del comprobante — nunca afirma que sea válido. */
+function lineaComprobante(config: BusinessConfig, descripcion: PaymentReceiptDescription): string {
+  const partes = [
+    "Comprobante:",
+    descripcion.banco,
+    descripcion.referencia ? `ref ${descripcion.referencia}` : null,
+    descripcion.monto !== undefined ? formatPrice(config, descripcion.monto) : null,
+    descripcion.fechaISO ?? null,
+  ].filter(Boolean);
+  return partes.join(" ");
+}
+
 async function notifyOwner(
   lead: Lead,
   config: BusinessConfig,
   notifier: OwnerNotifier,
-  opciones: { pidiendoAprobacion?: boolean } = {},
+  opciones: {
+    pidiendoAprobacion?: boolean;
+    /** T-24.4: si viene, se le muestran a la dueña los datos leídos del comprobante y las señales de riesgo (§1.7) — nunca un veredicto de validez. */
+    comprobante?: { descripcion: PaymentReceiptDescription; señales: Señal[] };
+  } = {},
 ): Promise<void> {
   const service = config.services.find((s) => s.id === lead.serviceId);
   // T-21: un carrito (varios productos posibles) se resume aparte — no tiene
@@ -543,6 +699,8 @@ async function notifyOwner(
       : null,
     lead.entrega ? `Modalidad: ${lead.entrega}` : null,
     !esPedido && lead.tentativeDate ? `Fecha/hora: ${lead.tentativeDate}` : null,
+    opciones.comprobante ? lineaComprobante(config, opciones.comprobante.descripcion) : null,
+    ...(opciones.comprobante?.señales.map((s) => `⚠️ ${s.detalle}`) ?? []),
     // T-21/PR5: instrucción explícita — es lo que el webhook interpreta como
     // la respuesta de la dueña a ESTE pedido (ver `handleOwnerApproval`).
     opciones.pidiendoAprobacion ? "Respondé SÍ para aceptarlo o NO para rechazarlo." : null,

@@ -38,6 +38,7 @@ const MESSAGE_LABELS: Record<keyof BusinessConfig["messages"], string> = {
   pedidoConfirmado: "Pedido aceptado por la dueña (mensaje final)",
   pedidoRechazado: "Pedido rechazado por la dueña",
   pedidoVigente: "Recordatorio de pedido vigente (ya confirmó, escribe de nuevo)",
+  pedirComprobante: "Pedir el comprobante de pago (solo si el negocio lo requiere)",
 };
 
 const inputCls =

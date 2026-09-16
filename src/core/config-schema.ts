@@ -122,6 +122,13 @@ const messagesSchema = z.object({
   pedidoConfirmado: z.string().optional(),
   pedidoRechazado: z.string().optional(),
   pedidoVigente: z.string().optional(),
+  pedirComprobante: z.string().optional(),
+});
+
+/** T-24.4 — sin esto (default), el flujo de aprobación de pedidos no cambia. */
+const pagosSchema = z.object({
+  requiereComprobante: z.boolean().optional(),
+  telefonoDestino: z.string().optional(),
 });
 
 const followUpSchema = z.object({
@@ -165,6 +172,7 @@ export const businessConfigSchema = z.object({
   ai: aiSchema.optional(),
   pedidos: pedidosSchema.optional(),
   notifyPhoneNumber: z.string().optional(),
+  pagos: pagosSchema.optional(),
   personas: z
     .object({
       whatsapp: personaSchema.optional(),
