@@ -29,6 +29,7 @@ import type {
 } from "@/core/ai/provider";
 import type { AgentResponse } from "@/core/ai/agent-schema";
 import type { ImageDescription } from "@/core/ai/image-schema";
+import type { PaymentReceiptDescription } from "@/core/ai/payment-receipt-schema";
 import type { AiUsageRepository } from "@/core/storage/usage-repository";
 
 /** Proveedor recibe este identificador cuando se agota la cadena y se cae a plantilla/motor determinista. */
@@ -178,6 +179,34 @@ export class ResilientProvider implements ILLMProvider {
         await this.registrar(provider.model ?? "?", 1, 0, 1);
         console.error(
           `[AI] ${provider.model ?? "proveedor"} falló (describeImage), probando el siguiente:`,
+          err,
+        );
+      }
+    }
+    await this.registrar(FALLBACK_PROVIDER, 0, 1);
+    return null;
+  }
+
+  /**
+   * T-24.2: mismo criterio que `describeImage` — salta los proveedores sin
+   * visión, prueba el siguiente ante un fallo o un JSON inválido, y nunca
+   * lanza. Cuenta como llamada de imagen en `uso_ia`, igual que
+   * `describeImage`.
+   */
+  async describePaymentReceipt(input: ImageInput): Promise<PaymentReceiptDescription | null> {
+    for (const provider of this.providers) {
+      if (!provider.supportsVision || !provider.describePaymentReceipt) continue;
+      try {
+        const result = await provider.describePaymentReceipt(input);
+        await this.registrar(provider.model ?? "?", 1, 0, 1);
+        if (result) return result;
+        console.error(
+          `[AI] ${provider.model ?? "proveedor"} devolvió un JSON inválido en describePaymentReceipt, probando el siguiente`,
+        );
+      } catch (err) {
+        await this.registrar(provider.model ?? "?", 1, 0, 1);
+        console.error(
+          `[AI] ${provider.model ?? "proveedor"} falló (describePaymentReceipt), probando el siguiente:`,
           err,
         );
       }
