@@ -27,6 +27,7 @@ interface MetaMessage {
   timestamp?: string;
   type?: string;
   text?: { body?: string };
+  image?: { id?: string; mime_type?: string; caption?: string };
 }
 
 /** Mensaje de WhatsApp ya extraído y normalizado (sin resolver el negocio). */
@@ -43,6 +44,12 @@ export interface ParsedWhatsAppMessage {
    * por eso, solo se pierde la protección contra duplicados de ESE mensaje.
    */
   messageId?: string;
+  /**
+   * Presente solo si el mensaje trae una imagen (T-23.1). `text` ya trae el
+   * `caption` (o "" si no hay), así que el funnel de texto sigue funcionando
+   * sin tocar nada; esto es lo que le hace falta a T-23.5 para pedir la foto.
+   */
+  image?: { mediaId: string; mimeType: string; caption?: string };
 }
 
 /** Convierte el timestamp de Meta (segundos unix, string) a ISO 8601. */
@@ -76,17 +83,42 @@ export function parseInbound(payload: unknown): ParsedWhatsAppMessage[] {
       }
 
       for (const message of messages) {
-        if (message.type !== "text" || !message.text?.body || !message.from) {
+        if (!message.from) continue;
+
+        if (message.type === "text" && message.text?.body) {
+          result.push({
+            phoneNumberId,
+            from: message.from,
+            text: message.text.body,
+            timestamp: toIso(message.timestamp),
+            contactName: nameByWaId.get(message.from),
+            messageId: message.id,
+          });
           continue;
         }
-        result.push({
-          phoneNumberId,
-          from: message.from,
-          text: message.text.body,
-          timestamp: toIso(message.timestamp),
-          contactName: nameByWaId.get(message.from),
-          messageId: message.id,
-        });
+
+        if (message.type === "image" && message.image?.id) {
+          result.push({
+            phoneNumberId,
+            from: message.from,
+            text: message.image.caption ?? "",
+            timestamp: toIso(message.timestamp),
+            contactName: nameByWaId.get(message.from),
+            messageId: message.id,
+            image: {
+              mediaId: message.image.id,
+              mimeType: message.image.mime_type ?? "",
+              caption: message.image.caption,
+            },
+          });
+          continue;
+        }
+
+        if (message.type && message.type !== "text" && message.type !== "image") {
+          // No los procesamos todavía, pero loguear cuáles llegan sirve para
+          // saber qué pedir después (T-23.1).
+          console.log(`[whatsapp/parse] mensaje descartado, tipo no soportado: ${message.type}`);
+        }
       }
     }
   }

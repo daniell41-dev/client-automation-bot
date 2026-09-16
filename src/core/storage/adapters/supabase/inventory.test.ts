@@ -46,7 +46,13 @@ describe("SupabaseInventoryRepository — decrementCart", () => {
       { serviceId: "aceite", cantidad: 1 },
     ]);
 
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({
+      ok: true,
+      restante: [
+        { serviceId: "harina", stock: 8 },
+        { serviceId: "aceite", stock: 4 },
+      ],
+    });
     expect(db.inventario).toContainEqual({ negocio_id: "neg-1", service_id: "harina", stock: 8 });
     expect(db.inventario).toContainEqual({ negocio_id: "neg-1", service_id: "aceite", stock: 4 });
   });
@@ -74,7 +80,9 @@ describe("SupabaseInventoryRepository — decrementCart", () => {
 
     const result = await repo.decrementCart("neg-1", [{ serviceId: "aceite", cantidad: 1000 }]);
 
-    expect(result).toEqual({ ok: true });
+    // Sin fila -> no bloquea, y tampoco aparece en `restante` (nunca se le
+    // descontó nada real).
+    expect(result).toEqual({ ok: true, restante: [] });
   });
 
   it("stock justo (igual a la cantidad pedida) alcanza", async () => {
@@ -84,7 +92,32 @@ describe("SupabaseInventoryRepository — decrementCart", () => {
 
     const result = await repo.decrementCart("neg-1", [{ serviceId: "harina", cantidad: 2 }]);
 
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, restante: [{ serviceId: "harina", stock: 0 }] });
     expect(db.inventario).toContainEqual({ negocio_id: "neg-1", service_id: "harina", stock: 0 });
+  });
+});
+
+describe("SupabaseInventoryRepository — markLowStockAlert (T-22.2)", () => {
+  it("la primera vez del día corresponde avisar", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseInventoryRepository(db);
+    await repo.setStock("neg-1", "harina", 2);
+
+    expect(await repo.markLowStockAlert("neg-1", "harina")).toBe(true);
+  });
+
+  it("una segunda vez el mismo día NO vuelve a avisar", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseInventoryRepository(db);
+    await repo.setStock("neg-1", "harina", 2);
+
+    expect(await repo.markLowStockAlert("neg-1", "harina")).toBe(true);
+    expect(await repo.markLowStockAlert("neg-1", "harina")).toBe(false);
+  });
+
+  it("un producto sin fila (nunca se llamó setStock) no corresponde avisar", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseInventoryRepository(db);
+    expect(await repo.markLowStockAlert("neg-1", "no-trackeado")).toBe(false);
   });
 });

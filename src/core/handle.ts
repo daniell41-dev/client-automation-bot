@@ -237,6 +237,7 @@ export async function handleIncoming(
     existing?.stage !== "esperando_aprobacion" && lead.stage === "esperando_aprobacion";
   if (justRequestedApproval) {
     let stockOk = true;
+    let restante: { serviceId: string; stock: number }[] | undefined;
     if (inventory) {
       const resultado = await inventory.decrementCart(
         negocioParaStock ?? config.slug,
@@ -258,11 +259,16 @@ export async function handleIncoming(
             text: `Uy, justo se nos acabó el stock de: ${nombres}. Ajustá la cantidad o elegí otra cosa y seguimos 🙏`,
           },
         ];
+      } else {
+        restante = resultado.restante;
       }
     }
 
     if (stockOk && notifier && config.notifyPhoneNumber) {
-      await notifyOwner(lead, config, notifier, { pidiendoAprobacion: true });
+      const alertasStockBajo = inventory
+        ? await alertasDeStockBajo(inventory, negocioParaStock ?? config.slug, config, restante)
+        : [];
+      await notifyOwner(lead, config, notifier, { pidiendoAprobacion: true, alertasStockBajo });
     }
   }
 
@@ -392,7 +398,7 @@ async function notifyOwner(
   lead: Lead,
   config: BusinessConfig,
   notifier: OwnerNotifier,
-  opciones: { pidiendoAprobacion?: boolean } = {},
+  opciones: { pidiendoAprobacion?: boolean; alertasStockBajo?: string[] } = {},
 ): Promise<void> {
   const service = config.services.find((s) => s.id === lead.serviceId);
   // T-21: un carrito (varios productos posibles) se resume aparte — no tiene
@@ -414,6 +420,10 @@ async function notifyOwner(
     // T-21/PR5: instrucción explícita — es lo que el webhook interpreta como
     // la respuesta de la dueña a ESTE pedido (ver `handleOwnerApproval`).
     opciones.pidiendoAprobacion ? "Respondé SÍ para aceptarlo o NO para rechazarlo." : null,
+    // T-22.2: va en el MISMO mensaje que el aviso del pedido — un mensaje
+    // aparte por cada venta que cruce el umbral sería el mismo ruido que la
+    // alerta ya evita adentro de `alertasDeStockBajo`.
+    ...(opciones.alertasStockBajo ?? []),
   ].filter((line): line is string => Boolean(line));
 
   try {
@@ -421,6 +431,34 @@ async function notifyOwner(
   } catch (err) {
     console.error("[Notify] no se pudo avisar a la dueña por WhatsApp:", err);
   }
+}
+
+/** Unidades o menos a partir de las cuales se avisa que un producto se acaba, si el rubro no declaró `catalogo.stockMinimo` (T-22.2). */
+const DEFAULT_STOCK_MINIMO = 3;
+
+/**
+ * Qué productos quedaron en o bajo el umbral tras esta venta — una sola vez
+ * por producto por día (`markLowStockAlert` es quien lo garantiza, atómico en
+ * la base). Sin esto, varias ventas seguidas del mismo producto bajo
+ * mandarían una alerta cada una y el dueño terminaría silenciando el bot.
+ */
+async function alertasDeStockBajo(
+  inventory: InventoryRepository,
+  negocio: string,
+  config: BusinessConfig,
+  restante: { serviceId: string; stock: number }[] | undefined,
+): Promise<string[]> {
+  if (!restante?.length) return [];
+  const umbral = config.catalogo?.stockMinimo ?? DEFAULT_STOCK_MINIMO;
+  const alertas: string[] = [];
+  for (const item of restante) {
+    if (item.stock > umbral) continue;
+    const corresponde = await inventory.markLowStockAlert(negocio, item.serviceId);
+    if (!corresponde) continue; // ya se avisó hoy de este producto
+    const nombre = config.services.find((s) => s.id === item.serviceId)?.name ?? item.serviceId;
+    alertas.push(`⚠️ Quedan ${item.stock} unidades de ${nombre}.`);
+  }
+  return alertas;
 }
 
 /** Resultado de procesar la respuesta de la dueña a un aviso de pedido (T-21/PR5). */
