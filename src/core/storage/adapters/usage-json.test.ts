@@ -43,7 +43,20 @@ describe("JsonAiUsageRepository", () => {
     const fs = await import("node:fs/promises");
     const map = JSON.parse(await fs.readFile(filePath, "utf8"));
     const key = Object.keys(map)[0];
-    expect(map[key]).toEqual({ llamadas: 1, tokensIn: 50, tokensOut: 20, fallbacks: 1 });
+    expect(map[key]).toEqual({ llamadas: 1, tokensIn: 50, tokensOut: 20, fallbacks: 1, imagenes: 0 });
+  });
+
+  it("acumula imagenes por separado de las llamadas (T-23.5)", async () => {
+    const repo = new JsonAiUsageRepository(filePath);
+
+    await repo.registrar({ negocio: "estetica-bella", proveedor: "gemini", llamadas: 1, imagenes: 1 });
+    await repo.registrar({ negocio: "estetica-bella", proveedor: "gemini", llamadas: 1 });
+
+    const fs = await import("node:fs/promises");
+    const map = JSON.parse(await fs.readFile(filePath, "utf8"));
+    const key = Object.keys(map)[0];
+    expect(map[key].llamadas).toBe(2);
+    expect(map[key].imagenes).toBe(1);
   });
 
   it("crea el directorio si no existe", async () => {

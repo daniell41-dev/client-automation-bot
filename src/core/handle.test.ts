@@ -970,3 +970,302 @@ describe("handleIncoming — reinicio por inactividad (T-20)", () => {
     expect(repo.leads[0].appointmentAt).toBe("2026-06-30T15:00:00-05:00");
   });
 });
+
+describe("handleIncoming — visión por imagen (T-23.5)", () => {
+  const repuestos: BusinessConfig = {
+    ...config,
+    slug: "taller",
+    services: [
+      {
+        id: "filtro-toyota",
+        name: "Filtro de aceite Toyota",
+        description: "Referencia FA-2201",
+        price: 45000,
+        keywords: ["fa-2201"],
+      },
+      {
+        id: "filtro-mazda",
+        name: "Filtro de aire Mazda",
+        description: "Referencia FR-100",
+        price: 38000,
+        categoria: "Filtros",
+        keywords: ["fr-100"],
+      },
+      {
+        id: "otro-filtro",
+        name: "Filtro de combustible",
+        description: "x",
+        price: 30000,
+        categoria: "Filtros",
+        keywords: ["fc-900"],
+      },
+    ],
+  };
+
+  const farmacia: BusinessConfig = {
+    ...config,
+    slug: "farmacia",
+    rubro: "Farmacia",
+    services: [
+      { id: "acetaminofen", name: "Acetaminofén MK 500mg", description: "x", price: 8000, keywords: ["acetaminofen"] },
+    ],
+  };
+
+  function imageMsg(businessSlug: string, caption = ""): IncomingMessage {
+    return {
+      channel: "whatsapp",
+      businessSlug,
+      from: "57300000000",
+      text: caption,
+      timestamp: new Date().toISOString(),
+      image: { mediaId: "media-1", mimeType: "image/jpeg" },
+    };
+  }
+
+  function fakeVisionLLM(descripcion: Awaited<ReturnType<NonNullable<ILLMProvider["describeImage"]>>>): ILLMProvider {
+    return {
+      supportsVision: true,
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      async describeImage() {
+        return descripcion;
+      },
+    };
+  }
+
+  const media = { base64: "QUJDMTIzQkFTRTY0", mimeType: "image/jpeg" };
+  const fakeMediaDownloader = () => async () => media;
+
+  it("1 candidato (match exacto por referencia): afirma el producto y el precio", async () => {
+    const repo = new InMemoryRepo();
+    const llm = fakeVisionLLM({
+      tipoProducto: "filtro",
+      textoVisible: ["FA-2201"],
+      esRecipeMedico: false,
+      confianza: "alta",
+    });
+    const { messages } = await handleIncoming(
+      imageMsg("taller"),
+      repuestos,
+      repo,
+      new Date(),
+      llm,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      fakeMediaDownloader(),
+    );
+    expect(messages).toHaveLength(1);
+    expect(messages[0].text).toContain("Filtro de aceite Toyota");
+    expect(messages[0].text).toContain("45.000");
+  });
+
+  it("2-3 candidatos (solo categoría): propone las opciones y pregunta", async () => {
+    const repo = new InMemoryRepo();
+    const llm = fakeVisionLLM({
+      tipoProducto: "filtro",
+      textoVisible: [],
+      categoria: "Filtros",
+      esRecipeMedico: false,
+      confianza: "media",
+    });
+    const { messages } = await handleIncoming(
+      imageMsg("taller"),
+      repuestos,
+      repo,
+      new Date(),
+      llm,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      fakeMediaDownloader(),
+    );
+    expect(messages[0].text).toContain("Filtro de aire Mazda");
+    expect(messages[0].text).toContain("Filtro de combustible");
+    expect(messages[0].text).not.toContain("Filtro de aceite Toyota"); // no matchea esa categoría/ref
+  });
+
+  it("0 candidatos: pide el nombre o la referencia por texto, nunca inventa un producto", async () => {
+    const repo = new InMemoryRepo();
+    const llm = fakeVisionLLM({
+      tipoProducto: "algo que no existe en el catálogo",
+      textoVisible: [],
+      esRecipeMedico: false,
+      confianza: "baja",
+    });
+    const { messages } = await handleIncoming(
+      imageMsg("taller"),
+      repuestos,
+      repo,
+      new Date(),
+      llm,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      fakeMediaDownloader(),
+    );
+    expect(messages[0].text.toLowerCase()).toMatch(/nombre|referencia/);
+    for (const s of repuestos.services) {
+      expect(messages[0].text).not.toContain(s.name);
+    }
+  });
+
+  it("récipe médico en rubro farmacéutico: rechaza y NUNCA busca el producto (§1.4, regla dura)", async () => {
+    const repo = new InMemoryRepo();
+    const llm = fakeVisionLLM({
+      tipoProducto: "fórmula médica",
+      textoVisible: ["Acetaminofén 500mg"],
+      esRecipeMedico: true,
+      confianza: "alta",
+    });
+    const { messages } = await handleIncoming(
+      imageMsg("farmacia"),
+      farmacia,
+      repo,
+      new Date(),
+      llm,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      fakeMediaDownloader(),
+    );
+    expect(messages[0].text).toMatch(/en persona|farmacia/i);
+    expect(messages[0].text).not.toContain("Acetaminofén MK");
+  });
+
+  it("un récipe en un rubro que NO es farmacéutico sí se procesa normalmente", async () => {
+    const repo = new InMemoryRepo();
+    const llm = fakeVisionLLM({
+      tipoProducto: "filtro",
+      textoVisible: ["FA-2201"],
+      esRecipeMedico: true, // el modelo lo marca, pero el negocio no es farmacia
+      confianza: "alta",
+    });
+    const { messages } = await handleIncoming(
+      imageMsg("taller"),
+      repuestos,
+      repo,
+      new Date(),
+      llm,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      fakeMediaDownloader(),
+    );
+    expect(messages[0].text).toContain("Filtro de aceite Toyota");
+  });
+
+  it("si no se puede descargar la imagen, cae al mensaje de respaldo sin romper la charla", async () => {
+    const repo = new InMemoryRepo();
+    const llm = fakeVisionLLM({
+      tipoProducto: "x",
+      textoVisible: [],
+      esRecipeMedico: false,
+      confianza: "baja",
+    });
+    const { messages } = await handleIncoming(
+      imageMsg("taller"),
+      repuestos,
+      repo,
+      new Date(),
+      llm,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      async () => null,
+    );
+    expect(messages[0].text).toMatch(/no pude ver/i);
+  });
+
+  it("si describeImage devuelve null (JSON inválido), cae al mensaje de respaldo", async () => {
+    const repo = new InMemoryRepo();
+    const llm = fakeVisionLLM(null);
+    const { messages } = await handleIncoming(
+      imageMsg("taller"),
+      repuestos,
+      repo,
+      new Date(),
+      llm,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      fakeMediaDownloader(),
+    );
+    expect(messages[0].text).toMatch(/no pude ver/i);
+  });
+
+  it("sin llm o sin mediaDownloader, cae al mensaje de respaldo (nunca revienta)", async () => {
+    const repo = new InMemoryRepo();
+    const sinLlm = await handleIncoming(imageMsg("taller"), repuestos, repo, new Date());
+    expect(sinLlm.messages[0].text).toMatch(/no pude ver/i);
+
+    const sinDownloader = await handleIncoming(
+      imageMsg("taller"),
+      repuestos,
+      repo,
+      new Date(),
+      fakeVisionLLM({ tipoProducto: "x", textoVisible: [], esRecipeMedico: false, confianza: "alta" }),
+    );
+    expect(sinDownloader.messages[0].text).toMatch(/no pude ver/i);
+  });
+
+  it("nunca persiste la imagen: ni en el lead ni en el historial de sesión, solo texto", async () => {
+    const repo = new InMemoryRepo();
+    const sessionRepo = new SessionMemoryRepository();
+    const llm = fakeVisionLLM({
+      tipoProducto: "filtro",
+      marca: "Toyota",
+      textoVisible: ["FA-2201"],
+      esRecipeMedico: false,
+      confianza: "alta",
+    });
+    await handleIncoming(
+      imageMsg("taller"),
+      repuestos,
+      repo,
+      new Date(),
+      llm,
+      sessionRepo,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      fakeMediaDownloader(),
+    );
+
+    // El repo de leads ni se toca: una imagen no crea/actualiza un lead por sí sola.
+    expect(repo.leads).toHaveLength(0);
+
+    // El historial de sesión queda en texto — nunca el base64 de la imagen.
+    const session = await sessionRepo.getOrCreate("taller", "57300000000", "whatsapp");
+    expect(session.history).toHaveLength(2);
+    expect(session.history[0].text).toBe("[imagen] Toyota filtro");
+    expect(session.history[0].text).not.toContain(media.base64);
+    expect(session.history[1].text).not.toContain(media.base64);
+    expect(JSON.stringify(session.history)).not.toContain(media.base64);
+  });
+});

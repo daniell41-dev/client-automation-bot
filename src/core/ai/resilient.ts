@@ -23,10 +23,12 @@ import type {
   AgentTurnInput,
   DateExtractionInput,
   ILLMProvider,
+  ImageInput,
   InterpretInput,
   LLMContext,
 } from "@/core/ai/provider";
 import type { AgentResponse } from "@/core/ai/agent-schema";
+import type { ImageDescription } from "@/core/ai/image-schema";
 import type { AiUsageRepository } from "@/core/storage/usage-repository";
 
 /** Proveedor recibe este identificador cuando se agota la cadena y se cae a plantilla/motor determinista. */
@@ -54,7 +56,12 @@ export class ResilientProvider implements ILLMProvider {
   }
 
   /** Nunca lanza: un fallo al registrar telemetría no puede romper la respuesta real. */
-  private async registrar(proveedor: string, llamadas: number, fallbacks = 0): Promise<void> {
+  private async registrar(
+    proveedor: string,
+    llamadas: number,
+    fallbacks = 0,
+    imagenes = 0,
+  ): Promise<void> {
     if (!this.usage) return;
     try {
       await this.usage.repo.registrar({
@@ -62,6 +69,7 @@ export class ResilientProvider implements ILLMProvider {
         proveedor,
         llamadas,
         fallbacks,
+        imagenes,
       });
     } catch (err) {
       console.error("[AI] no se pudo registrar el uso en uso_ia:", err);
@@ -141,6 +149,35 @@ export class ResilientProvider implements ILLMProvider {
         await this.registrar(provider.model ?? "?", 1);
         console.error(
           `[AI] ${provider.model ?? "proveedor"} falló (runAgent), probando el siguiente:`,
+          err,
+        );
+      }
+    }
+    await this.registrar(FALLBACK_PROVIDER, 0, 1);
+    return null;
+  }
+
+  /**
+   * Salta los proveedores con `supportsVision` falso/ausente en vez de
+   * intentar y fallar (T-23.3) — no tiene sentido gastar una llamada a un
+   * modelo que no lee imágenes. Igual que `runAgent`, un `null` de un
+   * proveedor con visión (JSON inválido) SÍ prueba el siguiente, porque no es
+   * una respuesta de negocio válida.
+   */
+  async describeImage(input: ImageInput): Promise<ImageDescription | null> {
+    for (const provider of this.providers) {
+      if (!provider.supportsVision || !provider.describeImage) continue;
+      try {
+        const result = await provider.describeImage(input);
+        await this.registrar(provider.model ?? "?", 1, 0, 1);
+        if (result) return result;
+        console.error(
+          `[AI] ${provider.model ?? "proveedor"} devolvió un JSON inválido en describeImage, probando el siguiente`,
+        );
+      } catch (err) {
+        await this.registrar(provider.model ?? "?", 1, 0, 1);
+        console.error(
+          `[AI] ${provider.model ?? "proveedor"} falló (describeImage), probando el siguiente:`,
           err,
         );
       }

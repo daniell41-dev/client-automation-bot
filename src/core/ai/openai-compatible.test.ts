@@ -373,3 +373,87 @@ describe("OpenAICompatibleProvider.runAgent", () => {
     expect(spy).toHaveBeenCalledWith(expect.stringContaining("rescató"));
   });
 });
+
+describe("OpenAICompatibleProvider.describeImage (T-23.3)", () => {
+  const imageInput = { base64: "QUJD", mimeType: "image/jpeg", caption: "esto tienen?" };
+
+  it("devuelve null sin llamar a la red si supportsVision es false", async () => {
+    const fetchImpl = vi.fn();
+    const provider = new OpenAICompatibleProvider({
+      name: "groq",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: false,
+      fetchImpl,
+    });
+    await expect(provider.describeImage(imageInput)).resolves.toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("manda la imagen como data URI en un mensaje multimodal", async () => {
+    let bodyVisto: Record<string, unknown> | null = null;
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: vi.fn(async (_url, init) => {
+        bodyVisto = JSON.parse((init as RequestInit).body as string);
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    tipoProducto: "aceite",
+                    textoVisible: [],
+                    esRecipeMedico: false,
+                    confianza: "alta",
+                  }),
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }) as unknown as typeof fetch,
+    });
+
+    const result = await provider.describeImage(imageInput);
+
+    expect(result?.tipoProducto).toBe("aceite");
+    const userMessage = (bodyVisto!.messages as { role: string; content: unknown }[]).find(
+      (m) => m.role === "user",
+    );
+    const content = userMessage!.content as { type: string; image_url?: { url: string } }[];
+    expect(content.some((p) => p.type === "image_url" && p.image_url?.url === "data:image/jpeg;base64,QUJD")).toBe(
+      true,
+    );
+  });
+
+  it("lanza si la respuesta HTTP no es ok (para que la cadena de respaldo lo capture)", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchHttpError(500),
+    });
+    await expect(provider.describeImage(imageInput)).rejects.toThrow(/500/);
+  });
+
+  it("devuelve null cuando el modelo no responde JSON válido", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchOk("esto no es json"),
+    });
+    await expect(provider.describeImage(imageInput)).resolves.toBeNull();
+  });
+});

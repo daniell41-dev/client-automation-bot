@@ -113,6 +113,8 @@ export interface SupabaseDb {
     tokensIn?: number;
     tokensOut?: number;
     fallbacks?: number;
+    /** T-23.5: cuántas de esas llamadas fueron `describeImage` (migración 0012). */
+    imagenes?: number;
   }): Promise<void>;
   /**
    * Fija (reemplaza) el stock de un producto — ver migración 0010. Lo llama
@@ -246,6 +248,7 @@ class RealSupabaseDb implements SupabaseDb {
     tokensIn?: number;
     tokensOut?: number;
     fallbacks?: number;
+    imagenes?: number;
   }): Promise<void> {
     const { error } = await this.client.rpc("registrar_uso_ia", {
       p_negocio_id: entry.negocioId,
@@ -254,6 +257,7 @@ class RealSupabaseDb implements SupabaseDb {
       p_tokens_in: entry.tokensIn ?? 0,
       p_tokens_out: entry.tokensOut ?? 0,
       p_fallbacks: entry.fallbacks ?? 0,
+      p_imagenes: entry.imagenes ?? 0,
     });
     if (error) throw error;
   }

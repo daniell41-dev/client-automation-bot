@@ -234,7 +234,7 @@ describe("ResilientProvider — registra consumo en uso_ia (T-07)", () => {
     await chain.enhance(ctx);
 
     expect(usageRepo.entries).toEqual([
-      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0 },
+      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0, imagenes: 0 },
     ]);
   });
 
@@ -248,8 +248,8 @@ describe("ResilientProvider — registra consumo en uso_ia (T-07)", () => {
     await chain.enhance(ctx);
 
     expect(usageRepo.entries).toEqual([
-      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0 },
-      { negocio: "neg-1", proveedor: "groq-y", llamadas: 1, fallbacks: 0 },
+      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0, imagenes: 0 },
+      { negocio: "neg-1", proveedor: "groq-y", llamadas: 1, fallbacks: 0, imagenes: 0 },
     ]);
   });
 
@@ -263,9 +263,9 @@ describe("ResilientProvider — registra consumo en uso_ia (T-07)", () => {
     await chain.enhance(ctx);
 
     expect(usageRepo.entries).toEqual([
-      { negocio: "neg-1", proveedor: "uno", llamadas: 1, fallbacks: 0 },
-      { negocio: "neg-1", proveedor: "dos", llamadas: 1, fallbacks: 0 },
-      { negocio: "neg-1", proveedor: FALLBACK_PROVIDER, llamadas: 0, fallbacks: 1 },
+      { negocio: "neg-1", proveedor: "uno", llamadas: 1, fallbacks: 0, imagenes: 0 },
+      { negocio: "neg-1", proveedor: "dos", llamadas: 1, fallbacks: 0, imagenes: 0 },
+      { negocio: "neg-1", proveedor: FALLBACK_PROVIDER, llamadas: 0, fallbacks: 1, imagenes: 0 },
     ]);
   });
 
@@ -290,8 +290,8 @@ describe("ResilientProvider — registra consumo en uso_ia (T-07)", () => {
     await chain.runAgent(input);
 
     expect(usageRepo.entries).toEqual([
-      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0 },
-      { negocio: "neg-1", proveedor: FALLBACK_PROVIDER, llamadas: 0, fallbacks: 1 },
+      { negocio: "neg-1", proveedor: "gemini-x", llamadas: 1, fallbacks: 0, imagenes: 0 },
+      { negocio: "neg-1", proveedor: FALLBACK_PROVIDER, llamadas: 0, fallbacks: 1, imagenes: 0 },
     ]);
   });
 
@@ -320,3 +320,163 @@ describe("ResilientProvider — registra consumo en uso_ia (T-07)", () => {
     errorSpy.mockRestore();
   });
 });
+
+describe("ResilientProvider — describeImage (T-23.3)", () => {
+  const imageInput = { base64: "QUJD", mimeType: "image/jpeg" };
+
+  /** Provider de texto sin visión: si se le llama describeImage(), es un bug. */
+  function textOnlyProvider(model: string): ILLMProvider {
+    return {
+      model,
+      supportsVision: false,
+      async enhance() {
+        return "";
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      async describeImage() {
+        throw new Error(`${model} no tiene visión, no debería llamarse`);
+      },
+    };
+  }
+
+  /** Provider sin visión que ni siquiera implementa describeImage (como los reales de hoy). */
+  function textOnlyProviderSinMetodo(model: string): ILLMProvider {
+    return {
+      model,
+      async enhance() {
+        return "";
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+    };
+  }
+
+  function visionProvider(
+    model: string,
+    result: { tipoProducto: string; textoVisible: string[]; esRecipeMedico: boolean; confianza: "alta" | "media" | "baja" } | null,
+  ): ILLMProvider {
+    return {
+      model,
+      supportsVision: true,
+      async enhance() {
+        return "";
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      async describeImage() {
+        return result;
+      },
+    };
+  }
+
+  function failingVisionProvider(model: string): ILLMProvider {
+    return {
+      model,
+      supportsVision: true,
+      async enhance() {
+        return "";
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      async describeImage() {
+        throw new Error(`${model} caído`);
+      },
+    };
+  }
+
+  it("salta un proveedor de texto (supportsVision: false) sin llamarlo", async () => {
+    const chain = new ResilientProvider([
+      textOnlyProvider("groq-texto"),
+      visionProvider("gemini", {
+        tipoProducto: "aceite",
+        textoVisible: [],
+        esRecipeMedico: false,
+        confianza: "alta",
+      }),
+    ]);
+    const result = await chain.describeImage(imageInput);
+    expect(result?.tipoProducto).toBe("aceite");
+  });
+
+  it("salta un proveedor que ni siquiera implementa describeImage (Cerebras hoy)", async () => {
+    const chain = new ResilientProvider([
+      textOnlyProviderSinMetodo("cerebras"),
+      visionProvider("gemini", {
+        tipoProducto: "champú",
+        textoVisible: [],
+        esRecipeMedico: false,
+        confianza: "media",
+      }),
+    ]);
+    expect((await chain.describeImage(imageInput))?.tipoProducto).toBe("champú");
+  });
+
+  it("si el proveedor con visión lanza, pasa al siguiente", async () => {
+    const chain = new ResilientProvider([
+      failingVisionProvider("gemini"),
+      visionProvider("groq-vision", {
+        tipoProducto: "champú",
+        textoVisible: [],
+        esRecipeMedico: false,
+        confianza: "baja",
+      }),
+    ]);
+    expect((await chain.describeImage(imageInput))?.tipoProducto).toBe("champú");
+  });
+
+  it("si el proveedor con visión devuelve null (JSON inválido), prueba el siguiente", async () => {
+    const chain = new ResilientProvider([
+      visionProvider("gemini", null),
+      visionProvider("groq-vision", {
+        tipoProducto: "champú",
+        textoVisible: [],
+        esRecipeMedico: false,
+        confianza: "alta",
+      }),
+    ]);
+    expect((await chain.describeImage(imageInput))?.tipoProducto).toBe("champú");
+  });
+
+  it("si NINGÚN proveedor tiene visión, devuelve null y no lanza", async () => {
+    const chain = new ResilientProvider([
+      textOnlyProvider("groq-texto"),
+      textOnlyProviderSinMetodo("cerebras"),
+    ]);
+    await expect(chain.describeImage(imageInput)).resolves.toBeNull();
+  });
+
+  it("si todos los proveedores con visión fallan, devuelve null y no lanza", async () => {
+    const chain = new ResilientProvider([failingVisionProvider("gemini"), visionProvider("groq-vision", null)]);
+    await expect(chain.describeImage(imageInput)).resolves.toBeNull();
+  });
+});
+
