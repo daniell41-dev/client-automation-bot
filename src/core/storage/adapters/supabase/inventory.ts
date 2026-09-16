@@ -28,4 +28,9 @@ export class SupabaseInventoryRepository implements InventoryRepository {
   async markLowStockAlert(negocio: string, serviceId: string): Promise<boolean> {
     return this.db.markLowStockAlert(negocio, serviceId);
   }
+
+  async getStock(negocio: string): Promise<Record<string, number>> {
+    const filas = await this.db.listStock(negocio);
+    return Object.fromEntries(filas.map((f) => [f.serviceId, f.stock]));
+  }
 }

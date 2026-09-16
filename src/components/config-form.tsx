@@ -330,8 +330,11 @@ export function ConfigForm({
                 </div>
                 {/* T-21: la Duración solo tiene sentido para un ítem que se
                     agenda — pedírsela a un producto es lo que dejaba a una
-                    tienda sin poder cargar su catálogo. */}
-                {esCita(service, config.catalogo) && (
+                    tienda sin poder cargar su catálogo. T-22.3: además,
+                    respeta `catalogo.campos.duracion` (default mostrar, igual
+                    que el editor de catálogo del portal) — un rubro puede
+                    ocultarla aunque tenga ítems de cita. */}
+                {config.catalogo?.campos?.duracion !== false && esCita(service, config.catalogo) && (
                   <div>
                     <label className={labelCls}>Duración (minutos)</label>
                     <input
@@ -348,7 +351,12 @@ export function ConfigForm({
                     />
                   </div>
                 )}
-                {!esCita(service, config.catalogo) && (
+                {/* T-22.3: antes solo miraba si el ítem NO era de cita —
+                    ignoraba `catalogo.campos.stock` por completo, así que un
+                    rubro con el checkbox "Mostrar Stock" apagado igual
+                    mostraba el campo acá (inconsistente con el editor de
+                    catálogo del portal, que sí lo respeta). */}
+                {config.catalogo?.campos?.stock === true && !esCita(service, config.catalogo) && (
                   <div>
                     <label className={labelCls}>Stock</label>
                     <input

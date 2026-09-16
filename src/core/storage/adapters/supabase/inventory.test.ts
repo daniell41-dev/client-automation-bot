@@ -121,3 +121,31 @@ describe("SupabaseInventoryRepository — markLowStockAlert (T-22.2)", () => {
     expect(await repo.markLowStockAlert("neg-1", "no-trackeado")).toBe(false);
   });
 });
+
+describe("SupabaseInventoryRepository — getStock (T-22.3)", () => {
+  it("devuelve el stock EN VIVO de todos los productos trackeados del negocio", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseInventoryRepository(db);
+    await repo.setStock("neg-1", "harina", 10);
+    await repo.setStock("neg-1", "aceite", 5);
+    await repo.decrementCart("neg-1", [{ serviceId: "harina", cantidad: 3 }]);
+
+    expect(await repo.getStock("neg-1")).toEqual({ harina: 7, aceite: 5 });
+  });
+
+  it("no mezcla el stock de negocios distintos", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseInventoryRepository(db);
+    await repo.setStock("neg-1", "harina", 10);
+    await repo.setStock("neg-2", "harina", 2);
+
+    expect(await repo.getStock("neg-1")).toEqual({ harina: 10 });
+    expect(await repo.getStock("neg-2")).toEqual({ harina: 2 });
+  });
+
+  it("sin ningún producto trackeado, devuelve un objeto vacío", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseInventoryRepository(db);
+    expect(await repo.getStock("neg-sin-stock")).toEqual({});
+  });
+});
