@@ -29,6 +29,8 @@ export type EstadoComprobante = "pendiente" | "aprobado" | "rechazado";
 export interface Comprobante extends NuevoComprobante {
   id: string;
   estado: EstadoComprobante;
+  /** ISO 8601 de cuándo se RECIBIÓ este comprobante (no la fecha que dice el comprobante). */
+  creadoEn: string;
 }
 
 export interface ComprobanteRepository {
@@ -40,4 +42,11 @@ export interface ComprobanteRepository {
    * rechazo.
    */
   crear(comprobante: NuevoComprobante): Promise<Comprobante>;
+
+  /**
+   * Todos los comprobantes de un negocio (T-24.4) — lo que necesita
+   * `señales-pago.ts` para detectar referencia repetida y ráfaga. No pagina
+   * ni filtra por fecha: el volumen esperado por negocio es bajo.
+   */
+  listar(negocio: string): Promise<Comprobante[]>;
 }
