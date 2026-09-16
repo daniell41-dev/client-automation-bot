@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { handleIncoming, handleOwnerApproval } from "@/core/handle";
+import { handleIncoming, handleOwnerApproval, handleWompiWebhookEvent } from "@/core/handle";
+import type { PaymentGateway, PaymentLinkRequest } from "@/core/payments/gateway";
 import type { BusinessConfig, DiaAtencion, IncomingMessage, Lead } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
 import type { InventoryRepository, StockItem, StockResult } from "@/core/storage/inventory-repository";
@@ -1566,5 +1567,164 @@ describe("handleIncoming — confirmación de pago con comprobante (T-24.4)", ()
     expect(messages[0].text).toContain("revisión"); // el texto de siempre, no el de pedir comprobante
     expect(notifier.sent).toHaveLength(1); // se avisó a la dueña de una, como siempre
     expect(notifier.sent[0].text).toContain("Respondé SÍ");
+  });
+});
+
+describe("handleIncoming — link de pago Wompi, Nivel 2 (T-24.5)", () => {
+  const tiendaConWompi: BusinessConfig = {
+    ...tiendaConNotify,
+    slug: "tienda-wompi",
+    pagos: { wompi: { enabled: true, redirectUrl: "https://ejemplo.com/gracias" } },
+  };
+
+  function fakePaymentGateway(): PaymentGateway & { requests: PaymentLinkRequest[] } {
+    const requests: PaymentLinkRequest[] = [];
+    return {
+      requests,
+      buildPaymentLink(request) {
+        requests.push(request);
+        return `https://checkout.wompi.co/p/?reference=${request.reference}`;
+      },
+    };
+  }
+
+  it("al confirmar, manda el link de pago y NO descuenta stock ni avisa a la dueña todavía", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-wompi-1", "harina", 10);
+    const notifier = fakeNotifier();
+    const gateway = fakePaymentGateway();
+
+    await handleIncoming(msg("harina"), tiendaConWompi, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-wompi-1");
+    await handleIncoming(msg("Laura"), tiendaConWompi, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-wompi-1");
+    await handleIncoming(msg("2"), tiendaConWompi, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-wompi-1");
+    await handleIncoming(msg("no, eso es todo"), tiendaConWompi, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-wompi-1");
+    const { messages } = await handleIncoming(
+      msg("sí"),
+      tiendaConWompi,
+      repo,
+      new Date(),
+      undefined,
+      undefined,
+      undefined,
+      notifier,
+      inventory,
+      "tienda-wompi-1",
+      undefined,
+      undefined,
+      gateway,
+    );
+
+    expect(messages[0].text).toContain("checkout.wompi.co");
+    expect(notifier.sent).toHaveLength(0); // Nivel 2: sin intervención de la dueña
+    expect(inventory.stock.get("tienda-wompi-1|harina")).toBe(10); // sin tocar todavía
+    expect(gateway.requests[0]).toMatchObject({
+      reference: repo.leads[0].id,
+      amountInCents: 1000000, // 2 harinas x $5.000 = $10.000 -> 1.000.000 centavos
+      currency: "COP",
+      redirectUrl: "https://ejemplo.com/gracias",
+    });
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion");
+  });
+
+  it("sin paymentGateway inyectado, config.pagos.wompi.enabled no tiene efecto (cae al SÍ/NO plano)", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-wompi-1", "harina", 10);
+    const notifier = fakeNotifier();
+
+    await handleIncoming(msg("harina"), tiendaConWompi, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-wompi-1");
+    await handleIncoming(msg("Laura"), tiendaConWompi, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-wompi-1");
+    await handleIncoming(msg("2"), tiendaConWompi, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-wompi-1");
+    await handleIncoming(msg("no, eso es todo"), tiendaConWompi, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-wompi-1");
+    const { messages } = await handleIncoming(msg("sí"), tiendaConWompi, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-wompi-1");
+
+    expect(messages[0].text).not.toContain("checkout.wompi.co");
+    expect(notifier.sent).toHaveLength(1); // sin gateway, se comporta como si wompi no estuviera activo
+  });
+});
+
+describe("handleWompiWebhookEvent — webhook ya verificado (T-24.5)", () => {
+  async function leadEsperandoPago(): Promise<{ repo: InMemoryRepo; lead: Lead }> {
+    const repo = new InMemoryRepo();
+    await handleIncoming(msg("harina"), tiendaConNotify, repo);
+    await handleIncoming(msg("Laura"), tiendaConNotify, repo);
+    await handleIncoming(msg("2"), tiendaConNotify, repo);
+    await handleIncoming(msg("no, eso es todo"), tiendaConNotify, repo);
+    await handleIncoming(msg("sí"), tiendaConNotify, repo);
+    return { repo, lead: repo.leads[0] };
+  }
+
+  it("APPROVED confirma el pedido y descuenta el stock, sin avisar a la dueña", async () => {
+    const { repo, lead } = await leadEsperandoPago();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda", "harina", 10);
+
+    const result = await handleWompiWebhookEvent(lead, tiendaConNotify, "APPROVED", repo, inventory, "tienda", new Date());
+
+    expect(repo.leads[0].stage).toBe("datos_completos");
+    expect(repo.leads[0].state).toBe("pagado");
+    expect(result.customerMessage?.text.toLowerCase()).toContain("confirmado");
+    expect(inventory.stock.get("tienda|harina")).toBe(8);
+  });
+
+  it("PENDING no hace nada — no descuenta stock ni confirma el pedido", async () => {
+    const { repo, lead } = await leadEsperandoPago();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda", "harina", 10);
+
+    const result = await handleWompiWebhookEvent(lead, tiendaConNotify, "PENDING", repo, inventory, "tienda", new Date());
+
+    expect(result.customerMessage).toBeUndefined();
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion");
+    expect(inventory.stock.get("tienda|harina")).toBe(10);
+  });
+
+  it("DECLINED avisa al cliente y vuelve al carrito, sin tocar el stock", async () => {
+    const { repo, lead } = await leadEsperandoPago();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda", "harina", 10);
+
+    const result = await handleWompiWebhookEvent(lead, tiendaConNotify, "DECLINED", repo, inventory, "tienda", new Date());
+
+    expect(repo.leads[0].stage).toBe("carrito_abierto");
+    expect(repo.leads[0].state).not.toBe("pagado");
+    expect(result.customerMessage?.text.toLowerCase()).toMatch(/no se pudo procesar/);
+    expect(inventory.stock.get("tienda|harina")).toBe(10); // nunca se tocó
+  });
+
+  it("ERROR y VOIDED se tratan igual que DECLINED", async () => {
+    for (const estado of ["ERROR", "VOIDED"] as const) {
+      const { repo, lead } = await leadEsperandoPago();
+      const result = await handleWompiWebhookEvent(lead, tiendaConNotify, estado, repo, undefined, "tienda", new Date());
+      expect(repo.leads[0].stage).toBe("carrito_abierto");
+      expect(result.customerMessage?.text.toLowerCase()).toMatch(/no se pudo procesar/);
+    }
+  });
+
+  it("idempotencia: un pedido ya confirmado ignora un segundo APPROVED (no descuenta stock dos veces)", async () => {
+    const { repo, lead } = await leadEsperandoPago();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda", "harina", 10);
+
+    await handleWompiWebhookEvent(lead, tiendaConNotify, "APPROVED", repo, inventory, "tienda", new Date());
+    expect(inventory.stock.get("tienda|harina")).toBe(8);
+
+    const result = await handleWompiWebhookEvent(repo.leads[0], tiendaConNotify, "APPROVED", repo, inventory, "tienda", new Date());
+
+    expect(result.customerMessage).toBeUndefined();
+    expect(inventory.stock.get("tienda|harina")).toBe(8); // no se descontó de nuevo
+  });
+
+  it("APPROVED sin stock suficiente NO confirma el pedido y avisa para resolverlo a mano", async () => {
+    const { repo, lead } = await leadEsperandoPago();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda", "harina", 1); // pidió 2, solo hay 1
+
+    const result = await handleWompiWebhookEvent(lead, tiendaConNotify, "APPROVED", repo, inventory, "tienda", new Date());
+
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion"); // no se confirmó
+    expect(repo.leads[0].state).not.toBe("pagado");
+    expect(result.customerMessage?.text).toContain("Harina 1 Kg");
   });
 });

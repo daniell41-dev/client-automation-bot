@@ -191,6 +191,20 @@ export interface PagosConfig {
    * Pago Móvil...) — para la señal "destino no coincide" de `señales-pago.ts`.
    */
   telefonoDestino?: string;
+  /**
+   * Nivel 2 (T-24.5): link de pago con verificación real por webhook
+   * firmado. Deliberadamente NO tiene las llaves de Wompi acá — viven en
+   * columnas propias de `negocios` (migración 0014), nunca en este JSONB,
+   * porque el portal lee `config` entero con el cliente del dueño y se lo
+   * pasa tal cual al editor. Este objeto es solo la bandera de
+   * comportamiento; `createPaymentGateway(negocioId)` resuelve las llaves
+   * aparte, server-only.
+   */
+  wompi?: {
+    enabled?: boolean;
+    /** A dónde vuelve el cliente después de pagar (la confirmación real es siempre el webhook). */
+    redirectUrl?: string;
+  };
 }
 
 /** Un tramo horario dentro de un día, "HH:MM" 24hs. */

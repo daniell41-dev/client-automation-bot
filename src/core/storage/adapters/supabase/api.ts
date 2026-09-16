@@ -148,6 +148,18 @@ export interface SupabaseDb {
   }): Promise<ComprobanteRow>;
   /** Todos los comprobantes de un negocio (T-24.4), para el motor de señales. */
   listComprobantes(negocioId: string): Promise<ComprobanteRow[]>;
+  /**
+   * Llaves de Wompi del negocio (T-24.5). Consulta ANGOSTA a propósito —
+   * nunca se pide junto con el resto de columnas de `negocios`, para que
+   * quede claro en el propio código que estos tres valores no viajan por
+   * ningún lado que el portal pueda leer. `null` si el negocio no tiene
+   * Wompi configurado.
+   */
+  selectWompiCredentials(negocioId: string): Promise<{
+    publicKey: string;
+    integritySecret: string;
+    eventsSecret: string;
+  } | null>;
 }
 
 /** Implementación real sobre supabase-js. */
@@ -321,6 +333,27 @@ class RealSupabaseDb implements SupabaseDb {
       .eq("negocio_id", negocioId);
     if (error) throw error;
     return (data as ComprobanteRow[] | null) ?? [];
+  }
+
+  async selectWompiCredentials(negocioId: string): Promise<{
+    publicKey: string;
+    integritySecret: string;
+    eventsSecret: string;
+  } | null> {
+    const { data, error } = await this.client
+      .from("negocios")
+      .select("wompi_public_key, wompi_integrity_secret, wompi_events_secret")
+      .eq("id", negocioId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data?.wompi_public_key || !data.wompi_integrity_secret || !data.wompi_events_secret) {
+      return null;
+    }
+    return {
+      publicKey: data.wompi_public_key,
+      integritySecret: data.wompi_integrity_secret,
+      eventsSecret: data.wompi_events_secret,
+    };
   }
 }
 

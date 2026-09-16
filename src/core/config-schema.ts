@@ -125,10 +125,21 @@ const messagesSchema = z.object({
   pedirComprobante: z.string().optional(),
 });
 
-/** T-24.4 — sin esto (default), el flujo de aprobación de pedidos no cambia. */
+/**
+ * T-24.4/T-24.5 — sin esto (default), el flujo de aprobación de pedidos no
+ * cambia. `wompi` acá es SOLO la bandera de comportamiento — las llaves
+ * viven en columnas propias de `negocios` (migración 0014), nunca en este
+ * JSONB (ver el comentario largo en `types.ts#PagosConfig.wompi`).
+ */
 const pagosSchema = z.object({
   requiereComprobante: z.boolean().optional(),
   telefonoDestino: z.string().optional(),
+  wompi: z
+    .object({
+      enabled: z.boolean().optional(),
+      redirectUrl: z.string().optional(),
+    })
+    .optional(),
 });
 
 const followUpSchema = z.object({
