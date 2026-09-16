@@ -18,6 +18,7 @@ import type {
   AgentTurnInput,
   DateExtractionInput,
   ILLMProvider,
+  ImageInput,
   InterpretInput,
   LLMContext,
 } from "@/core/ai/provider";
@@ -33,6 +34,8 @@ import {
   parseAgentResponse,
 } from "@/core/ai/agent-prompt";
 import type { AgentResponse } from "@/core/ai/agent-schema";
+import { buildImageDescriptionPrompt, parseImageDescription } from "@/core/ai/image-prompt";
+import type { ImageDescription } from "@/core/ai/image-schema";
 
 export interface OpenAICompatibleOptions {
   /** Nombre corto para logs/errores (p. ej. "gemini", "groq"). */
@@ -84,12 +87,19 @@ export interface OpenAICompatibleOptions {
    * `"medium"` específicamente para Groq (no probado todavía).
    */
   reasoningEffort?: string;
+  /** `true` si `model` puede leer imágenes (T-23.3). Default `false`. */
+  supportsVision?: boolean;
 }
 
 export interface ChatMessage {
   role: "system" | "user";
   content: string;
 }
+
+/** Formato multimodal OpenAI-compatible (texto + imagen) para `describeImage`. */
+type VisionContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
 
 export interface ChatCompletionParams {
   temperature: number;
@@ -144,6 +154,7 @@ interface ChatCompletionResponse {
 
 export class OpenAICompatibleProvider implements ILLMProvider {
   readonly model: string;
+  readonly supportsVision: boolean;
   private readonly name: string;
   private readonly baseURL: string;
   private readonly apiKey: string;
@@ -161,6 +172,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
     this.timeoutMs = opts.timeoutMs ?? 8000;
     this.agentTimeoutMs = opts.agentTimeoutMs ?? 20000;
     this.reasoningEffort = opts.reasoningEffort;
+    this.supportsVision = opts.supportsVision ?? false;
   }
 
   /** Llamada cruda de chat completions. Lanza si falla (red, HTTP, timeout). */
@@ -255,5 +267,51 @@ export class OpenAICompatibleProvider implements ILLMProvider {
       );
     }
     return parsed.value;
+  }
+
+  /**
+   * `null` de entrada si el modelo no tiene visión — ni siquiera intenta la
+   * llamada. `ResilientProvider` ya filtra por `supportsVision` antes de
+   * llegar acá, pero esto lo hace seguro de invocar directo también.
+   */
+  async describeImage(input: ImageInput): Promise<ImageDescription | null> {
+    if (!this.supportsVision) return null;
+
+    const content: VisionContentPart[] = [
+      {
+        type: "text",
+        text: input.caption
+          ? `El cliente escribió esto junto con la foto: "${input.caption}"`
+          : "Describí la imagen.",
+      },
+      { type: "image_url", image_url: { url: `data:${input.mimeType};base64,${input.base64}` } },
+    ];
+    const url = `${this.baseURL.replace(/\/$/, "")}/chat/completions`;
+    const body = {
+      model: this.model,
+      temperature: 0,
+      max_tokens: 500,
+      messages: [
+        { role: "system", content: buildImageDescriptionPrompt() },
+        { role: "user", content },
+      ],
+    };
+    const res = await this.fetchImpl(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`[${this.name}] HTTP ${res.status}: ${detail}`);
+    }
+    const data = (await res.json()) as ChatCompletionResponse;
+    const text = data.choices?.[0]?.message?.content?.trim();
+    if (!text) return null;
+    return parseImageDescription(text);
   }
 }
