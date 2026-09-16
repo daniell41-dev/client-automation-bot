@@ -55,4 +55,26 @@ describe("JsonComprobanteRepository", () => {
     const repo = new JsonComprobanteRepository(anidado);
     await expect(repo.crear({ negocio: "tienda", referencia: "ABC" })).resolves.toBeTruthy();
   });
+
+  it("trae un creadoEn usable para detectar ráfaga", async () => {
+    const repo = new JsonComprobanteRepository(filePath);
+    const comprobante = await repo.crear({ negocio: "tienda", referencia: "ABC" });
+    expect(Number.isNaN(new Date(comprobante.creadoEn).getTime())).toBe(false);
+  });
+
+  it("listar devuelve todos los comprobantes de un negocio", async () => {
+    const repo = new JsonComprobanteRepository(filePath);
+    await repo.crear({ negocio: "tienda-a", referencia: "A" });
+    await repo.crear({ negocio: "tienda-a", referencia: "B" });
+    await repo.crear({ negocio: "tienda-b", referencia: "C" });
+
+    const listado = await repo.listar("tienda-a");
+    expect(listado).toHaveLength(2);
+    expect(listado.map((c) => c.referencia).sort()).toEqual(["A", "B"]);
+  });
+
+  it("listar sin comprobantes devuelve un array vacío", async () => {
+    const repo = new JsonComprobanteRepository(filePath);
+    expect(await repo.listar("tienda-sin-nada")).toEqual([]);
+  });
 });
