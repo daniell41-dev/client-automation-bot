@@ -3,6 +3,11 @@ import { handleIncoming, handleOwnerApproval } from "@/core/handle";
 import type { BusinessConfig, DiaAtencion, IncomingMessage, Lead } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
 import type { InventoryRepository, StockItem, StockResult } from "@/core/storage/inventory-repository";
+import type {
+  Comprobante,
+  ComprobanteRepository,
+  NuevoComprobante,
+} from "@/core/storage/comprobante-repository";
 import type { AgentTurnInput, ILLMProvider } from "@/core/ai/provider";
 import type { AgentResponse } from "@/core/ai/agent-schema";
 import { makeFakeCalendar } from "@/core/storage/adapters/google/fake-calendar";
@@ -1392,5 +1397,299 @@ describe("handleIncoming — visión por imagen (T-23.5)", () => {
     expect(session.history[0].text).not.toContain(media.base64);
     expect(session.history[1].text).not.toContain(media.base64);
     expect(JSON.stringify(session.history)).not.toContain(media.base64);
+  });
+});
+
+describe("handleIncoming — confirmación de pago con comprobante (T-24.4)", () => {
+  class InMemoryComprobantes implements ComprobanteRepository {
+    comprobantes: Comprobante[] = [];
+    async crear(nuevo: NuevoComprobante): Promise<Comprobante> {
+      if (
+        nuevo.referencia &&
+        this.comprobantes.some((c) => c.negocio === nuevo.negocio && c.referencia === nuevo.referencia)
+      ) {
+        throw new Error(`referencia repetida: ${nuevo.referencia}`);
+      }
+      const comprobante: Comprobante = {
+        ...nuevo,
+        id: `c-${this.comprobantes.length + 1}`,
+        estado: "pendiente",
+        creadoEn: new Date().toISOString(),
+      };
+      this.comprobantes.push(comprobante);
+      return comprobante;
+    }
+    async listar(negocio: string): Promise<Comprobante[]> {
+      return this.comprobantes.filter((c) => c.negocio === negocio);
+    }
+  }
+
+  const tiendaConPagos: BusinessConfig = {
+    ...tiendaConNotify,
+    slug: "tienda-pagos",
+    pagos: { requiereComprobante: true, telefonoDestino: "3001112233" },
+  };
+
+  function fakePaymentLLM(
+    receipt: Awaited<ReturnType<NonNullable<ILLMProvider["describePaymentReceipt"]>>>,
+  ): ILLMProvider {
+    return {
+      supportsVision: true,
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      async describePaymentReceipt() {
+        return receipt;
+      },
+    };
+  }
+
+  const media = { base64: "UkVDSUJPMTIz", mimeType: "image/jpeg" };
+  const fakeMediaDownloader = () => async () => media;
+
+  function paymentMsg(): IncomingMessage {
+    return {
+      channel: "whatsapp",
+      // Mismo businessSlug que usa msg() — es la clave con la que InMemoryRepo
+      // encuentra el lead que se armó con los mensajes de texto anteriores.
+      businessSlug: "estetica-bella",
+      from: "57300000000",
+      text: "",
+      timestamp: new Date().toISOString(),
+      image: { mediaId: "media-1", mimeType: "image/jpeg" },
+    };
+  }
+
+  async function driveHastaEsperandoComprobante(
+    repo: LeadRepository,
+    inventory: InventoryRepository,
+    notifier: ReturnType<typeof fakeNotifier>,
+  ) {
+    await handleIncoming(msg("harina"), tiendaConPagos, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-pagos-1");
+    await handleIncoming(msg("Laura"), tiendaConPagos, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-pagos-1");
+    await handleIncoming(msg("2"), tiendaConPagos, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-pagos-1");
+    await handleIncoming(msg("no, eso es todo"), tiendaConPagos, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-pagos-1");
+    return handleIncoming(msg("sí"), tiendaConPagos, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-pagos-1");
+  }
+
+  it("al confirmar el pedido, pide el comprobante en vez de avisar a la dueña de una — y ya descontó el stock", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-pagos-1", "harina", 10);
+    const notifier = fakeNotifier();
+
+    const { messages } = await driveHastaEsperandoComprobante(repo, inventory, notifier);
+
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion");
+    expect(messages[0].text.toLowerCase()).toMatch(/comprobante/);
+    expect(notifier.sent).toHaveLength(0); // todavía NO se avisó a la dueña
+    expect(inventory.stock.get("tienda-pagos-1|harina")).toBe(8); // ya descontado, antes de cualquier comprobante
+  });
+
+  it("con el comprobante legible, avisa a la dueña con el resumen + señales y nunca le confirma el pago al cliente", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-pagos-1", "harina", 10);
+    const notifier = fakeNotifier();
+    const comprobantes = new InMemoryComprobantes();
+    await driveHastaEsperandoComprobante(repo, inventory, notifier);
+
+    const llm = fakePaymentLLM({
+      banco: "nequi",
+      referencia: "M12345678",
+      monto: 10000,
+      moneda: "COP",
+      legible: "completo",
+    });
+    const { messages } = await handleIncoming(
+      paymentMsg(),
+      tiendaConPagos,
+      repo,
+      new Date(),
+      llm,
+      undefined,
+      undefined,
+      notifier,
+      inventory,
+      "tienda-pagos-1",
+      fakeMediaDownloader(),
+      comprobantes,
+    );
+
+    // Al cliente: nunca "confirmado"/"recibido tu pago" — solo que se lo pasamos a la dueña.
+    expect(messages[0].text.toLowerCase()).not.toMatch(/confirmad|pago recibido/);
+    expect(messages[0].text.toLowerCase()).toMatch(/se lo pas/);
+
+    // A la dueña: si le llegó el aviso con los datos del comprobante.
+    expect(notifier.sent).toHaveLength(1);
+    expect(notifier.sent[0].text).toContain("nequi");
+    expect(notifier.sent[0].text).toContain("M12345678");
+    expect(notifier.sent[0].text).toContain("Respondé SÍ para aceptarlo o NO para rechazarlo.");
+
+    // El comprobante quedó guardado.
+    expect(comprobantes.comprobantes).toHaveLength(1);
+    expect(comprobantes.comprobantes[0].referencia).toBe("M12345678");
+  });
+
+  it("una referencia repetida dispara la señal de riesgo en el aviso a la dueña", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-pagos-1", "harina", 100);
+    const notifier = fakeNotifier();
+    const comprobantes = new InMemoryComprobantes();
+    // Ya existe un comprobante previo con la misma referencia en este negocio.
+    await comprobantes.crear({ negocio: "tienda-pagos-1", referencia: "DUPLICADA" });
+
+    await driveHastaEsperandoComprobante(repo, inventory, notifier);
+    const llm = fakePaymentLLM({ banco: "nequi", referencia: "DUPLICADA", monto: 10000, legible: "completo" });
+
+    await handleIncoming(
+      paymentMsg(),
+      tiendaConPagos,
+      repo,
+      new Date(),
+      llm,
+      undefined,
+      undefined,
+      notifier,
+      inventory,
+      "tienda-pagos-1",
+      fakeMediaDownloader(),
+      comprobantes,
+    );
+
+    expect(notifier.sent).toHaveLength(1);
+    expect(notifier.sent[0].text).toMatch(/ya se usó|referencia/i);
+  });
+
+  it("un comprobante ilegible pide que lo reenvíen, sin avisar a la dueña", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-pagos-1", "harina", 10);
+    const notifier = fakeNotifier();
+    const comprobantes = new InMemoryComprobantes();
+    await driveHastaEsperandoComprobante(repo, inventory, notifier);
+
+    const llm = fakePaymentLLM({ legible: "ilegible" });
+    const { messages } = await handleIncoming(
+      paymentMsg(),
+      tiendaConPagos,
+      repo,
+      new Date(),
+      llm,
+      undefined,
+      undefined,
+      notifier,
+      inventory,
+      "tienda-pagos-1",
+      fakeMediaDownloader(),
+      comprobantes,
+    );
+
+    expect(messages[0].text.toLowerCase()).toMatch(/no pude leer|reenv/);
+    expect(notifier.sent).toHaveLength(0);
+    expect(comprobantes.comprobantes).toHaveLength(0);
+  });
+
+  it("el SÍ de la dueña confirma el pedido sin volver a tocar el stock (handleOwnerApproval sin cambios)", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-pagos-1", "harina", 10);
+    const notifier = fakeNotifier();
+    const comprobantes = new InMemoryComprobantes();
+    await driveHastaEsperandoComprobante(repo, inventory, notifier);
+    const llm = fakePaymentLLM({ banco: "nequi", referencia: "OK-1", monto: 10000, legible: "completo" });
+    await handleIncoming(
+      paymentMsg(),
+      tiendaConPagos,
+      repo,
+      new Date(),
+      llm,
+      undefined,
+      undefined,
+      notifier,
+      inventory,
+      "tienda-pagos-1",
+      fakeMediaDownloader(),
+      comprobantes,
+    );
+    const stockTrasComprobante = inventory.stock.get("tienda-pagos-1|harina");
+
+    const ownerMsg: IncomingMessage = {
+      channel: "whatsapp",
+      businessSlug: "tienda-pagos",
+      from: "573009998888",
+      text: "sí",
+      timestamp: new Date().toISOString(),
+    };
+    const { customerReply } = await handleOwnerApproval(ownerMsg, tiendaConPagos, repo);
+
+    expect(repo.leads[0].stage).toBe("datos_completos");
+    expect(repo.leads[0].state).toBe("pagado");
+    expect(customerReply?.text.toLowerCase()).toMatch(/confirmad/);
+    expect(inventory.stock.get("tienda-pagos-1|harina")).toBe(stockTrasComprobante); // no se tocó de nuevo
+  });
+
+  it("el NO de la dueña rechaza el pedido igual que antes de T-24", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-pagos-1", "harina", 10);
+    const notifier = fakeNotifier();
+    const comprobantes = new InMemoryComprobantes();
+    await driveHastaEsperandoComprobante(repo, inventory, notifier);
+    const llm = fakePaymentLLM({ banco: "nequi", referencia: "RECH-1", monto: 10000, legible: "completo" });
+    await handleIncoming(
+      paymentMsg(),
+      tiendaConPagos,
+      repo,
+      new Date(),
+      llm,
+      undefined,
+      undefined,
+      notifier,
+      inventory,
+      "tienda-pagos-1",
+      fakeMediaDownloader(),
+      comprobantes,
+    );
+
+    const ownerMsg: IncomingMessage = {
+      channel: "whatsapp",
+      businessSlug: "tienda-pagos",
+      from: "573009998888",
+      text: "no",
+      timestamp: new Date().toISOString(),
+    };
+    const { customerReply } = await handleOwnerApproval(ownerMsg, tiendaConPagos, repo);
+
+    expect(repo.leads[0].stage).toBe("inicio");
+    expect(repo.leads[0].state).toBe("perdido");
+    expect(customerReply?.text.toLowerCase()).toMatch(/no pudimos confirmar/);
+  });
+
+  it("sin config.pagos.requiereComprobante, el flujo de antes de T-24 sigue exactamente igual", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-1", "harina", 10);
+    const notifier = fakeNotifier();
+
+    await handleIncoming(msg("harina"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg("Laura"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg("2"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    await handleIncoming(msg("no, eso es todo"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+    const { messages } = await handleIncoming(msg("sí"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier, inventory, "tienda-1");
+
+    expect(messages[0].text).toContain("revisión"); // el texto de siempre, no el de pedir comprobante
+    expect(notifier.sent).toHaveLength(1); // se avisó a la dueña de una, como siempre
+    expect(notifier.sent[0].text).toContain("Respondé SÍ");
   });
 });

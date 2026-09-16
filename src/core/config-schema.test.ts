@@ -117,6 +117,31 @@ describe("parseBusinessConfig — pedidos y notifyPhoneNumber", () => {
   });
 });
 
+describe("parseBusinessConfig — pagos (T-24.4)", () => {
+  it("acepta pagos.requiereComprobante + telefonoDestino", () => {
+    const config = {
+      ...JSON.parse(JSON.stringify(esteticaBella)),
+      pagos: { requiereComprobante: true, telefonoDestino: "3001112233" },
+    };
+    const parsed = parseBusinessConfig(config);
+    expect(parsed?.pagos).toEqual({ requiereComprobante: true, telefonoDestino: "3001112233" });
+  });
+
+  it("sin pagos la config sigue siendo válida (opcional, no cambia el comportamiento de antes de T-24)", () => {
+    const parsed = parseBusinessConfig(JSON.parse(JSON.stringify(esteticaBella)));
+    expect(parsed?.pagos).toBeUndefined();
+  });
+
+  it("messages.pedirComprobante es opcional", () => {
+    const config = {
+      ...JSON.parse(JSON.stringify(esteticaBella)),
+      messages: { ...esteticaBella.messages, pedirComprobante: "Pagá y mandanos el comprobante 📸" },
+    };
+    const parsed = parseBusinessConfig(config);
+    expect(parsed?.messages.pedirComprobante).toBe("Pagá y mandanos el comprobante 📸");
+  });
+});
+
 /**
  * T-12: estos sub-schemas se exportan para que los editores del portal
  * (Catálogo, Configuración) validen en el CLIENTE con el mismo objeto Zod
