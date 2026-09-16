@@ -15,6 +15,7 @@ import type { BotAIConfig, BusinessConfig, PersonaConfig } from "@/core/types";
 import { personaSchema } from "@/core/config-schema";
 import {
   actualizarWhatsapp,
+  actualizarWompi,
   guardarConfigParcial,
   type ActionState,
 } from "@/app/portal/actions";
@@ -52,6 +53,7 @@ export function ConfiguracionEditor({
   persona,
   personas,
   initialAi,
+  initialPagos,
 }: {
   slug: string;
   nombre: string;
@@ -62,9 +64,14 @@ export function ConfiguracionEditor({
   persona: PersonaConfig;
   personas: BusinessConfig["personas"];
   initialAi: BotAIConfig;
+  initialPagos: BusinessConfig["pagos"];
 }) {
   const [direccion, setDireccion] = useState(direccionInicial);
   const [notifyPhoneNumber, setNotifyPhoneNumber] = useState(notifyPhoneNumberInicial);
+  const [wompiEnabled, setWompiEnabled] = useState(initialPagos?.wompi?.enabled ?? false);
+  const [wompiRedirectUrl, setWompiRedirectUrl] = useState(
+    initialPagos?.wompi?.redirectUrl ?? "",
+  );
   const [botName, setBotName] = useState(persona.name);
   const [tono, setTono] = useState<Tono>(tonoActual(persona.tone));
   const [botNameError, setBotNameError] = useState<string>();
@@ -84,6 +91,10 @@ export function ConfiguracionEditor({
     notifyPhoneNumber: notifyPhoneNumber.trim() || undefined,
     personas: { ...personas, whatsapp: nuevaPersona },
     ai,
+    pagos: {
+      ...initialPagos,
+      wompi: { enabled: wompiEnabled, redirectUrl: wompiRedirectUrl.trim() || undefined },
+    },
   };
 
   /**
@@ -171,6 +182,76 @@ export function ConfiguracionEditor({
             Formato internacional sin espacios ni + (ej. 573001234567). Dejalo
             vacío para no recibir avisos.
           </p>
+        </div>
+      </Card>
+
+      {/* Pagos con Wompi (T-24.6): Wompi solo cubre Colombia — para otros
+          países (ej. Venezuela) queda el camino de comprobante manual, que no
+          depende de esta pantalla. */}
+      <Card
+        title="Pagos con Wompi"
+        subtitle="Tarjeta y PSE en Colombia, verificado automáticamente al pagar."
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-ink">Activar pagos con Wompi</span>
+            <Toggle checked={wompiEnabled} onChange={setWompiEnabled} label="Wompi activado" />
+          </div>
+          <div className="max-w-sm">
+            <label className={labelCls}>URL de redirección (opcional)</label>
+            <input
+              className={inputCls}
+              value={wompiRedirectUrl}
+              onChange={(e) => setWompiRedirectUrl(e.target.value)}
+              placeholder="https://tusitio.com/gracias"
+            />
+            <p className="mt-1.5 text-xs text-ink-soft">
+              A dónde vuelve el cliente después de pagar. Este cambio se guarda con el
+              botón &quot;Guardar cambios&quot; de más abajo.
+            </p>
+          </div>
+
+          <div className="border-t border-line pt-4">
+            <ActionForm action={actualizarWompi} submitLabel="Guardar credenciales">
+              <input type="hidden" name="slug" value={slug} />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className={labelCls}>Llave pública</label>
+                  <input
+                    name="public_key"
+                    className={inputCls}
+                    placeholder="pub_prod_..."
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Secreto de integridad</label>
+                  <input
+                    name="integrity_secret"
+                    type="password"
+                    className={inputCls}
+                    placeholder="•••••••••••"
+                    autoComplete="off"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Secreto de eventos</label>
+                  <input
+                    name="events_secret"
+                    type="password"
+                    className={inputCls}
+                    placeholder="•••••••••••"
+                    autoComplete="off"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-ink-soft">
+                Las tres llaves están en tu panel de Wompi (Configuración → Llaves de la
+                API). Por seguridad nunca se muestran acá una vez guardadas — dejá en
+                blanco la que no quieras cambiar.
+              </p>
+            </ActionForm>
+          </div>
         </div>
       </Card>
 

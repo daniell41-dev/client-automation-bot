@@ -22,7 +22,7 @@ vi.mock("@/lib/supabase/server", () => ({
 // (como acá, en Vitest) lanza "static generation store missing".
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
-import { guardarConfigParcial } from "@/app/portal/actions";
+import { actualizarWompi, guardarConfigParcial } from "@/app/portal/actions";
 
 function formData(fields: Record<string, string>): FormData {
   const fd = new FormData();
@@ -184,5 +184,94 @@ describe("guardarConfigParcial — ai.knowledge desde Configuración (T-17)", ()
 
     const guardado = updatedWith() as { ai: typeof configConReglas.ai };
     expect(guardado.ai.reglas).toEqual(configConReglas.ai.reglas);
+  });
+});
+
+/**
+ * T-24.6: las credenciales de Wompi se guardan en columnas propias de
+ * `negocios` (nunca en `config`, ver el comentario de `actualizarWompi`) a
+ * través de su propia action, separada de `guardarConfigParcial`.
+ */
+describe("actualizarWompi", () => {
+  function fakeSupabaseNegocios(): {
+    client: { from: (table: string) => unknown };
+    updatedWith: () => Record<string, unknown> | undefined;
+  } {
+    let ultimoUpdate: Record<string, unknown> | undefined;
+    const client = {
+      from: () => ({
+        update: (payload: Record<string, unknown>) => {
+          ultimoUpdate = payload;
+          return {
+            eq: () => ({
+              select: async () => ({ data: [{ id: "negocio-1" }], error: null }),
+            }),
+          };
+        },
+      }),
+    };
+    return { client, updatedWith: () => ultimoUpdate };
+  }
+
+  it("guarda las tres llaves cuando vienen las tres", async () => {
+    const { client, updatedWith } = fakeSupabaseNegocios();
+    createUserClientMock.mockResolvedValue(client);
+
+    const result = await actualizarWompi(
+      {},
+      formData({
+        slug: "estetica-bella",
+        public_key: "pub_prod_123",
+        integrity_secret: "int-secret",
+        events_secret: "ev-secret",
+      }),
+    );
+
+    expect(result.ok).toBeTruthy();
+    const guardado = updatedWith();
+    expect(guardado?.wompi_public_key).toBe("pub_prod_123");
+    expect(guardado?.wompi_integrity_secret).toBe("int-secret");
+    expect(guardado?.wompi_events_secret).toBe("ev-secret");
+  });
+
+  it("dejar un campo en blanco no lo incluye en el update (no lo borra)", async () => {
+    const { client, updatedWith } = fakeSupabaseNegocios();
+    createUserClientMock.mockResolvedValue(client);
+
+    await actualizarWompi(
+      {},
+      formData({
+        slug: "estetica-bella",
+        public_key: "pub_prod_123",
+        integrity_secret: "",
+        events_secret: "",
+      }),
+    );
+
+    const guardado = updatedWith();
+    expect(guardado?.wompi_public_key).toBe("pub_prod_123");
+    expect(guardado).not.toHaveProperty("wompi_integrity_secret");
+    expect(guardado).not.toHaveProperty("wompi_events_secret");
+  });
+
+  it("los tres campos vacíos: error, no llega a llamar a Supabase", async () => {
+    const result = await actualizarWompi(
+      {},
+      formData({ slug: "estetica-bella", public_key: "", integrity_secret: "", events_secret: "" }),
+    );
+
+    expect(result.error).toBeTruthy();
+    expect(createUserClientMock).not.toHaveBeenCalled();
+  });
+
+  it("sin sesión: no autorizado", async () => {
+    getUserRoleMock.mockResolvedValue(null);
+
+    const result = await actualizarWompi(
+      {},
+      formData({ slug: "estetica-bella", public_key: "pub_x", integrity_secret: "", events_secret: "" }),
+    );
+
+    expect(result.error).toBe("No autorizado.");
   });
 });
