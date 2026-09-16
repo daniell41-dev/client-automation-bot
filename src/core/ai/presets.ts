@@ -29,6 +29,8 @@ export interface AIPreset {
    * `max_tokens` pensando y devolver contenido vacío (ver `runAgent`).
    */
   reasoningEffort?: ReasoningEffort;
+  /** `true` si el modelo del preset puede leer imágenes (T-23.3). Default `false`. */
+  supportsVision?: boolean;
 }
 
 export const AI_PRESETS = {
@@ -39,6 +41,7 @@ export const AI_PRESETS = {
     // (sep-2026); Google indica migrar a este modelo.
     defaultModel: "gemini-3.5-flash-lite",
     reasoningEffort: "low",
+    supportsVision: true,
   },
   /** Groq. Key gratis en https://console.groq.com/keys */
   groq: {
@@ -48,6 +51,18 @@ export const AI_PRESETS = {
     // ahora imprime el listado real de modelos disponibles para tu key.
     defaultModel: "openai/gpt-oss-20b",
     reasoningEffort: "low",
+  },
+  /**
+   * Groq con un modelo CON visión (T-23.3) — mismo baseURL/cuenta que `groq`,
+   * pero el modelo de texto (`gpt-oss-20b`) no lee imágenes. Se configura
+   * como preset aparte (con su propia `GROQ_VISION_API_KEY`, ver
+   * `factory.ts`) para no forzar a `groq` a usar Scout en TODAS las
+   * respuestas de texto solo para poder describir fotos alguna vez.
+   */
+  "groq-vision": {
+    baseURL: "https://api.groq.com/openai/v1",
+    defaultModel: "meta-llama/llama-4-scout-17b-16e-instruct",
+    supportsVision: true,
   },
   /** Cerebras. Key gratis en https://cloud.cerebras.ai */
   cerebras: {

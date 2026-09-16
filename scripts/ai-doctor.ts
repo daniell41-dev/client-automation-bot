@@ -32,7 +32,11 @@ import { esteticaBella } from "@/businesses/estetica-bella/config";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { loadEnvLocal } from "./load-env";
 
-const PRESET_NAMES: PresetName[] = ["gemini", "groq", "cerebras"];
+const PRESET_NAMES: PresetName[] = ["gemini", "groq", "groq-vision", "cerebras"];
+
+/** PNG 1x1 mínimo válido — solo para confirmar que el modelo procesa imágenes, no para probar reconocimiento real. */
+const TEST_IMAGE_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 
 interface ProviderCheckResult {
   ok: boolean;
@@ -40,6 +44,8 @@ interface ProviderCheckResult {
   modelosDisponibles?: string[];
   /** Error concreto de la primera llamada real que falló (enhance o runAgent). */
   error?: string;
+  /** Paso 5 (T-23.3): si el preset dice que ve imágenes, ¿describeImage funcionó de verdad? */
+  visionOk?: boolean;
 }
 
 interface ProviderReport extends ProviderCheckResult {
@@ -88,6 +94,25 @@ async function checkAgentMode(provider: OpenAICompatibleProvider): Promise<boole
   return true;
 }
 
+/**
+ * Paso 5 (T-23.3): solo para proveedores con `supportsVision` — confirma que
+ * `describeImage` procesa una imagen real, no solo que el schema compila.
+ */
+async function checkVision(provider: OpenAICompatibleProvider): Promise<boolean> {
+  try {
+    const result = await provider.describeImage({ base64: TEST_IMAGE_BASE64, mimeType: "image/png" });
+    if (!result) {
+      console.log("   ⚠️  describeImage no devolvió una descripción válida (JSON inválido o vacío).");
+      return false;
+    }
+    console.log(`   ✅ describeImage respondió: ${JSON.stringify(result)}`);
+    return true;
+  } catch (err) {
+    console.log(`   ⚠️  Falló describeImage: ${err}`);
+    return false;
+  }
+}
+
 /** Prueba end-to-end de un proveedor concreto. Nunca lanza: devuelve el resultado. */
 async function checkProvider(
   label: string,
@@ -96,6 +121,7 @@ async function checkProvider(
   model: string,
   modelEnvVar: string,
   reasoningEffort: string | undefined,
+  supportsVision = false,
 ): Promise<ProviderCheckResult> {
   const masked = `${apiKey.slice(0, 6)}...${apiKey.slice(-4)}`;
   console.log(`\n🔎 ${label} (${masked}) — modelo configurado: ${model}`);
@@ -141,6 +167,7 @@ async function checkProvider(
     model,
     reasoningEffort,
     agentTimeoutMs: resolveAgentTimeoutMs(),
+    supportsVision,
   });
 
   // Paso 3: una llamada real de enhance().
@@ -195,6 +222,13 @@ async function checkProvider(
     agentOk = false;
   }
 
+  // Paso 5: solo si el preset dice que este modelo ve imágenes (T-23.3). No
+  // gatea `ok` — un fallo acá no invalida el uso normal de texto.
+  let visionOk: boolean | undefined;
+  if (supportsVision) {
+    visionOk = await checkVision(provider);
+  }
+
   const ok = enhanceOk && agentOk;
   const error = ok
     ? undefined
@@ -202,7 +236,7 @@ async function checkProvider(
         .filter((v): v is string => Boolean(v))
         .join(" | ");
 
-  return { ok, modelosDisponibles, error };
+  return { ok, modelosDisponibles, error, visionOk };
 }
 
 async function main() {
@@ -213,7 +247,9 @@ async function main() {
   const reports: ProviderReport[] = [];
 
   for (const name of PRESET_NAMES) {
-    const envPrefix = name.toUpperCase();
+    // "groq-vision" -> "GROQ_VISION" (los nombres de variables de entorno no
+    // llevan guiones, mismo criterio que factory.ts).
+    const envPrefix = name.toUpperCase().replace(/-/g, "_");
     const apiKey = process.env[`${envPrefix}_API_KEY`];
     if (!apiKey) {
       console.log(`⏭  ${name}: sin ${envPrefix}_API_KEY, se omite.`);
@@ -229,6 +265,7 @@ async function main() {
       model,
       `${envPrefix}_MODEL`,
       resolveReasoningEffort(preset.reasoningEffort),
+      preset.supportsVision,
     );
     anyOk = anyOk || result.ok;
     reports.push({ name, model, apiKeyPresent: true, ...result });
