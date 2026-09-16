@@ -17,6 +17,8 @@ const AI_ENV_VARS = [
   "GEMINI_MODEL",
   "GROQ_API_KEY",
   "GROQ_MODEL",
+  "GROQ_VISION_API_KEY",
+  "GROQ_VISION_MODEL",
   "CEREBRAS_API_KEY",
   "CEREBRAS_MODEL",
   "AI_CUSTOM_API_KEY",
@@ -85,6 +87,18 @@ describe("createLLMProvider", () => {
     process.env.AI_CUSTOM_API_KEY = "custom-key";
     // Faltan AI_CUSTOM_BASE_URL y AI_CUSTOM_MODEL.
     expect(createLLMProvider()).toBeNull();
+  });
+
+  it("arma un provider groq-vision con GROQ_VISION_API_KEY (T-23.3)", () => {
+    process.env.GROQ_VISION_API_KEY = "test-key";
+    const provider = createLLMProvider();
+    expect(provider?.model).toBe("meta-llama/llama-4-scout-17b-16e-instruct");
+  });
+
+  it("groq-vision no interfiere si solo está configurado GROQ_API_KEY (compatibilidad)", () => {
+    process.env.GROQ_API_KEY = "test-key";
+    const provider = createLLMProvider();
+    expect(provider?.model).toBe("openai/gpt-oss-20b");
   });
 });
 

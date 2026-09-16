@@ -6,6 +6,7 @@
 
 import type { ConversationTurn, DiaAtencion, ModoItem, PersonaConfig, QuickRule } from "@/core/types";
 import type { AgentResponse } from "@/core/ai/agent-schema";
+import type { ImageDescription } from "@/core/ai/image-schema";
 
 export interface LLMContext {
   businessName: string;
@@ -131,12 +132,27 @@ export interface AgentTurnInput {
   message: string;
 }
 
+/** Entrada de `describeImage`: una foto del cliente ya descargada (T-23.2). */
+export interface ImageInput {
+  base64: string;
+  mimeType: string;
+  /** Texto que el cliente mandó junto con la foto, si hay. */
+  caption?: string;
+}
+
 export interface ILLMProvider {
   /**
    * Nombre descriptivo del proveedor/modelo activo (para logs y `pnpm
    * ai:doctor`). Opcional: no todos los proveedores lo necesitan.
    */
   readonly model?: string;
+
+  /**
+   * `true` si el modelo activo puede leer imágenes (T-23.3). Ausente/`false`
+   * equivalen a lo mismo: `ResilientProvider` salta este proveedor cuando la
+   * entrada trae una imagen, en vez de intentar y fallar.
+   */
+  readonly supportsVision?: boolean;
 
   /**
    * Recibe el borrador de respuesta del motor y lo reformula con
@@ -167,4 +183,13 @@ export interface ILLMProvider {
    * antes validarla contra el catálogo/estado real.
    */
   runAgent(input: AgentTurnInput): Promise<AgentResponse | null>;
+
+  /**
+   * Lee una imagen del cliente y devuelve lo que se VE, sin interpretar ni
+   * afirmar qué producto del catálogo es — ese cruce lo hace el motor
+   * (`buscar-producto.ts`, T-23.4). `null` si el modelo no ve imágenes o la
+   * respuesta no valida contra el contrato. Optativo: un proveedor sin
+   * `supportsVision` no necesita implementarlo.
+   */
+  describeImage?(input: ImageInput): Promise<ImageDescription | null>;
 }
