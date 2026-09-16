@@ -19,6 +19,7 @@ function toComprobante(row: ComprobanteRow): Comprobante {
     fechaComprobante: row.fecha_comprobante ?? undefined,
     estado: row.estado,
     señales: row.señales ?? undefined,
+    creadoEn: row.created_at,
   };
 }
 
@@ -37,5 +38,10 @@ export class SupabaseComprobanteRepository implements ComprobanteRepository {
       señales: comprobante.señales,
     });
     return toComprobante(row);
+  }
+
+  async listar(negocio: string): Promise<Comprobante[]> {
+    const rows = await this.db.listComprobantes(negocio);
+    return rows.map(toComprobante);
   }
 }

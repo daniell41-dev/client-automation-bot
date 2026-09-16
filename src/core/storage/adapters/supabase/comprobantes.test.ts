@@ -77,4 +77,32 @@ describe("SupabaseComprobanteRepository — crear", () => {
       señales: { referenciaRepetida: false },
     });
   });
+
+  it("trae un created_at (creadoEn) usable para detectar ráfaga", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseComprobanteRepository(db);
+    const comprobante = await repo.crear({ negocio: "neg-1", referencia: "ABC" });
+    expect(comprobante.creadoEn).toBeTruthy();
+    expect(Number.isNaN(new Date(comprobante.creadoEn).getTime())).toBe(false);
+  });
+});
+
+describe("SupabaseComprobanteRepository — listar (T-24.4)", () => {
+  it("devuelve todos los comprobantes de un negocio", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseComprobanteRepository(db);
+    await repo.crear({ negocio: "neg-1", referencia: "A" });
+    await repo.crear({ negocio: "neg-1", referencia: "B" });
+    await repo.crear({ negocio: "neg-2", referencia: "C" });
+
+    const listado = await repo.listar("neg-1");
+    expect(listado).toHaveLength(2);
+    expect(listado.map((c) => c.referencia).sort()).toEqual(["A", "B"]);
+  });
+
+  it("sin comprobantes, devuelve un array vacío", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseComprobanteRepository(db);
+    expect(await repo.listar("neg-sin-comprobantes")).toEqual([]);
+  });
 });

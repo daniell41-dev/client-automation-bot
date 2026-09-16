@@ -220,5 +220,9 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       comprobantes.push(nueva);
       return nueva;
     },
+
+    async listComprobantes(negocioId) {
+      return comprobantes.filter((c) => c.negocio_id === negocioId);
+    },
   };
 }

@@ -55,9 +55,19 @@ export class JsonComprobanteRepository implements ComprobanteRepository {
         );
       }
     }
-    const comprobante: Comprobante = { ...nuevo, id: randomUUID(), estado: "pendiente" };
+    const comprobante: Comprobante = {
+      ...nuevo,
+      id: randomUUID(),
+      estado: "pendiente",
+      creadoEn: new Date().toISOString(),
+    };
     todos.push(comprobante);
     await this.writeAll(todos);
     return comprobante;
+  }
+
+  async listar(negocio: string): Promise<Comprobante[]> {
+    const todos = await this.readAll();
+    return todos.filter((c) => c.negocio === negocio);
   }
 }

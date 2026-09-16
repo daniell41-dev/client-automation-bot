@@ -156,6 +156,8 @@ export interface SupabaseDb {
     fechaComprobante?: string;
     señales?: unknown;
   }): Promise<ComprobanteRow>;
+  /** Todos los comprobantes de un negocio (T-24.4), para el motor de señales. */
+  listComprobantes(negocioId: string): Promise<ComprobanteRow[]>;
 }
 
 /** Implementación real sobre supabase-js. */
@@ -341,6 +343,15 @@ class RealSupabaseDb implements SupabaseDb {
       .single();
     if (error) throw error;
     return data as ComprobanteRow;
+  }
+
+  async listComprobantes(negocioId: string): Promise<ComprobanteRow[]> {
+    const { data, error } = await this.client
+      .from("comprobantes")
+      .select("*")
+      .eq("negocio_id", negocioId);
+    if (error) throw error;
+    return (data as ComprobanteRow[] | null) ?? [];
   }
 }
 
