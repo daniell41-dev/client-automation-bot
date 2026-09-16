@@ -13,12 +13,14 @@ import type { SessionRepository } from "@/core/storage/session-repository";
 import type { MessageDedupeRepository } from "@/core/storage/dedupe-repository";
 import type { AiUsageRepository } from "@/core/storage/usage-repository";
 import type { InventoryRepository } from "@/core/storage/inventory-repository";
+import type { ComprobanteRepository } from "@/core/storage/comprobante-repository";
 import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { JsonLeadRepository } from "@/core/storage/adapters/json";
 import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
 import { JsonMessageDedupeRepository } from "@/core/storage/adapters/dedupe-json";
 import { JsonAiUsageRepository } from "@/core/storage/adapters/usage-json";
 import { JsonInventoryRepository } from "@/core/storage/adapters/inventory-json";
+import { JsonComprobanteRepository } from "@/core/storage/adapters/comprobante-json";
 import { createSheetsApi } from "@/core/storage/adapters/google/auth";
 import { createCalendarApi } from "@/core/storage/adapters/google/calendar";
 import { GoogleSheetsLeadRepository } from "@/core/storage/adapters/google/leads";
@@ -29,6 +31,7 @@ import { SupabaseSessionRepository } from "@/core/storage/adapters/supabase/sess
 import { SupabaseMessageDedupeRepository } from "@/core/storage/adapters/supabase/dedupe";
 import { SupabaseAiUsageRepository } from "@/core/storage/adapters/supabase/usage";
 import { SupabaseInventoryRepository } from "@/core/storage/adapters/supabase/inventory";
+import { SupabaseComprobanteRepository } from "@/core/storage/adapters/supabase/comprobantes";
 
 /**
  * Repositorio de leads: Supabase > Sheets del negocio > JSON local.
@@ -101,4 +104,14 @@ export function createAiUsageRepository(): AiUsageRepository {
 export function createInventoryRepository(): InventoryRepository {
   const db = createSupabaseDb();
   return db ? new SupabaseInventoryRepository(db) : new JsonInventoryRepository();
+}
+
+/**
+ * Repositorio de comprobantes de pago (T-24.1): Supabase (referencia única
+ * real, ver migración 0013) > JSON local. Sin Sheets, mismo motivo que el
+ * resto del bookkeeping técnico.
+ */
+export function createComprobanteRepository(): ComprobanteRepository {
+  const db = createSupabaseDb();
+  return db ? new SupabaseComprobanteRepository(db) : new JsonComprobanteRepository();
 }

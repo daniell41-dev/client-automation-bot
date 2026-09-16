@@ -3,7 +3,9 @@
  * Espejo del patrón `fake-sheets.ts` del adaptador de Google.
  */
 
+import { randomUUID } from "node:crypto";
 import type {
+  ComprobanteRow,
   LeadRow,
   NegocioRow,
   SessionRow,
@@ -38,6 +40,7 @@ interface FakeSupabaseDb extends SupabaseDb {
   mensajesProcesados: Set<string>;
   usoIa: UsoIaRow[];
   inventario: InventarioRow[];
+  comprobantes: ComprobanteRow[];
 }
 
 export function makeFakeSupabaseDb(): FakeSupabaseDb {
@@ -47,6 +50,7 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
   const mensajesProcesados = new Set<string>();
   const usoIa: UsoIaRow[] = [];
   const inventario: InventarioRow[] = [];
+  const comprobantes: ComprobanteRow[] = [];
 
   return {
     leads,
@@ -55,6 +59,7 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
     mensajesProcesados,
     usoIa,
     inventario,
+    comprobantes,
 
     async selectLeadByContact(businessSlug, contact) {
       return (
@@ -182,6 +187,42 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       if (fila.alertado_en === hoy) return false;
       fila.alertado_en = hoy;
       return true;
+    },
+
+    async insertComprobante(row) {
+      // Espejo del índice único `comprobantes_ref_unica` (0013): una
+      // referencia no nula no se puede repetir en el mismo negocio.
+      if (row.referencia) {
+        const duplicada = comprobantes.some(
+          (c) => c.negocio_id === row.negocioId && c.referencia === row.referencia,
+        );
+        if (duplicada) {
+          const error = new Error(
+            'duplicate key value violates unique constraint "comprobantes_ref_unica"',
+          ) as Error & { code?: string };
+          error.code = "23505";
+          throw error;
+        }
+      }
+      const nueva: ComprobanteRow = {
+        id: randomUUID(),
+        negocio_id: row.negocioId,
+        lead_id: row.leadId ?? null,
+        referencia: row.referencia ?? null,
+        monto: row.monto ?? null,
+        moneda: row.moneda ?? null,
+        banco: row.banco ?? null,
+        fecha_comprobante: row.fechaComprobante ?? null,
+        estado: "pendiente",
+        señales: row.señales ?? null,
+        created_at: new Date().toISOString(),
+      };
+      comprobantes.push(nueva);
+      return nueva;
+    },
+
+    async listComprobantes(negocioId) {
+      return comprobantes.filter((c) => c.negocio_id === negocioId);
     },
   };
 }
