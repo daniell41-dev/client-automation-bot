@@ -45,6 +45,7 @@ export default async function ConfiguracionPage({
       }
       personas={config.personas}
       initialAi={config.ai ?? { enabled: true }}
+      initialPagos={config.pagos}
     />
   );
 }

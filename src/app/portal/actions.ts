@@ -73,6 +73,7 @@ const PATCH_KEYS = [
   "messages",
   "pedidos",
   "notifyPhoneNumber",
+  "pagos",
 ] as const;
 
 /**
@@ -270,4 +271,53 @@ export async function actualizarWhatsapp(
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}/editar`);
   return { ok: "Conexión de WhatsApp actualizada." };
+}
+
+/**
+ * Guarda las credenciales de Wompi (T-24.6). Van en columnas propias de
+ * `negocios` — nunca en `config` — porque `configuracion/page.tsx` selecciona
+ * `config` entero y se lo pasa a un componente cliente para editarlo; ahí
+ * adentro cualquier secreto quedaría visible en el navegador (ver el
+ * comentario largo en `types.ts#PagosConfig.wompi` y la migración 0014).
+ *
+ * Por eso esta action NUNCA lee las credenciales existentes de vuelta — el
+ * formulario siempre arranca vacío — y solo actualiza los campos que vengan
+ * con contenido: dejar uno en blanco no borra lo que ya estaba guardado, así
+ * el dueño puede rotar una sola llave sin tener a mano las otras dos.
+ */
+export async function actualizarWompi(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const me = await getUserRole();
+  if (!me) return { error: "No autorizado." };
+
+  const slug = String(formData.get("slug") ?? "");
+  if (!slug) return { error: "Falta el negocio." };
+
+  const campos: Record<string, string> = {
+    wompi_public_key: "public_key",
+    wompi_integrity_secret: "integrity_secret",
+    wompi_events_secret: "events_secret",
+  };
+  const patch: Record<string, string> = {};
+  for (const [columna, campo] of Object.entries(campos)) {
+    const valor = String(formData.get(campo) ?? "").trim();
+    if (valor) patch[columna] = valor;
+  }
+  if (Object.keys(patch).length === 0) {
+    return { error: "Completá al menos un campo para guardar." };
+  }
+
+  const supabase = await createUserClient();
+  const { data, error } = await supabase
+    .from("negocios")
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq("slug", slug)
+    .select("id");
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+  if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
+
+  invalidateBusinessCache();
+  return { ok: "Credenciales de Wompi guardadas." };
 }
