@@ -32,6 +32,13 @@ interface InventarioRow {
   alertado_en?: string | null;
 }
 
+/** Llaves de Wompi de un negocio, espejo de las columnas de la migración 0014. */
+interface WompiCredenciales {
+  publicKey: string;
+  integritySecret: string;
+  eventsSecret: string;
+}
+
 interface FakeSupabaseDb extends SupabaseDb {
   /** Acceso directo a las filas para asserts y seeding en tests. */
   leads: LeadRow[];
@@ -41,6 +48,8 @@ interface FakeSupabaseDb extends SupabaseDb {
   usoIa: UsoIaRow[];
   inventario: InventarioRow[];
   comprobantes: ComprobanteRow[];
+  /** Seedear con `wompiCredenciales.set(negocioId, {...})` en los tests. */
+  wompiCredenciales: Map<string, WompiCredenciales>;
 }
 
 export function makeFakeSupabaseDb(): FakeSupabaseDb {
@@ -51,6 +60,7 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
   const usoIa: UsoIaRow[] = [];
   const inventario: InventarioRow[] = [];
   const comprobantes: ComprobanteRow[] = [];
+  const wompiCredenciales = new Map<string, WompiCredenciales>();
 
   return {
     leads,
@@ -60,6 +70,7 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
     usoIa,
     inventario,
     comprobantes,
+    wompiCredenciales,
 
     async selectLeadByContact(businessSlug, contact) {
       return (
@@ -223,6 +234,10 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
 
     async listComprobantes(negocioId) {
       return comprobantes.filter((c) => c.negocio_id === negocioId);
+    },
+
+    async selectWompiCredentials(negocioId) {
+      return wompiCredenciales.get(negocioId) ?? null;
     },
   };
 }

@@ -27,12 +27,14 @@ import type { LeadRepository } from "@/core/storage/repository";
 import type { SessionRepository } from "@/core/storage/session-repository";
 import type { InventoryRepository } from "@/core/storage/inventory-repository";
 import type { ComprobanteRepository } from "@/core/storage/comprobante-repository";
+import type { PaymentGateway } from "@/core/payments/gateway";
 import type { ILLMProvider } from "@/core/ai/provider";
 import type { PaymentReceiptDescription } from "@/core/ai/payment-receipt-schema";
 import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { interpretableOptions, respond } from "@/core/engine/responder";
 import { buscarProducto } from "@/core/engine/buscar-producto";
 import { calcularSeñalesPago, type Señal } from "@/core/engine/señales-pago";
+import { decidirAccionWompi, type EstadoWompi } from "@/core/engine/pago-wompi";
 import { runAgentTurn } from "@/core/ai/agent";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
 import { validarCita } from "@/core/engine/horarios";
@@ -306,6 +308,8 @@ export async function handleIncoming(
   mediaDownloader?: MediaDownloader,
   /** T-24.4: sin esto, un comprobante de pago no se guarda ni se cruza contra señales (igual se le avisa a la dueña). */
   comprobantes?: ComprobanteRepository,
+  /** T-24.5: sin esto, `config.pagos.wompi.enabled` no tiene efecto — el pedido cae al camino de antes (comprobante o SÍ/NO plano). */
+  paymentGateway?: PaymentGateway,
 ): Promise<HandleResult> {
   let existing = await repo.findByContact(message.businessSlug, message.from);
 
@@ -497,49 +501,71 @@ export async function handleIncoming(
   const justRequestedApproval =
     existing?.stage !== "esperando_aprobacion" && lead.stage === "esperando_aprobacion";
   if (justRequestedApproval) {
-    let stockOk = true;
-    let restante: { serviceId: string; stock: number }[] | undefined;
-    if (inventory) {
-      const resultado = await inventory.decrementCart(
-        negocioParaStock ?? config.slug,
-        lead.items!.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
-      );
-      if (!resultado.ok) {
-        stockOk = false;
-        const nombres = (resultado.faltantes ?? [])
-          .map((id) => config.services.find((s) => s.id === id)?.name ?? id)
-          .join(", ");
-        // Mismo criterio que `limpiarDatosCapturados`: reset de estado
-        // manejado por el motor, no una transición del usuario — se asigna
-        // directo en vez de pasar por `transition()`.
-        lead.state = existing?.state ?? "interesado";
-        lead.stage = "carrito_abierto";
-        messages = [
-          {
-            to: message.from,
-            text: `Uy, justo se nos acabó el stock de: ${nombres}. Ajustá la cantidad o elegí otra cosa y seguimos 🙏`,
-          },
-        ];
-      } else {
-        restante = resultado.restante;
+    if (config.pagos?.wompi?.enabled && paymentGateway) {
+      // T-24.5, Nivel 2: EL STOCK NO SE TOCA ACÁ — a diferencia de los otros
+      // dos caminos, recién se descuenta cuando llega el webhook APPROVED
+      // verificado (`handleWompiWebhookEvent`). Si se descontara ahora, un
+      // pago que nunca se completa dejaría el stock reservado para siempre
+      // sin que nadie lo libere.
+      const total = totalCarrito(lead.items!, config.services);
+      const link = paymentGateway.buildPaymentLink({
+        reference: lead.id,
+        amountInCents: Math.round(total * 100),
+        currency: config.currency,
+        redirectUrl: config.pagos.wompi.redirectUrl,
+      });
+      const resumenPedido = resumenCarrito(lead.items!, config.services, config);
+      messages = [
+        {
+          to: message.from,
+          text: `${resumenPedido}\n\nPagá acá para confirmar tu pedido: ${link}`,
+        },
+      ];
+    } else {
+      let stockOk = true;
+      let restante: { serviceId: string; stock: number }[] | undefined;
+      if (inventory) {
+        const resultado = await inventory.decrementCart(
+          negocioParaStock ?? config.slug,
+          lead.items!.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
+        );
+        if (!resultado.ok) {
+          stockOk = false;
+          const nombres = (resultado.faltantes ?? [])
+            .map((id) => config.services.find((s) => s.id === id)?.name ?? id)
+            .join(", ");
+          // Mismo criterio que `limpiarDatosCapturados`: reset de estado
+          // manejado por el motor, no una transición del usuario — se asigna
+          // directo en vez de pasar por `transition()`.
+          lead.state = existing?.state ?? "interesado";
+          lead.stage = "carrito_abierto";
+          messages = [
+            {
+              to: message.from,
+              text: `Uy, justo se nos acabó el stock de: ${nombres}. Ajustá la cantidad o elegí otra cosa y seguimos 🙏`,
+            },
+          ];
+        } else {
+          restante = resultado.restante;
+        }
       }
-    }
 
-    if (stockOk) {
-      if (config.pagos?.requiereComprobante) {
-        // T-24.4: reemplaza el disparador de SÍ/NO plano — no se avisa a la
-        // dueña todavía, se le pide el comprobante al cliente. Recién cuando
-        // llega la foto (`handlePaymentReceiptMessage`) se le avisa a ella.
-        const resumenPedido = resumenCarrito(lead.items!, config.services, config);
-        const pedirTexto = render(config.messages.pedirComprobante ?? DEFAULT_PEDIR_COMPROBANTE, {
-          nombre: lead.name ?? "",
-        });
-        messages = [{ to: message.from, text: [resumenPedido, pedirTexto].filter(Boolean).join("\n\n") }];
-      } else if (notifier && config.notifyPhoneNumber) {
-        const alertasStockBajo = inventory
-          ? await alertasDeStockBajo(inventory, negocioParaStock ?? config.slug, config, restante)
-          : [];
-        await notifyOwner(lead, config, notifier, { pidiendoAprobacion: true, alertasStockBajo });
+      if (stockOk) {
+        if (config.pagos?.requiereComprobante) {
+          // T-24.4: reemplaza el disparador de SÍ/NO plano — no se avisa a la
+          // dueña todavía, se le pide el comprobante al cliente. Recién cuando
+          // llega la foto (`handlePaymentReceiptMessage`) se le avisa a ella.
+          const resumenPedido = resumenCarrito(lead.items!, config.services, config);
+          const pedirTexto = render(config.messages.pedirComprobante ?? DEFAULT_PEDIR_COMPROBANTE, {
+            nombre: lead.name ?? "",
+          });
+          messages = [{ to: message.from, text: [resumenPedido, pedirTexto].filter(Boolean).join("\n\n") }];
+        } else if (notifier && config.notifyPhoneNumber) {
+          const alertasStockBajo = inventory
+            ? await alertasDeStockBajo(inventory, negocioParaStock ?? config.slug, config, restante)
+            : [];
+          await notifyOwner(lead, config, notifier, { pidiendoAprobacion: true, alertasStockBajo });
+        }
       }
     }
   }
@@ -825,6 +851,91 @@ export async function handleOwnerApproval(
     customerReply: {
       to: lead.contact,
       text: render(config.messages.pedidoRechazado ?? DEFAULT_PEDIDO_RECHAZADO, nombreVars),
+    },
+  };
+}
+
+/** Resultado de procesar un evento de Wompi ya verificado (T-24.5). */
+export interface WompiWebhookResult {
+  /** Ausente si el evento no requería avisarle nada al cliente (p. ej. PENDING, o ya estaba confirmado). */
+  customerMessage?: OutgoingMessage;
+}
+
+/**
+ * Procesa un evento de Wompi YA VERIFICADO (la firma se valida en el
+ * webhook, antes de llegar acá — ver `verifyWompiSignature`). Reusa
+ * `decidirAccionWompi` (puro) para la decisión y es la ÚNICA función que
+ * toca stock/lead para este camino — nunca se llama dos veces para el mismo
+ * pago gracias a la idempotencia de `decidirAccionWompi` (un lead ya
+ * confirmado no vuelve a tocarse).
+ *
+ * Con `APPROVED`, el bot confirma y descuenta stock SIN intervención de la
+ * dueña (§4 del plan: es el único camino donde eso está permitido, porque la
+ * certeza acá es criptográfica, no un OCR). Si el stock ya no alcanza para
+ * cuando llega el webhook (se vendió mientras tanto), no se confirma el
+ * pedido — se avisa al cliente para resolverlo a mano, nunca en silencio.
+ */
+export async function handleWompiWebhookEvent(
+  lead: Lead,
+  config: BusinessConfig,
+  estado: EstadoWompi,
+  repo: LeadRepository,
+  inventory: InventoryRepository | undefined,
+  negocioParaStock: string | undefined,
+  now: Date = new Date(),
+): Promise<WompiWebhookResult> {
+  const yaConfirmado = lead.stage === "datos_completos";
+  const decision = decidirAccionWompi(estado, yaConfirmado);
+
+  if (decision.accion === "ninguna") return {};
+
+  if (decision.accion === "rechazar") {
+    // Vuelve al carrito (no a "inicio"): a diferencia del rechazo de la
+    // dueña, acá el cliente no hizo nada mal — el pago falló del lado de la
+    // pasarela, tiene sentido dejarlo reintentar sin perder lo que tenía.
+    lead.state = transition(lead.state, "perdido");
+    lead.stage = "carrito_abierto";
+    await repo.save(lead);
+    return {
+      customerMessage: {
+        to: lead.contact,
+        text: "Tu pago no se pudo procesar. Si querés, lo intentamos de nuevo o vemos otra forma de pago 🙏",
+      },
+    };
+  }
+
+  // "confirmar" (estado APPROVED verificado).
+  if (inventory && lead.items) {
+    const resultado = await inventory.decrementCart(
+      negocioParaStock ?? config.slug,
+      lead.items.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
+    );
+    if (!resultado.ok) {
+      const nombres = (resultado.faltantes ?? [])
+        .map((id) => config.services.find((s) => s.id === id)?.name ?? id)
+        .join(", ");
+      // No se confirma el lead: el pago YA se cobró pero no hay cómo
+      // cumplirlo — queda tal cual para que la dueña lo resuelva a mano
+      // (reembolso/reposición), nunca silencioso.
+      return {
+        customerMessage: {
+          to: lead.contact,
+          text: `Recibimos tu pago, pero justo se nos acabó el stock de: ${nombres}. Te contactamos para resolverlo 🙏`,
+        },
+      };
+    }
+  }
+
+  lead.state = transition(lead.state, "pagado");
+  lead.stage = "datos_completos";
+  lead.confirmedAt = now.toISOString();
+  await repo.save(lead);
+
+  const resumen = resumenCarrito(lead.items ?? [], config.services, config);
+  return {
+    customerMessage: {
+      to: lead.contact,
+      text: [resumen, "¡Listo! Tu pago quedó confirmado ✅"].filter(Boolean).join("\n\n"),
     },
   };
 }

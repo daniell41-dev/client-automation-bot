@@ -28,6 +28,7 @@ import {
   createInventoryRepository,
   createLeadRepository,
   createMessageDedupeRepository,
+  createPaymentGateway,
   createSessionRepository,
 } from "@/core/storage/factory";
 import { createLLMProvider } from "@/core/ai/factory";
@@ -150,6 +151,7 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
       const calendar = createCalendar(business) ?? undefined;
       const inventory = createInventoryRepository();
       const comprobantes = createComprobanteRepository();
+      const paymentGateway = (await createPaymentGateway(resolved.negocioId)) ?? undefined;
 
       // Mismo canal para responderle al cliente y para avisarle a la dueña
       // (es el número de WhatsApp Business del negocio en ambos casos).
@@ -212,6 +214,7 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
         resolved.negocioId ?? business.slug,
         mediaDownloader,
         comprobantes,
+        paymentGateway,
       );
 
       if (channel) {

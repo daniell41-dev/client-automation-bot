@@ -14,6 +14,7 @@ import type { MessageDedupeRepository } from "@/core/storage/dedupe-repository";
 import type { AiUsageRepository } from "@/core/storage/usage-repository";
 import type { InventoryRepository } from "@/core/storage/inventory-repository";
 import type { ComprobanteRepository } from "@/core/storage/comprobante-repository";
+import type { PaymentGateway } from "@/core/payments/gateway";
 import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { JsonLeadRepository } from "@/core/storage/adapters/json";
 import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
@@ -32,6 +33,7 @@ import { SupabaseMessageDedupeRepository } from "@/core/storage/adapters/supabas
 import { SupabaseAiUsageRepository } from "@/core/storage/adapters/supabase/usage";
 import { SupabaseInventoryRepository } from "@/core/storage/adapters/supabase/inventory";
 import { SupabaseComprobanteRepository } from "@/core/storage/adapters/supabase/comprobantes";
+import { WompiGateway } from "@/core/payments/wompi";
 
 /**
  * Repositorio de leads: Supabase > Sheets del negocio > JSON local.
@@ -114,4 +116,33 @@ export function createInventoryRepository(): InventoryRepository {
 export function createComprobanteRepository(): ComprobanteRepository {
   const db = createSupabaseDb();
   return db ? new SupabaseComprobanteRepository(db) : new JsonComprobanteRepository();
+}
+
+/**
+ * Pasarela de pago Nivel 2 (T-24.5). `null` si el negocio no tiene Wompi
+ * configurado (columnas propias de `negocios`, migración 0014 — NUNCA en
+ * `negocios.config`, ver el comentario en `types.ts#PagosConfig.wompi`) o si
+ * no hay Supabase: Nivel 2 requiere una cuenta de comercio real, no existe
+ * un fallback JSON para esto.
+ */
+export async function createPaymentGateway(negocioId: string | undefined): Promise<PaymentGateway | null> {
+  if (!negocioId) return null;
+  const db = createSupabaseDb();
+  if (!db) return null;
+  const credenciales = await db.selectWompiCredentials(negocioId);
+  if (!credenciales) return null;
+  return new WompiGateway({ publicKey: credenciales.publicKey, integritySecret: credenciales.integritySecret });
+}
+
+/**
+ * Solo el secreto de eventos del negocio, para verificar la firma de un
+ * webhook de Wompi — separado de `createPaymentGateway` porque el webhook
+ * necesita este único valor antes de saber si vale la pena armar el resto.
+ */
+export async function getWompiEventsSecret(negocioId: string | undefined): Promise<string | null> {
+  if (!negocioId) return null;
+  const db = createSupabaseDb();
+  if (!db) return null;
+  const credenciales = await db.selectWompiCredentials(negocioId);
+  return credenciales?.eventsSecret ?? null;
 }

@@ -142,6 +142,36 @@ describe("parseBusinessConfig — pagos (T-24.4)", () => {
   });
 });
 
+describe("parseBusinessConfig — pagos.wompi (T-24.5)", () => {
+  it("acepta pagos.wompi.enabled + redirectUrl — nunca llaves secretas acá", () => {
+    const config = {
+      ...JSON.parse(JSON.stringify(esteticaBella)),
+      pagos: { wompi: { enabled: true, redirectUrl: "https://ejemplo.com/gracias" } },
+    };
+    const parsed = parseBusinessConfig(config);
+    expect(parsed?.pagos?.wompi).toEqual({ enabled: true, redirectUrl: "https://ejemplo.com/gracias" });
+  });
+
+  it("sin pagos.wompi la config sigue siendo válida (opcional)", () => {
+    const parsed = parseBusinessConfig(JSON.parse(JSON.stringify(esteticaBella)));
+    expect(parsed?.pagos?.wompi).toBeUndefined();
+  });
+
+  it("una llave secreta de Wompi metida por error en pagos.wompi se descarta en silencio (Zod no la declara)", () => {
+    // No es un test de que "funcione" tenerla ahí — es la prueba de que ESTE
+    // campo nunca puede colarse hacia negocios.config, ni por accidente: Zod
+    // descarta claves desconocidas (sin .passthrough()), así que aunque
+    // alguien la escriba a mano, parseBusinessConfig la tira.
+    const config = {
+      ...JSON.parse(JSON.stringify(esteticaBella)),
+      pagos: { wompi: { enabled: true, integritySecret: "no-debería-guardarse" } },
+    };
+    const parsed = parseBusinessConfig(config);
+    expect(parsed?.pagos?.wompi).toEqual({ enabled: true });
+    expect((parsed?.pagos?.wompi as Record<string, unknown> | undefined)?.integritySecret).toBeUndefined();
+  });
+});
+
 /**
  * T-12: estos sub-schemas se exportan para que los editores del portal
  * (Catálogo, Configuración) validen en el CLIENTE con el mismo objeto Zod
