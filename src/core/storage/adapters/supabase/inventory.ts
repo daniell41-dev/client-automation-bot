@@ -24,4 +24,8 @@ export class SupabaseInventoryRepository implements InventoryRepository {
     );
     return result;
   }
+
+  async markLowStockAlert(negocio: string, serviceId: string): Promise<boolean> {
+    return this.db.markLowStockAlert(negocio, serviceId);
+  }
 }

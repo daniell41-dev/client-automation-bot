@@ -15,6 +15,12 @@ export interface StockResult {
   ok: boolean;
   /** `serviceId` de los productos sin stock suficiente (solo si `ok` es `false`). */
   faltantes?: string[];
+  /**
+   * T-22.2: nivel resultante de cada producto TRACKEADO tras el descuento
+   * (solo si `ok` es `true`) — lo que permite detectar stock bajo sin una
+   * consulta aparte. Un producto sin stock configurado no aparece acá.
+   */
+  restante?: { serviceId: string; stock: number }[];
 }
 
 export interface InventoryRepository {
@@ -30,4 +36,12 @@ export interface InventoryRepository {
    * se considera sin límite y nunca bloquea la operación.
    */
   decrementCart(negocio: string, items: StockItem[]): Promise<StockResult>;
+  /**
+   * T-22.2: ¿corresponde avisarle al dueño que este producto quedó bajo?
+   * Atómico: marca la alerta como "ya enviada hoy" en el mismo paso que la
+   * valida — `true` la primera vez del día (avisar), `false` si ya se había
+   * avisado (no repetir). Sin esto, varias ventas seguidas del mismo
+   * producto bajo mandarían una alerta cada una.
+   */
+  markLowStockAlert(negocio: string, serviceId: string): Promise<boolean>;
 }
