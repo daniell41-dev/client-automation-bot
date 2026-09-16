@@ -18,6 +18,7 @@ interface UsoIaRow {
   tokens_in: number;
   tokens_out: number;
   fallbacks: number;
+  imagenes: number;
 }
 
 /** Fila de `inventario`, espejo de la migración 0010. */
@@ -123,12 +124,14 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
         tokens_in: entry.tokensIn ?? 0,
         tokens_out: entry.tokensOut ?? 0,
         fallbacks: entry.fallbacks ?? 0,
+        imagenes: entry.imagenes ?? 0,
       };
       if (fila) {
         fila.llamadas += delta.llamadas;
         fila.tokens_in += delta.tokens_in;
         fila.tokens_out += delta.tokens_out;
         fila.fallbacks += delta.fallbacks;
+        fila.imagenes += delta.imagenes;
       } else {
         usoIa.push({ negocio_id: entry.negocioId, proveedor: entry.proveedor, ...delta });
       }

@@ -19,6 +19,8 @@ export interface AiUsageEntry {
   tokensIn?: number;
   tokensOut?: number;
   fallbacks?: number;
+  /** T-23.5: cuántas de esas llamadas fueron `describeImage` — para cobrar el excedente de imágenes aparte. */
+  imagenes?: number;
 }
 
 export interface AiUsageRepository {

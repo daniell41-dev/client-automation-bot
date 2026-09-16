@@ -20,6 +20,7 @@ import type {
   IncomingMessage,
   Lead,
   OutgoingMessage,
+  Service,
   SessionMemory,
 } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
@@ -28,6 +29,7 @@ import type { InventoryRepository } from "@/core/storage/inventory-repository";
 import type { ILLMProvider } from "@/core/ai/provider";
 import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { interpretableOptions, respond } from "@/core/engine/responder";
+import { buscarProducto } from "@/core/engine/buscar-producto";
 import { runAgentTurn } from "@/core/ai/agent";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
 import { validarCita } from "@/core/engine/horarios";
@@ -65,6 +67,122 @@ export interface HandleResult {
   motivoFallback?: string;
 }
 
+/**
+ * T-23.5: descarga la imagen de un `media_id` ya resuelto por el canal (ver
+ * `channels/whatsapp/media.ts` para la implementación real de WhatsApp).
+ * `handle.ts` no importa esa implementación directamente — se mantiene
+ * agnóstico de canal, igual que `OwnerNotifier`/`CalendarApi` — y nunca
+ * lanza: sin esto, un mensaje con foto cae al mensaje de respaldo.
+ */
+export type MediaDownloader = (
+  mediaId: string,
+) => Promise<{ base64: string; mimeType: string } | null>;
+
+/** §1.5 del plan: nunca un error silencioso ni un mensaje vacío ante una imagen que no se pudo procesar. */
+const FALLBACK_VISION = "No pude ver bien la imagen, ¿me dices el nombre o la referencia?";
+
+/** §1.4 del plan: recetas/fórmulas médicas NUNCA se procesan en farmacias — regla dura, sin excepción. */
+function esRubroFarmaceutico(rubro?: string): boolean {
+  return /farmac/i.test(rubro ?? "");
+}
+
+const RECHAZO_RECIPE_MEDICO =
+  "Por políticas de salud, las recetas o fórmulas médicas no se procesan por acá — ese trámite se hace en persona con la farmacia 🙏";
+
+/** Precio formateado — duplicado a propósito (mismo criterio que responder.ts, agent-prompt.ts y flows/pedido.ts). */
+function formatPrice(config: BusinessConfig, price: number): string {
+  try {
+    return new Intl.NumberFormat(config.locale ?? "es-CO", {
+      style: "currency",
+      currency: config.currency,
+      maximumFractionDigits: 0,
+    }).format(price);
+  } catch {
+    return `${price} ${config.currency}`;
+  }
+}
+
+/**
+ * T-23.5/§1.2: arma la respuesta según cuántos candidatos encontró
+ * `buscarProducto` — 1 = afirma (match exacto por referencia), 2 o más =
+ * propone y pregunta, 0 = pide el nombre o la referencia por texto. Nunca
+ * inventa un producto que no está en `candidatos`.
+ */
+function responderBusquedaImagen(candidatos: Service[], config: BusinessConfig): string {
+  if (candidatos.length === 0) {
+    return "No encontré ese producto en el catálogo — ¿me dices el nombre o la referencia?";
+  }
+  if (candidatos.length === 1) {
+    const [s] = candidatos;
+    return `Sí, tenemos ${s.name} a ${formatPrice(config, s.price)}. ¿Cuántos querés?`;
+  }
+  const opciones = candidatos.map((s) => `- ${s.name} (${formatPrice(config, s.price)})`).join("\n");
+  return `Encontré estas opciones parecidas:\n${opciones}\n¿Cuál es la que buscás?`;
+}
+
+/**
+ * T-23.5: deja constancia en el historial de sesión SOLO EN TEXTO (nunca la
+ * imagen — ver §1.3 del plan: se procesa en memoria y se descarta) y arma el
+ * resultado. `resumenImagen` es lo que queda grabado del lado del cliente,
+ * p. ej. `"[imagen] Toyota filtro de aceite"`.
+ */
+async function imageReply(
+  message: IncomingMessage,
+  texto: string,
+  resumenImagen: string,
+  sessionRepo: SessionRepository | undefined,
+  now: Date,
+): Promise<HandleResult> {
+  if (sessionRepo) {
+    const session = await getOrCreateSession(sessionRepo, message, false);
+    session.history.push({ role: "user", text: resumenImagen, timestamp: message.timestamp });
+    session.history.push({ role: "assistant", text: texto, timestamp: now.toISOString() });
+    await sessionRepo.save(session);
+  }
+  return { messages: [{ to: message.from, text: texto }], modo: "guiado" };
+}
+
+/**
+ * T-23.5: orquesta el turno completo de un mensaje CON imagen. Orden fijo:
+ * descargar media -> `describeImage` -> bloqueo duro de récipe en
+ * farmacéutico -> `buscarProducto` -> responder según cantidad de
+ * candidatos. Cualquier fallo en el camino (descarga, descripción) cae al
+ * `FALLBACK_VISION` — nunca rompe la conversación ni deja al cliente sin
+ * respuesta.
+ */
+async function handleImageMessage(
+  message: IncomingMessage,
+  config: BusinessConfig,
+  llm: ILLMProvider,
+  sessionRepo: SessionRepository | undefined,
+  mediaDownloader: MediaDownloader,
+  now: Date,
+): Promise<HandleResult> {
+  const media = await mediaDownloader(message.image!.mediaId);
+  if (!media) {
+    return imageReply(message, FALLBACK_VISION, "[imagen] (no se pudo descargar)", sessionRepo, now);
+  }
+
+  const descripcion = await llm.describeImage?.({
+    base64: media.base64,
+    mimeType: media.mimeType,
+    caption: message.text || undefined,
+  });
+  if (!descripcion) {
+    return imageReply(message, FALLBACK_VISION, "[imagen] (no se pudo describir)", sessionRepo, now);
+  }
+
+  const resumenImagen = `[imagen] ${[descripcion.marca, descripcion.tipoProducto].filter(Boolean).join(" ")}`;
+
+  if (descripcion.esRecipeMedico && esRubroFarmaceutico(config.rubro)) {
+    return imageReply(message, RECHAZO_RECIPE_MEDICO, resumenImagen, sessionRepo, now);
+  }
+
+  const candidatos = buscarProducto(descripcion, config.services);
+  const texto = responderBusquedaImagen(candidatos, config);
+  return imageReply(message, texto, resumenImagen, sessionRepo, now);
+}
+
 export async function handleIncoming(
   message: IncomingMessage,
   config: BusinessConfig,
@@ -78,7 +196,21 @@ export async function handleIncoming(
   inventory?: InventoryRepository,
   /** UUID real del negocio en Supabase, o su slug como fallback — ver `negocio` en `AiUsageEntry`. */
   negocioParaStock?: string,
+  /** T-23.5: sin esto, un mensaje con foto cae directo al mensaje de respaldo (nunca al funnel de texto de una vez). */
+  mediaDownloader?: MediaDownloader,
 ): Promise<HandleResult> {
+  // T-23.5: un mensaje con imagen es un camino aparte, completamente distinto
+  // del funnel de cita/pedido — no toca `existing` ni el resto del ciclo de
+  // vida del lead (ver "Qué NO cubre" del PR: la imagen es informativa para
+  // esta respuesta, el cliente sigue escribiendo el nombre/cantidad como
+  // siempre para avanzar el pedido).
+  if (message.image) {
+    if (llm && mediaDownloader) {
+      return handleImageMessage(message, config, llm, sessionRepo, mediaDownloader, now);
+    }
+    return { messages: [{ to: message.from, text: FALLBACK_VISION }], modo: "guiado" };
+  }
+
   let existing = await repo.findByContact(message.businessSlug, message.from);
 
   // T-20: si la cita del lead ya se cumplió (pasó su fecha, o pasaron los 7

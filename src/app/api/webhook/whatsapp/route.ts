@@ -19,6 +19,7 @@ import {
 } from "@/core/channels/whatsapp/verify";
 import { parseInbound } from "@/core/channels/whatsapp/parse";
 import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
+import { downloadWhatsAppMedia } from "@/core/channels/whatsapp/media";
 import { resolveBusinessByPhoneNumberId } from "@/businesses/resolve";
 import {
   createAiUsageRepository,
@@ -184,7 +185,17 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
         text: parsed.text,
         timestamp: parsed.timestamp,
         contactName: parsed.contactName,
+        image: parsed.image
+          ? { mediaId: parsed.image.mediaId, mimeType: parsed.image.mimeType }
+          : undefined,
       };
+
+      // T-23.5: mismo token/versión de Graph API que usa `channel` para
+      // enviar — `handle.ts` no sabe nada de WhatsApp, solo recibe esta
+      // función ya armada.
+      const mediaDownloader = accessToken
+        ? (mediaId: string) => downloadWhatsAppMedia(mediaId, { accessToken })
+        : undefined;
 
       const { messages: replies } = await handleIncoming(
         message,
@@ -197,6 +208,7 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
         channel,
         inventory,
         resolved.negocioId ?? business.slug,
+        mediaDownloader,
       );
 
       if (channel) {
