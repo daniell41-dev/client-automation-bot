@@ -457,3 +457,110 @@ describe("OpenAICompatibleProvider.describeImage (T-23.3)", () => {
     await expect(provider.describeImage(imageInput)).resolves.toBeNull();
   });
 });
+
+describe("OpenAICompatibleProvider.describePaymentReceipt (T-24.2)", () => {
+  const imageInput = { base64: "UkVDSUJP", mimeType: "image/jpeg" };
+
+  function fakeFetchReceipt(receipt: Record<string, unknown>): typeof fetch {
+    return fakeFetchOk(JSON.stringify(receipt));
+  }
+
+  it("devuelve null sin llamar a la red si supportsVision es false", async () => {
+    const fetchImpl = vi.fn();
+    const provider = new OpenAICompatibleProvider({
+      name: "groq",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: false,
+      fetchImpl,
+    });
+    await expect(provider.describePaymentReceipt(imageInput)).resolves.toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("transcribe una captura de Nequi completa", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchReceipt({
+        banco: "nequi",
+        referencia: "M12345678",
+        monto: 45000,
+        moneda: "COP",
+        legible: "completo",
+      }),
+    });
+    const result = await provider.describePaymentReceipt(imageInput);
+    expect(result).toEqual({
+      banco: "nequi",
+      referencia: "M12345678",
+      monto: 45000,
+      moneda: "COP",
+      legible: "completo",
+    });
+  });
+
+  it("transcribe una captura de Bancolombia parcial", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchReceipt({ banco: "bancolombia", monto: 12000, legible: "parcial" }),
+    });
+    expect((await provider.describePaymentReceipt(imageInput))?.legible).toBe("parcial");
+  });
+
+  it("transcribe una captura de Pago Móvil (Venezuela) en VES", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchReceipt({ banco: "mercantil", moneda: "VES", legible: "completo" }),
+    });
+    expect((await provider.describePaymentReceipt(imageInput))?.moneda).toBe("VES");
+  });
+
+  it("una captura ilegible no trae datos, pero no lanza", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchReceipt({ legible: "ilegible" }),
+    });
+    expect(await provider.describePaymentReceipt(imageInput)).toEqual({ legible: "ilegible" });
+  });
+
+  it("lanza si la respuesta HTTP no es ok (para que la cadena de respaldo lo capture)", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchHttpError(500),
+    });
+    await expect(provider.describePaymentReceipt(imageInput)).rejects.toThrow(/500/);
+  });
+
+  it("devuelve null cuando el modelo no responde JSON válido (nunca inventa datos)", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchOk("esto no es json"),
+    });
+    await expect(provider.describePaymentReceipt(imageInput)).resolves.toBeNull();
+  });
+});

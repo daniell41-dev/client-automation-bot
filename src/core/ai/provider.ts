@@ -7,6 +7,7 @@
 import type { ConversationTurn, DiaAtencion, ModoItem, PersonaConfig, QuickRule } from "@/core/types";
 import type { AgentResponse } from "@/core/ai/agent-schema";
 import type { ImageDescription } from "@/core/ai/image-schema";
+import type { PaymentReceiptDescription } from "@/core/ai/payment-receipt-schema";
 
 export interface LLMContext {
   businessName: string;
@@ -192,4 +193,13 @@ export interface ILLMProvider {
    * `supportsVision` no necesita implementarlo.
    */
   describeImage?(input: ImageInput): Promise<ImageDescription | null>;
+
+  /**
+   * Lee un comprobante de pago y TRANSCRIBE lo que dice — banco, referencia,
+   * monto, fecha — sin opinar sobre si el pago es válido (T-24.2, §1.6 del
+   * plan: una captura nunca verifica un pago, esto es solo digitación).
+   * `null` si el modelo no ve imágenes o la respuesta no valida contra el
+   * contrato. Optativo, hermano de `describeImage`.
+   */
+  describePaymentReceipt?(input: ImageInput): Promise<PaymentReceiptDescription | null>;
 }

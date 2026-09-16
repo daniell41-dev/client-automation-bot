@@ -480,3 +480,110 @@ describe("ResilientProvider — describeImage (T-23.3)", () => {
   });
 });
 
+describe("ResilientProvider — describePaymentReceipt (T-24.2)", () => {
+  const imageInput = { base64: "UkVDSUJP", mimeType: "image/jpeg" };
+
+  function textOnlyProvider(model: string): ILLMProvider {
+    return {
+      model,
+      supportsVision: false,
+      async enhance() {
+        return "";
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      async describePaymentReceipt() {
+        throw new Error(`${model} no tiene visión, no debería llamarse`);
+      },
+    };
+  }
+
+  function visionProvider(
+    model: string,
+    result: { banco?: string; referencia?: string; legible: "completo" | "parcial" | "ilegible" } | null,
+  ): ILLMProvider {
+    return {
+      model,
+      supportsVision: true,
+      async enhance() {
+        return "";
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      async describePaymentReceipt() {
+        return result;
+      },
+    };
+  }
+
+  function failingVisionProvider(model: string): ILLMProvider {
+    return {
+      model,
+      supportsVision: true,
+      async enhance() {
+        return "";
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      async describePaymentReceipt() {
+        throw new Error(`${model} caído`);
+      },
+    };
+  }
+
+  it("salta un proveedor de texto (supportsVision: false) sin llamarlo", async () => {
+    const chain = new ResilientProvider([
+      textOnlyProvider("groq-texto"),
+      visionProvider("gemini", { banco: "nequi", legible: "completo" }),
+    ]);
+    expect((await chain.describePaymentReceipt(imageInput))?.banco).toBe("nequi");
+  });
+
+  it("si el proveedor con visión lanza, pasa al siguiente", async () => {
+    const chain = new ResilientProvider([
+      failingVisionProvider("gemini"),
+      visionProvider("groq-vision", { banco: "bancolombia", legible: "parcial" }),
+    ]);
+    expect((await chain.describePaymentReceipt(imageInput))?.banco).toBe("bancolombia");
+  });
+
+  it("si el proveedor con visión devuelve null (JSON inválido), prueba el siguiente", async () => {
+    const chain = new ResilientProvider([
+      visionProvider("gemini", null),
+      visionProvider("groq-vision", { banco: "mercantil", legible: "completo" }),
+    ]);
+    expect((await chain.describePaymentReceipt(imageInput))?.banco).toBe("mercantil");
+  });
+
+  it("si NINGÚN proveedor tiene visión, devuelve null y no lanza", async () => {
+    const chain = new ResilientProvider([textOnlyProvider("groq-texto")]);
+    await expect(chain.describePaymentReceipt(imageInput)).resolves.toBeNull();
+  });
+
+  it("si todos los proveedores con visión fallan, devuelve null y no lanza", async () => {
+    const chain = new ResilientProvider([failingVisionProvider("gemini"), visionProvider("groq-vision", null)]);
+    await expect(chain.describePaymentReceipt(imageInput)).resolves.toBeNull();
+  });
+});
+

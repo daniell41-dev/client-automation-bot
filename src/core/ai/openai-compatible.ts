@@ -36,6 +36,8 @@ import {
 import type { AgentResponse } from "@/core/ai/agent-schema";
 import { buildImageDescriptionPrompt, parseImageDescription } from "@/core/ai/image-prompt";
 import type { ImageDescription } from "@/core/ai/image-schema";
+import { buildPaymentReceiptPrompt, parsePaymentReceipt } from "@/core/ai/payment-receipt-prompt";
+import type { PaymentReceiptDescription } from "@/core/ai/payment-receipt-schema";
 
 export interface OpenAICompatibleOptions {
   /** Nombre corto para logs/errores (p. ej. "gemini", "groq"). */
@@ -270,11 +272,12 @@ export class OpenAICompatibleProvider implements ILLMProvider {
   }
 
   /**
-   * `null` de entrada si el modelo no tiene visión — ni siquiera intenta la
-   * llamada. `ResilientProvider` ya filtra por `supportsVision` antes de
-   * llegar acá, pero esto lo hace seguro de invocar directo también.
+   * Llamada cruda de visión compartida por `describeImage` y
+   * `describePaymentReceipt` — mismo formato multimodal, distinto prompt de
+   * sistema. `null` de entrada si el modelo no tiene visión, o si la
+   * respuesta vino vacía.
    */
-  async describeImage(input: ImageInput): Promise<ImageDescription | null> {
+  private async visionCompletion(systemPrompt: string, input: ImageInput): Promise<string | null> {
     if (!this.supportsVision) return null;
 
     const content: VisionContentPart[] = [
@@ -292,7 +295,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
       temperature: 0,
       max_tokens: 500,
       messages: [
-        { role: "system", content: buildImageDescriptionPrompt() },
+        { role: "system", content: systemPrompt },
         { role: "user", content },
       ],
     };
@@ -310,8 +313,21 @@ export class OpenAICompatibleProvider implements ILLMProvider {
       throw new Error(`[${this.name}] HTTP ${res.status}: ${detail}`);
     }
     const data = (await res.json()) as ChatCompletionResponse;
-    const text = data.choices?.[0]?.message?.content?.trim();
-    if (!text) return null;
-    return parseImageDescription(text);
+    return data.choices?.[0]?.message?.content?.trim() || null;
+  }
+
+  async describeImage(input: ImageInput): Promise<ImageDescription | null> {
+    const text = await this.visionCompletion(buildImageDescriptionPrompt(), input);
+    return text ? parseImageDescription(text) : null;
+  }
+
+  /**
+   * T-24.2: transcribe un comprobante de pago — nunca opina sobre su
+   * validez (§1.6). `null` si el modelo no ve imágenes o la respuesta no
+   * valida contra el contrato.
+   */
+  async describePaymentReceipt(input: ImageInput): Promise<PaymentReceiptDescription | null> {
+    const text = await this.visionCompletion(buildPaymentReceiptPrompt(), input);
+    return text ? parsePaymentReceipt(text) : null;
   }
 }
