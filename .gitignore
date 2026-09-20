@@ -48,3 +48,4 @@ next-env.d.ts
 # herramientas locales de agentes (se regeneran, no son código del proyecto)
 /graphify-out/
 /.atl/
+/.codebase-memory/
