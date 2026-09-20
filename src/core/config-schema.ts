@@ -157,8 +157,16 @@ export const personaSchema = z.object({
   language: z.string(),
 });
 
+/**
+ * Forma de un slug válido. Exportado porque es la definición canónica: lo que
+ * `businessConfigSchema` exige acá es lo que después hace fallar (o no) a un
+ * negocio o a una plantilla de rubro, así que los formularios del back office
+ * validan contra ESTE regex en vez de llevar su propia copia.
+ */
+export const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
 export const businessConfigSchema = z.object({
-  slug: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "slug en kebab-case"),
+  slug: z.string().regex(SLUG_RE, "slug en kebab-case"),
   name: z.string().min(1),
   rubro: z.string().optional(),
   currency: z.string().min(1),

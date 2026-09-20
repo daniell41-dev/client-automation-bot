@@ -17,6 +17,7 @@ import { parseBusinessConfig } from "@/core/config-schema";
 import { plantilla } from "@/businesses/_template/config";
 import { invalidateBusinessCache } from "@/businesses/business-cache";
 import { actualizarNegocioSchema, crearNegocioSchema } from "@/app/backoffice/negocio-schema";
+import { crearRubroSchema } from "@/app/backoffice/rubro-schema";
 import { createInventoryRepository } from "@/core/storage/factory";
 import type { BusinessConfig } from "@/core/types";
 
@@ -293,15 +294,23 @@ export async function crearRubro(
   const denied = await requireAdmin();
   if (denied) return { error: denied };
 
-  const slug = String(formData.get("slug") ?? "").trim();
-  const nombre = String(formData.get("nombre") ?? "").trim();
-  const descripcion = String(formData.get("descripcion") ?? "").trim();
+  const parsed = crearRubroSchema.safeParse({
+    slug: String(formData.get("slug") ?? "").trim().toLowerCase(),
+    nombre: String(formData.get("nombre") ?? "").trim(),
+    descripcion: String(formData.get("descripcion") ?? "").trim(),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+  const { slug, nombre, descripcion } = parsed.data;
   const templateJson = String(formData.get("template") ?? "");
 
-  if (!slug || !nombre) return { error: "Slug y nombre son obligatorios." };
-
   // Sin plantilla explícita, el rubro nace con la plantilla base del código
-  // (el admin la personaliza después en el editor del rubro).
+  // (el admin la personaliza después en el editor del rubro). Las DOS ramas
+  // pasan por Zod: antes esta segunda insertaba `{ ...plantilla, slug, name }`
+  // directo, así que un slug que no fuera kebab-case entraba a la base dentro
+  // del template y recién explotaba al crear un negocio, con un error que
+  // apuntaba al lugar equivocado ("La plantilla de ese rubro es inválida").
   let template: unknown;
   if (templateJson) {
     try {
@@ -309,11 +318,11 @@ export async function crearRubro(
     } catch {
       return { error: "La plantilla no es JSON válido." };
     }
-    if (!parseBusinessConfig(template)) {
-      return { error: "La plantilla no cumple la forma de BusinessConfig." };
-    }
   } else {
     template = { ...plantilla, slug, name: nombre };
+  }
+  if (!parseBusinessConfig(template)) {
+    return { error: "La plantilla no cumple la forma de BusinessConfig." };
   }
 
   const supabase = await createUserClient();

@@ -9,8 +9,7 @@
  */
 
 import { z } from "zod";
-
-const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+import { SLUG_RE } from "@/core/config-schema";
 
 export const crearNegocioSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio."),
