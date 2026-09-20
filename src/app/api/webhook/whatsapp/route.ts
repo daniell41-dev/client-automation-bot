@@ -120,6 +120,17 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   const dedupe = createMessageDedupeRepository();
 
+  // T-25: plantilla aprobada en Meta para el aviso a la dueña cuando la
+  // ventana de 24h está cerrada. Es config de la cuenta de Meta (una sola para
+  // todos los negocios), no del negocio — por eso va por env y no por
+  // `BusinessConfig`. Sin ella, el aviso sigue siendo solo texto libre.
+  const plantillaAviso = process.env.WHATSAPP_TEMPLATE_APROBACION
+    ? {
+        nombre: process.env.WHATSAPP_TEMPLATE_APROBACION,
+        idioma: process.env.WHATSAPP_TEMPLATE_IDIOMA ?? "es",
+      }
+    : undefined;
+
   try {
     for (const parsed of parseInbound(payload)) {
       // Idempotencia: un reintento de Meta trae el MISMO message.id. Si ya
@@ -156,7 +167,11 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
       // Mismo canal para responderle al cliente y para avisarle a la dueña
       // (es el número de WhatsApp Business del negocio en ambos casos).
       const channel = accessToken
-        ? new WhatsAppChannel({ phoneNumberId: parsed.phoneNumberId, accessToken })
+        ? new WhatsAppChannel({
+            phoneNumberId: parsed.phoneNumberId,
+            accessToken,
+            plantilla: plantillaAviso,
+          })
         : undefined;
 
       // T-21/PR5: si quien escribe es la dueña (el número que carga en

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { handleIncoming, handleOwnerApproval, handleWompiWebhookEvent } from "@/core/handle";
 import type { PaymentGateway, PaymentLinkRequest } from "@/core/payments/gateway";
-import type { BusinessConfig, DiaAtencion, IncomingMessage, Lead } from "@/core/types";
+import type { BusinessConfig, DiaAtencion, IncomingMessage, Lead, OutgoingMessage } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
 import type { InventoryRepository, StockItem, StockResult } from "@/core/storage/inventory-repository";
 import type {
@@ -283,8 +283,8 @@ describe("handleIncoming — confirmedAt (T-20)", () => {
 });
 
 /** Notifier falso: registra los mensajes enviados. */
-function fakeNotifier(): { sent: { to: string; text: string }[]; send: (m: { to: string; text: string }) => Promise<void> } {
-  const sent: { to: string; text: string }[] = [];
+function fakeNotifier(): { sent: OutgoingMessage[]; send: (m: OutgoingMessage) => Promise<void> } {
+  const sent: OutgoingMessage[] = [];
   return {
     sent,
     async send(m) {
@@ -393,6 +393,44 @@ describe("handleIncoming — avisa a la dueña con el carrito completo (T-21)", 
 
     expect(repo.leads[0].state).toBe("interesado");
     expect(repo.leads[0].stage).toBe("esperando_aprobacion");
+  });
+});
+
+/**
+ * T-25: el aviso de aprobación lo inicia el bot, así que fuera de la ventana
+ * de 24h WhatsApp solo acepta plantillas. `notifyOwner` manda los datos para
+ * rellenarla; que se use o no lo decide el canal (`channels/whatsapp/send.ts`).
+ */
+describe("handleIncoming — datos de plantilla en el aviso a la dueña (T-25)", () => {
+  it("al pedir aprobación manda negocio, cliente y resumen del pedido", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+    await handleIncoming(msg("harina"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("Laura"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("2"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+    await handleIncoming(msg("no, eso es todo"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+
+    await handleIncoming(msg("sí"), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier);
+
+    const params = notifier.sent[0].plantillaParams;
+    expect(params).toBeDefined();
+    expect(params).toHaveLength(3);
+    expect(params![0]).toBe(tiendaConNotify.name);
+    expect(params![1]).toBe("Laura");
+    expect(params![2]).toContain("2x Harina 1 Kg");
+  });
+
+  it("el aviso informativo de cita confirmada NO lleva plantilla (no espera respuesta)", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+    await handleIncoming(msg("limpieza facial"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("Laura"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("mañana a las 3"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+
+    await handleIncoming(msg("sí"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+
+    expect(notifier.sent).toHaveLength(1);
+    expect(notifier.sent[0].plantillaParams).toBeUndefined();
   });
 });
 
