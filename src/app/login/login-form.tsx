@@ -5,18 +5,27 @@ import { useSearchParams } from "next/navigation";
 import { signIn, type LoginState } from "./actions";
 
 /**
- * Formulario de login.
+ * Formulario de login: correo, contraseña, entrar. Nada más.
  *
- * NO lleva selector de "Dueño de negocio / Administrador". El prototipo de
- * diseño traía uno, pero era puro adorno: nunca se enviaba al servidor (sin
- * `name` ni campo oculto) y `signIn` no lo leía. El rol sale de
- * `profiles.role` después de autenticar, y con él la redirección a
- * `/backoffice` o `/portal` — ver `actions.ts`.
+ * El prototipo de diseño traía cuatro controles que nunca se cablearon, y
+ * todos se fueron porque prometían algo que el sistema no hace:
  *
- * Mostrarlo era peor que no tenerlo: le hacía creer al usuario que elegía con
- * qué permisos entra, cuando su cuenta ya lo decide. Un admin que marcara
- * "Dueño de negocio" entraba igual al back office, y el control no tenía forma
- * de explicar por qué.
+ *  - Selector "Dueño de negocio / Administrador": no se enviaba al servidor
+ *    (sin `name` ni campo oculto) y `signIn` no lo leía. El rol sale de
+ *    `profiles.role` tras autenticar, y con él la redirección a `/backoffice`
+ *    o `/portal` — ver `actions.ts`.
+ *  - "Continuar con Google": deshabilitado con `title="Próximamente"`. No hay
+ *    proveedor OAuth configurado en Supabase Auth.
+ *  - "¿Olvidaste tu contraseña?": era un `<span>` sin destino. El reseteo de
+ *    contraseña todavía no está implementado; hoy la cambia el admin desde el
+ *    back office.
+ *  - "¿No tenés cuenta? Creá tu negocio": tampoco llevaba a ningún lado, y
+ *    contradecía el modelo — no hay registro público, las cuentas las crea el
+ *    admin (`crearUsuario` en `backoffice/actions.ts`).
+ *
+ * Cuando alguna de esas funciones exista, el control vuelve con su destino
+ * real. Mientras tanto, un botón muerto en la primera pantalla del producto
+ * es peor que su ausencia: el usuario lo intenta y no pasa nada.
  */
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -58,11 +67,6 @@ export function LoginForm() {
           placeholder="••••••••"
           className="input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft"
         />
-        <p className="mt-2 text-right">
-          <span className="cursor-default text-[13px] font-semibold text-primary">
-            ¿Olvidaste tu contraseña?
-          </span>
-        </p>
       </div>
 
       {state.error && (
@@ -78,29 +82,6 @@ export function LoginForm() {
       >
         {pending ? "Entrando…" : "Ingresar"}
       </button>
-
-      <div className="flex items-center gap-3 text-xs text-ink-soft">
-        <span className="h-px flex-1 bg-line" />
-        o
-        <span className="h-px flex-1 bg-line" />
-      </div>
-
-      <button
-        type="button"
-        disabled
-        title="Próximamente"
-        className="w-full rounded-[10px] border border-line-input py-2.5 text-sm font-semibold text-ink-mid opacity-60"
-      >
-        <span className="mr-2 inline-flex h-4 w-4 items-center justify-center rounded-full bg-primary-tint text-[10px] font-bold text-primary">
-          G
-        </span>
-        Continuar con Google
-      </button>
-
-      <p className="pt-2 text-center text-[13px] text-ink-mid">
-        ¿No tenés cuenta?{" "}
-        <span className="font-semibold text-primary">Creá tu negocio</span>
-      </p>
     </form>
   );
 }
