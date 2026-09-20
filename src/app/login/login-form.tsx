@@ -1,17 +1,26 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Segmented } from "@/components/ui";
 import { signIn, type LoginState } from "./actions";
 
-type Rol = "dueno" | "admin";
-
+/**
+ * Formulario de login.
+ *
+ * NO lleva selector de "Dueño de negocio / Administrador". El prototipo de
+ * diseño traía uno, pero era puro adorno: nunca se enviaba al servidor (sin
+ * `name` ni campo oculto) y `signIn` no lo leía. El rol sale de
+ * `profiles.role` después de autenticar, y con él la redirección a
+ * `/backoffice` o `/portal` — ver `actions.ts`.
+ *
+ * Mostrarlo era peor que no tenerlo: le hacía creer al usuario que elegía con
+ * qué permisos entra, cuando su cuenta ya lo decide. Un admin que marcara
+ * "Dueño de negocio" entraba igual al back office, y el control no tenía forma
+ * de explicar por qué.
+ */
 export function LoginForm() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "";
-  // Selector visual del prototipo: la redirección real la decide profiles.role.
-  const [rol, setRol] = useState<Rol>("dueno");
   const [state, formAction, pending] = useActionState<LoginState, FormData>(
     signIn,
     {},
@@ -20,15 +29,6 @@ export function LoginForm() {
   return (
     <form action={formAction} className="mt-6 space-y-4">
       <input type="hidden" name="next" value={next} />
-
-      <Segmented<Rol>
-        options={[
-          { value: "dueno", label: "Dueño de negocio" },
-          { value: "admin", label: "Administrador" },
-        ]}
-        value={rol}
-        onChange={setRol}
-      />
 
       <div>
         <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink">
@@ -40,7 +40,7 @@ export function LoginForm() {
           type="email"
           required
           autoComplete="email"
-          placeholder={rol === "admin" ? "admin@nexo.app" : "daniela@minegocio.com"}
+          placeholder="tu@correo.com"
           className="input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft"
         />
       </div>

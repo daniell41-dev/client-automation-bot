@@ -1,8 +1,8 @@
 /**
  * Login "Nexo": dos columnas a pantalla completa.
  * Izquierda: panel oscuro con glow, titular y mini-chat de muestra.
- * Derecha: formulario (el selector de rol es visual; la redirección real
- * sale de `profiles.role` tras autenticar — ver login-form).
+ * Derecha: formulario. No se elige rol al entrar: sale de `profiles.role`
+ * tras autenticar, y con él la redirección — ver `actions.ts`.
  */
 
 import { Suspense } from "react";
