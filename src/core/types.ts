@@ -423,6 +423,17 @@ export interface OutgoingMessage {
   text: string;
   /** Opciones de menú / respuestas rápidas, si aplica. */
   options?: string[];
+  /**
+   * T-25: valores para la plantilla de respaldo, en el orden de sus variables
+   * ({{1}}, {{2}}...). Solo se usan si el canal NO puede entregar `text` tal
+   * cual — en WhatsApp, cuando pasaron más de 24h desde el último mensaje del
+   * destinatario y Meta solo acepta plantillas aprobadas.
+   *
+   * El core llena los datos pero nunca nombra una plantilla concreta: qué
+   * plantilla existe y cómo se envía es cosa del adaptador de canal (ver
+   * `channels/whatsapp/send.ts`). Un canal sin esta limitación lo ignora.
+   */
+  plantillaParams?: string[];
 }
 
 /** Un interesado registrado por el sistema. */

@@ -743,8 +743,25 @@ async function notifyOwner(
     ...(opciones.alertasStockBajo ?? []),
   ].filter((line): line is string => Boolean(line));
 
+  // T-25: este aviso lo inicia el bot, no responde a un mensaje de la dueña,
+  // así que si ella no escribió en las últimas 24h WhatsApp solo acepta una
+  // plantilla aprobada. Se mandan los datos para rellenarla; el canal decide
+  // si le hace falta (ver `channels/whatsapp/send.ts`). El detalle completo
+  // —señales del comprobante, alertas de stock— solo entra en el texto libre:
+  // la plantilla lleva lo mínimo para decidir, y su respuesta SÍ/NO reabre la
+  // ventana para el resto de la conversación.
+  const resumenPlantilla = esPedido
+    ? resumenCarrito(lead.items!, config.services, config)
+    : (service?.name ?? lead.tentativeDate ?? "");
+
   try {
-    await notifier.send({ to: config.notifyPhoneNumber!, text: lines.join("\n") });
+    await notifier.send({
+      to: config.notifyPhoneNumber!,
+      text: lines.join("\n"),
+      plantillaParams: opciones.pidiendoAprobacion
+        ? [config.name, lead.name ?? lead.contact, resumenPlantilla]
+        : undefined,
+    });
   } catch (err) {
     console.error("[Notify] no se pudo avisar a la dueña por WhatsApp:", err);
   }

@@ -19,6 +19,8 @@ cp .env.example .env.local
 | `WHATSAPP_ACCESS_TOKEN` | Token de acceso de la app de Meta para llamar a la Graph API. |
 | `WHATSAPP_PHONE_NUMBER_ID` | ID del número de WhatsApp Business (no el número en sí). |
 | `WHATSAPP_APP_SECRET` | Secreto de la app; valida la firma `X-Hub-Signature-256`. |
+| `WHATSAPP_TEMPLATE_APROBACION` | Opcional (T-25). Nombre de la plantilla para avisarle a la dueña fuera de la ventana de 24h — ver §7. |
+| `WHATSAPP_TEMPLATE_IDIOMA` | Opcional. Idioma de esa plantilla (default `es`). |
 
 > **Nunca** commitees `.env.local` ni pegues estos valores en el código o en issues/PRs.
 
@@ -87,9 +89,59 @@ tocan; enviarlos vendrá con el cron + las plantillas aprobadas.
 - **Receive**: envía un WhatsApp al número de prueba; deberías ver el lead creado (en
   `/admin` o en el archivo de datos) y la respuesta automática.
 
+## 7. Plantilla para el aviso a la dueña (T-25)
+
+El aviso de "pedido nuevo, respondé SÍ/NO" **lo inicia el bot**: la dueña no escribió
+nada antes. Si su último mensaje al número del negocio tiene más de 24h, Meta rechaza
+el texto libre con el código **131047** y el aviso **no se entrega** — la dueña nunca se
+entera del pedido y el cliente queda esperando.
+
+Por eso el canal intenta primero el texto libre (completo y sin costo de conversación
+cuando la ventana está abierta) y, **solo si Meta lo rechaza por ventana cerrada**,
+reintenta con una plantilla aprobada. Sin `WHATSAPP_TEMPLATE_APROBACION` configurada no
+hay reintento: el aviso falla igual que antes y queda en el log.
+
+### Texto a cargar en Meta
+
+En **WhatsApp Manager → Plantillas de mensajes → Crear plantilla**:
+
+- **Nombre**: `aviso_pedido_aprobacion` (el mismo que pongas en `WHATSAPP_TEMPLATE_APROBACION`)
+- **Categoría**: `Utility` (no `Marketing` — es una notificación transaccional de algo
+  que el cliente pidió; `Marketing` se aprueba peor y cuesta más)
+- **Idioma**: Español (`es`)
+- **Cuerpo**:
+
+```
+Tenés un pedido nuevo en {{1}}.
+Cliente: {{2}}
+Pedido: {{3}}
+Respondé SÍ para aceptarlo o NO para rechazarlo.
+```
+
+- **Ejemplos** (Meta los pide para aprobar): `{{1}}` = `Estética Bella`,
+  `{{2}}` = `Laura Pérez`, `{{3}}` = `2x Harina 1 Kg · 1x Aceite 1 Lt · Total: $45.000`
+
+La aprobación suele tardar entre unos minutos y un día.
+
+### Detalles que importan
+
+- **Los parámetros no admiten saltos de línea** ni tabs ni más de 4 espacios seguidos:
+  Meta rechaza el envío entero. El adaptador ya los aplana a `·` (`aplanarParametro`),
+  por eso el ejemplo de `{{3}}` va en una sola línea.
+- **La plantilla lleva menos información que el texto libre**: no incluye las señales de
+  riesgo del comprobante ni las alertas de stock bajo. Es a propósito — lleva lo mínimo
+  para decidir, y cuando la dueña responde SÍ/NO **se reabre la ventana de 24h**, así que
+  el resto de la conversación vuelve a ser texto libre.
+- **El aviso informativo de cita confirmada no usa plantilla**: no espera respuesta y no
+  bloquea nada, así que si cae fuera de la ventana simplemente no se envía. Si en algún
+  momento se quiere cubrir, hace falta registrar una plantilla aparte (el texto fijo es
+  distinto).
+
 ## Checklist
 
 - [ ] `.env.local` con las 4 variables
 - [ ] Webhook verificado en el panel de Meta
 - [ ] Firma `X-Hub-Signature-256` validada
 - [ ] Mensaje de prueba crea lead y recibe respuesta
+- [ ] Plantilla `aviso_pedido_aprobacion` aprobada en Meta y su nombre en
+      `WHATSAPP_TEMPLATE_APROBACION` (§7)
