@@ -260,6 +260,26 @@ const PHONE_NUMBER_ID_TO_SLUG: Record<string, string> = {
 sandbox de Meta, no un dato del proyecto; si lo subís a una rama compartida, revertilo
 antes de abrir el PR.
 
+### `Error procesando webhook de WhatsApp` con `getaddrinfo ENOTFOUND ...supabase.co`
+
+**Síntoma**: el webhook recibe el mensaje real (confirmado en el inspector de ngrok y en
+"Comprobar webhooks de prueba" de Meta) pero la terminal de `pnpm dev` tira un error de
+DNS apenas intenta resolver el negocio — nunca llega ni a mirar `registry.ts`.
+
+**Causa**: `.env.local` tiene `NEXT_PUBLIC_SUPABASE_URL` y/o `SUPABASE_SERVICE_ROLE_KEY`
+configuradas (ver `src/lib/supabase/admin.ts`), así que `resolveBusinessByPhoneNumberId`
+intenta Supabase **antes** de caer al `registry.ts` local — y esa llamada no tiene
+`try/catch`, así que si el proyecto de Supabase no resuelve (pausado, borrado, URL mal
+copiada), el error se propaga hasta el `catch` general del webhook y aborta todo el
+procesamiento del mensaje, sin llegar nunca al fallback.
+
+**Arreglo rápido** (para seguir probando solo con el negocio local): comentar o borrar
+**las dos** variables —`NEXT_PUBLIC_SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`— de
+`.env.local` y reiniciar `pnpm dev`. Con ninguna de las dos presentes,
+`createAdminClient()` devuelve `null` y el código usa `registry.ts` directo, sin intentar
+Supabase. Si lo que hace falta es la base real, el problema está del lado de Supabase
+(proyecto pausado/borrado o URL con un typo), no del bot.
+
 ## Próximos pasos
 
 Lo que falta para pasar de "probé con el número de prueba de Meta" a "un negocio real
