@@ -16,7 +16,7 @@ cp .env.example .env.local
 | Variable | Para qué |
 |----------|----------|
 | `WHATSAPP_VERIFY_TOKEN` | Token que tú inventas; Meta lo envía al verificar el webhook. |
-| `WHATSAPP_ACCESS_TOKEN` | Token de acceso de la app de Meta para llamar a la Graph API. |
+| `WHATSAPP_ACCESS_TOKEN` | Token de acceso de la app de Meta para llamar a la Graph API. Usá el permanente del usuario del sistema (§9); el de "Paso 1" vence a las 24h. |
 | `WHATSAPP_PHONE_NUMBER_ID` | ID del número de WhatsApp Business (no el número en sí). |
 | `WHATSAPP_APP_SECRET` | Secreto de la app; valida la firma `X-Hub-Signature-256`. |
 | `WHATSAPP_TEMPLATE_APROBACION` | Opcional (T-25). Nombre de la plantilla para avisarle a la dueña fuera de la ventana de 24h — ver §7. |
@@ -235,10 +235,14 @@ tener varias apps suscritas a la vez, cada una recibe los eventos en su propio w
 
 ### El token de acceso temporal vence a las 24h
 
-Si un `curl` empieza a devolver `"Error validating access token... Session has expired"`,
-generá uno nuevo desde "Paso 1. Pruébala → Generar Identificador", actualizá
-`WHATSAPP_ACCESS_TOKEN` en `.env.local` y reiniciá `pnpm dev` (las env vars no se
-recargan solas). Para no repetir esto cada 24h en desarrollo activo, ver "Próximos pasos".
+**Síntomas**: un `curl` devuelve `"Error validating access token... Session has
+expired"`, o la terminal de `pnpm dev` muestra `Envío WhatsApp falló: 401 ...
+"Authentication Error","code":190` — el bot **recibe** el mensaje pero falla al
+**responder**.
+
+Arreglo temporal: generá uno nuevo desde "Paso 1. Pruébala → Generar Identificador",
+actualizá `WHATSAPP_ACCESS_TOKEN` en `.env.local` y reiniciá `pnpm dev` (las env vars
+no se recargan solas). **Arreglo definitivo**: el token permanente del §9.
 
 ### El número de prueba no tiene ningún negocio asociado
 
@@ -280,6 +284,42 @@ procesamiento del mensaje, sin llegar nunca al fallback.
 Supabase. Si lo que hace falta es la base real, el problema está del lado de Supabase
 (proyecto pausado/borrado o URL con un typo), no del bot.
 
+## 9. Token permanente (usuario del sistema)
+
+El token de "Paso 1. Pruébala" vence a las 24h. Para uno que no vence hay que crear un
+**usuario del sistema**: una cuenta técnica dentro del portafolio comercial, sin
+teléfono ni WhatsApp propio — solo existe para emitir el token. **No hace falta ningún
+número nuevo para esto.**
+
+1. <https://business.facebook.com> → elegí el **mismo portafolio** conectado a la app
+   (el del paso 4 de §1) → **Configuración** (⚙️, abajo a la izquierda).
+2. **Usuarios → Usuarios del sistema → Añadir**. Nombre (ej. `nexo-bot`), rol
+   **Administrador**.
+3. Con el usuario seleccionado, **Asignar activos** — antes de generar el token, si no
+   el token sale sin acceso a nada útil:
+   - **Aplicaciones** → la app → **Administrar la aplicación** (acceso total).
+   - **Cuentas de WhatsApp** → la cuenta (la de prueba aparece como "Test WhatsApp
+     Business Account") → **Acceso total**, que incluye **Mensajes** (lo que usa el bot
+     para responder).
+
+   Los dos se pueden elegir en el mismo diálogo; el botón "Asignar activos" queda gris
+   mientras a alguno le falte su toggle.
+4. **Generar identificador**:
+   - App: la tuya.
+   - **Caducidad: Nunca** — es el punto de todo esto.
+   - Permisos: `whatsapp_business_messaging` y `whatsapp_business_management`. Los
+     demás que ofrece (`manage_app_solution`, `whatsapp_business_manage_events`) no
+     hacen falta.
+5. **Copiá el token en ese momento**: Meta lo muestra una sola vez. Si se pierde, se
+   genera otro (y conviene revocar el anterior con "Revocar identificadores").
+6. Reemplazá `WHATSAPP_ACCESS_TOKEN` en `.env.local` y reiniciá `pnpm dev`.
+
+No hace falta repetir el `subscribed_apps` del §8: la suscripción es de la cuenta de
+WhatsApp a la app, no del token, y sigue valiendo.
+
+⚠️ Como no vence, tratalo como una contraseña: nunca en el código, en capturas ni en
+chats. Si se filtra, **Revocar identificadores** y generar uno nuevo.
+
 ## Próximos pasos
 
 Lo que falta para pasar de "probé con el número de prueba de Meta" a "un negocio real
@@ -295,9 +335,7 @@ usando esto":
       aprobación **tiene que ser un número distinto** al del negocio (si no, el webhook
       no puede distinguir cliente de dueña — ver `notifyPhoneNumber` en
       `src/core/handle.ts`).
-- [ ] **Token de acceso permanente** — el token temporal vence cada 24h. Para no
-      regenerarlo a mano, hace falta crear un **Usuario del sistema** en el portafolio
-      comercial y generar un token de sistema (no vence).
+- [x] **Token de acceso permanente** — hecho con un usuario del sistema (§9).
 - [ ] **Publicar la app** — Meta pide, antes de publicarla: ícono (1024×1024), URL de
       política de privacidad y categoría. No es necesario mientras se prueba solo con
       números agregados a mano a la lista de destinatarios.
@@ -312,6 +350,8 @@ usando esto":
 - [ ] `.env.local` con las 4 variables
 - [ ] Webhook verificado en el panel de Meta
 - [ ] App suscrita al WABA (`subscribed_apps` — ver §8, no pasa sola)
+- [ ] `WHATSAPP_ACCESS_TOKEN` es el token permanente del usuario del sistema (§9), no
+      el temporal de 24h
 - [ ] Firma `X-Hub-Signature-256` validada
 - [ ] Mensaje de prueba crea lead y recibe respuesta
 - [ ] Plantilla `aviso_pedido_aprobacion` aprobada en Meta y su nombre en
