@@ -518,6 +518,13 @@ un número de prueba real, no solo con el simulador. Guía completa y troublesho
 en `docs/05-whatsapp-setup.md` (incluye el hallazgo de que la cuenta de WhatsApp
 Business hay que suscribirla a la app explícitamente — no pasa sola).
 
+**T-28 · Token permanente (usuario del sistema).** El token temporal de la consola
+de Meta vence a las 24h y el bot deja de responder con un 401 (código 190). Se
+reemplazó por un token sin vencimiento emitido por un usuario del sistema del
+portafolio de Meta, con la app y la cuenta de WhatsApp asignadas como activos.
+Probado: el bot sigue respondiendo con ese token. Paso a paso en
+`docs/05-whatsapp-setup.md §9`.
+
 ---
 
 ### Pendiente de decisión del dueño del producto
@@ -526,7 +533,8 @@ Business hay que suscribirla a la app explícitamente — no pasa sola).
   hecho (oct-2026): API oficial de Meta (Cloud API).** Probada de punta a punta con
   un número de prueba real — ver `docs/05-whatsapp-setup.md`. Sigue pendiente pasar
   de "número de prueba" a un número real de producción (ver "Próximos pasos" en ese
-  mismo doc: verificación de negocio, token de sistema permanente, publicar la app).
+  mismo doc: verificación de negocio y publicar la app). El token permanente ya
+  está resuelto (T-28).
 
 No empezar estas hasta tener respuesta:
 - **Planes Free/Pro:** ¿tienen límites reales de negocios o mensajes? Si sí, hay
@@ -579,6 +587,10 @@ plan o se reinicie el período: con un cliente pagando, eso es un incidente, no 
 ---
 
 ## 7. Registro de cambios
+
+**v3.1 — oct-2026.** Agregada T-28 (token permanente vía usuario del sistema) a la
+sección 4-bis y sacada de los pendientes de la conexión de WhatsApp: ya está hecha
+y probada.
 
 **v3 — oct-2026.** Realineación del documento con el código real, no un rediseño del
 plan. Se verificó cada tarea de T-01 a T-19 contra el repo (migraciones, archivos,
