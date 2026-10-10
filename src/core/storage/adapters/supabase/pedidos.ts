@@ -18,7 +18,8 @@ const ESTADOS_CERRADOS: EstadoPedido[] = ["entregado", "rechazado", "vencido"];
 /** Esperando decisión — mismos que `pedidoPendienteDeDecision`. */
 const ESTADOS_PENDIENTES: EstadoPedido[] = ["esperando_pago", "por_verificar"];
 
-function toPedido(row: PedidoRow): Pedido {
+/** Exportada (T-38): el panel del portal lee filas con el cliente del dueño y las mapea igual. */
+export function toPedido(row: PedidoRow): Pedido {
   return {
     id: row.id,
     numero: row.numero,
