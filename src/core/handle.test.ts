@@ -2302,6 +2302,9 @@ describe("devolver el stock de un pedido que no se concretó (T-32)", () => {
     const tiendaConPagos: BusinessConfig = { ...tiendaConNotify, pagos: { requiereComprobante: true } };
     const t0 = new Date("2026-10-10T12:00:00.000Z");
     await confirmar(tiendaConPagos, repo, inventory, pedidos, t0);
+    // El fake fecha el pedido con la hora REAL (como la base); se fija a t0
+    // para que el test no dependa de a qué hora del día corre.
+    db.pedidos[0].created_at = t0.toISOString();
     expect(db.pedidos[0].estado).toBe("esperando_pago");
     expect(inventory.stock.get("neg-1|harina")).toBe(8);
 
