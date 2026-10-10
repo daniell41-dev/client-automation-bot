@@ -47,6 +47,7 @@ import { resumenCarrito, totalCarrito } from "@/core/engine/flows/pedido";
 import { BOTON_APROBAR, BOTON_RECHAZAR, interpretarDecisionDueña } from "@/core/engine/approval";
 import { transition } from "@/core/engine/lead-state";
 import { pagoVencido, pedidoPendienteDeDecision, transicionarPedido } from "@/core/engine/pedido-estado";
+import { generarCodigoRetiro, mensajeCodigoRetiro } from "@/core/engine/codigo-retiro";
 import { DEFAULT_PEDIDO_CONFIRMADO, DEFAULT_PEDIDO_RECHAZADO } from "@/core/engine/responder";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { render } from "@/core/engine/templating";
@@ -1139,12 +1140,19 @@ export async function handleOwnerApproval(
     lead.stage = "datos_completos";
     lead.confirmedAt = now.toISOString();
     await repo.save(lead);
-    await cerrarDecisionDelPedido(pedidos, comprobantes, pedido, "aprobado");
+    const codigo = await cerrarDecisionDelPedido(pedidos, comprobantes, pedido, "aprobado");
     return {
-      ownerReply: { to: message.from, text: `Listo, confirmado el ${etiqueta} ✅` },
+      ownerReply: {
+        to: message.from,
+        text: `Listo, confirmado el ${etiqueta} ✅${codigo ? `\nCódigo de retiro: ${codigo} — entregalo solo contra este código.` : ""}`,
+      },
       customerReply: {
         to: lead.contact,
-        text: [resumen, render(config.messages.pedidoConfirmado ?? DEFAULT_PEDIDO_CONFIRMADO, nombreVars)]
+        text: [
+          resumen,
+          render(config.messages.pedidoConfirmado ?? DEFAULT_PEDIDO_CONFIRMADO, nombreVars),
+          lineaCodigoRetiro(pedido, codigo),
+        ]
           .filter(Boolean)
           .join("\n\n"),
       },
@@ -1187,16 +1195,30 @@ async function cerrarDecisionDelPedido(
   comprobantes: ComprobanteRepository | undefined,
   pedido: Pedido | null,
   hacia: "aprobado" | "rechazado",
-): Promise<void> {
-  if (!pedidos || !pedido) return;
+): Promise<string | undefined> {
+  if (!pedidos || !pedido) return undefined;
   try {
     await pedidos.actualizarEstado(pedido.id, transicionarPedido(pedido.estado, hacia));
     if (pedido.comprobanteId && comprobantes) {
       await comprobantes.actualizarEstado(pedido.comprobanteId, hacia);
     }
+    // T-37: el código nace recién con la aprobación — nunca antes. Si no se
+    // pudo guardar, no se le da al cliente: un código que el panel no conoce
+    // no serviría para entregar.
+    if (hacia === "aprobado") {
+      const codigo = generarCodigoRetiro();
+      await pedidos.asignarCodigoRetiro(pedido.id, codigo);
+      return codigo;
+    }
   } catch (err) {
     console.error(`[Pedidos] no se pudo registrar el pedido #${pedido.numero} como "${hacia}":`, err);
   }
+  return undefined;
+}
+
+/** T-37: la línea del código de retiro para el cliente, o `null` si no hay código. */
+function lineaCodigoRetiro(pedido: Pedido | null, codigo: string | undefined): string | null {
+  return pedido && codigo ? mensajeCodigoRetiro(pedido.numero, codigo, pedido.modalidad) : null;
 }
 
 /** Resultado de procesar un evento de Wompi ya verificado (T-24.5). */
@@ -1341,16 +1363,23 @@ export async function handleWompiWebhookEvent(
   lead.stage = "datos_completos";
   lead.confirmedAt = now.toISOString();
   await repo.save(lead);
-  await cerrarDecisionDelPedido(pedidos, undefined, pedido, "aprobado");
+  const codigo = await cerrarDecisionDelPedido(pedidos, undefined, pedido, "aprobado");
 
   const resumen = resumenCarrito(lead.items ?? [], config.services, config);
   return {
     customerMessage: {
       to: lead.contact,
-      text: [resumen, "¡Listo! Tu pago quedó confirmado ✅"].filter(Boolean).join("\n\n"),
+      text: [resumen, "¡Listo! Tu pago quedó confirmado ✅", lineaCodigoRetiro(pedido, codigo)]
+        .filter(Boolean)
+        .join("\n\n"),
     },
     ownerMessage: avisoDueña(
-      [`🔔 ${config.name}: ${etiqueta} pagado con Wompi ✅`, resumen, "Ya podés prepararlo."]
+      [
+        `🔔 ${config.name}: ${etiqueta} pagado con Wompi ✅`,
+        resumen,
+        codigo ? `Código de retiro: ${codigo} — entregalo solo contra este código.` : null,
+        "Ya podés prepararlo.",
+      ]
         .filter(Boolean)
         .join("\n"),
     ),

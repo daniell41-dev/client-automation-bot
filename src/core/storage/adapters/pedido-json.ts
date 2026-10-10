@@ -89,6 +89,15 @@ export class JsonPedidoRepository implements PedidoRepository {
       .sort((a, b) => a.numero - b.numero);
   }
 
+  async asignarCodigoRetiro(id: string, codigo: string): Promise<void> {
+    const todos = await this.readAll();
+    const pedido = todos.find((p) => p.id === id);
+    if (!pedido) throw new Error(`No existe el pedido ${id}`);
+    pedido.codigoRetiro = codigo;
+    pedido.actualizadoEn = new Date().toISOString();
+    await this.writeAll(todos);
+  }
+
   async vincularComprobante(id: string, comprobanteId: string): Promise<void> {
     const todos = await this.readAll();
     const pedido = todos.find((p) => p.id === id);

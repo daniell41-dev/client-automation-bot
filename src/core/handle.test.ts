@@ -2535,3 +2535,64 @@ describe("pedido a domicilio con dirección (T-36)", () => {
     expect(repo.leads[0].stage).toBe("esperando_aprobacion");
   });
 });
+
+describe("código de retiro (T-37)", () => {
+  function ownerMsg(text: string): IncomingMessage {
+    return { channel: "whatsapp", businessSlug: "tienda", from: "573009998888", text, timestamp: new Date().toISOString() };
+  }
+
+  async function pedidoConfirmado(business: BusinessConfig = tiendaConNotify) {
+    const repo = new InMemoryRepo();
+    const db = makeFakeSupabaseDb();
+    const pedidos = new SupabasePedidoRepository(db);
+    for (const texto of ["harina", "Laura", "2", "no, eso es todo", "sí"]) {
+      await handleIncoming(msg(texto), business, repo, new Date(), undefined, undefined, undefined, fakeNotifier(),
+        undefined, "neg-1", undefined, undefined, undefined, pedidos);
+    }
+    return { repo, db, pedidos };
+  }
+
+  it("al aprobar, el cliente recibe número y código, y el código queda guardado en el pedido", async () => {
+    const { repo, db, pedidos } = await pedidoConfirmado();
+
+    const { ownerReply, customerReply } = await handleOwnerApproval(ownerMsg("sí 1"), tiendaConNotify, repo, new Date(), pedidos, "neg-1");
+
+    const codigo = db.pedidos[0].codigo_retiro;
+    expect(codigo).toMatch(/^\d{4}$/);
+    expect(customerReply?.text).toContain(`Tu pedido #1 · código de retiro: ${codigo}`);
+    expect(ownerReply.text).toContain(`Código de retiro: ${codigo}`);
+  });
+
+  it("rechazar nunca genera código", async () => {
+    const { repo, db, pedidos } = await pedidoConfirmado();
+
+    const { customerReply } = await handleOwnerApproval(ownerMsg("no 1"), tiendaConNotify, repo, new Date(), pedidos, "neg-1");
+
+    expect(db.pedidos[0].codigo_retiro).toBeNull();
+    expect(customerReply?.text).not.toContain("código");
+  });
+
+  it("un pedido pendiente (sin aprobar) no tiene código: el pantallazo solo no alcanza", async () => {
+    const { db } = await pedidoConfirmado();
+    expect(db.pedidos[0].estado).toBe("por_verificar");
+    expect(db.pedidos[0].codigo_retiro).toBeNull();
+  });
+
+  it("Wompi aprobado también entrega el código", async () => {
+    const tiendaConWompi: BusinessConfig = { ...tiendaConNotify, pagos: { wompi: { enabled: true } } };
+    const repo = new InMemoryRepo();
+    const db = makeFakeSupabaseDb();
+    const pedidos = new SupabasePedidoRepository(db);
+    const gateway: PaymentGateway = { buildPaymentLink: () => "https://checkout.wompi.co/p/" };
+    for (const texto of ["harina", "Laura", "2", "no, eso es todo", "sí"]) {
+      await handleIncoming(msg(texto), tiendaConWompi, repo, new Date(), undefined, undefined, undefined, fakeNotifier(),
+        undefined, "neg-1", undefined, undefined, gateway, pedidos);
+    }
+    const pedido = await pedidos.obtener(db.pedidos[0].id);
+
+    const result = await handleWompiWebhookEvent(repo.leads[0], tiendaConWompi, "APPROVED", repo, undefined, "neg-1",
+      new Date(), pedidos, { pedido, montoEnCentavos: 1_000_000 });
+
+    expect(result.customerMessage?.text).toContain(`código de retiro: ${db.pedidos[0].codigo_retiro}`);
+  });
+});

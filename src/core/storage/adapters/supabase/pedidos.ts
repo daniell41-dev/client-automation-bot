@@ -84,6 +84,10 @@ export class SupabasePedidoRepository implements PedidoRepository {
     return rows.map(toPedido);
   }
 
+  async asignarCodigoRetiro(id: string, codigo: string): Promise<void> {
+    await this.db.updatePedidoCodigoRetiro(id, codigo);
+  }
+
   async vincularComprobante(id: string, comprobanteId: string): Promise<void> {
     await this.db.updatePedidoComprobante(id, comprobanteId);
   }

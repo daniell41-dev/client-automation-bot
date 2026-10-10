@@ -307,6 +307,12 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       pedido.comprobante_id = comprobanteId;
     },
 
+    async updatePedidoCodigoRetiro(id, codigo) {
+      const pedido = pedidos.find((p) => p.id === id);
+      if (!pedido) throw new Error(`No existe el pedido ${id}`);
+      pedido.codigo_retiro = codigo;
+    },
+
     async updateComprobanteEstado(id, estado) {
       const comprobante = comprobantes.find((c) => c.id === id);
       if (!comprobante) throw new Error(`No existe el comprobante ${id}`);

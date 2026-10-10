@@ -225,6 +225,8 @@ export interface SupabaseDb {
   /** Pedidos del negocio en alguno de `estados`, por número ascendente. */
   selectPedidosPorEstado(negocioId: string, estados: string[]): Promise<PedidoRow[]>;
   updatePedidoComprobante(id: string, comprobanteId: string): Promise<void>;
+  /** T-37 */
+  updatePedidoCodigoRetiro(id: string, codigo: string): Promise<void>;
   updateComprobanteEstado(id: string, estado: string): Promise<void>;
 }
 
@@ -514,6 +516,14 @@ class RealSupabaseDb implements SupabaseDb {
     const { error } = await this.client
       .from("pedidos")
       .update({ comprobante_id: comprobanteId, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  async updatePedidoCodigoRetiro(id: string, codigo: string): Promise<void> {
+    const { error } = await this.client
+      .from("pedidos")
+      .update({ codigo_retiro: codigo, updated_at: new Date().toISOString() })
       .eq("id", id);
     if (error) throw error;
   }
