@@ -16,6 +16,7 @@ export type PortalSeccion =
   | "resumen"
   | "catalogo"
   | "citas"
+  | "pedidos"
   | "respuestas"
   | "conversaciones"
   | "configuracion";

@@ -21,6 +21,7 @@ import {
   MessagesSquare,
   ShoppingBag,
   SlidersHorizontal,
+  ClipboardList,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { RubroTile, catalogLabel } from "@/components/rubro-visual";
@@ -35,6 +36,8 @@ export interface ShellNegocio {
   /** T-21: forma del catálogo de este negocio — ver `CatalogoConfig`. */
   catalogo?: CatalogoConfig;
   botActivo: boolean;
+  /** T-38: si vende algo (ítems de modo "pedido"); solo entonces se muestra el panel de pedidos. */
+  vendePedidos?: boolean;
 }
 
 export function PortalShell({
@@ -74,6 +77,17 @@ export function PortalShell({
       group: "GESTIÓN DEL BOT",
       seccion: "catalogo",
     },
+    ...(negocio.vendePedidos
+      ? [
+          {
+            href: `${base}/pedidos`,
+            label: "Pedidos",
+            Icon: ClipboardList,
+            group: "ATENCIÓN" as const,
+            seccion: "pedidos" as const,
+          },
+        ]
+      : []),
     {
       href: `${base}/citas`,
       label: "Citas y reservas",

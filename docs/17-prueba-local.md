@@ -54,7 +54,7 @@ flowchart TD
     R2 --> R3["✅ Bot da el Nequi →<br/>foto del comprobante →<br/>IA lo lee + señales"]
     R3 --> R4["✅ La dueña toca 'Aprobar #1'<br/>(o responde SÍ 1)"]
     R4 --> R5["✅ El cliente recibe<br/>número + código de retiro"]
-    R5 --> R6["🔧 T-38: panel → Entregar"]
+    R5 --> R6["✅ Portal → Pedidos:<br/>Listo → Entregar con el código"]
   end
 
   subgraph F["5 · Fraude y día pico"]
@@ -262,7 +262,12 @@ queda vinculado (`comprobante_id`) y también pasa a `aprobado`.
 Lo que todavía no pasa:
 - ✅ Al aprobar, el cliente recibe "Tu pedido #1 · código de retiro: 4821" y la dueña ve el
   mismo código en su confirmación. **La comida se entrega solo contra ese código.**
-- 🔧 **T-38:** todavía no hay panel de pedidos para marcarlo como entregado.
+- **Panel (portal → Pedidos):** la dueña ve el pedido en "Por verificar" y lo aprueba
+  desde ahí o desde WhatsApp. Después pasa a "En preparación"; "Marcar listo" le avisa al
+  cliente ("listo para recoger" o "va en camino"). Para entregar, escribe el código que
+  muestra el cliente: con un código equivocado, el panel no deja entregar.
+- 🔧 **T-38b/c:** el panel todavía no muestra la foto del comprobante ni se actualiza solo
+  (hay que recargar la página).
 - Si la dueña rechaza (`NO 1`), las unidades vuelven al stock. Un pedido que espera el
   pago más de 24h vence solo y también devuelve su stock; uno con comprobante nunca
   vence solo.
