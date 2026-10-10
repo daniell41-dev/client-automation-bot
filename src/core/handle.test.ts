@@ -2350,3 +2350,43 @@ describe("devolver el stock de un pedido que no se concretó (T-32)", () => {
     expect(inventory.stock.get("neg-1|harina")).toBe(8); // volvieron las 2 del #1
   });
 });
+
+describe("datos de pago para el cliente (T-33)", () => {
+  async function confirmar(business: BusinessConfig) {
+    const repo = new InMemoryRepo();
+    let ultimo;
+    for (const texto of ["harina", "Laura", "2", "no, eso es todo", "sí"]) {
+      ultimo = await handleIncoming(msg(texto), business, repo, new Date(), undefined, undefined, undefined, fakeNotifier());
+    }
+    return ultimo!;
+  }
+
+  it("al pedir el comprobante, le da al cliente el Nequi, la llave Bre-B y el titular", async () => {
+    const { messages } = await confirmar({
+      ...tiendaConNotify,
+      pagos: { requiereComprobante: true, datosPago: { nequi: "300 000 0000", llaveBreB: "@tienda", titular: "Tienda Test" } },
+    });
+
+    expect(messages[0].text).toContain("Nequi: 300 000 0000");
+    expect(messages[0].text).toContain("Llave Bre-B: @tienda");
+    expect(messages[0].text).toContain("A nombre de: Tienda Test");
+    expect(messages[0].text).toContain("comprobante");
+  });
+
+  it("un mensaje propio sin {{datosPago}} igual recibe los datos al final", async () => {
+    const { messages } = await confirmar({
+      ...tiendaConNotify,
+      messages: { ...tiendaConNotify.messages, pedirComprobante: "Mandá el comprobante, {{nombre}}" },
+      pagos: { requiereComprobante: true, datosPago: { nequi: "3000000000" } },
+    });
+
+    expect(messages[0].text).toContain("Mandá el comprobante, Laura");
+    expect(messages[0].text).toContain("Nequi: 3000000000");
+  });
+
+  it("sin datos de pago cargados, el mensaje queda como antes", async () => {
+    const { messages } = await confirmar({ ...tiendaConNotify, pagos: { requiereComprobante: true } });
+
+    expect(messages[0].text).toContain("hacé el pago y mandanos la foto del comprobante");
+  });
+});

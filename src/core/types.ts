@@ -198,6 +198,17 @@ export interface PagosConfig {
    */
   telefonoDestino?: string;
   /**
+   * T-33: a dónde paga el cliente. El bot los incluye en el mensaje que pide
+   * el comprobante — antes decía "hacé el pago" sin dar ningún número. Si no
+   * hay `telefonoDestino`, el número de Nequi también sirve para la señal
+   * "destino no coincide".
+   */
+  datosPago?: {
+    nequi?: string;
+    llaveBreB?: string;
+    titular?: string;
+  };
+  /**
    * Nivel 2 (T-24.5): link de pago con verificación real por webhook
    * firmado. Deliberadamente NO tiene las llaves de Wompi acá — viven en
    * columnas propias de `negocios` (migración 0014), nunca en este JSONB,

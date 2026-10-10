@@ -216,3 +216,49 @@ describe("calcularSeñalesPago — nunca rechaza por sí sola", () => {
     }
   });
 });
+
+describe("calcularSeñalesPago — normalización (T-33)", () => {
+  it("la misma referencia escrita distinto cuenta como repetida", () => {
+    const señales = calcularSeñalesPago(
+      comprobante({ referencia: "m 1234-5678" }),
+      pedido,
+      { comprobantesPrevios: [{ referencia: "M12345678", contacto: "otro", creadoEn: "2026-09-15T10:00:00.000Z" }] },
+      "57300000000",
+      ahora,
+    );
+    expect(señales.map((s) => s.tipo)).toContain("referencia_repetida");
+  });
+
+  it("el mismo destino con indicativo o espacios NO dispara 'destino no coincide'", () => {
+    const señales = calcularSeñalesPago(
+      comprobante({ telefonoDestino: "+57 300 111 2233" }),
+      pedido,
+      { telefonoDestino: "3001112233", comprobantesPrevios: [] },
+      "57300000000",
+      ahora,
+    );
+    expect(señales).toEqual([]);
+  });
+
+  it("un destino enmascarado no se compara (sin alarma falsa)", () => {
+    const señales = calcularSeñalesPago(
+      comprobante({ telefonoDestino: "***2233" }),
+      pedido,
+      { telefonoDestino: "3009998877", comprobantesPrevios: [] },
+      "57300000000",
+      ahora,
+    );
+    expect(señales).toEqual([]);
+  });
+
+  it("un destino distinto de verdad sí dispara la señal", () => {
+    const señales = calcularSeñalesPago(
+      comprobante({ telefonoDestino: "+57 311 000 0000" }),
+      pedido,
+      { telefonoDestino: "3001112233", comprobantesPrevios: [] },
+      "57300000000",
+      ahora,
+    );
+    expect(señales.map((s) => s.tipo)).toEqual(["destino_no_coincide"]);
+  });
+});

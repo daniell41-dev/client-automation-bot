@@ -38,7 +38,7 @@ flowchart TD
   subgraph N["3 · Negocio"]
     N0["✅ Back office → Rubros<br/>(Estética ya existe; Restaurante se crea)"] --> N1["✅ Back office → Negocios → Nuevo<br/>(rubro, dueña, phone_number_id)"]
     N1 --> N2["✅ La dueña entra al portal:<br/>catálogo, horarios, tono, su WhatsApp"]
-    N2 --> N3["⚙️ Pedir comprobante (🔧 T-33)"]
+    N2 --> N3["✅ Cobro con comprobante:<br/>Nequi / Bre-B en el portal"]
     N3 --> N5["✅ Back office: encender el bot"]
     N4["🔧 T-42: asistente de primer ingreso"]
     N1 -.-> N4
@@ -51,15 +51,15 @@ flowchart TD
 
   subgraph R["4b · Prueba restaurante"]
     R1["✅ Pide 2 bandejas + 1 limonada<br/>→ total → confirma"] --> R2["🔧 T-36: domicilio o recoger<br/>+ dirección"]
-    R2 --> R3["⚙️ Foto del comprobante →<br/>IA lo lee + señales"]
+    R2 --> R3["✅ Bot da el Nequi →<br/>foto del comprobante →<br/>IA lo lee + señales"]
     R3 --> R4["✅ La dueña toca 'Aprobar #1'<br/>(o responde SÍ 1)"]
     R4 --> R5["🔧 T-37: número + código de retiro"]
     R5 --> R6["🔧 T-38: panel → Entregar"]
   end
 
   subgraph F["5 · Fraude y día pico"]
-    F1["⚙️ Mismo comprobante dos veces →<br/>⚠️ referencia repetida"]
-    F2["⚙️ Comprobante por menos plata →<br/>⚠️ monto distinto"]
+    F1["✅ Mismo comprobante dos veces →<br/>⚠️ referencia repetida"]
+    F2["✅ Comprobante por menos plata →<br/>⚠️ monto distinto"]
     F3["✅ Dos pedidos pendientes →<br/>se aprueba el correcto"]
     F4["🔧 T-39: 10 pedidos en modo resumen"]
   end
@@ -195,13 +195,12 @@ Cerrar sesión, entrar con el usuario de la dueña y abrir el negocio:
   - el tono del bot (Cercano, Neutral o Formal);
   - lo que el bot debe saber (dirección, medios de pago, políticas).
 
-⚙️ **Pedir comprobante (restaurante):** hoy no hay pantalla. Hasta **T-33** se activa a
-mano en Supabase, en `negocios.config`:
-```json
-"pagos": { "requiereComprobante": true, "telefonoDestino": "3000000000" }
-```
-Los datos de pago (el Nequi) se le dan al cliente en el texto de "lo que el bot debe
-saber", porque el mensaje de pago todavía no los incluye. Eso también lo resuelve T-33.
+**Cobro con comprobante (restaurante):** en Configuración → **Cobro con comprobante**:
+- activar "Pedir comprobante antes de aprobar";
+- cargar el número de Nequi, la llave Bre-B si la hay y el nombre del titular.
+
+El bot le manda esos datos al cliente al confirmar el pedido. El número de Nequi también
+sirve para avisar si el comprobante dice que se pagó a otro número.
 
 ### 3.4 Encender el bot
 
@@ -236,7 +235,7 @@ Desde el celular "cliente", escribirle al número del negocio:
 | `limonada de coco` | Preguntar cuántas |
 | `1` | Volver a preguntar si quiere algo más |
 | `no, eso es todo` | Mostrar el resumen con total $64.000 y pedir confirmación |
-| `sí` | Descontar stock y pedir la foto del comprobante (si está activo) |
+| `sí` | Descontar stock, darle el Nequi / la llave Bre-B y pedir la foto del comprobante |
 | *(foto de un comprobante de Nequi por $64.000)* | "Recibí tu comprobante…" |
 
 Con la IA en modo agente el bot puede juntar pasos: si el cliente escribe
@@ -267,9 +266,9 @@ Lo que todavía no pasa:
 
 | Prueba | Cómo | Qué tiene que pasar |
 |---|---|---|
-| Referencia repetida ⚙️ | Hacer dos pedidos y mandar **la misma** foto de comprobante | El segundo aviso a la dueña trae ⚠️ "La referencia … ya se usó antes" |
-| Monto distinto ⚙️ | Pedido de $64.000 y comprobante de $30.000 | ⚠️ con los dos montos |
-| Comprobante viejo ⚙️ | Comprobante de hace dos días | ⚠️ fecha vieja |
+| Referencia repetida ✅ | Hacer dos pedidos y mandar **la misma** foto de comprobante | El segundo aviso a la dueña trae ⚠️ "La referencia … ya se usó antes" |
+| Monto distinto ✅ | Pedido de $64.000 y comprobante de $30.000 | ⚠️ con los dos montos |
+| Comprobante viejo ✅ | Comprobante de hace dos días | ⚠️ fecha vieja |
 | Dos pedidos a la vez ✅ | Pedido #1 desde un celular y #2 desde otro; la dueña toca "Aprobar #2" | Se aprueba solo el #2; el #1 sigue esperando |
 | "SÍ" suelto con dos pendientes ✅ | La dueña escribe solo `sí` | El bot no aprueba nada y le lista "#1 … · #2 …" pidiendo el número |
 | Día pico 🔧 T-39 | 10 pedidos con el aviso en modo resumen | Un solo aviso con link al panel |

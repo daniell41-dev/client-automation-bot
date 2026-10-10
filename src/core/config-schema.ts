@@ -135,7 +135,14 @@ const messagesSchema = z.object({
  */
 const pagosSchema = z.object({
   requiereComprobante: z.boolean().optional(),
-  telefonoDestino: z.string().optional(),
+  telefonoDestino: z.string().max(40).optional(),
+  datosPago: z
+    .object({
+      nequi: z.string().max(40).optional(),
+      llaveBreB: z.string().max(80).optional(),
+      titular: z.string().max(80).optional(),
+    })
+    .optional(),
   wompi: z
     .object({
       enabled: z.boolean().optional(),
