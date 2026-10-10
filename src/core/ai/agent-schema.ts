@@ -20,6 +20,8 @@ const agentActionSchema = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("guardar_fecha"), fecha: z.string().min(1) }),
   /** El cliente eligió una modalidad de entrega (retirar / comer en el local, etc.). */
   z.object({ tipo: z.literal("guardar_modalidad"), modalidad: z.string().min(1) }),
+  /** T-36: la dirección de entrega de un pedido a domicilio. */
+  z.object({ tipo: z.literal("guardar_direccion"), direccion: z.string().min(1) }),
   /**
    * T-21: el cliente dio la cantidad de UN producto del pedido (no una cita).
    * `servicioId` debe ser un ítem de modo "pedido" del catálogo real —

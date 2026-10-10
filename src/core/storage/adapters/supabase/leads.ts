@@ -40,9 +40,12 @@ export function toRow(lead: Lead, negocioId: string | undefined): LeadRow {
     confirmed_at: lead.confirmedAt ?? null,
     // T-21: sin mapear acá, un pedido armado en varios turnos ("2 harinas",
     // después "1 aceite") se perdería entre un webhook y el siguiente al
-    // recargar el lead desde la base — no es el mismo caso que `entrega`
-    // (una sola pregunta, rara vez sobrevive más de un mensaje sin cerrarse).
+    // recargar el lead desde la base.
     items: lead.items ?? null,
+    // T-36: la modalidad y la dirección también se arman en varios turnos
+    // ("Domicilio", después la dirección, después "sí").
+    entrega: lead.entrega ?? null,
+    direccion: lead.direccion ?? null,
     negocio_id: negocioId ?? null,
   };
 }
@@ -66,6 +69,8 @@ export function fromRow(row: LeadRow): Lead {
     appointmentAt: row.appointment_at ?? undefined,
     confirmedAt: row.confirmed_at ?? undefined,
     items: row.items ?? undefined,
+    entrega: row.entrega ?? undefined,
+    direccion: row.direccion ?? undefined,
   };
 }
 

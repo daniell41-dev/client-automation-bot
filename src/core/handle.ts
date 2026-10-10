@@ -235,6 +235,7 @@ async function crearPedidoDelCarrito(
       total: totalCarrito(lead.items, config.services),
       moneda: config.currency,
       modalidad: lead.entrega,
+      direccion: lead.direccion,
       estado,
       stockReservado,
     });
@@ -924,6 +925,7 @@ async function notifyOwner(
       ? `${config.pedidos?.enabled ? "Pedido" : "Servicio"}: ${service.name}`
       : null,
     lead.entrega ? `Modalidad: ${lead.entrega}` : null,
+    lead.direccion ? `Dirección: ${lead.direccion}` : null,
     !esPedido && lead.tentativeDate ? `Fecha/hora: ${lead.tentativeDate}` : null,
     opciones.comprobante ? lineaComprobante(config, opciones.comprobante.descripcion) : null,
     ...(opciones.comprobante?.señales.map((s) => `⚠️ ${s.detalle}`) ?? []),
@@ -1162,6 +1164,8 @@ export async function handleOwnerApproval(
   lead.stage = "inicio";
   lead.serviceId = undefined;
   lead.items = undefined;
+  lead.entrega = undefined;
+  lead.direccion = undefined;
   await repo.save(lead);
   await cerrarDecisionDelPedido(pedidos, comprobantes, pedido, "rechazado");
   return {

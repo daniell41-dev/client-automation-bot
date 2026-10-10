@@ -27,6 +27,7 @@ export type ConversationStage =
   | "esperando_fecha" // se le pidió la fecha tentativa
   | "esperando_confirmacion" // se le pidió confirmar la cita (Sí/cambiar fecha)
   | "esperando_entrega" // se le preguntó la modalidad (retirar / comer en el local)
+  | "esperando_direccion" // T-36: eligió domicilio, se le pidió la dirección
   | "esperando_cantidad" // T-21: se le preguntó cuánto quiere de UN producto del carrito
   | "carrito_abierto" // T-21: tiene ≥1 producto cargado, se le preguntó si quiere algo más
   | "esperando_aprobacion" // T-21/PR5: el cliente confirmó el pedido, se le avisó a la dueña por WhatsApp y se espera su sí/no
@@ -474,6 +475,8 @@ export interface Lead {
   tentativeDate?: string;
   /** Modalidad elegida cuando `config.pedidos.enabled` (texto de la opción). */
   entrega?: string;
+  /** T-36: dirección de entrega, solo si la modalidad es a domicilio. */
+  direccion?: string;
   /**
    * Carrito de un pedido (T-21): ítems y cantidades. Solo lo usan los ítems
    * de modo "pedido" — un ítem de cita nunca lo toca, sigue viviendo en

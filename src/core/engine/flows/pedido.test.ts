@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { agregarAlCarrito, resumenCarrito, totalCarrito } from "@/core/engine/flows/pedido";
+import {
+  agregarAlCarrito,
+  esDomicilio,
+  pareceDireccion,
+  resumenCarrito,
+  totalCarrito,
+} from "@/core/engine/flows/pedido";
 import type { BusinessConfig, CartItem, Service } from "@/core/types";
 
 const config: BusinessConfig = {
@@ -70,5 +76,22 @@ describe("resumenCarrito", () => {
     expect(resumen).toContain("2x Harina 1 Kg");
     expect(resumen).toContain("1x Aceite 1 Lt");
     expect(resumen.split("\n").at(-1)).toContain("Total");
+  });
+});
+
+describe("esDomicilio / pareceDireccion (T-36)", () => {
+  it("reconoce las formas comunes de pedir a domicilio", () => {
+    expect(esDomicilio("Domicilio")).toBe(true);
+    expect(esDomicilio("Envío a casa")).toBe(true);
+    expect(esDomicilio("Delivery")).toBe(true);
+    expect(esDomicilio("Recoger en el local")).toBe(false);
+    expect(esDomicilio(undefined)).toBe(false);
+  });
+
+  it("una dirección necesita algún número o palabra de calle", () => {
+    expect(pareceDireccion("Calle 10 # 5-20")).toBe(true);
+    expect(pareceDireccion("Barrio La Riviera, casa azul")).toBe(true);
+    expect(pareceDireccion("ok")).toBe(false);
+    expect(pareceDireccion("ya te digo")).toBe(false);
   });
 });

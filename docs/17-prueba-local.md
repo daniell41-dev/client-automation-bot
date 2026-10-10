@@ -18,7 +18,7 @@ Leyenda: ✅ funciona hoy · 🔧 requiere la tarea indicada · ⚙️ hoy se pu
 ```mermaid
 flowchart TD
   subgraph E["0 · Entorno (una sola vez)"]
-    E1["✅ .env.local: Supabase, IA y WhatsApp<br/>(token permanente)"] --> E2["✅ Supabase: migraciones 0001→0016<br/>+ pnpm seed:supabase --admin"]
+    E1["✅ .env.local: Supabase, IA y WhatsApp<br/>(token permanente)"] --> E2["✅ Supabase: migraciones 0001→0017<br/>+ pnpm seed:supabase --admin"]
     E2 --> E3["✅ pnpm dev + ngrok"]
     E3 --> E4["✅ Webhook cargado en Meta<br/>+ subscribed_apps del WABA"]
   end
@@ -50,7 +50,7 @@ flowchart TD
   end
 
   subgraph R["4b · Prueba restaurante"]
-    R1["✅ Pide 2 bandejas + 1 limonada<br/>→ total → confirma"] --> R2["🔧 T-36: domicilio o recoger<br/>+ dirección"]
+    R1["✅ Pide 2 bandejas + 1 limonada<br/>→ total → confirma"] --> R2["✅ ¿Domicilio o recoger?<br/>+ dirección"]
     R2 --> R3["✅ Bot da el Nequi →<br/>foto del comprobante →<br/>IA lo lee + señales"]
     R3 --> R4["✅ La dueña toca 'Aprobar #1'<br/>(o responde SÍ 1)"]
     R4 --> R5["🔧 T-37: número + código de retiro"]
@@ -109,7 +109,7 @@ igual con el simulador: `pnpm sim --business <slug>`.
    - Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y
      `SUPABASE_SERVICE_ROLE_KEY`.
 2. **Supabase:** en el SQL Editor, correr **todas** las migraciones de
-   `supabase/migrations/` en orden (de `0001` a `0016`). Después:
+   `supabase/migrations/` en orden (de `0001` a `0017`). Después:
    ```bash
    pnpm seed:supabase --admin tucorreo@dominio.com TuClave123
    ```
@@ -188,6 +188,9 @@ Restaurante) ya configurados.
 Cerrar sesión, entrar con el usuario de la dueña y abrir el negocio:
 - **Catálogo:** los servicios o platos de la tabla de ejemplo, con precio (y stock en el
   restaurante).
+- **Modalidad (restaurante):** en la sección de citas, activar la pregunta de modalidad
+  con las opciones "Domicilio" y "Recoger en el local". Si el cliente elige domicilio,
+  el bot le pide la dirección.
 - **Citas/Horarios:** días y horas de atención. En belleza, cada servicio marcado como
   reservable.
 - **Configuración:**
@@ -234,7 +237,9 @@ Desde el celular "cliente", escribirle al número del negocio:
 | `2` | "¿Querés agregar algo más a tu pedido?" |
 | `limonada de coco` | Preguntar cuántas |
 | `1` | Volver a preguntar si quiere algo más |
-| `no, eso es todo` | Mostrar el resumen con total $64.000 y pedir confirmación |
+| `no, eso es todo` | Preguntar "¿domicilio o recoger?" (con la modalidad activada en Citas → Pedidos) |
+| `domicilio` | Pedir la dirección |
+| `Calle 10 # 5-20, barrio Centro` | Mostrar el resumen con total $64.000, "Entrega: Domicilio" y la dirección, y pedir confirmación |
 | `sí` | Descontar stock, darle el Nequi / la llave Bre-B y pedir la foto del comprobante |
 | *(foto de un comprobante de Nequi por $64.000)* | "Recibí tu comprobante…" |
 
@@ -255,7 +260,6 @@ Toca **Aprobar #1** (o escribe `SÍ 1`) y el cliente recibe la confirmación.
 queda vinculado (`comprobante_id`) y también pasa a `aprobado`.
 
 Lo que todavía no pasa:
-- 🔧 **T-36:** no pregunta domicilio o recoger en un pedido ni pide la dirección.
 - 🔧 **T-37 y T-38:** el pedido ya tiene número, pero todavía no hay código de retiro ni
   panel.
 - Si la dueña rechaza (`NO 1`), las unidades vuelven al stock. Un pedido que espera el

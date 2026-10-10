@@ -34,7 +34,13 @@ import {
 import { transition } from "@/core/engine/lead-state";
 import { limpiarDatosCapturados } from "@/core/engine/session-lifecycle";
 import { modoDelItem } from "@/core/engine/modo-item";
-import { agregarAlCarrito, resumenCarrito } from "@/core/engine/flows/pedido";
+import {
+  agregarAlCarrito,
+  esDomicilio,
+  lineasEntrega,
+  pareceDireccion,
+  resumenCarrito,
+} from "@/core/engine/flows/pedido";
 
 export interface RespondResult {
   /** Lead creado o actualizado tras procesar el mensaje. */
@@ -94,6 +100,8 @@ const DEFAULT_PEDIDO_VIGENTE =
 const ASK_ALGO_MAS = "¿Querés agregar algo más a tu pedido?";
 const ALGO_MAS_DONE_OPTION = "No, eso es todo";
 const PEDIDO_CONFIRM_OPTIONS = ["Sí, confirmar", "Agregar más"];
+/** T-36: se pide solo si el cliente eligió una modalidad a domicilio. */
+const ASK_DIRECCION = "¿A qué dirección te lo mandamos? Incluí el barrio y alguna referencia 🏠";
 
 /** Crea un lead nuevo a partir del primer mensaje. Exportado: lo reutiliza `agent.ts`. */
 export function createLead(message: IncomingMessage, now: Date): Lead {
@@ -271,6 +279,40 @@ export function respond(
     };
   };
 
+  /**
+   * T-36: cierre de un pedido. Antes de confirmarlo se pregunta la modalidad
+   * (si el negocio la usa) y, si es a domicilio, la dirección — un pedido a
+   * domicilio sin dirección no se puede entregar. El resumen que confirma el
+   * cliente ya trae las dos cosas, así no hay sorpresas en la puerta.
+   */
+  const askConfirmPedidoReply = (): { text: string; options?: string[] } => {
+    lead.stage = "esperando_confirmacion";
+    if (lead.state === "nuevo") lead.state = "interesado";
+    const resumen = joinParts(
+      resumenCarrito(lead.items ?? [], config.services, config),
+      lineasEntrega(lead.entrega, lead.direccion),
+    );
+    return {
+      text: joinParts(
+        resumen,
+        render(config.messages.askConfirmPedido ?? DEFAULT_ASK_CONFIRM_PEDIDO, leadVars(lead, config)),
+      ),
+      options: PEDIDO_CONFIRM_OPTIONS,
+    };
+  };
+
+  const siguientePasoPedido = (): { text: string; options?: string[] } => {
+    if (config.pedidos?.enabled && !lead.entrega) {
+      lead.stage = "esperando_entrega";
+      return { text: config.pedidos.pregunta, options: config.pedidos.opciones };
+    }
+    if (esDomicilio(lead.entrega) && !lead.direccion) {
+      lead.stage = "esperando_direccion";
+      return { text: ASK_DIRECCION };
+    }
+    return askConfirmPedidoReply();
+  };
+
   // 1) Etapas de captura de datos (tienen prioridad sobre todo lo demás).
   if (lead.stage === "esperando_nombre") {
     const pendingText = render(config.messages.askName, leadVars(lead, config));
@@ -299,6 +341,13 @@ export function respond(
     // pero se marca `unrecognized` para que la IA intente mejorarlo a una
     // opción real (ver `interpretableOptions` + `handleIncoming`).
     lead.entrega = matched ?? message.text.trim();
+    // T-36: en un pedido, después de la modalidad viene la dirección (si es
+    // a domicilio) o la confirmación — nunca una fecha.
+    if ((lead.items?.length ?? 0) > 0) {
+      const next = siguientePasoPedido();
+      reply(next.text, next.options);
+      return { lead, messages, unrecognized: !matched };
+    }
     if (!lead.tentativeDate) {
       lead.stage = "esperando_fecha";
       reply(render(config.messages.askDate, leadVars(lead, config)));
@@ -306,6 +355,23 @@ export function respond(
       reply(askConfirmText(), CONFIRM_OPTIONS);
     }
     return { lead, messages, unrecognized: !matched };
+  }
+
+  // 1a') Dirección de entrega de un pedido a domicilio (T-36).
+  if (lead.stage === "esperando_direccion") {
+    const interrupted = interruption(ASK_DIRECCION);
+    if (interrupted) {
+      reply(interrupted.text, interrupted.options);
+      return { lead, messages };
+    }
+    if (!pareceDireccion(message.text)) {
+      reply(ASK_DIRECCION);
+      return { lead, messages };
+    }
+    lead.direccion = message.text.trim();
+    const next = askConfirmPedidoReply();
+    reply(next.text, next.options);
+    return { lead, messages };
   }
 
   // 1a-bis) Cantidad de UN producto del pedido (T-21) — alternativa a
@@ -365,13 +431,8 @@ export function respond(
     }
 
     if (looksLikeDone(message.text)) {
-      lead.stage = "esperando_confirmacion";
-      if (lead.state === "nuevo") lead.state = "interesado";
-      const askConfirmPedidoText = render(
-        config.messages.askConfirmPedido ?? DEFAULT_ASK_CONFIRM_PEDIDO,
-        leadVars(lead, config),
-      );
-      reply(joinParts(resumenActual, askConfirmPedidoText), PEDIDO_CONFIRM_OPTIONS);
+      const next = siguientePasoPedido();
+      reply(next.text, next.options);
       return { lead, messages };
     }
 
@@ -405,7 +466,12 @@ export function respond(
   // algo cargado — el propio `lead.items` es la señal de cuál de los dos es.
   if (lead.stage === "esperando_confirmacion") {
     const esPedido = (lead.items?.length ?? 0) > 0;
-    const resumenPedido = esPedido ? resumenCarrito(lead.items!, config.services, config) : "";
+    const resumenPedido = esPedido
+      ? joinParts(
+          resumenCarrito(lead.items!, config.services, config),
+          lineasEntrega(lead.entrega, lead.direccion),
+        )
+      : "";
     const pendingText = esPedido
       ? joinParts(
           resumenPedido,
