@@ -12,6 +12,7 @@
  */
 
 import type { PaymentReceiptDescription } from "@/core/ai/payment-receipt-schema";
+import { normalizarReferencia, normalizarTelefono } from "@/core/engine/datos-pago";
 
 export type NivelSeñal = "alta" | "media" | "baja";
 
@@ -68,8 +69,11 @@ export function calcularSeñalesPago(
   const señales: Señal[] = [];
   const previos = negocio.comprobantesPrevios ?? [];
 
-  if (comprobante.referencia) {
-    const repetida = previos.some((p) => p.referencia === comprobante.referencia);
+  // T-33: se compara normalizado de los dos lados — los comprobantes
+  // guardados antes de T-33 tienen la referencia tal como la leyó la IA.
+  const referencia = normalizarReferencia(comprobante.referencia);
+  if (referencia) {
+    const repetida = previos.some((p) => normalizarReferencia(p.referencia) === referencia);
     if (repetida) {
       señales.push({
         tipo: "referencia_repetida",
@@ -87,11 +91,9 @@ export function calcularSeñalesPago(
     });
   }
 
-  if (
-    comprobante.telefonoDestino &&
-    negocio.telefonoDestino &&
-    comprobante.telefonoDestino !== negocio.telefonoDestino
-  ) {
+  const destinoComprobante = normalizarTelefono(comprobante.telefonoDestino);
+  const destinoNegocio = normalizarTelefono(negocio.telefonoDestino);
+  if (destinoComprobante && destinoNegocio && destinoComprobante !== destinoNegocio) {
     señales.push({
       tipo: "destino_no_coincide",
       nivel: "alta",

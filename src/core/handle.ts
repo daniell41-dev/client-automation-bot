@@ -35,6 +35,7 @@ import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { interpretableOptions, respond } from "@/core/engine/responder";
 import { buscarProducto } from "@/core/engine/buscar-producto";
 import { calcularSeñalesPago, type Señal } from "@/core/engine/señales-pago";
+import { normalizarReferencia, textoDatosPago } from "@/core/engine/datos-pago";
 import { decidirAccionWompi, type EstadoWompi } from "@/core/engine/pago-wompi";
 import { runAgentTurn } from "@/core/ai/agent";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
@@ -193,6 +194,9 @@ async function handleImageMessage(
 /** Default si el negocio no configuró `messages.pedirComprobante` (T-24.4). */
 const DEFAULT_PEDIR_COMPROBANTE =
   "Para confirmar tu pedido, hacé el pago y mandanos la foto del comprobante 📸";
+/** T-33: con datos de pago cargados, el cliente sabe A DÓNDE pagar sin tener que preguntar. */
+const DEFAULT_PEDIR_COMPROBANTE_CON_DATOS =
+  "Para confirmar tu pedido, pagá a:\n{{datosPago}}\n\nY mandanos la foto del comprobante 📸";
 
 /**
  * §1.6, no negociable: el cliente NUNCA se entera de "pago confirmado" acá —
@@ -375,7 +379,7 @@ async function handlePaymentReceiptMessage(
         descripcion,
         { total },
         {
-          telefonoDestino: config.pagos?.telefonoDestino,
+          telefonoDestino: config.pagos?.telefonoDestino ?? config.pagos?.datosPago?.nequi,
           comprobantesPrevios: previos.map((p) => ({
             referencia: p.referencia,
             contacto: p.leadId ?? "",
@@ -388,7 +392,7 @@ async function handlePaymentReceiptMessage(
       comprobanteCreado = await comprobantes.crear({
         negocio,
         leadId: lead.id,
-        referencia: descripcion.referencia,
+        referencia: normalizarReferencia(descripcion.referencia),
         monto: descripcion.monto,
         moneda: descripcion.moneda,
         banco: descripcion.banco,
@@ -719,9 +723,15 @@ export async function handleIncoming(
           // dueña todavía, se le pide el comprobante al cliente. Recién cuando
           // llega la foto (`handlePaymentReceiptMessage`) se le avisa a ella.
           const resumenPedido = resumenCarrito(lead.items!, config.services, config);
-          const pedirTexto = render(config.messages.pedirComprobante ?? DEFAULT_PEDIR_COMPROBANTE, {
-            nombre: lead.name ?? "",
-          });
+          const datosPago = textoDatosPago(config.pagos?.datosPago);
+          const plantillaPedir =
+            config.messages.pedirComprobante ??
+            (datosPago ? DEFAULT_PEDIR_COMPROBANTE_CON_DATOS : DEFAULT_PEDIR_COMPROBANTE);
+          // Un mensaje propio que no nombra {{datosPago}} igual recibe los
+          // datos al final: sin ellos el cliente no tiene cómo pagar.
+          const pedirTexto =
+            render(plantillaPedir, { nombre: lead.name ?? "", datosPago }) +
+            (datosPago && !plantillaPedir.includes("{{datosPago}}") ? `\n\n${datosPago}` : "");
           messages = [{ to: message.from, text: [resumenPedido, pedirTexto].filter(Boolean).join("\n\n") }];
         } else if (notifier && config.notifyPhoneNumber) {
           const alertasStockBajo = inventory

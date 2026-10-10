@@ -69,6 +69,17 @@ export function ConfiguracionEditor({
   const [direccion, setDireccion] = useState(direccionInicial);
   const [notifyPhoneNumber, setNotifyPhoneNumber] = useState(notifyPhoneNumberInicial);
   const [wompiEnabled, setWompiEnabled] = useState(initialPagos?.wompi?.enabled ?? false);
+  // T-33: cobro con comprobante (Nequi / Bre-B). El número de Nequi también
+  // alimenta la señal "destino no coincide" si no hay `telefonoDestino`
+  // cargado aparte (los negocios anteriores a T-33 pueden tenerlo).
+  const [requiereComprobante, setRequiereComprobante] = useState(
+    initialPagos?.requiereComprobante ?? false,
+  );
+  const [nequi, setNequi] = useState(
+    initialPagos?.datosPago?.nequi ?? initialPagos?.telefonoDestino ?? "",
+  );
+  const [llaveBreB, setLlaveBreB] = useState(initialPagos?.datosPago?.llaveBreB ?? "");
+  const [titular, setTitular] = useState(initialPagos?.datosPago?.titular ?? "");
   const [wompiRedirectUrl, setWompiRedirectUrl] = useState(
     initialPagos?.wompi?.redirectUrl ?? "",
   );
@@ -93,6 +104,13 @@ export function ConfiguracionEditor({
     ai,
     pagos: {
       ...initialPagos,
+      requiereComprobante,
+      telefonoDestino: nequi.trim() || undefined,
+      datosPago: {
+        nequi: nequi.trim() || undefined,
+        llaveBreB: llaveBreB.trim() || undefined,
+        titular: titular.trim() || undefined,
+      },
       wompi: { enabled: wompiEnabled, redirectUrl: wompiRedirectUrl.trim() || undefined },
     },
   };
@@ -181,6 +199,62 @@ export function ConfiguracionEditor({
           <p className="mt-1.5 text-xs text-ink-soft">
             Formato internacional sin espacios ni + (ej. 573001234567). Dejalo
             vacío para no recibir avisos.
+          </p>
+        </div>
+      </Card>
+
+      {/* Cobro con comprobante (T-33): el camino que funciona en cualquier
+          país y sin cuenta de comercio. El bot le da estos datos al cliente y
+          le pide la foto; la plata la verifica la dueña en su app del banco. */}
+      <Card
+        title="Cobro con comprobante"
+        subtitle="El cliente paga por Nequi o Bre-B y manda la foto; vos aprobás el pedido después de ver la plata en tu app."
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-ink">Pedir comprobante antes de aprobar</span>
+            <Toggle
+              checked={requiereComprobante}
+              onChange={setRequiereComprobante}
+              label="Pedir comprobante"
+            />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelCls} htmlFor="pago-nequi">Número de Nequi</label>
+              <input
+                id="pago-nequi"
+                className={inputCls}
+                value={nequi}
+                onChange={(e) => setNequi(e.target.value)}
+                placeholder="300 123 4567"
+              />
+            </div>
+            <div>
+              <label className={labelCls} htmlFor="pago-breb">Llave Bre-B (opcional)</label>
+              <input
+                id="pago-breb"
+                className={inputCls}
+                value={llaveBreB}
+                onChange={(e) => setLlaveBreB(e.target.value)}
+                placeholder="@minegocio"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelCls} htmlFor="pago-titular">A nombre de</label>
+              <input
+                id="pago-titular"
+                className={inputCls}
+                value={titular}
+                onChange={(e) => setTitular(e.target.value)}
+                placeholder="Nombre que ve el cliente al transferir"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-ink-soft">
+            El bot le manda estos datos al cliente al confirmar el pedido. Si el comprobante
+            dice que se pagó a otro número, te avisa. Se guarda con el botón &quot;Guardar
+            cambios&quot; de más abajo.
           </p>
         </div>
       </Card>
