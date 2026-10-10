@@ -13,6 +13,7 @@ import { toPedido } from "@/core/storage/adapters/supabase/pedidos";
 import type { PedidoRow } from "@/core/storage/adapters/supabase/api";
 import { armarPanel } from "@/core/engine/panel-pedidos";
 import { PedidosPanel, type SeñalesPorPedido } from "./pedidos-panel";
+import { PanelEnVivo } from "./en-vivo";
 
 export const dynamic = "force-dynamic";
 
@@ -81,13 +82,16 @@ export default async function PedidosPage({ params }: { params: Promise<{ slug: 
   );
 
   return (
-    <PedidosPanel
-      fotos={fotos}
-      slug={slug}
-      moneda={config.currency}
-      locale={config.locale ?? "es-CO"}
-      panel={armarPanel(filas.map(toPedido))}
-      señales={señales}
-    />
+    <>
+      <PanelEnVivo negocioId={negocio.id} />
+      <PedidosPanel
+        fotos={fotos}
+        slug={slug}
+        moneda={config.currency}
+        locale={config.locale ?? "es-CO"}
+        panel={armarPanel(filas.map(toPedido))}
+        señales={señales}
+      />
+    </>
   );
 }
