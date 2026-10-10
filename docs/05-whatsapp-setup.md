@@ -171,11 +171,20 @@ En **WhatsApp Manager → Plantillas de mensajes → Crear plantilla**:
 Tenés un pedido nuevo en {{1}}.
 Cliente: {{2}}
 Pedido: {{3}}
-Respondé SÍ para aceptarlo o NO para rechazarlo.
+Tocá Aprobar o Rechazar, o respondé SÍ o NO con el número del pedido.
 ```
 
+- **Botones** (T-31, recomendado): agregar dos botones de **respuesta rápida**, en este
+  orden: `Aprobar` y `Rechazar`. Con `WHATSAPP_TEMPLATE_BOTONES=true` en el `.env.local`,
+  el bot completa cada botón con el id del pedido, así un toque aprueba **ese** pedido
+  aunque hayan pasado más de 24h. Sin botones también funciona: la dueña responde
+  "SÍ 12" (el número viene en `{{3}}`).
+
 - **Ejemplos** (Meta los pide para aprobar): `{{1}}` = `Estética Bella`,
-  `{{2}}` = `Laura Pérez`, `{{3}}` = `2x Harina 1 Kg · 1x Aceite 1 Lt · Total: $45.000`
+  `{{2}}` = `Laura Pérez`, `{{3}}` = `#12 · 2x Harina 1 Kg · 1x Aceite 1 Lt · Total: $45.000`
+
+Si ya tenías aprobada la versión anterior (sin botones), editarla la manda de nuevo a
+revisión. También podés crear una nueva y cambiar `WHATSAPP_TEMPLATE_APROBACION`.
 
 La aprobación suele tardar entre unos minutos y un día.
 

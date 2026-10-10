@@ -211,6 +211,13 @@ export interface SupabaseDb {
   updatePedidoEstado(id: string, estado: string): Promise<void>;
   /** Pedidos del lead que no están en `estados_cerrados`, el más reciente primero. */
   selectPedidosAbiertosDeLead(leadId: string, estadosCerrados: string[]): Promise<PedidoRow[]>;
+  /** T-31 */
+  selectPedidoById(id: string): Promise<PedidoRow | null>;
+  selectPedidoPorNumero(negocioId: string, numero: number): Promise<PedidoRow | null>;
+  /** Pedidos del negocio en alguno de `estados`, por número ascendente. */
+  selectPedidosPorEstado(negocioId: string, estados: string[]): Promise<PedidoRow[]>;
+  updatePedidoComprobante(id: string, comprobanteId: string): Promise<void>;
+  updateComprobanteEstado(id: string, estado: string): Promise<void>;
 }
 
 /** Implementación real sobre supabase-js. */
@@ -452,6 +459,47 @@ class RealSupabaseDb implements SupabaseDb {
       .order("created_at", { ascending: false });
     if (error) throw error;
     return (data as PedidoRow[] | null) ?? [];
+  }
+
+  async selectPedidoById(id: string): Promise<PedidoRow | null> {
+    const { data, error } = await this.client.from("pedidos").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    return (data as PedidoRow | null) ?? null;
+  }
+
+  async selectPedidoPorNumero(negocioId: string, numero: number): Promise<PedidoRow | null> {
+    const { data, error } = await this.client
+      .from("pedidos")
+      .select("*")
+      .eq("negocio_id", negocioId)
+      .eq("numero", numero)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as PedidoRow | null) ?? null;
+  }
+
+  async selectPedidosPorEstado(negocioId: string, estados: string[]): Promise<PedidoRow[]> {
+    const { data, error } = await this.client
+      .from("pedidos")
+      .select("*")
+      .eq("negocio_id", negocioId)
+      .in("estado", estados)
+      .order("numero", { ascending: true });
+    if (error) throw error;
+    return (data as PedidoRow[] | null) ?? [];
+  }
+
+  async updatePedidoComprobante(id: string, comprobanteId: string): Promise<void> {
+    const { error } = await this.client
+      .from("pedidos")
+      .update({ comprobante_id: comprobanteId, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  async updateComprobanteEstado(id: string, estado: string): Promise<void> {
+    const { error } = await this.client.from("comprobantes").update({ estado }).eq("id", id);
+    if (error) throw error;
   }
 
   async selectWompiCredentials(negocioId: string): Promise<{

@@ -16,6 +16,7 @@ import { dirname, join } from "node:path";
 import type {
   Comprobante,
   ComprobanteRepository,
+  EstadoComprobante,
   NuevoComprobante,
 } from "@/core/storage/comprobante-repository";
 
@@ -69,5 +70,13 @@ export class JsonComprobanteRepository implements ComprobanteRepository {
   async listar(negocio: string): Promise<Comprobante[]> {
     const todos = await this.readAll();
     return todos.filter((c) => c.negocio === negocio);
+  }
+
+  async actualizarEstado(id: string, estado: EstadoComprobante): Promise<void> {
+    const todos = await this.readAll();
+    const comprobante = todos.find((c) => c.id === id);
+    if (!comprobante) throw new Error(`No existe el comprobante ${id}`);
+    comprobante.estado = estado;
+    await this.writeAll(todos);
   }
 }

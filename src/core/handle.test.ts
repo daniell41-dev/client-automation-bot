@@ -681,7 +681,7 @@ describe("handleOwnerApproval — la dueña acepta o rechaza por WhatsApp (T-21,
     expect(customerReply).toBeUndefined();
   });
 
-  it("con dos pedidos pendientes, resuelve el más viejo primero (FIFO)", async () => {
+  it("con dos pedidos pendientes y sin pedidos registrados, un SÍ suelto NO aprueba ninguno (T-31)", async () => {
     const repo = new InMemoryRepo();
     await driveHastaAprobacion(repo); // Laura, contact 57300000000
 
@@ -701,13 +701,12 @@ describe("handleOwnerApproval — la dueña acepta o rechaza por WhatsApp (T-21,
 
     expect(repo.leads.filter((l) => l.stage === "esperando_aprobacion")).toHaveLength(2);
 
-    const { ownerReply } = await handleOwnerApproval(ownerMsg("sí"), tiendaConNotify, repo);
-    expect(ownerReply.text).toContain("Laura"); // el primero en pedir, no Carlos
+    const { ownerReply, customerReply } = await handleOwnerApproval(ownerMsg("sí"), tiendaConNotify, repo);
 
-    const laura = repo.leads.find((l) => l.contact === "57300000000")!;
-    const carlos = repo.leads.find((l) => l.contact === "57300000001")!;
-    expect(laura.state).toBe("pagado");
-    expect(carlos.stage).toBe("esperando_aprobacion"); // el segundo sigue esperando
+    // Antes de T-31 se aprobaba el más viejo (FIFO): justo el agujero del fraude.
+    expect(ownerReply.text).toContain("no puedo saber");
+    expect(customerReply).toBeUndefined();
+    expect(repo.leads.every((l) => l.stage === "esperando_aprobacion")).toBe(true);
   });
 });
 
@@ -1463,6 +1462,10 @@ describe("handleIncoming — confirmación de pago con comprobante (T-24.4)", ()
     async listar(negocio: string): Promise<Comprobante[]> {
       return this.comprobantes.filter((c) => c.negocio === negocio);
     }
+    async actualizarEstado(id: string, estado: Comprobante["estado"]): Promise<void> {
+      const comprobante = this.comprobantes.find((c) => c.id === id);
+      if (comprobante) comprobante.estado = estado;
+    }
   }
 
   const tiendaConPagos: BusinessConfig = {
@@ -1951,7 +1954,7 @@ describe("pedido como entidad propia (T-30)", () => {
     const { db, pedidos } = pedidosEnMemoria();
     await confirmarCarrito(tiendaConNotify, repo, pedidos);
 
-    const { ownerReply } = await handleOwnerApproval(ownerMsg("sí"), tiendaConNotify, repo, new Date(), pedidos);
+    const { ownerReply } = await handleOwnerApproval(ownerMsg("sí"), tiendaConNotify, repo, new Date(), pedidos, "neg-1");
 
     expect(db.pedidos[0].estado).toBe("aprobado");
     expect(ownerReply.text).toContain("pedido #1 de Laura");
@@ -1962,7 +1965,7 @@ describe("pedido como entidad propia (T-30)", () => {
     const { db, pedidos } = pedidosEnMemoria();
     await confirmarCarrito(tiendaConNotify, repo, pedidos);
 
-    await handleOwnerApproval(ownerMsg("no"), tiendaConNotify, repo, new Date(), pedidos);
+    await handleOwnerApproval(ownerMsg("no"), tiendaConNotify, repo, new Date(), pedidos, "neg-1");
 
     expect(db.pedidos[0].estado).toBe("rechazado");
   });
@@ -1971,7 +1974,7 @@ describe("pedido como entidad propia (T-30)", () => {
     const repo = new InMemoryRepo();
     const { db, pedidos } = pedidosEnMemoria();
     await confirmarCarrito(tiendaConNotify, repo, pedidos);
-    await handleOwnerApproval(ownerMsg("no"), tiendaConNotify, repo, new Date(), pedidos);
+    await handleOwnerApproval(ownerMsg("no"), tiendaConNotify, repo, new Date(), pedidos, "neg-1");
 
     await confirmarCarrito(tiendaConNotify, repo, pedidos);
 
@@ -2066,5 +2069,148 @@ describe("pedido como entidad propia (T-30)", () => {
 
     expect(repo.leads[0].stage).toBe("esperando_aprobacion");
     expect(notifier.sent[0].text).toContain("pedido nuevo, esperando tu aprobación");
+  });
+});
+
+describe("aprobación por pedido, sin FIFO (T-31)", () => {
+  function ownerMsg(text: string, botonId?: string): IncomingMessage {
+    return { channel: "whatsapp", businessSlug: "tienda", from: "573009998888", text, timestamp: new Date().toISOString(), botonId };
+  }
+
+  function cliente(from: string) {
+    return (text: string): IncomingMessage => ({
+      channel: "mock",
+      businessSlug: "tienda",
+      from,
+      text,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  async function dosPedidos() {
+    const repo = new InMemoryRepo();
+    const db = makeFakeSupabaseDb();
+    const pedidos = new SupabasePedidoRepository(db);
+    const notifier = fakeNotifier();
+    for (const [from, nombre] of [["57300000000", "Laura"], ["57300000001", "Carlos"]] as const) {
+      const m = cliente(from);
+      for (const texto of ["harina", nombre, "2", "no, eso es todo", "sí"]) {
+        await handleIncoming(m(texto), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier,
+          undefined, "neg-1", undefined, undefined, undefined, pedidos);
+      }
+    }
+    return { repo, db, pedidos, notifier };
+  }
+
+  it("el aviso trae botones Aprobar/Rechazar con el id del pedido y la instrucción escrita", async () => {
+    const { db, notifier } = await dosPedidos();
+
+    expect(notifier.sent[0].botones).toEqual([
+      { id: `aprobar:${db.pedidos[0].id}`, titulo: "Aprobar #1" },
+      { id: `rechazar:${db.pedidos[0].id}`, titulo: "Rechazar #1" },
+    ]);
+    expect(notifier.sent[1].text).toContain("SÍ 2 / NO 2");
+    // La plantilla de respaldo también lleva el número.
+    expect(notifier.sent[1].plantillaParams?.[2]).toMatch(/^#2 · /);
+  });
+
+  it("tocar 'Aprobar #2' aprueba el #2 y deja el #1 esperando", async () => {
+    const { repo, db, pedidos } = await dosPedidos();
+
+    const { ownerReply, customerReply } = await handleOwnerApproval(
+      ownerMsg("Aprobar #2", `aprobar:${db.pedidos[1].id}`), tiendaConNotify, repo, new Date(), pedidos, "neg-1",
+    );
+
+    expect(ownerReply.text).toContain("pedido #2 de Carlos");
+    expect(customerReply?.to).toBe("57300000001");
+    expect(db.pedidos.map((p) => p.estado)).toEqual(["por_verificar", "aprobado"]);
+    expect(repo.leads.find((l) => l.contact === "57300000000")?.stage).toBe("esperando_aprobacion");
+  });
+
+  it("'SÍ 2' escrito aprueba el #2", async () => {
+    const { repo, db, pedidos } = await dosPedidos();
+
+    await handleOwnerApproval(ownerMsg("sí 2"), tiendaConNotify, repo, new Date(), pedidos, "neg-1");
+
+    expect(db.pedidos.map((p) => p.estado)).toEqual(["por_verificar", "aprobado"]);
+  });
+
+  it("un SÍ suelto con dos pendientes no aprueba nada y muestra la lista", async () => {
+    const { repo, db, pedidos } = await dosPedidos();
+
+    const { ownerReply, customerReply } = await handleOwnerApproval(ownerMsg("sí"), tiendaConNotify, repo, new Date(), pedidos, "neg-1");
+
+    expect(ownerReply.text).toContain("#1 Laura");
+    expect(ownerReply.text).toContain("#2 Carlos");
+    expect(customerReply).toBeUndefined();
+    expect(db.pedidos.map((p) => p.estado)).toEqual(["por_verificar", "por_verificar"]);
+  });
+
+  it("el botón de un pedido ya rechazado no lo reabre", async () => {
+    const { repo, db, pedidos } = await dosPedidos();
+    await handleOwnerApproval(ownerMsg("no 1"), tiendaConNotify, repo, new Date(), pedidos, "neg-1");
+
+    const { ownerReply, customerReply } = await handleOwnerApproval(
+      ownerMsg("Aprobar #1", `aprobar:${db.pedidos[0].id}`), tiendaConNotify, repo, new Date(), pedidos, "neg-1",
+    );
+
+    expect(ownerReply.text).toContain("ya estaba rechazado");
+    expect(customerReply).toBeUndefined();
+    expect(db.pedidos[0].estado).toBe("rechazado");
+  });
+
+  it("un número que no existe no aprueba nada", async () => {
+    const { repo, db, pedidos } = await dosPedidos();
+
+    const { ownerReply } = await handleOwnerApproval(ownerMsg("sí 99"), tiendaConNotify, repo, new Date(), pedidos, "neg-1");
+
+    expect(ownerReply.text).toContain("No encontré el pedido #99");
+    expect(db.pedidos.every((p) => p.estado === "por_verificar")).toBe(true);
+  });
+
+  it("el comprobante queda vinculado al pedido y toma la decisión de la dueña", async () => {
+    const tiendaConPagos: BusinessConfig = { ...tiendaConNotify, pagos: { requiereComprobante: true } };
+    const repo = new InMemoryRepo();
+    const db = makeFakeSupabaseDb();
+    const pedidos = new SupabasePedidoRepository(db);
+    const { SupabaseComprobanteRepository } = await import("@/core/storage/adapters/supabase/comprobantes");
+    const comprobantes = new SupabaseComprobanteRepository(db);
+    const notifier = fakeNotifier();
+    const m = cliente("57300000000");
+    for (const texto of ["harina", "Laura", "2", "no, eso es todo", "sí"]) {
+      await handleIncoming(m(texto), tiendaConPagos, repo, new Date(), undefined, undefined, undefined, notifier,
+        undefined, "neg-1", undefined, undefined, undefined, pedidos);
+    }
+    const llm: ILLMProvider = {
+      supportsVision: true,
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      async describePaymentReceipt() {
+        return { banco: "nequi", referencia: "M1", monto: 10000, moneda: "COP", legible: "completo" as const };
+      },
+    };
+    await handleIncoming(
+      { ...m(""), image: { mediaId: "m-1", mimeType: "image/jpeg" } },
+      tiendaConPagos, repo, new Date(), llm, undefined, undefined, notifier, undefined, "neg-1",
+      async () => ({ base64: "eA==", mimeType: "image/jpeg" }), comprobantes, undefined, pedidos,
+    );
+
+    expect(db.pedidos[0].comprobante_id).toBe(db.comprobantes[0].id);
+    expect(notifier.sent.at(-1)?.text).toContain("revisá en tu app del banco");
+
+    await handleOwnerApproval(ownerMsg("sí 1"), tiendaConPagos, repo, new Date(), pedidos, "neg-1", comprobantes);
+
+    expect(db.pedidos[0].estado).toBe("aprobado");
+    expect(db.comprobantes[0].estado).toBe("aprobado");
   });
 });

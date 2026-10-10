@@ -49,4 +49,10 @@ export interface ComprobanteRepository {
    * ni filtra por fecha: el volumen esperado por negocio es bajo.
    */
   listar(negocio: string): Promise<Comprobante[]>;
+
+  /**
+   * T-31: registra la decisión de la dueña sobre el pedido que respalda este
+   * comprobante. Nunca se llama a partir de la imagen sola (§1.6).
+   */
+  actualizarEstado(id: string, estado: EstadoComprobante): Promise<void>;
 }

@@ -43,9 +43,9 @@ import { citaCumplida, cerrarCitaCumplida } from "@/core/engine/appointment-life
 import { pedidoFinalizado, cerrarPedidoFinalizado } from "@/core/engine/pedido-lifecycle";
 import { inactivo, limpiarDatosCapturados, reseteablePorInactividad } from "@/core/engine/session-lifecycle";
 import { resumenCarrito, totalCarrito } from "@/core/engine/flows/pedido";
-import { interpretarRespuestaDueña } from "@/core/engine/approval";
+import { BOTON_APROBAR, BOTON_RECHAZAR, interpretarDecisionDueña } from "@/core/engine/approval";
 import { transition } from "@/core/engine/lead-state";
-import { transicionarPedido } from "@/core/engine/pedido-estado";
+import { pedidoPendienteDeDecision, transicionarPedido } from "@/core/engine/pedido-estado";
 import { DEFAULT_PEDIDO_CONFIRMADO, DEFAULT_PEDIDO_RECHAZADO } from "@/core/engine/responder";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { render } from "@/core/engine/templating";
@@ -317,6 +317,7 @@ async function handlePaymentReceiptMessage(
   const total = totalCarrito(lead.items ?? [], config.services);
 
   let señales: Señal[] = [];
+  let comprobanteCreado: { id: string } | undefined;
   if (comprobantes) {
     try {
       const previos = await comprobantes.listar(negocio);
@@ -334,7 +335,7 @@ async function handlePaymentReceiptMessage(
         lead.id,
         now,
       );
-      await comprobantes.crear({
+      comprobanteCreado = await comprobantes.crear({
         negocio,
         leadId: lead.id,
         referencia: descripcion.referencia,
@@ -352,12 +353,21 @@ async function handlePaymentReceiptMessage(
   // T-30: con comprobante en mano, el pedido pasa a esperar la decisión de
   // la dueña. Un segundo comprobante del mismo pedido lo deja igual.
   const pedido = await moverPedidoDelLead(pedidos, lead.id, "por_verificar");
+  // T-31: el comprobante queda atado a ESTE pedido, así la decisión de la
+  // dueña se registra también en el comprobante (aprobado / rechazado).
+  if (pedido && comprobanteCreado && pedidos) {
+    try {
+      await pedidos.vincularComprobante(pedido.id, comprobanteCreado.id);
+    } catch (err) {
+      console.error("[Pedidos] no se pudo vincular el comprobante al pedido:", err);
+    }
+  }
 
   if (notifier && config.notifyPhoneNumber) {
     await notifyOwner(lead, config, notifier, {
       pidiendoAprobacion: true,
       comprobante: { descripcion, señales },
-      numeroPedido: pedido?.numero,
+      pedido,
     });
   }
 
@@ -654,7 +664,7 @@ export async function handleIncoming(
           await notifyOwner(lead, config, notifier, {
             pidiendoAprobacion: true,
             alertasStockBajo,
-            numeroPedido: pedido?.numero,
+            pedido,
           });
         }
       }
@@ -804,8 +814,12 @@ async function notifyOwner(
     alertasStockBajo?: string[];
     /** T-24.4: si viene, se le muestran a la dueña los datos leídos del comprobante y las señales de riesgo (§1.7) — nunca un veredicto de validez. */
     comprobante?: { descripcion: PaymentReceiptDescription; señales: Señal[] };
-    /** T-30: número corto del pedido, para que la dueña sepa de cuál se trata. */
-    numeroPedido?: number;
+    /**
+     * T-30/T-31: el pedido del aviso. Con él, el aviso trae su número y los
+     * botones "Aprobar #N" / "Rechazar #N" que llevan su id — la dueña decide
+     * sobre ESTE pedido, nunca sobre "el más viejo".
+     */
+    pedido?: Pick<Pedido, "id" | "numero">;
   } = {},
 ): Promise<void> {
   const service = config.services.find((s) => s.id === lead.serviceId);
@@ -816,7 +830,7 @@ async function notifyOwner(
     // T-21/PR5: un pedido todavía no está "confirmado" en este punto — recién
     // lo está cuando la dueña responde. El título no debe prometer de más.
     opciones.pidiendoAprobacion
-      ? `🔔 ${config.name}: pedido ${opciones.numeroPedido ? `#${opciones.numeroPedido} ` : ""}nuevo, esperando tu aprobación`
+      ? `🔔 ${config.name}: pedido ${opciones.pedido ? `#${opciones.pedido.numero} ` : ""}nuevo, esperando tu aprobación`
       : `🔔 ${config.name}: confirmación nueva`,
     `Cliente: ${lead.name ?? lead.contact}`,
     esPedido ? resumenCarrito(lead.items!, config.services, config) : null,
@@ -827,9 +841,19 @@ async function notifyOwner(
     !esPedido && lead.tentativeDate ? `Fecha/hora: ${lead.tentativeDate}` : null,
     opciones.comprobante ? lineaComprobante(config, opciones.comprobante.descripcion) : null,
     ...(opciones.comprobante?.señales.map((s) => `⚠️ ${s.detalle}`) ?? []),
-    // T-21/PR5: instrucción explícita — es lo que el webhook interpreta como
-    // la respuesta de la dueña a ESTE pedido (ver `handleOwnerApproval`).
-    opciones.pidiendoAprobacion ? "Respondé SÍ para aceptarlo o NO para rechazarlo." : null,
+    // T-31: un comprobante es una imagen, y una imagen se falsifica. Lo único
+    // que verifica el pago es la app del banco de la dueña (§1.6 del plan).
+    opciones.pidiendoAprobacion && opciones.comprobante
+      ? "👀 Antes de aprobar, revisá en tu app del banco que la plata llegó."
+      : null,
+    // Instrucción explícita — es lo que el webhook interpreta como la
+    // respuesta de la dueña (ver `handleOwnerApproval`). Con número de
+    // pedido, también funciona escrita si el teléfono no muestra botones.
+    opciones.pidiendoAprobacion
+      ? opciones.pedido
+        ? `Tocá Aprobar o Rechazar, o respondé SÍ ${opciones.pedido.numero} / NO ${opciones.pedido.numero}.`
+        : "Respondé SÍ para aceptarlo o NO para rechazarlo."
+      : null,
     // T-22.2: va en el MISMO mensaje que el aviso del pedido — un mensaje
     // aparte por cada venta que cruce el umbral sería el mismo ruido que la
     // alerta ya evita adentro de `alertasDeStockBajo`.
@@ -843,9 +867,12 @@ async function notifyOwner(
   // —señales del comprobante, alertas de stock— solo entra en el texto libre:
   // la plantilla lleva lo mínimo para decidir, y su respuesta SÍ/NO reabre la
   // ventana para el resto de la conversación.
-  const resumenPlantilla = esPedido
+  const resumenCarritoTexto = esPedido
     ? resumenCarrito(lead.items!, config.services, config)
     : (service?.name ?? lead.tentativeDate ?? "");
+  const resumenPlantilla = opciones.pedido
+    ? `#${opciones.pedido.numero} · ${resumenCarritoTexto}`
+    : resumenCarritoTexto;
 
   try {
     await notifier.send({
@@ -854,6 +881,13 @@ async function notifyOwner(
       plantillaParams: opciones.pidiendoAprobacion
         ? [config.name, lead.name ?? lead.contact, resumenPlantilla]
         : undefined,
+      botones:
+        opciones.pidiendoAprobacion && opciones.pedido
+          ? [
+              { id: `${BOTON_APROBAR}${opciones.pedido.id}`, titulo: `Aprobar #${opciones.pedido.numero}` },
+              { id: `${BOTON_RECHAZAR}${opciones.pedido.id}`, titulo: `Rechazar #${opciones.pedido.numero}` },
+            ]
+          : undefined,
     });
   } catch (err) {
     console.error("[Notify] no se pudo avisar a la dueña por WhatsApp:", err);
@@ -897,52 +931,115 @@ export interface OwnerApprovalResult {
 }
 
 /**
- * Procesa la respuesta de la dueña (SÍ/NO) a un pedido pendiente de
- * aprobación (T-21/PR5). El webhook la llama en vez de `handleIncoming`
- * cuando reconoce que el remitente es `config.notifyPhoneNumber` — nunca se
- * mezcla con el funnel de cliente.
+ * Procesa la respuesta de la dueña a un pedido pendiente de aprobación
+ * (T-21/PR5). El webhook la llama en vez de `handleIncoming` cuando reconoce
+ * que el remitente es `config.notifyPhoneNumber` — nunca se mezcla con el
+ * funnel de cliente.
  *
- * Con más de un pedido esperando aprobación a la vez, resuelve el MÁS VIEJO
- * (FIFO): todavía no hay forma de que la dueña elija explícitamente CUÁL
- * desde WhatsApp (ver "Qué NO cubre" del PR).
+ * T-31: la respuesta se aplica a UN pedido identificado, nunca "al más
+ * viejo". El orden de confianza es: botón del aviso (lleva el id) > número
+ * escrito ("SÍ 12") > "SÍ" suelto, que solo vale si hay exactamente un pedido
+ * esperando. Con varios, no se aprueba nada y se le muestra la lista: aprobar
+ * el pedido equivocado es justo lo que aprovecha un comprobante falso.
  */
 export async function handleOwnerApproval(
   message: IncomingMessage,
   config: BusinessConfig,
   repo: LeadRepository,
   now: Date = new Date(),
-  /** T-30: sin esto, el pedido no cambia de estado (solo el lead, como antes). */
+  /** T-30: sin esto, se decide solo sobre los leads (y únicamente si hay uno pendiente). */
   pedidos?: PedidoRepository,
+  /** UUID del negocio en Supabase, o su slug — la misma clave con la que se crearon los pedidos. */
+  negocio?: string,
+  /** T-31: para registrar la decisión en el comprobante del pedido. */
+  comprobantes?: ComprobanteRepository,
 ): Promise<OwnerApprovalResult> {
-  const decision = interpretarRespuestaDueña(message.text);
-  if (!decision) {
+  const respuesta = interpretarDecisionDueña(message.text, message.botonId);
+  if (!respuesta) {
     return {
-      ownerReply: { to: message.from, text: "No te entendí — respondé SÍ o NO al pedido pendiente 🙏" },
+      ownerReply: {
+        to: message.from,
+        text: "No te entendí — tocá Aprobar o Rechazar en el aviso, o respondé SÍ o NO con el número del pedido (ej: SÍ 12) 🙏",
+      },
     };
+  }
+  const reply = (text: string): OwnerApprovalResult => ({ ownerReply: { to: message.from, text } });
+  const negocioKey = negocio ?? config.slug;
+  const referencia = respuesta.numero !== undefined ? `#${respuesta.numero}` : "ese pedido";
+
+  // 1. ¿De qué pedido habla?
+  let pedido: Pedido | null = null;
+  if (pedidos) {
+    try {
+      if (respuesta.pedidoId) {
+        pedido = await pedidos.obtener(respuesta.pedidoId);
+      } else if (respuesta.numero !== undefined) {
+        pedido = await pedidos.porNumero(negocioKey, respuesta.numero);
+      } else {
+        const pendientes = await pedidos.pendientesDeDecision(negocioKey);
+        if (pendientes.length > 1) {
+          const lista = pendientes
+            .map((p) => `#${p.numero} ${p.cliente ?? p.contacto} · ${formatPrice(config, p.total)}`)
+            .join("\n");
+          return reply(
+            `Tenés ${pendientes.length} pedidos esperando:\n${lista}\n\nRespondé SÍ o NO con el número (ej: SÍ ${pendientes[0].numero}), así no apruebo el equivocado.`,
+          );
+        }
+        pedido = pendientes[0] ?? null;
+      }
+    } catch (err) {
+      console.error("[Pedidos] no se pudieron consultar los pedidos, se decide sobre los leads:", err);
+    }
   }
 
-  const pendientes = (await repo.list(config.slug)).filter(
-    (l) => l.stage === "esperando_aprobacion",
-  );
-  if (pendientes.length === 0) {
-    return {
-      ownerReply: { to: message.from, text: "No hay ningún pedido pendiente de aprobación ahora mismo." },
-    };
+  if (respuesta.pedidoId || respuesta.numero !== undefined) {
+    if (!pedido || pedido.negocio !== negocioKey) {
+      return reply(`No encontré el pedido ${referencia}. Revisá el número en el aviso.`);
+    }
+    if (!pedidoPendienteDeDecision(pedido.estado)) {
+      return reply(`El pedido #${pedido.numero} ya estaba ${pedido.estado === "rechazado" ? "rechazado" : "resuelto"}; no cambié nada.`);
+    }
   }
-  // FIFO: el que espera hace más tiempo tiene prioridad.
-  pendientes.sort((a, b) => a.updatedAt.localeCompare(b.updatedAt));
-  const lead = pendientes[0];
+
+  // 2. El lead del pedido (o, sin pedidos, el único lead esperando).
+  let lead: Lead | null = null;
+  if (pedido) {
+    lead = await repo.getById(pedido.leadId);
+  } else {
+    // Sin pedido registrado (anterior a T-30, o su creación falló): mismo
+    // criterio que con pedidos — solo se decide si hay UN lead esperando.
+    const pendientes = (await repo.list(config.slug)).filter((l) => l.stage === "esperando_aprobacion");
+    if (pendientes.length === 0) {
+      return reply("No hay ningún pedido pendiente de aprobación ahora mismo.");
+    }
+    if (pendientes.length > 1) {
+      return reply(
+        `Hay ${pendientes.length} pedidos esperando y no puedo saber a cuál respondés. Respondé con el número del pedido que figura en el aviso (ej: SÍ 12).`,
+      );
+    }
+    lead = pendientes[0] ?? null;
+  }
+  if (!lead || lead.stage !== "esperando_aprobacion") {
+    return reply(
+      pedido
+        ? `El pedido #${pedido.numero} ya no está esperando aprobación; no cambié nada.`
+        : "No hay ningún pedido pendiente de aprobación ahora mismo.",
+    );
+  }
+
+  // 3. Aplicar la decisión al lead, al pedido y al comprobante.
   const resumen = resumenCarrito(lead.items ?? [], config.services, config);
   const nombreVars = { nombre: lead.name ?? "" };
+  const etiqueta = etiquetaPedido(lead, pedido ?? undefined);
 
-  if (decision === "aceptado") {
+  if (respuesta.decision === "aceptado") {
     lead.state = transition(lead.state, "pagado");
     lead.stage = "datos_completos";
     lead.confirmedAt = now.toISOString();
     await repo.save(lead);
-    const pedido = await moverPedidoDelLead(pedidos, lead.id, "aprobado");
+    await cerrarDecisionDelPedido(pedidos, comprobantes, pedido, "aprobado");
     return {
-      ownerReply: { to: message.from, text: `Listo, confirmado el ${etiquetaPedido(lead, pedido)} ✅` },
+      ownerReply: { to: message.from, text: `Listo, confirmado el ${etiqueta} ✅` },
       customerReply: {
         to: lead.contact,
         text: [resumen, render(config.messages.pedidoConfirmado ?? DEFAULT_PEDIDO_CONFIRMADO, nombreVars)]
@@ -959,14 +1056,36 @@ export async function handleOwnerApproval(
   lead.serviceId = undefined;
   lead.items = undefined;
   await repo.save(lead);
-  const pedido = await moverPedidoDelLead(pedidos, lead.id, "rechazado");
+  await cerrarDecisionDelPedido(pedidos, comprobantes, pedido, "rechazado");
   return {
-    ownerReply: { to: message.from, text: `Marcado como rechazado el ${etiquetaPedido(lead, pedido)}.` },
+    ownerReply: { to: message.from, text: `Marcado como rechazado el ${etiqueta}.` },
     customerReply: {
       to: lead.contact,
       text: render(config.messages.pedidoRechazado ?? DEFAULT_PEDIDO_RECHAZADO, nombreVars),
     },
   };
+}
+
+/**
+ * T-31: registra la decisión de la dueña en el pedido y en su comprobante.
+ * Best-effort, mismo criterio que `moverPedidoDelLead`: el cliente ya quedó
+ * avisado por el lead, un fallo acá solo deja el registro atrasado.
+ */
+async function cerrarDecisionDelPedido(
+  pedidos: PedidoRepository | undefined,
+  comprobantes: ComprobanteRepository | undefined,
+  pedido: Pedido | null,
+  hacia: "aprobado" | "rechazado",
+): Promise<void> {
+  if (!pedidos || !pedido) return;
+  try {
+    await pedidos.actualizarEstado(pedido.id, transicionarPedido(pedido.estado, hacia));
+    if (pedido.comprobanteId && comprobantes) {
+      await comprobantes.actualizarEstado(pedido.comprobanteId, hacia);
+    }
+  } catch (err) {
+    console.error(`[Pedidos] no se pudo registrar el pedido #${pedido.numero} como "${hacia}":`, err);
+  }
 }
 
 /** Resultado de procesar un evento de Wompi ya verificado (T-24.5). */

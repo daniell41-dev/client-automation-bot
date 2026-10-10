@@ -61,7 +61,8 @@ lectura-resta-escritura.
 
 ## ADR-003: Aprobación de la dueña por WhatsApp, no por un dashboard
 
-**Status:** accepted
+**Status:** accepted. La resolución FIFO quedó reemplazada por ADR-004 (T-31): la
+dueña aprueba un pedido identificado (botón o número), nunca "el más viejo".
 
 **Contexto:** Cuando hay un pedido pendiente (`stage: "esperando_aprobacion"`),
 alguien tiene que confirmarlo o rechazarlo. La dueña ya revisa el WhatsApp del
@@ -133,3 +134,9 @@ solución posible:
   juntos. Mientras convivan, el lead sigue siendo quien decide la conversación
   y el pedido es el registro de la venta. Un pedido que nunca se resuelve queda
   en `esperando_pago` hasta que exista el vencimiento (T-32).
+
+**Implementado en T-31:** el aviso a la dueña trae los botones "Aprobar #N" /
+"Rechazar #N" con el id del pedido, y como respaldo se acepta "SÍ N" escrito. Un
+"SÍ" suelto solo se aplica si hay exactamente un pedido esperando. Si hay más, el
+bot no aprueba nada y le muestra la lista. Mismo criterio sin tabla de pedidos:
+nunca se adivina.

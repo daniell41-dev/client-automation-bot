@@ -15,6 +15,8 @@ import type {
 
 /** Estados finales — mismos que `pedidoCerrado` en `pedido-estado.ts`. */
 const ESTADOS_CERRADOS: EstadoPedido[] = ["entregado", "rechazado", "vencido"];
+/** Esperando decisión — mismos que `pedidoPendienteDeDecision`. */
+const ESTADOS_PENDIENTES: EstadoPedido[] = ["esperando_pago", "por_verificar"];
 
 function toPedido(row: PedidoRow): Pedido {
   return {
@@ -63,5 +65,24 @@ export class SupabasePedidoRepository implements PedidoRepository {
   async abiertoDeLead(leadId: string): Promise<Pedido | null> {
     const rows = await this.db.selectPedidosAbiertosDeLead(leadId, ESTADOS_CERRADOS);
     return rows[0] ? toPedido(rows[0]) : null;
+  }
+
+  async obtener(id: string): Promise<Pedido | null> {
+    const row = await this.db.selectPedidoById(id);
+    return row ? toPedido(row) : null;
+  }
+
+  async porNumero(negocio: string, numero: number): Promise<Pedido | null> {
+    const row = await this.db.selectPedidoPorNumero(negocio, numero);
+    return row ? toPedido(row) : null;
+  }
+
+  async pendientesDeDecision(negocio: string): Promise<Pedido[]> {
+    const rows = await this.db.selectPedidosPorEstado(negocio, ESTADOS_PENDIENTES);
+    return rows.map(toPedido);
+  }
+
+  async vincularComprobante(id: string, comprobanteId: string): Promise<void> {
+    await this.db.updatePedidoComprobante(id, comprobanteId);
   }
 }

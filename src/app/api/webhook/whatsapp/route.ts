@@ -129,6 +129,7 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
     ? {
         nombre: process.env.WHATSAPP_TEMPLATE_APROBACION,
         idioma: process.env.WHATSAPP_TEMPLATE_IDIOMA ?? "es",
+        conBotones: process.env.WHATSAPP_TEMPLATE_BOTONES === "true",
       }
     : undefined;
 
@@ -186,6 +187,7 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
           from: parsed.from,
           text: parsed.text,
           timestamp: parsed.timestamp,
+          botonId: parsed.botonId,
         };
         const { ownerReply, customerReply } = await handleOwnerApproval(
           ownerMessage,
@@ -193,6 +195,8 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
           repo,
           new Date(),
           pedidos,
+          resolved.negocioId ?? business.slug,
+          comprobantes,
         );
         if (channel) {
           await channel.send(ownerReply);

@@ -9,7 +9,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { pedidoCerrado } from "@/core/engine/pedido-estado";
+import { pedidoCerrado, pedidoPendienteDeDecision } from "@/core/engine/pedido-estado";
 import type {
   EstadoPedido,
   NuevoPedido,
@@ -73,5 +73,28 @@ export class JsonPedidoRepository implements PedidoRepository {
       .filter((p) => p.leadId === leadId && !pedidoCerrado(p.estado))
       .sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
     return abiertos[0] ?? null;
+  }
+
+  async obtener(id: string): Promise<Pedido | null> {
+    return (await this.readAll()).find((p) => p.id === id) ?? null;
+  }
+
+  async porNumero(negocio: string, numero: number): Promise<Pedido | null> {
+    return (await this.readAll()).find((p) => p.negocio === negocio && p.numero === numero) ?? null;
+  }
+
+  async pendientesDeDecision(negocio: string): Promise<Pedido[]> {
+    return (await this.readAll())
+      .filter((p) => p.negocio === negocio && pedidoPendienteDeDecision(p.estado))
+      .sort((a, b) => a.numero - b.numero);
+  }
+
+  async vincularComprobante(id: string, comprobanteId: string): Promise<void> {
+    const todos = await this.readAll();
+    const pedido = todos.find((p) => p.id === id);
+    if (!pedido) throw new Error(`No existe el pedido ${id}`);
+    pedido.comprobanteId = comprobanteId;
+    pedido.actualizadoEn = new Date().toISOString();
+    await this.writeAll(todos);
   }
 }

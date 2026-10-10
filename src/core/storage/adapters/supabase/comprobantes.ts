@@ -4,7 +4,12 @@
  * migración 0013.
  */
 
-import type { Comprobante, ComprobanteRepository, NuevoComprobante } from "@/core/storage/comprobante-repository";
+import type {
+  Comprobante,
+  ComprobanteRepository,
+  EstadoComprobante,
+  NuevoComprobante,
+} from "@/core/storage/comprobante-repository";
 import type { ComprobanteRow, SupabaseDb } from "@/core/storage/adapters/supabase/api";
 
 function toComprobante(row: ComprobanteRow): Comprobante {
@@ -43,5 +48,9 @@ export class SupabaseComprobanteRepository implements ComprobanteRepository {
   async listar(negocio: string): Promise<Comprobante[]> {
     const rows = await this.db.listComprobantes(negocio);
     return rows.map(toComprobante);
+  }
+
+  async actualizarEstado(id: string, estado: EstadoComprobante): Promise<void> {
+    await this.db.updateComprobanteEstado(id, estado);
   }
 }

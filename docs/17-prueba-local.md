@@ -18,7 +18,7 @@ Leyenda: ✅ funciona hoy · 🔧 requiere la tarea indicada · ⚙️ hoy se pu
 ```mermaid
 flowchart TD
   subgraph E["0 · Entorno (una sola vez)"]
-    E1["✅ .env.local: Supabase, IA y WhatsApp<br/>(token permanente)"] --> E2["✅ Supabase: migraciones 0001→0014<br/>+ pnpm seed:supabase --admin"]
+    E1["✅ .env.local: Supabase, IA y WhatsApp<br/>(token permanente)"] --> E2["✅ Supabase: migraciones 0001→0015<br/>+ pnpm seed:supabase --admin"]
     E2 --> E3["✅ pnpm dev + ngrok"]
     E3 --> E4["✅ Webhook cargado en Meta<br/>+ subscribed_apps del WABA"]
   end
@@ -52,7 +52,7 @@ flowchart TD
   subgraph R["4b · Prueba restaurante"]
     R1["✅ Pide 2 bandejas + 1 limonada<br/>→ total → confirma"] --> R2["🔧 T-36: domicilio o recoger<br/>+ dirección"]
     R2 --> R3["⚙️ Foto del comprobante →<br/>IA lo lee + señales"]
-    R3 --> R4["✅ La dueña responde SÍ<br/>(🔧 T-31: botón por pedido)"]
+    R3 --> R4["✅ La dueña toca 'Aprobar #1'<br/>(o responde SÍ 1)"]
     R4 --> R5["🔧 T-37: número + código de retiro"]
     R5 --> R6["🔧 T-38: panel → Entregar"]
   end
@@ -60,7 +60,7 @@ flowchart TD
   subgraph F["5 · Fraude y día pico"]
     F1["⚙️ Mismo comprobante dos veces →<br/>⚠️ referencia repetida"]
     F2["⚙️ Comprobante por menos plata →<br/>⚠️ monto distinto"]
-    F3["🔧 T-31: dos pedidos pendientes →<br/>se aprueba el correcto"]
+    F3["✅ Dos pedidos pendientes →<br/>se aprueba el correcto"]
     F4["🔧 T-39: 10 pedidos en modo resumen"]
   end
 
@@ -109,7 +109,7 @@ igual con el simulador: `pnpm sim --business <slug>`.
    - Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y
      `SUPABASE_SERVICE_ROLE_KEY`.
 2. **Supabase:** en el SQL Editor, correr **todas** las migraciones de
-   `supabase/migrations/` en orden (de `0001` a `0014`). Después:
+   `supabase/migrations/` en orden (de `0001` a `0015`). Después:
    ```bash
    pnpm seed:supabase --admin tucorreo@dominio.com TuClave123
    ```
@@ -243,16 +243,22 @@ Con la IA en modo agente el bot puede juntar pasos: si el cliente escribe
 `2 bandejas paisas y una limonada`, debería armar el carrito de una. Lo que importa es el
 resultado (el resumen con el total correcto), no la cantidad de mensajes.
 
-**La dueña** recibe "pedido nuevo, esperando tu aprobación" con el resumen, los datos del
-comprobante y las ⚠️ señales si las hay. Responde `SÍ` y el cliente recibe la
-confirmación.
+**La dueña** recibe "pedido #1 nuevo, esperando tu aprobación" con:
+- el resumen;
+- los datos del comprobante y las ⚠️ señales, si las hay;
+- el recordatorio de revisar su app del banco;
+- los botones **Aprobar #1** / **Rechazar #1**.
+
+Toca **Aprobar #1** (o escribe `SÍ 1`) y el cliente recibe la confirmación.
+
+**En Supabase**, la tabla `pedidos` tiene el #1 con sus ítems y su estado:
+`esperando_pago` → `por_verificar` (llegó el comprobante) → `aprobado`. El comprobante
+queda vinculado (`comprobante_id`) y también pasa a `aprobado`.
 
 Lo que todavía no pasa:
 - 🔧 **T-36:** no pregunta domicilio o recoger en un pedido ni pide la dirección.
-- 🔧 **T-31:** con dos pedidos pendientes, un `SÍ` aprueba el **más viejo**, no
-  necesariamente el que la dueña está mirando. No probar con dos pedidos a la vez
-  hasta T-31.
-- 🔧 **T-37 y T-38:** no hay número de pedido, ni código de retiro, ni panel.
+- 🔧 **T-37 y T-38:** el pedido ya tiene número, pero todavía no hay código de retiro ni
+  panel.
 - 🔧 **T-32:** si la dueña responde `NO`, el stock no se devuelve.
 
 ## Paso 5 · Fraude y día pico
@@ -262,7 +268,8 @@ Lo que todavía no pasa:
 | Referencia repetida ⚙️ | Hacer dos pedidos y mandar **la misma** foto de comprobante | El segundo aviso a la dueña trae ⚠️ "La referencia … ya se usó antes" |
 | Monto distinto ⚙️ | Pedido de $64.000 y comprobante de $30.000 | ⚠️ con los dos montos |
 | Comprobante viejo ⚙️ | Comprobante de hace dos días | ⚠️ fecha vieja |
-| Dos pedidos a la vez 🔧 T-31 | A sin comprobante, B con comprobante, la dueña aprueba B | Se aprueba B; A sigue pendiente |
+| Dos pedidos a la vez ✅ | Pedido #1 desde un celular y #2 desde otro; la dueña toca "Aprobar #2" | Se aprueba solo el #2; el #1 sigue esperando |
+| "SÍ" suelto con dos pendientes ✅ | La dueña escribe solo `sí` | El bot no aprueba nada y le lista "#1 … · #2 …" pidiendo el número |
 | Día pico 🔧 T-39 | 10 pedidos con el aviso en modo resumen | Un solo aviso con link al panel |
 
 ---

@@ -222,3 +222,45 @@ describe("WhatsAppChannel.send — respaldo con plantilla (T-25)", () => {
     await expect(channel.send(mensajeConPlantilla)).rejects.toThrow(/texto y plantilla/);
   });
 });
+
+describe("botones de respuesta (T-31)", () => {
+  const botones = [
+    { id: "aprobar:ped-1", titulo: "Aprobar #12" },
+    { id: "rechazar:ped-1", titulo: "Rechazar #12" },
+  ];
+
+  it("con botones manda un mensaje interactivo con el id de cada botón", () => {
+    const { init } = buildSendRequest(opts, { to: "573009998888", text: "Pedido #12", botones });
+    const body = JSON.parse(String(init.body));
+    expect(body.type).toBe("interactive");
+    expect(body.interactive.body.text).toBe("Pedido #12");
+    expect(body.interactive.action.buttons).toEqual([
+      { type: "reply", reply: { id: "aprobar:ped-1", title: "Aprobar #12" } },
+      { type: "reply", reply: { id: "rechazar:ped-1", title: "Rechazar #12" } },
+    ]);
+  });
+
+  it("si el texto supera el límite de un interactivo, va como texto plano (sin perder el mensaje)", () => {
+    const { init } = buildSendRequest(opts, { to: "573009998888", text: "x".repeat(1100), botones });
+    expect(JSON.parse(String(init.body)).type).toBe("text");
+  });
+
+  it("la plantilla con botones lleva el id de cada botón como payload, en orden", () => {
+    const { init } = buildTemplateRequest(
+      { ...opts, plantilla: { ...plantilla, conBotones: true } },
+      "573009998888",
+      ["Tienda", "Laura", "#12 · 2x Harina"],
+      botones,
+    );
+    const components = JSON.parse(String(init.body)).template.components;
+    expect(components.slice(1)).toEqual([
+      { type: "button", sub_type: "quick_reply", index: "0", parameters: [{ type: "payload", payload: "aprobar:ped-1" }] },
+      { type: "button", sub_type: "quick_reply", index: "1", parameters: [{ type: "payload", payload: "rechazar:ped-1" }] },
+    ]);
+  });
+
+  it("una plantilla sin botones cargados en Meta no los manda (Meta rechazaría el envío)", () => {
+    const { init } = buildTemplateRequest({ ...opts, plantilla }, "573009998888", ["a", "b", "c"], botones);
+    expect(JSON.parse(String(init.body)).template.components).toHaveLength(1);
+  });
+});

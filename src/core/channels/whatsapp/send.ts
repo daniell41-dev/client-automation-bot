@@ -21,7 +21,17 @@ export interface WhatsAppChannelOptions {
    * rechaza por ventana de 24h cerrada. Sin esto, el comportamiento es el de
    * siempre: si Meta rechaza, `send` lanza y quien llama decide.
    */
-  plantilla?: { nombre: string; idioma: string };
+  plantilla?: {
+    nombre: string;
+    idioma: string;
+    /**
+     * T-31: la plantilla tiene botones de respuesta rápida ("Aprobar" /
+     * "Rechazar", en ese orden) cargados en Meta. Si es así, el id de cada
+     * botón del mensaje viaja como su payload y vuelve al tocarlo — la dueña
+     * aprueba ESE pedido aunque hayan pasado más de 24h.
+     */
+    conBotones?: boolean;
+  };
 }
 
 export interface SendRequest {
@@ -66,9 +76,10 @@ export function aplanarParametro(texto: string): string {
 
 /** Construye la petición de envío de una plantilla aprobada (HSM). */
 export function buildTemplateRequest(
-  opts: WhatsAppChannelOptions & { plantilla: { nombre: string; idioma: string } },
+  opts: WhatsAppChannelOptions & { plantilla: NonNullable<WhatsAppChannelOptions["plantilla"]> },
   to: string,
   parametros: string[],
+  botones: { id: string }[] = [],
 ): SendRequest {
   const version = opts.apiVersion ?? "v21.0";
   const url = `https://graph.facebook.com/${version}/${opts.phoneNumberId}/messages`;
@@ -88,6 +99,16 @@ export function buildTemplateRequest(
             text: aplanarParametro(valor),
           })),
         },
+        // El título de cada botón es fijo (lo aprobó Meta); lo único que se
+        // completa al enviar es el payload, por posición.
+        ...(opts.plantilla.conBotones
+          ? botones.slice(0, MAX_BOTONES).map((b, index) => ({
+              type: "button",
+              sub_type: "quick_reply",
+              index: String(index),
+              parameters: [{ type: "payload", payload: b.id }],
+            }))
+          : []),
       ],
     },
   };
@@ -104,20 +125,51 @@ export function buildTemplateRequest(
   };
 }
 
-/** Construye la URL y el cuerpo de la petición de envío de un mensaje de texto. */
+/** Límites de Meta para mensajes interactivos con botones de respuesta. */
+const MAX_BOTONES = 3;
+const MAX_TITULO_BOTON = 20;
+const MAX_CUERPO_INTERACTIVO = 1024;
+
+/**
+ * T-31: los botones solo se usan si el cuerpo entra en el límite de un
+ * mensaje interactivo. Si no entra, Meta rechazaría el mensaje entero; se
+ * manda como texto plano, que igual trae la instrucción escrita ("SÍ 12").
+ */
+function usaBotones(message: OutgoingMessage): boolean {
+  return (message.botones?.length ?? 0) > 0 && message.text.length <= MAX_CUERPO_INTERACTIVO;
+}
+
+/** Construye la URL y el cuerpo de la petición de envío (texto, o interactivo si trae botones). */
 export function buildSendRequest(
   opts: WhatsAppChannelOptions,
   message: OutgoingMessage,
 ): SendRequest {
   const version = opts.apiVersion ?? "v21.0";
   const url = `https://graph.facebook.com/${version}/${opts.phoneNumberId}/messages`;
-  const body = {
-    messaging_product: "whatsapp",
-    recipient_type: "individual",
-    to: message.to,
-    type: "text",
-    text: { preview_url: false, body: message.text },
-  };
+  const body = usaBotones(message)
+    ? {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: message.to,
+        type: "interactive",
+        interactive: {
+          type: "button",
+          body: { text: message.text },
+          action: {
+            buttons: message.botones!.slice(0, MAX_BOTONES).map((b) => ({
+              type: "reply",
+              reply: { id: b.id, title: b.titulo.slice(0, MAX_TITULO_BOTON) },
+            })),
+          },
+        },
+      }
+    : {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: message.to,
+        type: "text",
+        text: { preview_url: false, body: message.text },
+      };
   return {
     url,
     init: {
@@ -164,6 +216,7 @@ export class WhatsAppChannel implements ChannelAdapter {
       { ...this.opts, plantilla: this.opts.plantilla! },
       message.to,
       message.plantillaParams!,
+      message.botones,
     );
     const resPlantilla = await fetchImpl(plantilla.url, plantilla.init);
     if (!resPlantilla.ok) {

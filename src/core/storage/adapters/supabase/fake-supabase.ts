@@ -279,6 +279,32 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       pedido.updated_at = new Date().toISOString();
     },
 
+    async selectPedidoById(id) {
+      return pedidos.find((p) => p.id === id) ?? null;
+    },
+
+    async selectPedidoPorNumero(negocioId, numero) {
+      return pedidos.find((p) => p.negocio_id === negocioId && p.numero === numero) ?? null;
+    },
+
+    async selectPedidosPorEstado(negocioId, estados) {
+      return pedidos
+        .filter((p) => p.negocio_id === negocioId && estados.includes(p.estado))
+        .sort((a, b) => a.numero - b.numero);
+    },
+
+    async updatePedidoComprobante(id, comprobanteId) {
+      const pedido = pedidos.find((p) => p.id === id);
+      if (!pedido) throw new Error(`No existe el pedido ${id}`);
+      pedido.comprobante_id = comprobanteId;
+    },
+
+    async updateComprobanteEstado(id, estado) {
+      const comprobante = comprobantes.find((c) => c.id === id);
+      if (!comprobante) throw new Error(`No existe el comprobante ${id}`);
+      comprobante.estado = estado as ComprobanteRow["estado"];
+    },
+
     async selectPedidosAbiertosDeLead(leadId, estadosCerrados) {
       return pedidos
         .filter((p) => p.lead_id === leadId && !estadosCerrados.includes(p.estado))
