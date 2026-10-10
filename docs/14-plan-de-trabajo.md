@@ -527,6 +527,57 @@ Probado: el bot sigue respondiendo con ese token. Paso a paso en
 
 ---
 
+## 4-ter. Backlog de lanzamiento (oct-2026): belleza + restaurantes en Cúcuta
+
+Decidido con el dueño del producto: Nexo sigue con belleza (estética, peluquería,
+masajes) y suma **restaurantes**, con foco en el fraude por pantallazos de
+transferencias falsas. El alta la hace el administrador; la dueña recibe una invitación
+y elige el tipo de negocio en su primer ingreso. La guía para probar todo en local antes
+de vender es `docs/17-prueba-local.md` (T-44).
+
+**Decisión de diseño:** el pedido pasa a ser una entidad propia (tabla `pedidos`, con
+número corto por negocio, estados y código de retiro). Hoy el lead *es* el pedido, y eso
+causa que el SÍ de la dueña apruebe el pedido pendiente más viejo en vez del que está
+mirando. Se documenta como ADR-004.
+
+### Fase 0 — Que lo que existe no le cueste plata a nadie (antes de cualquier piloto)
+- Paso previo: PR `develop → main` (lo decide el dueño) y Supabase sano en local.
+- **T-30** · Pedido como entidad (`0015_pedidos.sql`, `PedidoRepository`, ADR-004).
+- **T-31** · Aprobación por pedido: botones de WhatsApp con el id del pedido y respaldo
+  "SÍ 142". Arregla la aprobación del pedido equivocado.
+- **T-32** · Devolver el stock cuando la dueña rechaza o el pedido vence.
+- **T-33** · Datos de pago (Nequi, llave Bre-B) que el bot le da al cliente, pantalla para
+  pedir comprobante y normalización de referencia y teléfono destino.
+- **T-34** · Wompi: avisar a la dueña, comparar el monto, referencia = id del pedido.
+- **T-35** · Login: bloquear redirecciones `//…`, cerrar sesión en `/portal`.
+
+### Fase 1 — Restaurante de verdad
+- **T-36** · Domicilio o recoger en el camino de pedido, con dirección.
+- **T-37** · Código de retiro al aprobar.
+- **T-38** · Panel de pedidos en el portal (foto del comprobante, señales, estados).
+- **T-39** · Modo de aviso "solo resumen" para días pico.
+- **T-40** · Rubros base sembrados: Belleza, Peluquería, Masajes, Restaurante.
+
+### Fase 2 — Alta de dueñas
+- **T-41** · Invitación por correo, definir contraseña y "olvidé mi contraseña".
+- **T-42** · Asistente de primer ingreso: la dueña elige el tipo y carga su negocio.
+
+### Fase 3 — Costos
+- **T-43** · Medidor de mensajes de WhatsApp por negocio y por mes. Según varias fuentes,
+  desde el 1-oct-2026 Meta cobra los mensajes de servicio pasado un cupo mensual.
+
+### Documentación
+- **T-44** · `docs/17-prueba-local.md`: guía de prueba local. Cada PR de arriba actualiza
+  su paso.
+
+### Precio (propuesta, a validar con los pilotos)
+Costos fijos ≈ 48 USD/mes (Supabase Pro, Vercel Pro, dominio). Propuesta en pesos, sin
+comisión, con instalación gratis y 14 días de prueba: **Belleza COP 59.900/mes** y
+**Restaurante COP 99.900/mes**. Con 3-4 clientes se cubren los fijos. Reemplaza la
+pregunta abierta de "Planes Free/Pro" de abajo.
+
+---
+
 ### Pendiente de decisión del dueño del producto
 
 - ~~**Conexión de WhatsApp:** ¿API oficial de Meta o sesión por QR?~~ **Decidido y
@@ -537,8 +588,8 @@ Probado: el bot sigue respondiendo con ese token. Paso a paso en
   está resuelto (T-28).
 
 No empezar estas hasta tener respuesta:
-- **Planes Free/Pro:** ¿tienen límites reales de negocios o mensajes? Si sí, hay
-  que diseñar los bloqueos.
+- ~~**Planes Free/Pro:**~~ Reemplazada por la propuesta de precio de la sección
+  4-ter; los límites se deciden con los datos de T-43.
 - **Rol agente/empleado** con acceso solo a Conversaciones: queda fuera de la v1 por
   la decisión 2.7; revisar cuando se reactive esa sección.
 
@@ -587,6 +638,9 @@ plan o se reinicie el período: con un cliente pagando, eso es un incidente, no 
 ---
 
 ## 7. Registro de cambios
+
+**v4 — oct-2026.** Agregada la sección 4-ter: backlog de lanzamiento T-30 a T-44
+(belleza + restaurantes, antifraude, alta de dueñas, costos) y la propuesta de precio.
 
 **v3.1 — oct-2026.** Agregada T-28 (token permanente vía usuario del sistema) a la
 sección 4-bis y sacada de los pendientes de la conexión de WhatsApp: ya está hecha
