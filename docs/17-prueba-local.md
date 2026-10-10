@@ -76,7 +76,7 @@ flowchart TD
 
 | | Belleza | Restaurante |
 |---|---|---|
-| Rubro | Estética (sembrado) | Restaurante (se crea en el paso 3.1) |
+| Rubro | Belleza / Estética (sembrado) | Restaurante (sembrado) |
 | Negocio | Estética Bella Cúcuta | Sabores del Sur |
 | Dueña (login) | `duena.belleza@prueba.co` | `duena.sabores@prueba.co` |
 | Catálogo | Limpieza facial $80.000 · 60 min · Manicure $25.000 · 45 min | Bandeja paisa $28.000 · stock 20 · Limonada de coco $8.000 · stock 30 |
@@ -160,18 +160,14 @@ contraseña. También agrega "olvidé mi contraseña".
 
 ## Paso 3 · Negocio
 
-### 3.1 Rubro (solo para restaurante, una vez)
+### 3.1 Rubros
 
-El rubro "Estética" ya viene sembrado. Para el restaurante:
-1. Back office → **Rubros** → Nuevo: slug `restaurante`, nombre "Restaurante".
-2. Abrir el rubro y, en la sección de catálogo de la plantilla:
-   - etiqueta "Plato" / "Menú";
-   - camino por defecto **pedido**;
-   - mostrar el campo stock y ocultar la duración.
-3. Guardar.
+`pnpm seed:supabase` deja sembrados los cuatro rubros base, ya configurados:
+- **Belleza / Estética**, **Peluquería / Barbería** y **Masajes / Spa**: agendan citas.
+- **Restaurante**: vende, pregunta domicilio o recoger y pide comprobante.
 
-🔧 **T-40** deja sembrados los cuatro rubros base (Belleza, Peluquería, Masajes,
-Restaurante) ya configurados.
+No hace falta crearlos a mano. Si se cambia una plantilla en el código, volver a correr
+el seed actualiza el rubro, pero no los negocios que ya se crearon con él.
 
 ### 3.2 Crear el negocio
 
