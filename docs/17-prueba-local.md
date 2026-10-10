@@ -40,7 +40,7 @@ flowchart TD
     N1 --> N2["✅ La dueña entra al portal:<br/>catálogo, horarios, tono, su WhatsApp"]
     N2 --> N3["✅ Cobro con comprobante:<br/>Nequi / Bre-B en el portal"]
     N3 --> N5["✅ Back office: encender el bot"]
-    N4["🔧 T-42: asistente de primer ingreso"]
+    N4["✅ T-42: o la dueña lo arma en su primer ingreso<br/>(elige el tipo entre los asignados)"]
     N1 -.-> N4
   end
 
@@ -179,7 +179,16 @@ el seed actualiza el rubro, pero no los negocios que ya se crearon con él.
 
 **Qué tiene que pasar:** el negocio aparece con la etiqueta "Pausado".
 
-🔧 **T-42:** la dueña lo crea ella misma en su primer ingreso, eligiendo el tipo.
+✅ **T-42 (alternativa):** si en el paso 2 se le asignaron rubros a la dueña y no se
+crea el negocio a mano, ella lo arma sola:
+1. Entra al portal → ve "Armá tu negocio" con los tipos que se le asignaron.
+2. Elige el tipo (por ejemplo Restaurante), escribe el nombre y toca **Crear mi negocio**.
+3. Cae en el Resumen del negocio, que nace de la plantilla del rubro con el bot apagado.
+
+**Qué tiene que pasar:** el checklist "Completá tu bot" incluye "Tu WhatsApp para
+avisos" y, en el restaurante, "Datos de pago (Nequi / Bre-B)". Abajo aparece la nota de
+que el bot sigue apagado hasta que el admin conecte el número. Después el admin carga el
+`phone_number_id` desde Back office → Negocios y lo enciende.
 
 ### 3.3 La dueña configura (desde el portal)
 
