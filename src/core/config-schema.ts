@@ -200,6 +200,12 @@ export const businessConfigSchema = z.object({
   ai: aiSchema.optional(),
   pedidos: pedidosSchema.optional(),
   notifyPhoneNumber: z.string().optional(),
+  avisos: z
+    .object({
+      modo: z.enum(["cada_pedido", "resumen"]),
+      cadaMinutos: z.number().int().min(1).max(240).optional(),
+    })
+    .optional(),
   pagos: pagosSchema.optional(),
   personas: z
     .object({

@@ -2639,3 +2639,89 @@ describe("foto del comprobante (T-38b)", () => {
     expect(db.comprobantes[0].imagen_path).toBe(`neg-1/${db.comprobantes[0].id}.jpeg`);
   });
 });
+
+describe("modo de aviso 'solo resumen' (T-39)", () => {
+  const conResumen: BusinessConfig = { ...tiendaConNotify, avisos: { modo: "resumen", cadaMinutos: 10 } };
+
+  function cliente(from: string) {
+    return (text: string): IncomingMessage => ({ channel: "mock", businessSlug: "tienda", from, text, timestamp: new Date().toISOString() });
+  }
+
+  it("10 pedidos seguidos: la dueña recibe UN solo resumen, no 10 avisos", async () => {
+    const repo = new InMemoryRepo();
+    const db = makeFakeSupabaseDb();
+    const pedidos = new SupabasePedidoRepository(db);
+    const notifier = fakeNotifier();
+    for (let i = 0; i < 10; i++) {
+      const m = cliente(`5730000000${i}`);
+      for (const texto of ["harina", `Cliente ${i}`, "1", "no, eso es todo", "sí"]) {
+        await handleIncoming(m(texto), conResumen, repo, new Date(), undefined, undefined, undefined, notifier,
+          undefined, "neg-1", undefined, undefined, undefined, pedidos);
+      }
+    }
+
+    expect(db.pedidos).toHaveLength(10);
+    expect(notifier.sent).toHaveLength(1);
+    expect(notifier.sent[0].text).toContain("tenés 1 pedido por verificar");
+    expect(notifier.sent[0].botones).toBeUndefined();
+  });
+
+  it("un comprobante con señal de riesgo alta avisa en el acto, aunque esté en modo resumen", async () => {
+    const conPagos: BusinessConfig = { ...conResumen, pagos: { requiereComprobante: true, telefonoDestino: "3001112233" } };
+    const repo = new InMemoryRepo();
+    const db = makeFakeSupabaseDb();
+    const pedidos = new SupabasePedidoRepository(db);
+    const notifier = fakeNotifier();
+    await pedidos.reclamarAvisoResumen("neg-1", 10); // ya se mandó un resumen hace un instante
+    const m = cliente("57300000000");
+    for (const texto of ["harina", "Laura", "2", "no, eso es todo", "sí"]) {
+      await handleIncoming(m(texto), conPagos, repo, new Date(), undefined, undefined, undefined, notifier,
+        undefined, "neg-1", undefined, undefined, undefined, pedidos);
+    }
+    const llm: ILLMProvider = {
+      supportsVision: true,
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      async describePaymentReceipt() {
+        // Pagado a OTRO número: señal "destino no coincide", nivel alta.
+        return { banco: "nequi", referencia: "M1", monto: 10000, moneda: "COP", telefonoDestino: "3119990000", legible: "completo" as const };
+      },
+    };
+
+    await handleIncoming(
+      { ...m(""), image: { mediaId: "m-1", mimeType: "image/jpeg" } },
+      conPagos, repo, new Date(), llm, undefined, undefined, notifier, undefined, "neg-1",
+      async () => ({ base64: "eA==", mimeType: "image/jpeg" }),
+      new (await import("@/core/storage/adapters/supabase/comprobantes")).SupabaseComprobanteRepository(db),
+      undefined, pedidos,
+    );
+
+    expect(notifier.sent).toHaveLength(1);
+    expect(notifier.sent[0].text).toContain("pedido #1 nuevo");
+    expect(notifier.sent[0].botones).toHaveLength(2);
+  });
+
+  it("en modo 'cada pedido' (default) no cambia nada", async () => {
+    const repo = new InMemoryRepo();
+    const pedidos = new SupabasePedidoRepository(makeFakeSupabaseDb());
+    const notifier = fakeNotifier();
+    for (let i = 0; i < 2; i++) {
+      const m = cliente(`5730000000${i}`);
+      for (const texto of ["harina", `Cliente ${i}`, "1", "no, eso es todo", "sí"]) {
+        await handleIncoming(m(texto), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier,
+          undefined, "neg-1", undefined, undefined, undefined, pedidos);
+      }
+    }
+    expect(notifier.sent).toHaveLength(2);
+  });
+});

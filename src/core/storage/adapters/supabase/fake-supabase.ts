@@ -63,6 +63,7 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
   const inventario: InventarioRow[] = [];
   const comprobantes: ComprobanteRow[] = [];
   const pedidos: PedidoRow[] = [];
+  const ultimoResumen = new Map<string, number>();
   const wompiCredenciales = new Map<string, WompiCredenciales>();
 
   return {
@@ -305,6 +306,14 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       const pedido = pedidos.find((p) => p.id === id);
       if (!pedido) throw new Error(`No existe el pedido ${id}`);
       pedido.comprobante_id = comprobanteId;
+    },
+
+    async claimAvisoResumen(negocioId, minutos) {
+      const ahora = Date.now();
+      const ultimo = ultimoResumen.get(negocioId);
+      if (ultimo !== undefined && ahora - ultimo < minutos * 60_000) return false;
+      ultimoResumen.set(negocioId, ahora);
+      return true;
     },
 
     async updatePedidoCodigoRetiro(id, codigo) {

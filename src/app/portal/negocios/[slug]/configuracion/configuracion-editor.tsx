@@ -54,6 +54,7 @@ export function ConfiguracionEditor({
   personas,
   initialAi,
   initialPagos,
+  initialAvisos,
 }: {
   slug: string;
   nombre: string;
@@ -65,10 +66,16 @@ export function ConfiguracionEditor({
   personas: BusinessConfig["personas"];
   initialAi: BotAIConfig;
   initialPagos: BusinessConfig["pagos"];
+  initialAvisos: BusinessConfig["avisos"];
 }) {
   const [direccion, setDireccion] = useState(direccionInicial);
   const [notifyPhoneNumber, setNotifyPhoneNumber] = useState(notifyPhoneNumberInicial);
   const [wompiEnabled, setWompiEnabled] = useState(initialPagos?.wompi?.enabled ?? false);
+  // T-39: cuánto le llega por WhatsApp en un día de muchos pedidos.
+  const [modoAviso, setModoAviso] = useState<"cada_pedido" | "resumen">(
+    initialAvisos?.modo ?? "cada_pedido",
+  );
+  const [minutosResumen, setMinutosResumen] = useState(initialAvisos?.cadaMinutos ?? 10);
   // T-33: cobro con comprobante (Nequi / Bre-B). El número de Nequi también
   // alimenta la señal "destino no coincide" si no hay `telefonoDestino`
   // cargado aparte (los negocios anteriores a T-33 pueden tenerlo).
@@ -100,6 +107,7 @@ export function ConfiguracionEditor({
   const patch = {
     direccion: direccion || undefined,
     notifyPhoneNumber: notifyPhoneNumber.trim() || undefined,
+    avisos: { modo: modoAviso, cadaMinutos: minutosResumen },
     personas: { ...personas, whatsapp: nuevaPersona },
     ai,
     pagos: {
@@ -201,6 +209,47 @@ export function ConfiguracionEditor({
             vacío para no recibir avisos.
           </p>
         </div>
+        <fieldset className="mt-5 space-y-2">
+          <legend className={labelCls}>Avisos de pedidos</legend>
+          <label className="flex items-start gap-2 text-sm text-ink">
+            <input
+              type="radio"
+              name="modo-aviso"
+              checked={modoAviso === "cada_pedido"}
+              onChange={() => setModoAviso("cada_pedido")}
+              className="mt-1"
+            />
+            <span>
+              <b>Uno por pedido</b>, con botones para aprobar. Para pocos pedidos al día.
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm text-ink">
+            <input
+              type="radio"
+              name="modo-aviso"
+              checked={modoAviso === "resumen"}
+              onChange={() => setModoAviso("resumen")}
+              className="mt-1"
+            />
+            <span>
+              <b>Solo un resumen</b> cada{" "}
+              <select
+                aria-label="Minutos entre resúmenes"
+                value={minutosResumen}
+                onChange={(e) => setMinutosResumen(Number(e.target.value))}
+                className="input-nexo px-2 py-1 text-sm"
+              >
+                {[5, 10, 15, 30, 60].map((m) => (
+                  <option key={m} value={m}>
+                    {m} min
+                  </option>
+                ))}
+              </select>{" "}
+              y los pedidos en el panel. Para días de muchos pedidos. Un comprobante
+              sospechoso igual te avisa al instante.
+            </span>
+          </label>
+        </fieldset>
       </Card>
 
       {/* Cobro con comprobante (T-33): el camino que funciona en cualquier

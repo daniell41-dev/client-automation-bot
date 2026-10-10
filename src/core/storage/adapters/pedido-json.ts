@@ -89,6 +89,17 @@ export class JsonPedidoRepository implements PedidoRepository {
       .sort((a, b) => a.numero - b.numero);
   }
 
+  private ultimoResumen = new Map<string, number>();
+
+  /** En memoria (fallback de desarrollo): no sobrevive a un reinicio, y no hace falta. */
+  async reclamarAvisoResumen(negocio: string, minutos: number): Promise<boolean> {
+    const ahora = Date.now();
+    const ultimo = this.ultimoResumen.get(negocio);
+    if (ultimo !== undefined && ahora - ultimo < minutos * 60_000) return false;
+    this.ultimoResumen.set(negocio, ahora);
+    return true;
+  }
+
   async asignarCodigoRetiro(id: string, codigo: string): Promise<void> {
     const todos = await this.readAll();
     const pedido = todos.find((p) => p.id === id);
