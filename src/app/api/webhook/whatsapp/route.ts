@@ -197,6 +197,7 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
           pedidos,
           resolved.negocioId ?? business.slug,
           comprobantes,
+          inventory,
         );
         if (channel) {
           await channel.send(ownerReply);

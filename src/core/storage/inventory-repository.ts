@@ -44,4 +44,10 @@ export interface InventoryRepository {
    * producto bajo mandarían una alerta cada una.
    */
   markLowStockAlert(negocio: string, serviceId: string): Promise<boolean>;
+  /**
+   * T-32: devuelve las unidades de un pedido que no se concretó (la dueña lo
+   * rechazó o venció sin pago). Solo suma a productos con stock configurado:
+   * uno sin límite sigue sin límite.
+   */
+  incrementCart(negocio: string, items: StockItem[]): Promise<void>;
 }

@@ -62,6 +62,15 @@ export class JsonInventoryRepository implements InventoryRepository {
     await this.writeAll(map);
   }
 
+  async incrementCart(negocio: string, items: StockItem[]): Promise<void> {
+    const map = await this.readAll();
+    for (const item of items) {
+      const fila = map[this.key(negocio, item.serviceId)];
+      if (fila !== undefined) fila.stock += item.cantidad;
+    }
+    await this.writeAll(map);
+  }
+
   async decrementCart(negocio: string, items: StockItem[]): Promise<StockResult> {
     const map = await this.readAll();
     const faltantes: string[] = [];

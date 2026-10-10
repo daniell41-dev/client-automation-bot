@@ -45,7 +45,7 @@ import { inactivo, limpiarDatosCapturados, reseteablePorInactividad } from "@/co
 import { resumenCarrito, totalCarrito } from "@/core/engine/flows/pedido";
 import { BOTON_APROBAR, BOTON_RECHAZAR, interpretarDecisionDueña } from "@/core/engine/approval";
 import { transition } from "@/core/engine/lead-state";
-import { pedidoPendienteDeDecision, transicionarPedido } from "@/core/engine/pedido-estado";
+import { pagoVencido, pedidoPendienteDeDecision, transicionarPedido } from "@/core/engine/pedido-estado";
 import { DEFAULT_PEDIDO_CONFIRMADO, DEFAULT_PEDIDO_RECHAZADO } from "@/core/engine/responder";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { render } from "@/core/engine/templating";
@@ -211,6 +211,8 @@ async function crearPedidoDelCarrito(
   config: BusinessConfig,
   negocio: string,
   estado: EstadoPedido,
+  /** T-32: si se le descontó stock al crearlo (con Wompi, todavía no). */
+  stockReservado: boolean,
 ): Promise<Pedido | undefined> {
   if (!pedidos || !lead.items?.length) return undefined;
   const items = lead.items.flatMap((item) => {
@@ -230,6 +232,7 @@ async function crearPedidoDelCarrito(
       moneda: config.currency,
       modalidad: lead.entrega,
       estado,
+      stockReservado,
     });
   } catch (err) {
     console.error("[Pedidos] no se pudo crear el pedido (la conversación sigue igual):", err);
@@ -263,6 +266,53 @@ async function moverPedidoDelLead(
 /** "pedido #12 de Laura" — o "pedido de Laura" si no hay número (sin tabla de pedidos). */
 function etiquetaPedido(lead: Lead, pedido: Pedido | undefined): string {
   return `${pedido ? `pedido #${pedido.numero}` : "pedido"} de ${lead.name ?? lead.contact}`;
+}
+
+/**
+ * T-32: devuelve al inventario las unidades de un carrito que no se vendió.
+ * Best-effort: si falla, el producto queda con menos stock del real (lo
+ * mismo que pasaba antes de T-32), nunca con más.
+ */
+async function devolverStock(
+  inventory: InventoryRepository | undefined,
+  negocio: string,
+  items: { serviceId: string; cantidad: number }[] | undefined,
+): Promise<void> {
+  if (!inventory || !items?.length) return;
+  try {
+    await inventory.incrementCart(
+      negocio,
+      items.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
+    );
+  } catch (err) {
+    console.error("[Stock] no se pudo devolver el stock de un pedido no concretado:", err);
+  }
+}
+
+/**
+ * T-32: cierra un pedido que venció sin pago y devuelve su stock. El lead lo
+ * resetea quien llama (cada camino tiene su propia forma de seguir).
+ */
+async function vencerPedido(
+  pedidos: PedidoRepository,
+  inventory: InventoryRepository | undefined,
+  pedido: Pedido,
+  negocio: string,
+): Promise<void> {
+  try {
+    await pedidos.actualizarEstado(pedido.id, transicionarPedido(pedido.estado, "vencido"));
+  } catch (err) {
+    console.error(`[Pedidos] no se pudo vencer el pedido #${pedido.numero}:`, err);
+    return;
+  }
+  if (pedido.stockReservado) await devolverStock(inventory, negocio, pedido.items);
+}
+
+/** Deja al lead como recién llegado, sin el carrito del pedido que no se concretó. */
+function soltarPedidoDelLead(lead: Lead): Lead {
+  const limpio = { ...lead, items: undefined };
+  limpiarDatosCapturados(limpio);
+  return limpio;
 }
 
 function respuestaComprobanteRecibido(config: BusinessConfig): string {
@@ -452,6 +502,21 @@ export async function handleIncoming(
     existing = cerrarPedidoFinalizado(existing, now);
   }
 
+  // T-32: un pedido que esperaba el pago hace más de un día vence — sus
+  // unidades vuelven al stock y el cliente arranca de cero. Un pedido con
+  // comprobante (`por_verificar`) nunca vence solo: lo decide la dueña.
+  if (existing && existing.stage === "esperando_aprobacion" && pedidos) {
+    try {
+      const pedido = await pedidos.abiertoDeLead(existing.id);
+      if (pedido && pagoVencido(pedido.estado, pedido.creadoEn, now)) {
+        await vencerPedido(pedidos, inventory, pedido, negocioParaStock ?? config.slug);
+        existing = soltarPedidoDelLead(existing);
+      }
+    } catch (err) {
+      console.error("[Pedidos] no se pudo revisar el vencimiento del pedido:", err);
+    }
+  }
+
   // T-20: reinicio por inactividad (24h). Dos cosas separadas (ver
   // `session-lifecycle.ts`): el hilo de charla se vacía SIEMPRE que pasó el
   // umbral (se mide sobre `lastInboundAt`, existe con o sin IA); los datos
@@ -594,7 +659,7 @@ export async function handleIncoming(
       // verificado (`handleWompiWebhookEvent`). Si se descontara ahora, un
       // pago que nunca se completa dejaría el stock reservado para siempre
       // sin que nadie lo libere.
-      await crearPedidoDelCarrito(pedidos, lead, config, negocioParaStock ?? config.slug, "esperando_pago");
+      await crearPedidoDelCarrito(pedidos, lead, config, negocioParaStock ?? config.slug, "esperando_pago", false);
       const total = totalCarrito(lead.items!, config.services);
       const link = paymentGateway.buildPaymentLink({
         reference: lead.id,
@@ -647,6 +712,7 @@ export async function handleIncoming(
           config,
           negocioParaStock ?? config.slug,
           config.pagos?.requiereComprobante ? "esperando_pago" : "por_verificar",
+          inventory !== undefined,
         );
         if (config.pagos?.requiereComprobante) {
           // T-24.4: reemplaza el disparador de SÍ/NO plano — no se avisa a la
@@ -953,6 +1019,8 @@ export async function handleOwnerApproval(
   negocio?: string,
   /** T-31: para registrar la decisión en el comprobante del pedido. */
   comprobantes?: ComprobanteRepository,
+  /** T-32: para devolver el stock de un pedido rechazado o vencido. */
+  inventory?: InventoryRepository,
 ): Promise<OwnerApprovalResult> {
   const respuesta = interpretarDecisionDueña(message.text, message.botonId);
   if (!respuesta) {
@@ -976,7 +1044,19 @@ export async function handleOwnerApproval(
       } else if (respuesta.numero !== undefined) {
         pedido = await pedidos.porNumero(negocioKey, respuesta.numero);
       } else {
-        const pendientes = await pedidos.pendientesDeDecision(negocioKey);
+        // T-32: los que vencieron sin pago no cuentan como pendientes — se
+        // cierran acá mismo, así un "SÍ" no queda bloqueado por un pedido
+        // que el cliente abandonó ayer.
+        const pendientes: Pedido[] = [];
+        for (const p of await pedidos.pendientesDeDecision(negocioKey)) {
+          if (!pagoVencido(p.estado, p.creadoEn, now)) {
+            pendientes.push(p);
+            continue;
+          }
+          await vencerPedido(pedidos, inventory, p, negocioKey);
+          const leadVencido = await repo.getById(p.leadId);
+          if (leadVencido?.stage === "esperando_aprobacion") await repo.save(soltarPedidoDelLead(leadVencido));
+        }
         if (pendientes.length > 1) {
           const lista = pendientes
             .map((p) => `#${p.numero} ${p.cliente ?? p.contacto} · ${formatPrice(config, p.total)}`)
@@ -1048,6 +1128,13 @@ export async function handleOwnerApproval(
       },
     };
   }
+
+  // T-32: las unidades reservadas vuelven al stock. Con pedido registrado lo
+  // dice su marca; sin él (anterior a T-30), se reservaron salvo con Wompi.
+  const devolver = pedido
+    ? (pedido.stockReservado ? pedido.items : undefined)
+    : (config.pagos?.wompi?.enabled ? undefined : lead.items);
+  await devolverStock(inventory, negocioKey, devolver);
 
   // Rechazado: mismo criterio que "reiniciar" — se limpia lo de ESTE pedido,
   // no toda la identidad del lead (mismo `id`/`contact`).

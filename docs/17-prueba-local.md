@@ -18,7 +18,7 @@ Leyenda: ✅ funciona hoy · 🔧 requiere la tarea indicada · ⚙️ hoy se pu
 ```mermaid
 flowchart TD
   subgraph E["0 · Entorno (una sola vez)"]
-    E1["✅ .env.local: Supabase, IA y WhatsApp<br/>(token permanente)"] --> E2["✅ Supabase: migraciones 0001→0015<br/>+ pnpm seed:supabase --admin"]
+    E1["✅ .env.local: Supabase, IA y WhatsApp<br/>(token permanente)"] --> E2["✅ Supabase: migraciones 0001→0016<br/>+ pnpm seed:supabase --admin"]
     E2 --> E3["✅ pnpm dev + ngrok"]
     E3 --> E4["✅ Webhook cargado en Meta<br/>+ subscribed_apps del WABA"]
   end
@@ -109,7 +109,7 @@ igual con el simulador: `pnpm sim --business <slug>`.
    - Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y
      `SUPABASE_SERVICE_ROLE_KEY`.
 2. **Supabase:** en el SQL Editor, correr **todas** las migraciones de
-   `supabase/migrations/` en orden (de `0001` a `0015`). Después:
+   `supabase/migrations/` en orden (de `0001` a `0016`). Después:
    ```bash
    pnpm seed:supabase --admin tucorreo@dominio.com TuClave123
    ```
@@ -259,7 +259,9 @@ Lo que todavía no pasa:
 - 🔧 **T-36:** no pregunta domicilio o recoger en un pedido ni pide la dirección.
 - 🔧 **T-37 y T-38:** el pedido ya tiene número, pero todavía no hay código de retiro ni
   panel.
-- 🔧 **T-32:** si la dueña responde `NO`, el stock no se devuelve.
+- Si la dueña rechaza (`NO 1`), las unidades vuelven al stock. Un pedido que espera el
+  pago más de 24h vence solo y también devuelve su stock; uno con comprobante nunca
+  vence solo.
 
 ## Paso 5 · Fraude y día pico
 

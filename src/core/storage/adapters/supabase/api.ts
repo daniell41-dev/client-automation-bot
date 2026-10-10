@@ -98,6 +98,8 @@ export interface PedidoRow {
   estado: string;
   codigo_retiro: string | null;
   comprobante_id: string | null;
+  /** T-32: si este pedido descontó stock (migración 0016). */
+  stock_reservado?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -160,6 +162,8 @@ export interface SupabaseDb {
    * marcado.
    */
   markLowStockAlert(negocioId: string, serviceId: string): Promise<boolean>;
+  /** T-32: devuelve unidades vía `devolver_stock_carrito` (migración 0016). */
+  returnStockCarrito(negocioId: string, items: { serviceId: string; cantidad: number }[]): Promise<void>;
   /**
    * Inserta un comprobante nuevo (T-24.1, migración 0013). Lanza — nunca
    * devuelve un booleano de "ok/no ok" — si `referencia` ya se usó en este
@@ -207,6 +211,7 @@ export interface SupabaseDb {
     modalidad?: string;
     direccion?: string;
     estado: string;
+    stockReservado?: boolean;
   }): Promise<PedidoRow>;
   updatePedidoEstado(id: string, estado: string): Promise<void>;
   /** Pedidos del lead que no están en `estados_cerrados`, el más reciente primero. */
@@ -343,6 +348,17 @@ class RealSupabaseDb implements SupabaseDb {
     if (error) throw error;
   }
 
+  async returnStockCarrito(
+    negocioId: string,
+    items: { serviceId: string; cantidad: number }[],
+  ): Promise<void> {
+    const { error } = await this.client.rpc("devolver_stock_carrito", {
+      p_negocio_id: negocioId,
+      p_items: items.map((i) => ({ service_id: i.serviceId, cantidad: i.cantidad })),
+    });
+    if (error) throw error;
+  }
+
   async decrementStockCarrito(
     negocioId: string,
     items: { serviceId: string; cantidad: number }[],
@@ -425,6 +441,7 @@ class RealSupabaseDb implements SupabaseDb {
     modalidad?: string;
     direccion?: string;
     estado: string;
+    stockReservado?: boolean;
   }): Promise<PedidoRow> {
     const { data, error } = await this.client.rpc("crear_pedido", {
       p_negocio_id: row.negocioId,
@@ -437,6 +454,7 @@ class RealSupabaseDb implements SupabaseDb {
       p_modalidad: row.modalidad ?? null,
       p_direccion: row.direccion ?? null,
       p_estado: row.estado,
+      p_stock_reservado: row.stockReservado ?? false,
     });
     if (error) throw error;
     return data as PedidoRow;

@@ -265,6 +265,7 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
         estado: row.estado,
         codigo_retiro: null,
         comprobante_id: null,
+        stock_reservado: row.stockReservado ?? false,
         created_at: ahora,
         updated_at: ahora,
       };
@@ -277,6 +278,13 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       if (!pedido) throw new Error(`No existe el pedido ${id}`);
       pedido.estado = estado;
       pedido.updated_at = new Date().toISOString();
+    },
+
+    async returnStockCarrito(negocioId, items) {
+      for (const item of items) {
+        const fila = inventario.find((i) => i.negocio_id === negocioId && i.service_id === item.serviceId);
+        if (fila) fila.stock += item.cantidad;
+      }
     },
 
     async selectPedidoById(id) {

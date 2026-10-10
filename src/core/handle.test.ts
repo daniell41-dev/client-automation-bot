@@ -26,6 +26,13 @@ class InMemoryInventory implements InventoryRepository {
   async setStock(negocio: string, serviceId: string, stock: number): Promise<void> {
     this.stock.set(this.key(negocio, serviceId), stock);
   }
+  async incrementCart(negocio: string, items: StockItem[]): Promise<void> {
+    for (const item of items) {
+      const key = this.key(negocio, item.serviceId);
+      const actual = this.stock.get(key);
+      if (actual !== undefined) this.stock.set(key, actual + item.cantidad);
+    }
+  }
   async decrementCart(negocio: string, items: StockItem[]): Promise<StockResult> {
     const faltantes: string[] = [];
     for (const item of items) {
@@ -2212,5 +2219,134 @@ describe("aprobación por pedido, sin FIFO (T-31)", () => {
 
     expect(db.pedidos[0].estado).toBe("aprobado");
     expect(db.comprobantes[0].estado).toBe("aprobado");
+  });
+});
+
+describe("devolver el stock de un pedido que no se concretó (T-32)", () => {
+  function ownerMsg(text: string): IncomingMessage {
+    return { channel: "whatsapp", businessSlug: "tienda", from: "573009998888", text, timestamp: new Date().toISOString() };
+  }
+
+  async function confirmar(
+    business: BusinessConfig,
+    repo: InMemoryRepo,
+    inventory: InMemoryInventory,
+    pedidos: SupabasePedidoRepository | undefined,
+    when: Date,
+    from = "57300000000",
+    extra: { gateway?: PaymentGateway } = {},
+  ) {
+    const m = (text: string): IncomingMessage => ({ channel: "mock", businessSlug: "tienda", from, text, timestamp: when.toISOString() });
+    for (const texto of ["harina", "Laura", "2", "no, eso es todo", "sí"]) {
+      await handleIncoming(m(texto), business, repo, when, undefined, undefined, undefined, fakeNotifier(),
+        inventory, "neg-1", undefined, undefined, extra.gateway, pedidos);
+    }
+  }
+
+  async function base() {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("neg-1", "harina", 10);
+    const db = makeFakeSupabaseDb();
+    return { repo, inventory, db, pedidos: new SupabasePedidoRepository(db) };
+  }
+
+  it("cuando la dueña rechaza, las unidades vuelven al stock", async () => {
+    const { repo, inventory, db, pedidos } = await base();
+    await confirmar(tiendaConNotify, repo, inventory, pedidos, new Date());
+    expect(inventory.stock.get("neg-1|harina")).toBe(8);
+    expect(db.pedidos[0].stock_reservado).toBe(true);
+
+    await handleOwnerApproval(ownerMsg("no 1"), tiendaConNotify, repo, new Date(), pedidos, "neg-1", undefined, inventory);
+
+    expect(inventory.stock.get("neg-1|harina")).toBe(10);
+  });
+
+  it("aprobar no devuelve nada", async () => {
+    const { repo, inventory, pedidos } = await base();
+    await confirmar(tiendaConNotify, repo, inventory, pedidos, new Date());
+
+    await handleOwnerApproval(ownerMsg("sí 1"), tiendaConNotify, repo, new Date(), pedidos, "neg-1", undefined, inventory);
+
+    expect(inventory.stock.get("neg-1|harina")).toBe(8);
+  });
+
+  it("un pedido de Wompi rechazado no devuelve lo que nunca se descontó", async () => {
+    const { repo, inventory, db, pedidos } = await base();
+    const tiendaConWompi: BusinessConfig = { ...tiendaConNotify, pagos: { wompi: { enabled: true } } };
+    const gateway: PaymentGateway = { buildPaymentLink: () => "https://checkout.wompi.co/p/" };
+    await confirmar(tiendaConWompi, repo, inventory, pedidos, new Date(), "57300000000", { gateway });
+    expect(db.pedidos[0].stock_reservado).toBe(false);
+
+    await handleOwnerApproval(ownerMsg("no 1"), tiendaConWompi, repo, new Date(), pedidos, "neg-1", undefined, inventory);
+
+    expect(inventory.stock.get("neg-1|harina")).toBe(10);
+  });
+
+  it("sin tabla de pedidos, el rechazo devuelve el carrito del lead", async () => {
+    const { repo, inventory } = await base();
+    await confirmar(tiendaConNotify, repo, inventory, undefined, new Date());
+    expect(inventory.stock.get("neg-1|harina")).toBe(8);
+
+    await handleOwnerApproval(ownerMsg("no"), tiendaConNotify, repo, new Date(), undefined, "neg-1", undefined, inventory);
+
+    expect(inventory.stock.get("neg-1|harina")).toBe(10);
+  });
+
+  it("un pedido sin pago vence a las 24h: vuelve el stock y el cliente arranca de cero", async () => {
+    const { repo, inventory, db, pedidos } = await base();
+    const tiendaConPagos: BusinessConfig = { ...tiendaConNotify, pagos: { requiereComprobante: true } };
+    const t0 = new Date("2026-10-10T12:00:00.000Z");
+    await confirmar(tiendaConPagos, repo, inventory, pedidos, t0);
+    expect(db.pedidos[0].estado).toBe("esperando_pago");
+    expect(inventory.stock.get("neg-1|harina")).toBe(8);
+
+    const despues = new Date("2026-10-11T13:00:00.000Z");
+    await handleIncoming(
+      { channel: "mock", businessSlug: "tienda", from: "57300000000", text: "hola", timestamp: despues.toISOString() },
+      tiendaConPagos, repo, despues, undefined, undefined, undefined, fakeNotifier(), inventory, "neg-1",
+      undefined, undefined, undefined, pedidos,
+    );
+
+    expect(db.pedidos[0].estado).toBe("vencido");
+    expect(inventory.stock.get("neg-1|harina")).toBe(10);
+    expect(repo.leads[0].stage).not.toBe("esperando_aprobacion");
+    expect(repo.leads[0].items).toBeUndefined();
+  });
+
+  it("un pedido con comprobante NO vence solo, aunque pase el día", async () => {
+    const { repo, inventory, db, pedidos } = await base();
+    const t0 = new Date("2026-10-10T12:00:00.000Z");
+    await confirmar(tiendaConNotify, repo, inventory, pedidos, t0); // sin comprobante requerido → por_verificar
+    expect(db.pedidos[0].estado).toBe("por_verificar");
+
+    const despues = new Date("2026-10-12T12:00:00.000Z");
+    await handleIncoming(
+      { channel: "mock", businessSlug: "tienda", from: "57300000000", text: "hola?", timestamp: despues.toISOString() },
+      tiendaConNotify, repo, despues, undefined, undefined, undefined, fakeNotifier(), inventory, "neg-1",
+      undefined, undefined, undefined, pedidos,
+    );
+
+    expect(db.pedidos[0].estado).toBe("por_verificar");
+    expect(inventory.stock.get("neg-1|harina")).toBe(8);
+  });
+
+  it("un 'SÍ' suelto ignora (y vence) el pedido abandonado y aprueba el único vigente", async () => {
+    const { repo, inventory, db, pedidos } = await base();
+    const tiendaConPagos: BusinessConfig = { ...tiendaConNotify, pagos: { requiereComprobante: true } };
+    const ahora = new Date();
+    await confirmar(tiendaConPagos, repo, inventory, pedidos, ahora, "57300000000");
+    await confirmar(tiendaConPagos, repo, inventory, pedidos, ahora, "57300000001");
+    expect(inventory.stock.get("neg-1|harina")).toBe(6);
+    // El #1 lo hizo alguien que nunca pagó, hace dos días.
+    db.pedidos[0].created_at = new Date(ahora.getTime() - 48 * 3_600_000).toISOString();
+
+    const { ownerReply } = await handleOwnerApproval(
+      ownerMsg("sí"), tiendaConPagos, repo, ahora, pedidos, "neg-1", undefined, inventory,
+    );
+
+    expect(db.pedidos.map((p) => p.estado)).toEqual(["vencido", "aprobado"]);
+    expect(ownerReply.text).toContain("pedido #2");
+    expect(inventory.stock.get("neg-1|harina")).toBe(8); // volvieron las 2 del #1
   });
 });
