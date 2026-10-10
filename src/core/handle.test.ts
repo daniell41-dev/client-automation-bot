@@ -2390,3 +2390,81 @@ describe("datos de pago para el cliente (T-33)", () => {
     expect(messages[0].text).toContain("hacé el pago y mandanos la foto del comprobante");
   });
 });
+
+describe("Wompi: referencia por pedido, monto y aviso a la dueña (T-34)", () => {
+  const tiendaConWompi: BusinessConfig = { ...tiendaConNotify, pagos: { wompi: { enabled: true } } };
+
+  async function pedidoWompi() {
+    const repo = new InMemoryRepo();
+    const db = makeFakeSupabaseDb();
+    const pedidos = new SupabasePedidoRepository(db);
+    const requests: PaymentLinkRequest[] = [];
+    const gateway: PaymentGateway = {
+      buildPaymentLink(r) {
+        requests.push(r);
+        return "https://checkout.wompi.co/p/";
+      },
+    };
+    for (const texto of ["harina", "Laura", "2", "no, eso es todo", "sí"]) {
+      await handleIncoming(msg(texto), tiendaConWompi, repo, new Date(), undefined, undefined, undefined, fakeNotifier(),
+        undefined, "neg-1", undefined, undefined, gateway, pedidos);
+    }
+    const pedido = (await pedidos.obtener(db.pedidos[0].id))!;
+    return { repo, db, pedidos, requests, pedido };
+  }
+
+  it("el link de pago usa el id del PEDIDO como referencia, no el del lead", async () => {
+    const { requests, db, repo } = await pedidoWompi();
+    expect(requests[0].reference).toBe(db.pedidos[0].id);
+    expect(requests[0].reference).not.toBe(repo.leads[0].id);
+  });
+
+  it("APPROVED con el monto correcto confirma y le avisa a la dueña que hay que prepararlo", async () => {
+    const { repo, db, pedidos, pedido } = await pedidoWompi();
+
+    const result = await handleWompiWebhookEvent(repo.leads[0], tiendaConWompi, "APPROVED", repo, undefined, "neg-1",
+      new Date(), pedidos, { pedido, montoEnCentavos: 1_000_000 });
+
+    expect(db.pedidos[0].estado).toBe("aprobado");
+    expect(result.ownerMessage?.to).toBe("573009998888");
+    expect(result.ownerMessage?.text).toContain("pedido #1 de Laura pagado con Wompi");
+    expect(result.ownerMessage?.text).toContain("Ya podés prepararlo");
+  });
+
+  it("APPROVED por un monto distinto NO confirma y alerta a la dueña", async () => {
+    const { repo, db, pedidos, pedido } = await pedidoWompi();
+
+    const result = await handleWompiWebhookEvent(repo.leads[0], tiendaConWompi, "APPROVED", repo, undefined, "neg-1",
+      new Date(), pedidos, { pedido, montoEnCentavos: 500_000 });
+
+    expect(db.pedidos[0].estado).toBe("esperando_pago");
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion");
+    expect(result.ownerMessage?.text).toContain("No lo confirmé");
+    expect(result.customerMessage?.text).toContain("monto distinto");
+  });
+
+  it("un pago que llega para un pedido ya rechazado no lo revive: alerta para devolverlo", async () => {
+    const { repo, db, pedidos } = await pedidoWompi();
+    await pedidos.actualizarEstado(db.pedidos[0].id, "rechazado");
+    const rechazado = await pedidos.obtener(db.pedidos[0].id);
+
+    const result = await handleWompiWebhookEvent(repo.leads[0], tiendaConWompi, "APPROVED", repo, undefined, "neg-1",
+      new Date(), pedidos, { pedido: rechazado, montoEnCentavos: 1_000_000 });
+
+    expect(db.pedidos[0].estado).toBe("rechazado");
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion");
+    expect(result.ownerMessage?.text).toContain("ya estaba rechazado");
+    expect(result.customerMessage).toBeUndefined();
+  });
+
+  it("si no hay stock cuando llega el pago, también le avisa a la dueña", async () => {
+    const { repo, pedidos, pedido } = await pedidoWompi();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("neg-1", "harina", 1);
+
+    const result = await handleWompiWebhookEvent(repo.leads[0], tiendaConWompi, "APPROVED", repo, inventory, "neg-1",
+      new Date(), pedidos, { pedido, montoEnCentavos: 1_000_000 });
+
+    expect(result.ownerMessage?.text).toContain("no hay stock de: Harina 1 Kg");
+  });
+});

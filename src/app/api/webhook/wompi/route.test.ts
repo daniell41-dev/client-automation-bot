@@ -113,6 +113,7 @@ describe("processWompiWebhookPayload", () => {
   beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), "wompi-webhook-test-"));
     process.env.LEADS_FILE = join(dir, "leads.json");
+    process.env.PEDIDOS_FILE = join(dir, "pedidos.json");
     delete process.env.WHATSAPP_ACCESS_TOKEN;
     delete process.env.SUPABASE_URL;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -190,6 +191,40 @@ describe("processWompiWebhookPayload", () => {
     const lead = await repo.getById("lead-wompi-1");
     expect(lead?.stage).toBe("datos_completos");
     expect(lead?.state).toBe("pagado");
+  });
+
+  it("T-34: con la referencia = id del pedido, encuentra el lead y aprueba ese pedido", async () => {
+    const repo = new JsonLeadRepository();
+    await repo.save(leadEsperandoPago());
+    const { JsonPedidoRepository } = await import("@/core/storage/adapters/pedido-json");
+    const pedidos = new JsonPedidoRepository();
+    const pedido = await pedidos.crear({
+      negocio: "neg-1",
+      leadId: "lead-wompi-1",
+      contacto: "573009998877",
+      items: [{ serviceId: "harina", nombre: "Harina 1 Kg", cantidad: 2, precioUnitario: 5000 }],
+      total: 10000,
+      moneda: "COP",
+      estado: "esperando_pago",
+    });
+
+    await processWompiWebhookPayload(
+      eventoFirmado({ id: "tx-9", status: "APPROVED", amount_in_cents: 1000000, reference: pedido.id }),
+    );
+
+    expect((await repo.getById("lead-wompi-1"))?.stage).toBe("datos_completos");
+    expect((await pedidos.obtener(pedido.id))?.estado).toBe("aprobado");
+  });
+
+  it("T-34: un monto distinto al del pedido no lo confirma", async () => {
+    const repo = new JsonLeadRepository();
+    await repo.save(leadEsperandoPago());
+
+    await processWompiWebhookPayload(
+      eventoFirmado({ id: "tx-10", status: "APPROVED", amount_in_cents: 100, reference: "lead-wompi-1" }),
+    );
+
+    expect((await repo.getById("lead-wompi-1"))?.stage).toBe("esperando_aprobacion");
   });
 
   it("PENDING no confirma ni toca el lead", async () => {

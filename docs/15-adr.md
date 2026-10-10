@@ -141,3 +141,12 @@ solución posible:
 "SÍ" suelto solo se aplica si hay exactamente un pedido esperando. Si hay más, el
 bot no aprueba nada y le muestra la lista. Mismo criterio sin tabla de pedidos:
 nunca se adivina.
+
+**Implementado en T-34 (Wompi):**
+- La referencia del link de pago es el id del pedido, no el del lead.
+- El webhook compara `amount_in_cents` contra el total del pedido. Si no coincide,
+  no confirma y alerta a la dueña.
+- Un pago que llega para un pedido ya rechazado o vencido no lo revive: se le avisa a
+  la dueña para devolverlo.
+- Con cada pago aprobado, la dueña recibe "pedido #N pagado con Wompi, ya podés
+  prepararlo". Antes nadie en el negocio se enteraba.
