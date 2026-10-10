@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import type {
   ComprobanteRow,
   LeadRow,
+  PedidoRow,
   NegocioRow,
   SessionRow,
   SupabaseDb,
@@ -48,6 +49,7 @@ interface FakeSupabaseDb extends SupabaseDb {
   usoIa: UsoIaRow[];
   inventario: InventarioRow[];
   comprobantes: ComprobanteRow[];
+  pedidos: PedidoRow[];
   /** Seedear con `wompiCredenciales.set(negocioId, {...})` en los tests. */
   wompiCredenciales: Map<string, WompiCredenciales>;
 }
@@ -60,6 +62,7 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
   const usoIa: UsoIaRow[] = [];
   const inventario: InventarioRow[] = [];
   const comprobantes: ComprobanteRow[] = [];
+  const pedidos: PedidoRow[] = [];
   const wompiCredenciales = new Map<string, WompiCredenciales>();
 
   return {
@@ -70,6 +73,7 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
     usoIa,
     inventario,
     comprobantes,
+    pedidos,
     wompiCredenciales,
 
     async selectLeadByContact(businessSlug, contact) {
@@ -238,6 +242,47 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
 
     async selectWompiCredentials(negocioId) {
       return wompiCredenciales.get(negocioId) ?? null;
+    },
+
+    async insertPedido(row) {
+      // Espejo de `crear_pedido` (0015): siguiente número del negocio.
+      const ultimo = pedidos
+        .filter((p) => p.negocio_id === row.negocioId)
+        .reduce((max, p) => Math.max(max, p.numero), 0);
+      const ahora = new Date().toISOString();
+      const nueva: PedidoRow = {
+        id: randomUUID(),
+        negocio_id: row.negocioId,
+        numero: ultimo + 1,
+        lead_id: row.leadId,
+        contacto: row.contacto,
+        cliente: row.cliente ?? null,
+        items: row.items,
+        total: row.total,
+        moneda: row.moneda,
+        modalidad: row.modalidad ?? null,
+        direccion: row.direccion ?? null,
+        estado: row.estado,
+        codigo_retiro: null,
+        comprobante_id: null,
+        created_at: ahora,
+        updated_at: ahora,
+      };
+      pedidos.push(nueva);
+      return nueva;
+    },
+
+    async updatePedidoEstado(id, estado) {
+      const pedido = pedidos.find((p) => p.id === id);
+      if (!pedido) throw new Error(`No existe el pedido ${id}`);
+      pedido.estado = estado;
+      pedido.updated_at = new Date().toISOString();
+    },
+
+    async selectPedidosAbiertosDeLead(leadId, estadosCerrados) {
+      return pedidos
+        .filter((p) => p.lead_id === leadId && !estadosCerrados.includes(p.estado))
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
     },
   };
 }
