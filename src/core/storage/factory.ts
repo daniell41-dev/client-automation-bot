@@ -12,6 +12,7 @@ import type { LeadRepository } from "@/core/storage/repository";
 import type { SessionRepository } from "@/core/storage/session-repository";
 import type { MessageDedupeRepository } from "@/core/storage/dedupe-repository";
 import type { AiUsageRepository } from "@/core/storage/usage-repository";
+import type { WhatsAppUsageRepository } from "@/core/storage/whatsapp-usage-repository";
 import type { InventoryRepository } from "@/core/storage/inventory-repository";
 import type { ComprobanteRepository } from "@/core/storage/comprobante-repository";
 import type { PedidoRepository } from "@/core/storage/pedido-repository";
@@ -21,6 +22,7 @@ import { JsonLeadRepository } from "@/core/storage/adapters/json";
 import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
 import { JsonMessageDedupeRepository } from "@/core/storage/adapters/dedupe-json";
 import { JsonAiUsageRepository } from "@/core/storage/adapters/usage-json";
+import { JsonWhatsAppUsageRepository } from "@/core/storage/adapters/whatsapp-usage-json";
 import { JsonInventoryRepository } from "@/core/storage/adapters/inventory-json";
 import { JsonComprobanteRepository } from "@/core/storage/adapters/comprobante-json";
 import { JsonPedidoRepository } from "@/core/storage/adapters/pedido-json";
@@ -33,6 +35,7 @@ import { SupabaseLeadRepository } from "@/core/storage/adapters/supabase/leads";
 import { SupabaseSessionRepository } from "@/core/storage/adapters/supabase/sessions";
 import { SupabaseMessageDedupeRepository } from "@/core/storage/adapters/supabase/dedupe";
 import { SupabaseAiUsageRepository } from "@/core/storage/adapters/supabase/usage";
+import { SupabaseWhatsAppUsageRepository } from "@/core/storage/adapters/supabase/whatsapp-usage";
 import { SupabaseInventoryRepository } from "@/core/storage/adapters/supabase/inventory";
 import { SupabaseComprobanteRepository } from "@/core/storage/adapters/supabase/comprobantes";
 import { SupabasePedidoRepository } from "@/core/storage/adapters/supabase/pedidos";
@@ -97,6 +100,12 @@ export function createMessageDedupeRepository(): MessageDedupeRepository {
 export function createAiUsageRepository(): AiUsageRepository {
   const db = createSupabaseDb();
   return db ? new SupabaseAiUsageRepository(db) : new JsonAiUsageRepository();
+}
+
+/** T-43: medidor de mensajes de WhatsApp — Supabase > JSON local, igual que el de IA. */
+export function createWhatsAppUsageRepository(): WhatsAppUsageRepository {
+  const db = createSupabaseDb();
+  return db ? new SupabaseWhatsAppUsageRepository(db) : new JsonWhatsAppUsageRepository();
 }
 
 /**

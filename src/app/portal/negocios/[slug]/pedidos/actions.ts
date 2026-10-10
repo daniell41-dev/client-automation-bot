@@ -12,7 +12,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
-import { resolveBusinessBySlug } from "@/businesses/resolve";
+import { resolveBusinessBySlug, type ResolvedBusiness } from "@/businesses/resolve";
 import { handleOwnerApproval } from "@/core/handle";
 import { mensajePedidoListo, validarEntrega } from "@/core/engine/panel-pedidos";
 import { transicionarPedido } from "@/core/engine/pedido-estado";
@@ -25,6 +25,7 @@ import {
   createInventoryRepository,
   createLeadRepository,
   createPedidoRepository,
+  createWhatsAppUsageRepository,
 } from "@/core/storage/factory";
 import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
 import type { OutgoingMessage } from "@/core/types";
@@ -38,11 +39,19 @@ async function pedidoDeLaDueña(pedidoId: string): Promise<Pedido | null> {
 }
 
 /** Manda un mensaje al cliente por el número del negocio. Sin token o sin número conectado, no hace nada. */
-async function avisarCliente(phoneNumberId: string | undefined, message: OutgoingMessage): Promise<void> {
+async function avisarCliente(
+  resolved: ResolvedBusiness | null,
+  message: OutgoingMessage,
+): Promise<void> {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+  const phoneNumberId = resolved?.whatsappPhoneNumberId;
   if (!accessToken || !phoneNumberId) return;
   try {
-    await new WhatsAppChannel({ phoneNumberId, accessToken }).send(message);
+    await new WhatsAppChannel({
+      phoneNumberId,
+      accessToken,
+      medidor: { negocio: resolved.negocioId ?? resolved.config.slug, repo: createWhatsAppUsageRepository() },
+    }).send(message);
   } catch (err) {
     console.error("[Panel] no se pudo avisar al cliente por WhatsApp:", err);
   }
@@ -83,7 +92,7 @@ export async function decidirPedido(_prev: ActionState, formData: FormData): Pro
     createComprobanteRepository(),
     createInventoryRepository(),
   );
-  if (customerReply) await avisarCliente(resolved.whatsappPhoneNumberId, customerReply);
+  if (customerReply) await avisarCliente(resolved, customerReply);
 
   revalidatePath(`/portal/negocios/${slug}/pedidos`);
   return customerReply ? { ok: ownerReply.text } : { error: ownerReply.text };
@@ -103,7 +112,7 @@ export async function marcarListo(_prev: ActionState, formData: FormData): Promi
     return { error: `El pedido #${pedido.numero} no está en preparación.` };
   }
   const resolved = await resolveBusinessBySlug(slug);
-  await avisarCliente(resolved?.whatsappPhoneNumberId, { to: pedido.contacto, text: mensajePedidoListo(pedido) });
+  await avisarCliente(resolved, { to: pedido.contacto, text: mensajePedidoListo(pedido) });
 
   revalidatePath(`/portal/negocios/${slug}/pedidos`);
   return { ok: `Pedido #${pedido.numero} listo.` };

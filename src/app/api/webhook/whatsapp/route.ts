@@ -31,6 +31,7 @@ import {
   createMessageDedupeRepository,
   createPaymentGateway,
   createSessionRepository,
+  createWhatsAppUsageRepository,
 } from "@/core/storage/factory";
 import { createLLMProvider } from "@/core/ai/factory";
 import { handleIncoming, handleOwnerApproval } from "@/core/handle";
@@ -148,6 +149,16 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
       const business = resolved.config;
       if (business.botActivo === false) continue; // bot en pausa → no responder
 
+      // T-43: se cuenta lo que entra además de lo que sale — cada mensaje
+      // del cliente abre (o renueva) la ventana de 24h en la que responder
+      // es gratis, así que la relación entre ambos es lo que explica la
+      // factura de Meta. Nunca rompe el mensaje si la medición falla.
+      const negocioUso = resolved.negocioId ?? business.slug;
+      const usoWhatsapp = createWhatsAppUsageRepository();
+      await usoWhatsapp.registrar({ negocio: negocioUso, recibidos: 1 }).catch((err) => {
+        console.error("[WhatsApp] no se pudo registrar el uso en uso_whatsapp:", err);
+      });
+
       // Un payload puede traer mensajes de negocios distintos (batch de
       // Meta) — el provider se arma POR MENSAJE para que T-07 atribuya el
       // consumo al negocio correcto en `uso_ia`. `negocioId` (UUID real) si
@@ -174,6 +185,7 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
             phoneNumberId: parsed.phoneNumberId,
             accessToken,
             plantilla: plantillaAviso,
+            medidor: { negocio: negocioUso, repo: usoWhatsapp },
           })
         : undefined;
 

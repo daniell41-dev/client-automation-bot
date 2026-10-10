@@ -144,6 +144,17 @@ export interface SupabaseDb {
     imagenes?: number;
   }): Promise<void>;
   /**
+   * T-43: suma un delta a los contadores de WhatsApp del mes del negocio
+   * (migración 0021). Atómico en la base por el mismo motivo que
+   * `recordAiUsage`: dos mensajes simultáneos no se pisan el contador.
+   */
+  recordWhatsAppUsage(entry: {
+    negocioId: string;
+    recibidos?: number;
+    enviados?: number;
+    plantillas?: number;
+  }): Promise<void>;
+  /**
    * Fija (reemplaza) el stock de un producto — ver migración 0010. Lo llama
    * el portal al guardar el catálogo, para cada ítem con `stock` declarado.
    */
@@ -346,6 +357,21 @@ class RealSupabaseDb implements SupabaseDb {
       p_tokens_out: entry.tokensOut ?? 0,
       p_fallbacks: entry.fallbacks ?? 0,
       p_imagenes: entry.imagenes ?? 0,
+    });
+    if (error) throw error;
+  }
+
+  async recordWhatsAppUsage(entry: {
+    negocioId: string;
+    recibidos?: number;
+    enviados?: number;
+    plantillas?: number;
+  }): Promise<void> {
+    const { error } = await this.client.rpc("registrar_uso_whatsapp", {
+      p_negocio_id: entry.negocioId,
+      p_recibidos: entry.recibidos ?? 0,
+      p_enviados: entry.enviados ?? 0,
+      p_plantillas: entry.plantillas ?? 0,
     });
     if (error) throw error;
   }
