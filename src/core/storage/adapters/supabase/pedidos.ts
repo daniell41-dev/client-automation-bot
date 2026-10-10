@@ -34,6 +34,7 @@ function toPedido(row: PedidoRow): Pedido {
     estado: row.estado as EstadoPedido,
     codigoRetiro: row.codigo_retiro ?? undefined,
     comprobanteId: row.comprobante_id ?? undefined,
+    stockReservado: row.stock_reservado ?? false,
     creadoEn: row.created_at,
     actualizadoEn: row.updated_at,
   };
@@ -54,6 +55,7 @@ export class SupabasePedidoRepository implements PedidoRepository {
       modalidad: pedido.modalidad,
       direccion: pedido.direccion,
       estado: pedido.estado,
+      stockReservado: pedido.stockReservado,
     });
     return toPedido(row);
   }

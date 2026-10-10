@@ -126,4 +126,18 @@ describe("JsonInventoryRepository — markLowStockAlert (T-22.2)", () => {
     expect(await repo.markLowStockAlert("tienda-a", "harina")).toBe(true);
     expect(await repo.markLowStockAlert("tienda-b", "harina")).toBe(true);
   });
+
+  it("incrementCart devuelve unidades solo a productos con stock configurado (T-32)", async () => {
+    const repo = new JsonInventoryRepository(filePath);
+    await repo.setStock("tienda", "harina", 3);
+    await repo.incrementCart("tienda", [
+      { serviceId: "harina", cantidad: 2 },
+      { serviceId: "sin-limite", cantidad: 5 },
+    ]);
+
+    const resultado = await repo.decrementCart("tienda", [{ serviceId: "harina", cantidad: 5 }]);
+    expect(resultado.ok).toBe(true); // 3 + 2 = 5, alcanza justo
+    const sinLimite = await repo.decrementCart("tienda", [{ serviceId: "sin-limite", cantidad: 1000 }]);
+    expect(sinLimite.ok).toBe(true); // sigue sin límite: no se le creó stock
+  });
 });

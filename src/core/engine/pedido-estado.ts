@@ -65,3 +65,22 @@ export function pedidoCerrado(estado: EstadoPedido): boolean {
 export function pedidoPendienteDeDecision(estado: EstadoPedido): boolean {
   return PENDIENTES_DE_DECISION.has(estado);
 }
+
+/**
+ * T-32: horas que un pedido puede quedar esperando el pago antes de vencer.
+ * Mismo umbral que la inactividad de la charla (`session-lifecycle.ts`): un
+ * cliente que no pagó en un día no va a volver a pagar ESE pedido, y mientras
+ * tanto sus unidades figuran como vendidas.
+ */
+export const PLAZO_PAGO_HORAS = 24;
+
+/**
+ * ¿El pedido venció sin pago? Solo aplica a `esperando_pago`: un pedido
+ * `por_verificar` ya tiene comprobante y lo decide la dueña, nunca el reloj —
+ * vencerlo podría tirar a la basura una venta que sí se pagó.
+ */
+export function pagoVencido(estado: EstadoPedido, creadoEn: string, now: Date): boolean {
+  if (estado !== "esperando_pago") return false;
+  const horas = (now.getTime() - new Date(creadoEn).getTime()) / 3_600_000;
+  return horas >= PLAZO_PAGO_HORAS;
+}

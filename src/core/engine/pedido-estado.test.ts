@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  pagoVencido,
   pedidoCerrado,
   pedidoPendienteDeDecision,
   puedeTransicionarPedido,
@@ -50,5 +51,18 @@ describe("pedido-estado — consultas", () => {
     expect(pedidoPendienteDeDecision("esperando_pago")).toBe(true);
     expect(pedidoPendienteDeDecision("por_verificar")).toBe(true);
     expect(pedidoPendienteDeDecision("aprobado")).toBe(false);
+  });
+});
+
+describe("pagoVencido (T-32)", () => {
+  const creado = "2026-10-10T10:00:00.000Z";
+
+  it("vence un pedido sin pago después de 24h", () => {
+    expect(pagoVencido("esperando_pago", creado, new Date("2026-10-11T10:00:00.000Z"))).toBe(true);
+    expect(pagoVencido("esperando_pago", creado, new Date("2026-10-11T09:59:00.000Z"))).toBe(false);
+  });
+
+  it("nunca vence uno con comprobante: eso lo decide la dueña", () => {
+    expect(pagoVencido("por_verificar", creado, new Date("2026-10-20T00:00:00.000Z"))).toBe(false);
   });
 });

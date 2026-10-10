@@ -121,3 +121,18 @@ describe("SupabaseInventoryRepository — markLowStockAlert (T-22.2)", () => {
     expect(await repo.markLowStockAlert("neg-1", "no-trackeado")).toBe(false);
   });
 });
+
+describe("SupabaseInventoryRepository — incrementCart (T-32)", () => {
+  it("suma a los productos con stock y no crea filas para los que no tienen", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseInventoryRepository(db);
+    await repo.setStock("neg-1", "harina", 3);
+
+    await repo.incrementCart("neg-1", [
+      { serviceId: "harina", cantidad: 2 },
+      { serviceId: "aceite", cantidad: 1 },
+    ]);
+
+    expect(db.inventario).toEqual([{ negocio_id: "neg-1", service_id: "harina", stock: 5 }]);
+  });
+});

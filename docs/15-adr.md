@@ -132,8 +132,9 @@ solución posible:
   - Además, queda registro de cada decisión fuera de WhatsApp.
 - Complica: dos lugares con estado (lead y pedido) que tienen que moverse
   juntos. Mientras convivan, el lead sigue siendo quien decide la conversación
-  y el pedido es el registro de la venta. Un pedido que nunca se resuelve queda
-  en `esperando_pago` hasta que exista el vencimiento (T-32).
+  y el pedido es el registro de la venta. Un pedido que espera el pago más de 24h
+  vence y devuelve su stock (T-32). Uno con comprobante nunca vence solo: lo
+  decide la dueña.
 
 **Implementado en T-31:** el aviso a la dueña trae los botones "Aprobar #N" /
 "Rechazar #N" con el id del pedido, y como respaldo se acepta "SÍ N" escrito. Un

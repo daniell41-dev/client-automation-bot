@@ -41,6 +41,12 @@ export interface NuevoPedido {
   modalidad?: string;
   direccion?: string;
   estado: EstadoPedido;
+  /**
+   * T-32: si este pedido descontó stock al crearse. Con Wompi el descuento
+   * recién ocurre cuando la pasarela confirma, así que un pedido de Wompi
+   * pendiente no tiene nada que devolver.
+   */
+  stockReservado?: boolean;
 }
 
 export interface Pedido extends NuevoPedido {
