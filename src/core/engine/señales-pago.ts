@@ -43,6 +43,12 @@ export interface ComprobantePrevio {
 export interface DatosPagoNegocio {
   /** Cuenta/teléfono que el negocio declaró como destino real de sus pagos. */
   telefonoDestino?: string;
+  /**
+   * T-45: todas las cuentas del negocio. El comprobante coincide si el pago
+   * fue a CUALQUIERA de ellas — con varias cuentas, pagarle a la otra no es
+   * fraude.
+   */
+  destinos?: string[];
   comprobantesPrevios?: ComprobantePrevio[];
 }
 
@@ -92,8 +98,10 @@ export function calcularSeñalesPago(
   }
 
   const destinoComprobante = normalizarTelefono(comprobante.telefonoDestino);
-  const destinoNegocio = normalizarTelefono(negocio.telefonoDestino);
-  if (destinoComprobante && destinoNegocio && destinoComprobante !== destinoNegocio) {
+  const destinosNegocio = [negocio.telefonoDestino, ...(negocio.destinos ?? [])]
+    .map(normalizarTelefono)
+    .filter((d): d is string => d !== undefined);
+  if (destinoComprobante && destinosNegocio.length > 0 && !destinosNegocio.includes(destinoComprobante)) {
     señales.push({
       tipo: "destino_no_coincide",
       nivel: "alta",

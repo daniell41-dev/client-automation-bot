@@ -8,7 +8,7 @@
  * un "+57" disparen una alarma falsa.
  */
 
-import type { PagosConfig } from "@/core/types";
+import type { CuentaPago, PagosConfig, TipoCuentaPago } from "@/core/types";
 
 /**
  * Líneas con los datos de pago del negocio, listas para el mensaje al
@@ -23,6 +23,67 @@ export function textoDatosPago(datos: PagosConfig["datosPago"]): string {
   ]
     .filter((l): l is string => l !== null)
     .join("\n");
+}
+
+const TIPO_CUENTA: Record<TipoCuentaPago, string> = {
+  ahorros: "Cuenta de ahorros",
+  corriente: "Cuenta corriente",
+  billetera: "Celular",
+  llave: "Llave Bre-B",
+};
+
+/** Un bloque por cuenta: entidad, tipo + número y titular, en líneas cortas que se leen bien en WhatsApp. */
+function textoCuenta(cuenta: CuentaPago): string {
+  const titular = cuenta.titular?.trim();
+  const documento = cuenta.documento?.trim();
+  return [
+    `*${cuenta.entidad.trim()}*`,
+    `${TIPO_CUENTA[cuenta.tipo]}: ${cuenta.numero.trim()}`,
+    titular ? `A nombre de: ${titular}${documento ? ` (${documento})` : ""}` : null,
+  ]
+    .filter((l): l is string => l !== null)
+    .join("\n");
+}
+
+/**
+ * T-45: los datos de pago que el bot le da al cliente. Con `cuentas`, una
+ * por bloque; sin ellas, el formato viejo de `datosPago` (un solo Nequi), así
+ * los negocios configurados antes de T-45 siguen funcionando sin tocarlos.
+ */
+export function textoCuentasPago(pagos: PagosConfig | undefined): string {
+  const cuentas = (pagos?.cuentas ?? []).filter((c) => c.numero.trim());
+  if (cuentas.length > 0) return cuentas.map(textoCuenta).join("\n\n");
+  return textoDatosPago(pagos?.datosPago);
+}
+
+/**
+ * T-45: las cuentas para mostrar en el editor. Un negocio configurado antes
+ * de T-45 tiene el Nequi y la llave Bre-B sueltos en `datosPago`; se
+ * convierten a cuentas para que la dueña los vea y los guarde con el formato
+ * nuevo sin volver a escribirlos.
+ */
+export function cuentasDeConfig(pagos: PagosConfig | undefined): CuentaPago[] {
+  if (pagos?.cuentas?.length) return pagos.cuentas;
+  const titular = pagos?.datosPago?.titular?.trim() || undefined;
+  const nequi = pagos?.datosPago?.nequi?.trim() || pagos?.telefonoDestino?.trim();
+  const llave = pagos?.datosPago?.llaveBreB?.trim();
+  const cuentas: CuentaPago[] = [];
+  if (nequi) cuentas.push({ entidad: "Nequi", tipo: "billetera", numero: nequi, ...(titular ? { titular } : {}) });
+  if (llave) cuentas.push({ entidad: "Bre-B", tipo: "llave", numero: llave, ...(titular ? { titular } : {}) });
+  return cuentas;
+}
+
+/**
+ * T-45: todos los números donde el negocio recibe plata, para la señal
+ * "destino no coincide". Con una sola cuenta registrada, un cliente que le
+ * pagaba a la otra (Bancolombia en vez de Nequi) disparaba una alarma falsa.
+ */
+export function destinosDePago(pagos: PagosConfig | undefined): string[] {
+  return [
+    pagos?.telefonoDestino,
+    pagos?.datosPago?.nequi,
+    ...(pagos?.cuentas ?? []).map((c) => c.numero),
+  ].filter((n): n is string => Boolean(n?.trim()));
 }
 
 /**

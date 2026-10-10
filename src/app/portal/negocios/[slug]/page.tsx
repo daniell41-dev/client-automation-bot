@@ -3,6 +3,7 @@
  * conversaciones recientes.
  */
 
+import { cuentasDeConfig } from "@/core/engine/datos-pago";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createUserClient } from "@/lib/supabase/server";
@@ -68,7 +69,7 @@ export default async function ResumenPage({
     // decirle a dónde mandarla.
     { label: "Tu WhatsApp para avisos", done: Boolean(config?.notifyPhoneNumber) },
     ...(config?.pagos?.requiereComprobante
-      ? [{ label: "Datos de pago (Nequi / Bre-B)", done: Boolean(config.pagos.datosPago?.nequi || config.pagos.datosPago?.llaveBreB) }]
+      ? [{ label: "Cuentas para cobrar", done: cuentasDeConfig(config.pagos).length > 0 }]
       : []),
     { label: "WhatsApp conectado", done: Boolean(negocio.whatsapp_phone_number_id) },
   ];

@@ -2391,6 +2391,24 @@ describe("datos de pago para el cliente (T-33)", () => {
     expect(messages[0].text).toContain("Nequi: 3000000000");
   });
 
+  it("T-45: con varias cuentas le da todas, y el QR como imagen aparte", async () => {
+    const { messages } = await confirmar({
+      ...tiendaConNotify,
+      pagos: {
+        requiereComprobante: true,
+        cuentas: [
+          { entidad: "Nequi", tipo: "billetera", numero: "300 000 0000", titular: "Laura Pérez" },
+          { entidad: "Bancolombia", tipo: "ahorros", numero: "123-456789-01", titular: "Laura Pérez" },
+        ],
+        qrUrl: "https://x.supabase.co/storage/v1/object/public/pagos-qr/n/qr.png",
+      },
+    });
+
+    expect(messages[0].text).toContain("*Bancolombia*\nCuenta de ahorros: 123-456789-01");
+    expect(messages[0].text).toContain("Celular: 300 000 0000");
+    expect(messages[1].imagenUrl).toBe("https://x.supabase.co/storage/v1/object/public/pagos-qr/n/qr.png");
+  });
+
   it("sin datos de pago cargados, el mensaje queda como antes", async () => {
     const { messages } = await confirmar({ ...tiendaConNotify, pagos: { requiereComprobante: true } });
 

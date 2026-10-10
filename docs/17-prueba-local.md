@@ -18,7 +18,7 @@ Leyenda: ✅ funciona hoy · 🔧 requiere la tarea indicada · ⚙️ hoy se pu
 ```mermaid
 flowchart TD
   subgraph E["0 · Entorno (una sola vez)"]
-    E1["✅ .env.local: Supabase, IA y WhatsApp<br/>(token permanente)"] --> E2["✅ Supabase: migraciones 0001→0021<br/>+ pnpm seed:supabase --admin"]
+    E1["✅ .env.local: Supabase, IA y WhatsApp<br/>(token permanente)"] --> E2["✅ Supabase: migraciones 0001→0022<br/>+ pnpm seed:supabase --admin"]
     E2 --> E3["✅ pnpm dev + ngrok"]
     E3 --> E4["✅ Webhook cargado en Meta<br/>+ subscribed_apps del WABA"]
   end
@@ -38,7 +38,7 @@ flowchart TD
   subgraph N["3 · Negocio"]
     N0["✅ Back office → Rubros<br/>(Estética ya existe; Restaurante se crea)"] --> N1["✅ Back office → Negocios → Nuevo<br/>(rubro, dueña, phone_number_id)"]
     N1 --> N2["✅ La dueña entra al portal:<br/>catálogo, horarios, tono, su WhatsApp"]
-    N2 --> N3["✅ Cobro con comprobante:<br/>Nequi / Bre-B en el portal"]
+    N2 --> N3["✅ Cobro con comprobante:<br/>cuentas (Nequi, bancos, Bre-B) + QR"]
     N3 --> N5["✅ Back office: encender el bot"]
     N4["✅ T-42: o la dueña lo arma en su primer ingreso<br/>(elige el tipo entre los asignados)"]
     N1 -.-> N4
@@ -51,7 +51,7 @@ flowchart TD
 
   subgraph R["4b · Prueba restaurante"]
     R1["✅ Pide 2 bandejas + 1 limonada<br/>→ total → confirma"] --> R2["✅ ¿Domicilio o recoger?<br/>+ dirección"]
-    R2 --> R3["✅ Bot da el Nequi →<br/>foto del comprobante →<br/>IA lo lee + señales"]
+    R2 --> R3["✅ Bot da las cuentas + el QR →<br/>foto del comprobante →<br/>IA lo lee + señales"]
     R3 --> R4["✅ La dueña toca 'Aprobar #1'<br/>(o responde SÍ 1)"]
     R4 --> R5["✅ El cliente recibe<br/>número + código de retiro"]
     R5 --> R6["✅ Portal → Pedidos:<br/>Listo → Entregar con el código"]
@@ -82,7 +82,7 @@ flowchart TD
 | Dueña (login) | `duena.belleza@prueba.co` | `duena.sabores@prueba.co` |
 | Catálogo | Limpieza facial $80.000 · 60 min · Manicure $25.000 · 45 min | Bandeja paisa $28.000 · stock 20 · Limonada de coco $8.000 · stock 30 |
 | Horario | Lun-Sáb 9:00-18:00 | Todos los días 11:00-22:00 |
-| Pago | — | Nequi 300 000 0000 (ejemplo) · pedir comprobante |
+| Pago | — | Nequi 300 000 0000 y Bancolombia ahorros 123-456789-01, a nombre de la dueña (ejemplo) + una imagen de QR · pedir comprobante |
 
 **Los tres celulares de la prueba:**
 
@@ -110,7 +110,7 @@ igual con el simulador: `pnpm sim --business <slug>`.
    - Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y
      `SUPABASE_SERVICE_ROLE_KEY`.
 2. **Supabase:** en el SQL Editor, correr **todas** las migraciones de
-   `supabase/migrations/` en orden (de `0001` a `0021`). Después:
+   `supabase/migrations/` en orden (de `0001` a `0022`). Después:
    ```bash
    pnpm seed:supabase --admin tucorreo@dominio.com TuClave123
    ```
@@ -187,7 +187,7 @@ crea el negocio a mano, ella lo arma sola:
 3. Cae en el Resumen del negocio, que nace de la plantilla del rubro con el bot apagado.
 
 **Qué tiene que pasar:** el checklist "Completá tu bot" incluye "Tu WhatsApp para
-avisos" y, en el restaurante, "Datos de pago (Nequi / Bre-B)". Abajo aparece la nota de
+avisos" y, en el restaurante, "Cuentas para cobrar". Abajo aparece la nota de
 que el bot sigue apagado hasta que el admin conecte el número. Después el admin carga el
 `phone_number_id` desde Back office → Negocios y lo enciende.
 
@@ -208,10 +208,15 @@ Cerrar sesión, entrar con el usuario de la dueña y abrir el negocio:
 
 **Cobro con comprobante (restaurante):** en Configuración → **Cobro con comprobante**:
 - activar "Pedir comprobante antes de aprobar";
-- cargar el número de Nequi, la llave Bre-B si la hay y el nombre del titular.
+- cargar una o más cuentas (✅ T-45): banco o billetera (Nequi, Daviplata, Bancolombia,
+  Davivienda, Bre-B…), tipo (celular, ahorros, corriente o llave), número, a nombre de
+  quién está y, si se quiere, la cédula o NIT. "+ Agregar otra cuenta" suma hasta 6;
+- tocar **Guardar cambios**;
+- opcional: en "Código QR de pago" elegir la captura del QR y tocar **Subir QR**.
 
-El bot le manda esos datos al cliente al confirmar el pedido. El número de Nequi también
-sirve para avisar si el comprobante dice que se pagó a otro número.
+El bot le manda todas las cuentas al cliente al confirmar el pedido y, si hay QR, la
+imagen en un mensaje aparte. Si el comprobante dice que se pagó a un número que no es
+ninguna de las cuentas, la dueña recibe el aviso ⚠️.
 
 ### 3.4 Encender el bot
 
@@ -248,7 +253,7 @@ Desde el celular "cliente", escribirle al número del negocio:
 | `no, eso es todo` | Preguntar "¿domicilio o recoger?" (con la modalidad activada en Citas → Pedidos) |
 | `domicilio` | Pedir la dirección |
 | `Calle 10 # 5-20, barrio Centro` | Mostrar el resumen con total $64.000, "Entrega: Domicilio" y la dirección, y pedir confirmación |
-| `sí` | Descontar stock, darle el Nequi / la llave Bre-B y pedir la foto del comprobante |
+| `sí` | Descontar stock, darle las cuentas (número, tipo y titular), mandar el QR si hay, y pedir la foto del comprobante |
 | *(foto de un comprobante de Nequi por $64.000)* | "Recibí tu comprobante…" |
 
 Con la IA en modo agente el bot puede juntar pasos: si el cliente escribe
@@ -306,3 +311,4 @@ Lo que todavía no pasa:
 | La dueña no recibe avisos | Su WhatsApp en Configuración, en formato `57…`, y distinto del número del negocio |
 | Datos raros | Tablas `negocios`, `leads` y `comprobantes` en Supabase |
 | "WhatsApp (mes)" muestra "—" | Falta aplicar la migración `0021_uso_whatsapp.sql` |
+| "Subir QR" da error de bucket | Falta aplicar la migración `0022_pagos_qr.sql` |

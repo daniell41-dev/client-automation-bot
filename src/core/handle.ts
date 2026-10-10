@@ -35,7 +35,7 @@ import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { interpretableOptions, respond } from "@/core/engine/responder";
 import { buscarProducto } from "@/core/engine/buscar-producto";
 import { calcularSeñalesPago, type Señal } from "@/core/engine/señales-pago";
-import { normalizarReferencia, textoDatosPago } from "@/core/engine/datos-pago";
+import { destinosDePago, normalizarReferencia, textoCuentasPago } from "@/core/engine/datos-pago";
 import { decidirAccionWompi, type EstadoWompi } from "@/core/engine/pago-wompi";
 import { runAgentTurn } from "@/core/ai/agent";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
@@ -381,7 +381,7 @@ async function handlePaymentReceiptMessage(
         descripcion,
         { total },
         {
-          telefonoDestino: config.pagos?.telefonoDestino ?? config.pagos?.datosPago?.nequi,
+          destinos: destinosDePago(config.pagos),
           comprobantesPrevios: previos.map((p) => ({
             referencia: p.referencia,
             contacto: p.leadId ?? "",
@@ -745,7 +745,7 @@ export async function handleIncoming(
           // dueña todavía, se le pide el comprobante al cliente. Recién cuando
           // llega la foto (`handlePaymentReceiptMessage`) se le avisa a ella.
           const resumenPedido = resumenCarrito(lead.items!, config.services, config);
-          const datosPago = textoDatosPago(config.pagos?.datosPago);
+          const datosPago = textoCuentasPago(config.pagos);
           const plantillaPedir =
             config.messages.pedirComprobante ??
             (datosPago ? DEFAULT_PEDIR_COMPROBANTE_CON_DATOS : DEFAULT_PEDIR_COMPROBANTE);
@@ -755,6 +755,11 @@ export async function handleIncoming(
             render(plantillaPedir, { nombre: lead.name ?? "", datosPago }) +
             (datosPago && !plantillaPedir.includes("{{datosPago}}") ? `\n\n${datosPago}` : "");
           messages = [{ to: message.from, text: [resumenPedido, pedirTexto].filter(Boolean).join("\n\n") }];
+          // T-45: el QR va aparte y después del texto, para que el cliente
+          // lea primero el total y las cuentas, y escanee si le queda más cómodo.
+          if (config.pagos?.qrUrl) {
+            messages.push({ to: message.from, text: "O escaneá este QR para pagar 👆", imagenUrl: config.pagos.qrUrl });
+          }
         } else if (notifier && config.notifyPhoneNumber) {
           const alertasStockBajo = inventory
             ? await alertasDeStockBajo(inventory, negocioParaStock ?? config.slug, config, restante)
@@ -800,6 +805,12 @@ export async function handleIncoming(
 
   const enhanced: OutgoingMessage[] = [];
   for (const msg of messages) {
+    // T-45: el pie de una imagen (el QR de pago) es fijo y corto; reformularlo
+    // gasta una llamada a la IA sin mejorar nada.
+    if (msg.imagenUrl) {
+      enhanced.push(msg);
+      continue;
+    }
     const text = await llm.enhance({
       businessName: config.name,
       persona,

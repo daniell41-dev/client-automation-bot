@@ -99,6 +99,28 @@ describe("calcularSeñalesPago — destino no coincide", () => {
     );
   });
 
+  it("T-45: con varias cuentas, pagarle a cualquiera de ellas no es señal", () => {
+    const señales = calcularSeñalesPago(
+      comprobante({ telefonoDestino: "300 999 8877" }),
+      pedido,
+      { destinos: ["3001112233", "3009998877"] },
+      "57300000000",
+      ahora,
+    );
+    expect(señales.some((s) => s.tipo === "destino_no_coincide")).toBe(false);
+  });
+
+  it("T-45: si no coincide con ninguna de las cuentas, sí es señal", () => {
+    const señales = calcularSeñalesPago(
+      comprobante({ telefonoDestino: "3105550000" }),
+      pedido,
+      { destinos: ["3001112233", "3009998877"] },
+      "57300000000",
+      ahora,
+    );
+    expect(señales.some((s) => s.tipo === "destino_no_coincide")).toBe(true);
+  });
+
   it("sin telefonoDestino registrado por el negocio, no se puede comparar", () => {
     const señales = calcularSeñalesPago(
       comprobante({ telefonoDestino: "3009998877" }),

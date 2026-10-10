@@ -12,6 +12,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { invalidateBusinessCache } from "@/businesses/business-cache";
 import { cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
@@ -321,4 +322,90 @@ export async function actualizarWompi(
 
   invalidateBusinessCache();
   return { ok: "Credenciales de Wompi guardadas." };
+}
+
+// ── T-45: QR de cobro ────────────────────────────────────────────────────────
+
+const BUCKET_QR = "pagos-qr";
+const TIPOS_QR: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" };
+const MAX_QR_BYTES = 2 * 1024 * 1024; // mismo tope que el bucket (migración 0022)
+
+/** Ruta dentro del bucket a partir de la URL pública, para borrar el QR anterior. */
+function rutaQr(url: string | undefined): string | null {
+  const marca = `/${BUCKET_QR}/`;
+  const i = url?.indexOf(marca) ?? -1;
+  return url && i >= 0 ? url.slice(i + marca.length) : null;
+}
+
+/**
+ * Cambia `pagos.qrUrl` del negocio (o lo quita con `null`) pasando por Zod,
+ * y borra la imagen anterior. Se lee y escribe con el cliente de la dueña:
+ * si el negocio no es suyo, RLS no devuelve nada y no se toca el bucket.
+ */
+async function guardarQr(
+  slug: string,
+  subir: ((negocioId: string) => Promise<string | { error: string }>) | null,
+): Promise<ActionState> {
+  const supabase = await createUserClient();
+  const { data: negocio } = await supabase.from("negocios").select("id, config").eq("slug", slug).maybeSingle();
+  const actual = parseBusinessConfig(negocio?.config);
+  if (!negocio || !actual) return { error: "Negocio no encontrado o sin permisos." };
+
+  const admin = createAdminClient();
+  if (!admin) return { error: "Falta configurar Supabase en el servidor." };
+
+  let qrUrl: string | undefined;
+  if (subir) {
+    const subido = await subir(negocio.id as string);
+    if (typeof subido !== "string") return subido;
+    qrUrl = subido;
+  }
+
+  const config = parseBusinessConfig({ ...actual, pagos: { ...actual.pagos, qrUrl } });
+  if (!config) return { error: "No se pudo validar la configuración." };
+  const { error } = await supabase
+    .from("negocios")
+    .update({ config, updated_at: new Date().toISOString() })
+    .eq("id", negocio.id);
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  // Best-effort: si falla, queda un archivo huérfano en el bucket, nada más.
+  const anterior = rutaQr(actual.pagos?.qrUrl);
+  if (anterior) await admin.storage.from(BUCKET_QR).remove([anterior]);
+
+  invalidateBusinessCache();
+  revalidatePath(`/portal/negocios/${slug}/configuracion`);
+  return { ok: qrUrl ? "QR guardado. El bot lo manda junto con tus cuentas." : "QR quitado." };
+}
+
+export async function subirQrPago(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const me = await getUserRole();
+  if (!me) return { error: "No autorizado." };
+  const slug = String(formData.get("slug") ?? "");
+  const archivo = formData.get("qr");
+  if (!slug) return { error: "Falta el negocio." };
+  if (!(archivo instanceof File) || archivo.size === 0) return { error: "Elegí la imagen del QR." };
+  const ext = TIPOS_QR[archivo.type];
+  if (!ext) return { error: "El QR tiene que ser una imagen PNG, JPG o WEBP." };
+  if (archivo.size > MAX_QR_BYTES) return { error: "La imagen pesa más de 2 MB. Probá con una captura más chica." };
+
+  return guardarQr(slug, async (negocioId) => {
+    const admin = createAdminClient()!;
+    // Nombre nuevo en cada subida: WhatsApp y los navegadores cachean por URL,
+    // y con el mismo nombre el cliente podría recibir el QR viejo.
+    const ruta = `${negocioId}/qr-${Date.now()}.${ext}`;
+    const { error } = await admin.storage
+      .from(BUCKET_QR)
+      .upload(ruta, archivo, { contentType: archivo.type, upsert: false });
+    if (error) return { error: `No se pudo subir el QR: ${error.message}` };
+    return admin.storage.from(BUCKET_QR).getPublicUrl(ruta).data.publicUrl;
+  });
+}
+
+export async function quitarQrPago(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const me = await getUserRole();
+  if (!me) return { error: "No autorizado." };
+  const slug = String(formData.get("slug") ?? "");
+  if (!slug) return { error: "Falta el negocio." };
+  return guardarQr(slug, null);
 }
