@@ -82,6 +82,8 @@ export interface ComprobanteRow {
   fecha_comprobante?: string | null;
   estado: "pendiente" | "aprobado" | "rechazado";
   señales?: unknown;
+  /** T-38b (migración 0018): ruta de la foto en el bucket privado `comprobantes`. */
+  imagen_path?: string | null;
   created_at: string;
 }
 
@@ -228,6 +230,8 @@ export interface SupabaseDb {
   /** T-37 */
   updatePedidoCodigoRetiro(id: string, codigo: string): Promise<void>;
   updateComprobanteEstado(id: string, estado: string): Promise<void>;
+  /** T-38b: sube la foto al bucket privado `comprobantes` y guarda su ruta. */
+  uploadComprobanteImagen(id: string, path: string, bytes: Uint8Array, mimeType: string): Promise<void>;
 }
 
 /** Implementación real sobre supabase-js. */
@@ -525,6 +529,15 @@ class RealSupabaseDb implements SupabaseDb {
       .from("pedidos")
       .update({ codigo_retiro: codigo, updated_at: new Date().toISOString() })
       .eq("id", id);
+    if (error) throw error;
+  }
+
+  async uploadComprobanteImagen(id: string, path: string, bytes: Uint8Array, mimeType: string): Promise<void> {
+    const { error: uploadError } = await this.client.storage
+      .from("comprobantes")
+      .upload(path, bytes, { contentType: mimeType, upsert: true });
+    if (uploadError) throw uploadError;
+    const { error } = await this.client.from("comprobantes").update({ imagen_path: path }).eq("id", id);
     if (error) throw error;
   }
 

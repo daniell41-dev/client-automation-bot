@@ -313,6 +313,13 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       pedido.codigo_retiro = codigo;
     },
 
+    async uploadComprobanteImagen(id, path, bytes) {
+      const comprobante = comprobantes.find((c) => c.id === id);
+      if (!comprobante) throw new Error(`No existe el comprobante ${id}`);
+      if (bytes.length === 0) throw new Error("imagen vacía");
+      comprobante.imagen_path = path;
+    },
+
     async updateComprobanteEstado(id, estado) {
       const comprobante = comprobantes.find((c) => c.id === id);
       if (!comprobante) throw new Error(`No existe el comprobante ${id}`);

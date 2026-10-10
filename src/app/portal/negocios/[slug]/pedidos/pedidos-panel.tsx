@@ -98,6 +98,7 @@ function TarjetaPedido({
   pedido,
   columna,
   señales,
+  foto,
   moneda,
   locale,
 }: {
@@ -105,6 +106,7 @@ function TarjetaPedido({
   pedido: Pedido;
   columna: ColumnaPanel;
   señales: { detalle: string; nivel: string }[];
+  foto?: string;
   moneda: string;
   locale: string;
 }) {
@@ -142,6 +144,17 @@ function TarjetaPedido({
         ))}
       </div>
 
+      {foto && (
+        <a
+          href={foto}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-2 inline-block text-sm font-semibold text-primary underline-offset-2 hover:underline"
+        >
+          🧾 Ver foto del comprobante
+        </a>
+      )}
+
       {columna === "por_verificar" && <AccionesVerificar slug={slug} pedido={pedido} />}
       {columna === "en_preparacion" && (
         <>
@@ -158,12 +171,15 @@ export function PedidosPanel({
   slug,
   panel,
   señales,
+  fotos,
   moneda,
   locale,
 }: {
   slug: string;
   panel: Record<ColumnaPanel, Pedido[]>;
   señales: SeñalesPorPedido;
+  /** T-38b: URL firmada de la foto del comprobante, por id de pedido. */
+  fotos: Record<string, string>;
   moneda: string;
   locale: string;
 }) {
@@ -195,6 +211,7 @@ export function PedidosPanel({
                     pedido={pedido}
                     columna={columna.id}
                     señales={señales[pedido.id] ?? []}
+                    foto={fotos[pedido.id]}
                     moneda={moneda}
                     locale={locale}
                   />

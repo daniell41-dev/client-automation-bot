@@ -404,6 +404,16 @@ async function handlePaymentReceiptMessage(
     } catch (err) {
       console.error("[Pagos] no se pudo guardar el comprobante (las señales ya se calcularon igual):", err);
     }
+    // T-38b: la foto, para que la dueña la vea en el panel al lado del
+    // pedido. Aparte del guardado de arriba: si falla, el comprobante y sus
+    // señales quedan igual (la dueña pierde la foto, no el aviso).
+    if (comprobanteCreado) {
+      try {
+        await comprobantes.adjuntarImagen(comprobanteCreado.id, negocio, media);
+      } catch (err) {
+        console.error("[Pagos] no se pudo guardar la foto del comprobante:", err);
+      }
+    }
   }
 
   // T-30: con comprobante en mano, el pedido pasa a esperar la decisión de
