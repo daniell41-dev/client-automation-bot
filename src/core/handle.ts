@@ -663,10 +663,20 @@ export async function handleIncoming(
       // verificado (`handleWompiWebhookEvent`). Si se descontara ahora, un
       // pago que nunca se completa dejaría el stock reservado para siempre
       // sin que nadie lo libere.
-      await crearPedidoDelCarrito(pedidos, lead, config, negocioParaStock ?? config.slug, "esperando_pago", false);
+      const pedidoWompi = await crearPedidoDelCarrito(
+        pedidos,
+        lead,
+        config,
+        negocioParaStock ?? config.slug,
+        "esperando_pago",
+        false,
+      );
       const total = totalCarrito(lead.items!, config.services);
       const link = paymentGateway.buildPaymentLink({
-        reference: lead.id,
+        // T-34: la referencia es el PEDIDO, no el lead. El id del lead se
+        // repite en todos los pedidos de un cliente, así que un link viejo
+        // podía confirmar el pedido nuevo. Sin tabla de pedidos, el lead.
+        reference: pedidoWompi?.id ?? lead.id,
         amountInCents: Math.round(total * 100),
         currency: config.currency,
         redirectUrl: config.pagos.wompi.redirectUrl,
@@ -1189,6 +1199,12 @@ async function cerrarDecisionDelPedido(
 export interface WompiWebhookResult {
   /** Ausente si el evento no requería avisarle nada al cliente (p. ej. PENDING, o ya estaba confirmado). */
   customerMessage?: OutgoingMessage;
+  /**
+   * T-34: aviso a la dueña. Con Wompi no hay aprobación manual, así que sin
+   * este aviso nadie en el negocio se enteraba de que había un pedido pagado
+   * para preparar. También la alerta cuando algo del pago no cuadra.
+   */
+  ownerMessage?: OutgoingMessage;
 }
 
 /**
@@ -1204,6 +1220,11 @@ export interface WompiWebhookResult {
  * certeza acá es criptográfica, no un OCR). Si el stock ya no alcanza para
  * cuando llega el webhook (se vendió mientras tanto), no se confirma el
  * pedido — se avisa al cliente para resolverlo a mano, nunca en silencio.
+ *
+ * T-34: la firma garantiza que Wompi cobró, no QUÉ se cobró. Por eso el
+ * monto se compara contra el pedido: un link viejo de un carrito más barato
+ * no puede confirmar uno más caro. Y un pago que llega para un pedido ya
+ * rechazado o vencido no lo revive: se le avisa a la dueña para devolverlo.
  */
 export async function handleWompiWebhookEvent(
   lead: Lead,
@@ -1215,7 +1236,37 @@ export async function handleWompiWebhookEvent(
   now: Date = new Date(),
   /** T-30: sin esto, el pedido no cambia de estado (solo el lead, como antes). */
   pedidos?: PedidoRepository,
+  opciones: {
+    /** T-34: el pedido de la referencia, si el link se armó con su id. */
+    pedido?: Pedido | null;
+    /** T-34: `amount_in_cents` del evento, para compararlo con el pedido. */
+    montoEnCentavos?: number;
+  } = {},
 ): Promise<WompiWebhookResult> {
+  let pedido = opciones.pedido ?? null;
+  if (!pedido && pedidos) {
+    try {
+      pedido = await pedidos.abiertoDeLead(lead.id);
+    } catch (err) {
+      console.error("[Pedidos] no se pudo buscar el pedido del pago de Wompi:", err);
+    }
+  }
+  const avisoDueña = (text: string): OutgoingMessage | undefined =>
+    config.notifyPhoneNumber ? { to: config.notifyPhoneNumber, text } : undefined;
+  const etiqueta = etiquetaPedido(lead, pedido ?? undefined);
+
+  if (pedido && !pedidoPendienteDeDecision(pedido.estado)) {
+    if (estado === "APPROVED" && (pedido.estado === "rechazado" || pedido.estado === "vencido")) {
+      return {
+        ownerMessage: avisoDueña(
+          `⚠️ ${config.name}: Wompi aprobó un pago del ${etiqueta}, que ya estaba ${pedido.estado}. ` +
+            "No lo reactivé: revisalo en tu panel de Wompi y devolvé la plata o contactá al cliente.",
+        ),
+      };
+    }
+    return {}; // ya resuelto: un evento repetido no hace nada
+  }
+
   const yaConfirmado = lead.stage === "datos_completos";
   const decision = decidirAccionWompi(estado, yaConfirmado);
 
@@ -1230,7 +1281,7 @@ export async function handleWompiWebhookEvent(
     await repo.save(lead);
     // El carrito sigue vivo para reintentar, pero ESTE pedido murió: si el
     // cliente vuelve a confirmar, nace un pedido nuevo con su propio número.
-    await moverPedidoDelLead(pedidos, lead.id, "rechazado");
+    await cerrarDecisionDelPedido(pedidos, undefined, pedido, "rechazado");
     return {
       customerMessage: {
         to: lead.contact,
@@ -1240,10 +1291,27 @@ export async function handleWompiWebhookEvent(
   }
 
   // "confirmar" (estado APPROVED verificado).
-  if (inventory && lead.items) {
+  const itemsPedido = pedido?.items ?? lead.items ?? [];
+  const esperadoCentavos = Math.round(
+    (pedido?.total ?? totalCarrito(lead.items ?? [], config.services)) * 100,
+  );
+  if (opciones.montoEnCentavos !== undefined && opciones.montoEnCentavos !== esperadoCentavos) {
+    return {
+      customerMessage: {
+        to: lead.contact,
+        text: "Recibimos un pago por un monto distinto al de tu pedido. Te contactamos para resolverlo 🙏",
+      },
+      ownerMessage: avisoDueña(
+        `⚠️ ${config.name}: Wompi aprobó ${formatPrice(config, opciones.montoEnCentavos / 100)} por el ${etiqueta}, ` +
+          `que es de ${formatPrice(config, esperadoCentavos / 100)}. No lo confirmé: revisalo antes de prepararlo.`,
+      ),
+    };
+  }
+
+  if (inventory && itemsPedido.length > 0) {
     const resultado = await inventory.decrementCart(
       negocioParaStock ?? config.slug,
-      lead.items.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
+      itemsPedido.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
     );
     if (!resultado.ok) {
       const nombres = (resultado.faltantes ?? [])
@@ -1257,6 +1325,10 @@ export async function handleWompiWebhookEvent(
           to: lead.contact,
           text: `Recibimos tu pago, pero justo se nos acabó el stock de: ${nombres}. Te contactamos para resolverlo 🙏`,
         },
+        ownerMessage: avisoDueña(
+          `⚠️ ${config.name}: el ${etiqueta} se pagó con Wompi, pero no hay stock de: ${nombres}. ` +
+            "Contactá al cliente para reponer o devolver la plata.",
+        ),
       };
     }
   }
@@ -1265,7 +1337,7 @@ export async function handleWompiWebhookEvent(
   lead.stage = "datos_completos";
   lead.confirmedAt = now.toISOString();
   await repo.save(lead);
-  await moverPedidoDelLead(pedidos, lead.id, "aprobado");
+  await cerrarDecisionDelPedido(pedidos, undefined, pedido, "aprobado");
 
   const resumen = resumenCarrito(lead.items ?? [], config.services, config);
   return {
@@ -1273,5 +1345,10 @@ export async function handleWompiWebhookEvent(
       to: lead.contact,
       text: [resumen, "¡Listo! Tu pago quedó confirmado ✅"].filter(Boolean).join("\n\n"),
     },
+    ownerMessage: avisoDueña(
+      [`🔔 ${config.name}: ${etiqueta} pagado con Wompi ✅`, resumen, "Ya podés prepararlo."]
+        .filter(Boolean)
+        .join("\n"),
+    ),
   };
 }

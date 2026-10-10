@@ -30,6 +30,12 @@ import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
 
 export const runtime = "nodejs";
 
+/** `amount_in_cents` del evento, o `undefined` si no vino un número. */
+function montoDelEvento(event: WompiWebhookEvent): number | undefined {
+  const monto = Number(event.data?.transaction?.amount_in_cents);
+  return Number.isFinite(monto) ? monto : undefined;
+}
+
 /** POST: responde 200 de inmediato; el procesamiento corre en `after()`. */
 export async function POST(request: Request): Promise<Response> {
   const rawBody = await request.text();
@@ -55,10 +61,13 @@ export async function processWompiWebhookPayload(event: WompiWebhookEvent): Prom
     const reference = String(event.data?.transaction?.reference ?? "");
     if (!reference) return; // sin referencia no hay pedido que resolver
 
-    // `reference` = el id del lead (pedido). Es un UUID global, así que se
-    // puede buscar sin saber todavía a qué negocio pertenece.
+    // T-34: `reference` es el id del PEDIDO (links armados antes de T-34:
+    // el id del lead). Los dos son UUID globales, así que se puede buscar sin
+    // saber todavía a qué negocio pertenece.
+    const pedidos = createPedidoRepository();
+    const pedido = await pedidos.obtener(reference).catch(() => null);
     const repoSinNegocio = createLeadRepository();
-    const lead = await repoSinNegocio.getById(reference);
+    const lead = await repoSinNegocio.getById(pedido?.leadId ?? reference);
     if (!lead) return; // referencia desconocida — se descarta en silencio
 
     const resolved = await resolveBusinessBySlug(lead.businessSlug);
@@ -84,17 +93,24 @@ export async function processWompiWebhookPayload(event: WompiWebhookEvent): Prom
       inventory,
       resolved.negocioId ?? config.slug,
       new Date(),
-      createPedidoRepository(),
+      pedidos,
+      { pedido, montoEnCentavos: montoDelEvento(event) },
     );
 
-    if (result.customerMessage) {
-      const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-      if (accessToken && resolved.whatsappPhoneNumberId) {
-        const channel = new WhatsAppChannel({
-          phoneNumberId: resolved.whatsappPhoneNumberId,
-          accessToken,
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    if (accessToken && resolved.whatsappPhoneNumberId) {
+      const channel = new WhatsAppChannel({
+        phoneNumberId: resolved.whatsappPhoneNumberId,
+        accessToken,
+      });
+      if (result.customerMessage) await channel.send(result.customerMessage);
+      // Texto libre: si la dueña no escribió en 24h, Meta lo rechaza y queda
+      // en el log. La plantilla de aprobación no sirve acá (pide decidir
+      // algo que ya está decidido).
+      if (result.ownerMessage) {
+        await channel.send(result.ownerMessage).catch((err) => {
+          console.error("[Wompi] no se pudo avisar a la dueña:", err);
         });
-        await channel.send(result.customerMessage);
       }
     }
   } catch (err) {
