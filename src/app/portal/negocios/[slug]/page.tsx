@@ -63,6 +63,13 @@ export default async function ResumenPage({
     { label: "Catálogo cargado", done: (config?.services.length ?? 0) > 0 },
     { label: "Horarios y ubicación", done: (config?.horarios?.length ?? 0) > 0 },
     { label: "Respuestas automáticas", done: Boolean(config?.ai?.knowledge?.trim()) },
+    // T-42: sin su número, la dueña nunca se entera de un pedido; y si cobra
+    // con comprobante, sin datos de pago el bot le pide plata al cliente sin
+    // decirle a dónde mandarla.
+    { label: "Tu WhatsApp para avisos", done: Boolean(config?.notifyPhoneNumber) },
+    ...(config?.pagos?.requiereComprobante
+      ? [{ label: "Datos de pago (Nequi / Bre-B)", done: Boolean(config.pagos.datosPago?.nequi || config.pagos.datosPago?.llaveBreB) }]
+      : []),
     { label: "WhatsApp conectado", done: Boolean(negocio.whatsapp_phone_number_id) },
   ];
   const done = checklist.filter((c) => c.done).length;
@@ -117,6 +124,12 @@ export default async function ResumenPage({
             </li>
           ))}
         </ul>
+        {!negocio.whatsapp_phone_number_id && (
+          <p className="mt-3 text-[13px] text-ink-soft">
+            El bot queda apagado hasta que el administrador conecte tu número de
+            WhatsApp. Mientras tanto podés dejar todo listo.
+          </p>
+        )}
         {/* T-16: "Respuestas y flujos" está oculta — el conocimiento del bot
             se muda a Configuración en T-17, así que apunta ahí de una vez
             en vez de a una ruta que el cliente ya no puede alcanzar. */}

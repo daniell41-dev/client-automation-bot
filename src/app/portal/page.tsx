@@ -11,6 +11,8 @@ import { Logo } from "@/components/logo";
 import { RubroTile } from "@/components/rubro-visual";
 import { ArrowRight } from "lucide-react";
 import { signOut } from "@/app/login/actions";
+import { ActionForm } from "@/components/action-form";
+import { crearMiNegocio } from "./primer-negocio/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +43,12 @@ export default async function PortalHome() {
     .order("updated_at", { ascending: false });
 
   const slugs = (negocios ?? []).map((n) => n.slug);
+
+  // T-42: sin negocios, la dueña arma el suyo eligiendo entre los rubros que
+  // el admin le asignó al invitarla (la política `rubros_asignados` ya filtra).
+  const { data: rubros } = slugs.length
+    ? { data: [] as { id: string; nombre: string }[] }
+    : await supabase.from("rubros").select("id, nombre").order("nombre");
 
   // Mensajes de hoy por negocio (turnos de las sesiones actualizadas hoy).
   const hoy = new Date();
@@ -125,10 +133,47 @@ export default async function PortalHome() {
 
         {cards.length === 0 ? (
           <div className="mt-8">
-            <EmptyState
-              title="Todavía no tenés ningún negocio."
-              subtitle="Pedile al administrador de la plataforma que te cree uno desde el back office."
-            />
+            {(rubros ?? []).length === 0 ? (
+              <EmptyState
+                title="Todavía no tenés ningún negocio."
+                subtitle="Pedile al administrador de la plataforma que te asigne un tipo de negocio."
+              />
+            ) : (
+              <section className="rounded-2xl border border-line bg-surface p-6 shadow-card">
+                <h2 className="text-[17.5px] font-bold text-ink">Armá tu negocio</h2>
+                <p className="mt-1 text-sm text-ink-mid">
+                  Elegí qué tipo de negocio es y cómo se llama. Arrancamos con una
+                  plantilla que después ajustás a tu gusto; el bot queda apagado
+                  hasta que conectemos tu número de WhatsApp.
+                </p>
+                <ActionForm action={crearMiNegocio} submitLabel="Crear mi negocio" className="mt-5 space-y-4">
+                  <fieldset className="grid gap-3 sm:grid-cols-2">
+                    <legend className="mb-2 text-sm font-semibold text-ink">Tipo de negocio</legend>
+                    {(rubros ?? []).map((r, i) => (
+                      <label
+                        key={r.id}
+                        className="flex cursor-pointer items-center gap-3 rounded-xl border border-line p-3 has-[:checked]:border-primary has-[:checked]:bg-surface-3"
+                      >
+                        <input type="radio" name="rubroId" value={r.id} defaultChecked={i === 0} />
+                        <RubroTile rubroNombre={r.nombre} />
+                        <span className="text-sm font-semibold text-ink">{r.nombre}</span>
+                      </label>
+                    ))}
+                  </fieldset>
+                  <label className="block">
+                    <span className="text-sm font-semibold text-ink">Nombre del negocio</span>
+                    <input
+                      name="nombre"
+                      required
+                      minLength={2}
+                      maxLength={80}
+                      placeholder="Ej: Uñas Lucía"
+                      className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm"
+                    />
+                  </label>
+                </ActionForm>
+              </section>
+            )}
           </div>
         ) : (
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
