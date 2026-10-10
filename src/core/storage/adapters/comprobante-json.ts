@@ -17,6 +17,7 @@ import type {
   Comprobante,
   ComprobanteRepository,
   EstadoComprobante,
+  ImagenComprobante,
   NuevoComprobante,
 } from "@/core/storage/comprobante-repository";
 
@@ -70,6 +71,17 @@ export class JsonComprobanteRepository implements ComprobanteRepository {
   async listar(negocio: string): Promise<Comprobante[]> {
     const todos = await this.readAll();
     return todos.filter((c) => c.negocio === negocio);
+  }
+
+  /**
+   * Sin Supabase no hay panel donde mostrarla: se guarda junto al JSON solo
+   * para poder revisarla a mano en desarrollo.
+   */
+  async adjuntarImagen(id: string, _negocio: string, imagen: ImagenComprobante): Promise<void> {
+    const extension = imagen.mimeType.split("/")[1]?.split(";")[0] || "jpg";
+    const archivo = join(dirname(this.filePath), "comprobantes", `${id}.${extension}`);
+    await mkdir(dirname(archivo), { recursive: true });
+    await writeFile(archivo, Buffer.from(imagen.base64, "base64"));
   }
 
   async actualizarEstado(id: string, estado: EstadoComprobante): Promise<void> {

@@ -106,3 +106,15 @@ describe("SupabaseComprobanteRepository — listar (T-24.4)", () => {
     expect(await repo.listar("neg-sin-comprobantes")).toEqual([]);
   });
 });
+
+describe("SupabaseComprobanteRepository — adjuntarImagen (T-38b)", () => {
+  it("guarda la foto en la carpeta del negocio y anota la ruta en el comprobante", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseComprobanteRepository(db);
+    const comprobante = await repo.crear({ negocio: "neg-1", referencia: "M1" });
+
+    await repo.adjuntarImagen(comprobante.id, "neg-1", { base64: "UkVDSUJP", mimeType: "image/jpeg" });
+
+    expect(db.comprobantes[0].imagen_path).toBe(`neg-1/${comprobante.id}.jpeg`);
+  });
+});

@@ -1473,6 +1473,10 @@ describe("handleIncoming — confirmación de pago con comprobante (T-24.4)", ()
       const comprobante = this.comprobantes.find((c) => c.id === id);
       if (comprobante) comprobante.estado = estado;
     }
+    imagenes = new Map<string, string>();
+    async adjuntarImagen(id: string, _negocio: string, imagen: { base64: string }): Promise<void> {
+      this.imagenes.set(id, imagen.base64);
+    }
   }
 
   const tiendaConPagos: BusinessConfig = {
@@ -2594,5 +2598,44 @@ describe("código de retiro (T-37)", () => {
       new Date(), pedidos, { pedido, montoEnCentavos: 1_000_000 });
 
     expect(result.customerMessage?.text).toContain(`código de retiro: ${db.pedidos[0].codigo_retiro}`);
+  });
+});
+
+describe("foto del comprobante (T-38b)", () => {
+  it("al recibir el comprobante, guarda la foto junto al registro", async () => {
+    const tiendaConPagos: BusinessConfig = { ...tiendaConNotify, pagos: { requiereComprobante: true } };
+    const repo = new InMemoryRepo();
+    const db = makeFakeSupabaseDb();
+    const { SupabaseComprobanteRepository } = await import("@/core/storage/adapters/supabase/comprobantes");
+    const comprobantes = new SupabaseComprobanteRepository(db);
+    for (const texto of ["harina", "Laura", "2", "no, eso es todo", "sí"]) {
+      await handleIncoming(msg(texto), tiendaConPagos, repo, new Date(), undefined, undefined, undefined, fakeNotifier(), undefined, "neg-1");
+    }
+    const llm: ILLMProvider = {
+      supportsVision: true,
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      async describePaymentReceipt() {
+        return { banco: "nequi", referencia: "M9", monto: 10000, moneda: "COP", legible: "completo" as const };
+      },
+    };
+
+    await handleIncoming(
+      { ...msg(""), image: { mediaId: "m-1", mimeType: "image/jpeg" } },
+      tiendaConPagos, repo, new Date(), llm, undefined, undefined, fakeNotifier(), undefined, "neg-1",
+      async () => ({ base64: "UkVDSUJP", mimeType: "image/jpeg" }), comprobantes,
+    );
+
+    expect(db.comprobantes[0].imagen_path).toBe(`neg-1/${db.comprobantes[0].id}.jpeg`);
   });
 });

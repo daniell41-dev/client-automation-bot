@@ -24,6 +24,12 @@ export interface NuevoComprobante {
   señales?: unknown;
 }
 
+/** T-38b: la foto del comprobante, tal como llegó por WhatsApp. */
+export interface ImagenComprobante {
+  base64: string;
+  mimeType: string;
+}
+
 export type EstadoComprobante = "pendiente" | "aprobado" | "rechazado";
 
 export interface Comprobante extends NuevoComprobante {
@@ -55,4 +61,10 @@ export interface ComprobanteRepository {
    * comprobante. Nunca se llama a partir de la imagen sola (§1.6).
    */
   actualizarEstado(id: string, estado: EstadoComprobante): Promise<void>;
+
+  /**
+   * T-38b: guarda la foto del comprobante para que la dueña la vea en el
+   * panel. Privada: nunca se expone con una URL pública.
+   */
+  adjuntarImagen(id: string, negocio: string, imagen: ImagenComprobante): Promise<void>;
 }

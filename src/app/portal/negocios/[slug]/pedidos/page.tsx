@@ -56,14 +56,33 @@ export default async function PedidosPage({ params }: { params: Promise<{ slug: 
   ]);
 
   const filas = [...(abiertos ?? []), ...(entregados ?? [])] as unknown as (PedidoRow & {
-    comprobantes: { señales: { detalle: string; nivel: string }[] | null } | null;
+    comprobantes: {
+      señales: { detalle: string; nivel: string }[] | null;
+      imagen_path: string | null;
+    } | null;
   })[];
   const señales: SeñalesPorPedido = Object.fromEntries(
     filas.map((f) => [f.id, (f.comprobantes?.señales ?? []).map((s) => ({ detalle: s.detalle, nivel: s.nivel }))]),
   );
 
+  // T-38b: la foto del comprobante, con una URL firmada que vence en una
+  // hora — el bucket es privado y la política solo deja firmar las de los
+  // negocios de esta dueña.
+  const fotos: Record<string, string> = {};
+  await Promise.all(
+    filas
+      .filter((f) => f.comprobantes?.imagen_path)
+      .map(async (f) => {
+        const { data } = await supabase.storage
+          .from("comprobantes")
+          .createSignedUrl(f.comprobantes!.imagen_path!, 3600);
+        if (data?.signedUrl) fotos[f.id] = data.signedUrl;
+      }),
+  );
+
   return (
     <PedidosPanel
+      fotos={fotos}
       slug={slug}
       moneda={config.currency}
       locale={config.locale ?? "es-CO"}

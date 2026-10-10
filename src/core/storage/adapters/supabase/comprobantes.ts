@@ -8,6 +8,7 @@ import type {
   Comprobante,
   ComprobanteRepository,
   EstadoComprobante,
+  ImagenComprobante,
   NuevoComprobante,
 } from "@/core/storage/comprobante-repository";
 import type { ComprobanteRow, SupabaseDb } from "@/core/storage/adapters/supabase/api";
@@ -52,5 +53,13 @@ export class SupabaseComprobanteRepository implements ComprobanteRepository {
 
   async actualizarEstado(id: string, estado: EstadoComprobante): Promise<void> {
     await this.db.updateComprobanteEstado(id, estado);
+  }
+
+  async adjuntarImagen(id: string, negocio: string, imagen: ImagenComprobante): Promise<void> {
+    // La carpeta es el negocio: es lo que la política del bucket usa para
+    // dejar leer a cada dueña solo lo suyo (migración 0018).
+    const extension = imagen.mimeType.split("/")[1]?.split(";")[0] || "jpg";
+    const bytes = Uint8Array.from(Buffer.from(imagen.base64, "base64"));
+    await this.db.uploadComprobanteImagen(id, `${negocio}/${id}.${extension}`, bytes, imagen.mimeType);
   }
 }
