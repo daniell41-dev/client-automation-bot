@@ -53,7 +53,7 @@ flowchart TD
     R1["✅ Pide 2 bandejas + 1 limonada<br/>→ total → confirma"] --> R2["✅ ¿Domicilio o recoger?<br/>+ dirección"]
     R2 --> R3["✅ Bot da el Nequi →<br/>foto del comprobante →<br/>IA lo lee + señales"]
     R3 --> R4["✅ La dueña toca 'Aprobar #1'<br/>(o responde SÍ 1)"]
-    R4 --> R5["🔧 T-37: número + código de retiro"]
+    R4 --> R5["✅ El cliente recibe<br/>número + código de retiro"]
     R5 --> R6["🔧 T-38: panel → Entregar"]
   end
 
@@ -260,8 +260,9 @@ Toca **Aprobar #1** (o escribe `SÍ 1`) y el cliente recibe la confirmación.
 queda vinculado (`comprobante_id`) y también pasa a `aprobado`.
 
 Lo que todavía no pasa:
-- 🔧 **T-37 y T-38:** el pedido ya tiene número, pero todavía no hay código de retiro ni
-  panel.
+- ✅ Al aprobar, el cliente recibe "Tu pedido #1 · código de retiro: 4821" y la dueña ve el
+  mismo código en su confirmación. **La comida se entrega solo contra ese código.**
+- 🔧 **T-38:** todavía no hay panel de pedidos para marcarlo como entregado.
 - Si la dueña rechaza (`NO 1`), las unidades vuelven al stock. Un pedido que espera el
   pago más de 24h vence solo y también devuelve su stock; uno con comprobante nunca
   vence solo.

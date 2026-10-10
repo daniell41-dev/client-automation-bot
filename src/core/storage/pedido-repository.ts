@@ -89,4 +89,7 @@ export interface PedidoRepository {
 
   /** T-31: asocia el comprobante que respalda el pedido. */
   vincularComprobante(id: string, comprobanteId: string): Promise<void>;
+
+  /** T-37: guarda el código de retiro que se le dio al cliente al aprobar. */
+  asignarCodigoRetiro(id: string, codigo: string): Promise<void>;
 }
