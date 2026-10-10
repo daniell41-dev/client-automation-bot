@@ -11,12 +11,15 @@
 import { useActionState, useState } from "react";
 import type { FormEvent } from "react";
 import { Sparkles } from "lucide-react";
-import type { BotAIConfig, BusinessConfig, PersonaConfig } from "@/core/types";
+import type { BotAIConfig, BusinessConfig, CuentaPago, PersonaConfig, TipoCuentaPago } from "@/core/types";
+import { cuentasDeConfig } from "@/core/engine/datos-pago";
 import { personaSchema } from "@/core/config-schema";
 import {
   actualizarWhatsapp,
   actualizarWompi,
   guardarConfigParcial,
+  quitarQrPago,
+  subirQrPago,
   type ActionState,
 } from "@/app/portal/actions";
 import { ActionForm } from "@/components/action-form";
@@ -36,6 +39,33 @@ const TONOS: Record<Tono, string> = {
   formal:
     "Formal y respetuoso. Trata al cliente de usted, lenguaje cuidado y sin emojis.",
 };
+
+/** T-45: sugerencias para el campo "Banco o billetera"; igual se puede escribir cualquier otro. */
+const ENTIDADES = [
+  "Nequi",
+  "Daviplata",
+  "Bancolombia",
+  "Davivienda",
+  "Banco de Bogotá",
+  "BBVA",
+  "Banco de Occidente",
+  "Banco Popular",
+  "Banco Caja Social",
+  "AV Villas",
+  "Nu",
+  "Lulo Bank",
+  "Bre-B",
+];
+
+const TIPOS_CUENTA: { value: TipoCuentaPago; label: string }[] = [
+  { value: "billetera", label: "Celular (Nequi, Daviplata)" },
+  { value: "ahorros", label: "Cuenta de ahorros" },
+  { value: "corriente", label: "Cuenta corriente" },
+  { value: "llave", label: "Llave Bre-B" },
+];
+
+const CUENTA_VACIA: CuentaPago = { entidad: "", tipo: "billetera", numero: "", titular: "" };
+const MAX_CUENTAS = 6; // mismo tope que el schema
 
 function tonoActual(tone: string): Tono {
   if (/formal|usted/i.test(tone)) return "formal";
@@ -82,11 +112,14 @@ export function ConfiguracionEditor({
   const [requiereComprobante, setRequiereComprobante] = useState(
     initialPagos?.requiereComprobante ?? false,
   );
-  const [nequi, setNequi] = useState(
-    initialPagos?.datosPago?.nequi ?? initialPagos?.telefonoDestino ?? "",
-  );
-  const [llaveBreB, setLlaveBreB] = useState(initialPagos?.datosPago?.llaveBreB ?? "");
-  const [titular, setTitular] = useState(initialPagos?.datosPago?.titular ?? "");
+  // T-45: varias cuentas (antes un solo Nequi). Los negocios viejos llegan
+  // con `datosPago` y se muestran ya convertidos a cuentas.
+  const [cuentas, setCuentas] = useState<CuentaPago[]>(() => {
+    const iniciales = cuentasDeConfig(initialPagos);
+    return iniciales.length ? iniciales : [CUENTA_VACIA];
+  });
+  const cambiarCuenta = (i: number, campo: keyof CuentaPago, valor: string) =>
+    setCuentas((cs) => cs.map((c, j) => (j === i ? { ...c, [campo]: valor } : c)));
   const [wompiRedirectUrl, setWompiRedirectUrl] = useState(
     initialPagos?.wompi?.redirectUrl ?? "",
   );
@@ -113,12 +146,18 @@ export function ConfiguracionEditor({
     pagos: {
       ...initialPagos,
       requiereComprobante,
-      telefonoDestino: nequi.trim() || undefined,
-      datosPago: {
-        nequi: nequi.trim() || undefined,
-        llaveBreB: llaveBreB.trim() || undefined,
-        titular: titular.trim() || undefined,
-      },
+      // `datosPago` y `telefonoDestino` quedan reemplazados por `cuentas`.
+      telefonoDestino: undefined,
+      datosPago: undefined,
+      cuentas: cuentas
+        .filter((c) => c.entidad.trim() && c.numero.trim())
+        .map((c) => ({
+          entidad: c.entidad.trim(),
+          tipo: c.tipo,
+          numero: c.numero.trim(),
+          titular: c.titular?.trim() || undefined,
+          documento: c.documento?.trim() || undefined,
+        })),
       wompi: { enabled: wompiEnabled, redirectUrl: wompiRedirectUrl.trim() || undefined },
     },
   };
@@ -257,7 +296,7 @@ export function ConfiguracionEditor({
           le pide la foto; la plata la verifica la dueña en su app del banco. */}
       <Card
         title="Cobro con comprobante"
-        subtitle="El cliente paga por Nequi o Bre-B y manda la foto; vos aprobás el pedido después de ver la plata en tu app."
+        subtitle="El cliente paga a cualquiera de tus cuentas y manda la foto; vos aprobás el pedido después de ver la plata en tu app."
       >
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
@@ -268,43 +307,122 @@ export function ConfiguracionEditor({
               label="Pedir comprobante"
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className={labelCls} htmlFor="pago-nequi">Número de Nequi</label>
-              <input
-                id="pago-nequi"
-                className={inputCls}
-                value={nequi}
-                onChange={(e) => setNequi(e.target.value)}
-                placeholder="300 123 4567"
-              />
-            </div>
-            <div>
-              <label className={labelCls} htmlFor="pago-breb">Llave Bre-B (opcional)</label>
-              <input
-                id="pago-breb"
-                className={inputCls}
-                value={llaveBreB}
-                onChange={(e) => setLlaveBreB(e.target.value)}
-                placeholder="@minegocio"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className={labelCls} htmlFor="pago-titular">A nombre de</label>
-              <input
-                id="pago-titular"
-                className={inputCls}
-                value={titular}
-                onChange={(e) => setTitular(e.target.value)}
-                placeholder="Nombre que ve el cliente al transferir"
-              />
-            </div>
+          <div className="space-y-3">
+            {cuentas.map((cuenta, i) => (
+              <div key={i} className="rounded-xl border border-line p-3.5">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className={labelCls} htmlFor={`cuenta-entidad-${i}`}>Banco o billetera</label>
+                    <input
+                      id={`cuenta-entidad-${i}`}
+                      list="entidades-pago"
+                      className={inputCls}
+                      value={cuenta.entidad}
+                      onChange={(e) => cambiarCuenta(i, "entidad", e.target.value)}
+                      placeholder="Nequi, Bancolombia…"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls} htmlFor={`cuenta-tipo-${i}`}>Tipo</label>
+                    <select
+                      id={`cuenta-tipo-${i}`}
+                      className={inputCls}
+                      value={cuenta.tipo}
+                      onChange={(e) => cambiarCuenta(i, "tipo", e.target.value)}
+                    >
+                      {TIPOS_CUENTA.map((t) => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelCls} htmlFor={`cuenta-numero-${i}`}>
+                      {cuenta.tipo === "llave" ? "Llave" : cuenta.tipo === "billetera" ? "Número de celular" : "Número de cuenta"}
+                    </label>
+                    <input
+                      id={`cuenta-numero-${i}`}
+                      className={inputCls}
+                      value={cuenta.numero}
+                      onChange={(e) => cambiarCuenta(i, "numero", e.target.value)}
+                      placeholder={cuenta.tipo === "llave" ? "@minegocio" : cuenta.tipo === "billetera" ? "300 123 4567" : "123-456789-01"}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls} htmlFor={`cuenta-titular-${i}`}>A nombre de</label>
+                    <input
+                      id={`cuenta-titular-${i}`}
+                      className={inputCls}
+                      value={cuenta.titular ?? ""}
+                      onChange={(e) => cambiarCuenta(i, "titular", e.target.value)}
+                      placeholder="Nombre que ve el cliente al transferir"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls} htmlFor={`cuenta-doc-${i}`}>Cédula o NIT (opcional)</label>
+                    <input
+                      id={`cuenta-doc-${i}`}
+                      className={inputCls}
+                      value={cuenta.documento ?? ""}
+                      onChange={(e) => cambiarCuenta(i, "documento", e.target.value)}
+                      placeholder="CC 1.090.000.000"
+                    />
+                  </div>
+                  <div className="flex items-end justify-end">
+                    {cuentas.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setCuentas((cs) => cs.filter((_, j) => j !== i))}
+                        className="rounded-[10px] px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+                      >
+                        Quitar cuenta
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            <datalist id="entidades-pago">
+              {ENTIDADES.map((e) => (
+                <option key={e} value={e} />
+              ))}
+            </datalist>
+            {cuentas.length < MAX_CUENTAS && (
+              <button
+                type="button"
+                onClick={() => setCuentas((cs) => [...cs, CUENTA_VACIA])}
+                className="rounded-[10px] bg-primary-tint px-3.5 py-2 text-sm font-bold text-primary hover:bg-primary hover:text-white"
+              >
+                + Agregar otra cuenta
+              </button>
+            )}
           </div>
           <p className="text-xs text-ink-soft">
-            El bot le manda estos datos al cliente al confirmar el pedido. Si el comprobante
-            dice que se pagó a otro número, te avisa. Se guarda con el botón &quot;Guardar
-            cambios&quot; de más abajo.
+            El bot le manda todas estas cuentas al cliente al confirmar el pedido, con el número,
+            el tipo y a nombre de quién está. Si el comprobante dice que se pagó a otra cuenta,
+            te avisa. Se guarda con el botón &quot;Guardar cambios&quot; de más abajo.
           </p>
+
+          {/* El QR se guarda aparte (sube un archivo), igual que las llaves de Wompi. */}
+          <div className="border-t border-line pt-4">
+            <p className="text-sm font-semibold text-ink">Código QR de pago (opcional)</p>
+            <p className="mt-0.5 text-xs text-ink-soft">
+              La captura del QR de tu Nequi, Bancolombia o Bre-B. El bot la manda como imagen
+              después de las cuentas. PNG, JPG o WEBP, hasta 2 MB.
+            </p>
+            {initialPagos?.qrUrl && (
+              <div className="mt-3 flex items-center gap-4">
+                {/* eslint-disable-next-line @next/next/no-img-element -- imagen de Storage, sin optimizar a propósito */}
+                <img src={initialPagos.qrUrl} alt="QR de pago actual" className="h-28 w-28 rounded-lg border border-line object-contain" />
+                <ActionForm action={quitarQrPago} submitLabel="Quitar QR">
+                  <input type="hidden" name="slug" value={slug} />
+                </ActionForm>
+              </div>
+            )}
+            <ActionForm action={subirQrPago} submitLabel={initialPagos?.qrUrl ? "Cambiar QR" : "Subir QR"} className="mt-3 space-y-3">
+              <input type="hidden" name="slug" value={slug} />
+              <input type="file" name="qr" accept="image/png,image/jpeg,image/webp" className="block text-sm" />
+            </ActionForm>
+          </div>
         </div>
       </Card>
 

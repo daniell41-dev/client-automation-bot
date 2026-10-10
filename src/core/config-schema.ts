@@ -143,6 +143,21 @@ const pagosSchema = z.object({
       titular: z.string().max(80).optional(),
     })
     .optional(),
+  // T-45: tope de 6 para que el mensaje al cliente no se vuelva una lista
+  // eterna; en la práctica un negocio usa 1 a 3 cuentas.
+  cuentas: z
+    .array(
+      z.object({
+        entidad: z.string().trim().min(1).max(40),
+        tipo: z.enum(["ahorros", "corriente", "billetera", "llave"]),
+        numero: z.string().trim().min(1).max(60),
+        titular: z.string().max(80).optional(),
+        documento: z.string().max(30).optional(),
+      }),
+    )
+    .max(6)
+    .optional(),
+  qrUrl: z.string().url().max(500).optional(),
   wompi: z
     .object({
       enabled: z.boolean().optional(),

@@ -154,6 +154,27 @@ export function buildSendRequest(
 ): SendRequest {
   const version = opts.apiVersion ?? "v21.0";
   const url = `https://graph.facebook.com/${version}/${opts.phoneNumberId}/messages`;
+  // T-45: Meta descarga la imagen desde el link (por eso el bucket del QR es
+  // público) y muestra `text` como pie de foto, que admite hasta 1024 caracteres.
+  if (message.imagenUrl) {
+    return {
+      url,
+      init: {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${opts.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: message.to,
+          type: "image",
+          image: { link: message.imagenUrl, caption: message.text.slice(0, MAX_CUERPO_INTERACTIVO) },
+        }),
+      },
+    };
+  }
   const body = usaBotones(message)
     ? {
         messaging_product: "whatsapp",

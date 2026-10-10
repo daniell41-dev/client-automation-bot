@@ -566,6 +566,12 @@ mirando. Se documenta como ADR-004.
 - **T-43** · Medidor de mensajes de WhatsApp por negocio y por mes. Según varias fuentes,
   desde el 1-oct-2026 Meta cobra los mensajes de servicio pasado un cupo mensual.
 
+### Fase 4 — Pedidos de los pilotos
+- **T-45** · Varias cuentas de cobro (banco, tipo, número, titular) y QR de pago que el
+  bot le manda al cliente.
+- **T-46** · Notas de voz: el bot escucha el audio del cliente y responde como si lo
+  hubiera escrito.
+
 ### Documentación
 - **T-44** · `docs/17-prueba-local.md`: guía de prueba local. Cada PR de arriba actualiza
   su paso.

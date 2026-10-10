@@ -308,3 +308,19 @@ describe("WhatsAppChannel.send — medidor (T-43)", () => {
     await expect(channel.send(msg)).resolves.toBeUndefined();
   });
 });
+
+describe("buildSendRequest — imagen (T-45)", () => {
+  it("con imagenUrl manda type image con el texto como pie", () => {
+    const { init } = buildSendRequest(opts, {
+      to: "573001112233",
+      text: "Escaneá este QR",
+      imagenUrl: "https://x.supabase.co/storage/v1/object/public/pagos-qr/n/qr.png",
+    });
+    const body = JSON.parse(init.body as string);
+    expect(body.type).toBe("image");
+    expect(body.image).toEqual({
+      link: "https://x.supabase.co/storage/v1/object/public/pagos-qr/n/qr.png",
+      caption: "Escaneá este QR",
+    });
+  });
+});

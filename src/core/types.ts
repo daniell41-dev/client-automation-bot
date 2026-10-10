@@ -180,6 +180,22 @@ export interface PedidosConfig {
   opciones: string[];
 }
 
+/** T-45: tipo de cuenta, para que el cliente sepa cómo transferir. */
+export type TipoCuentaPago = "ahorros" | "corriente" | "billetera" | "llave";
+
+/** T-45: una cuenta donde el negocio recibe pagos. */
+export interface CuentaPago {
+  /** Banco o billetera tal como lo conoce el cliente: "Nequi", "Bancolombia", "Davivienda"... */
+  entidad: string;
+  tipo: TipoCuentaPago;
+  /** Número de cuenta, celular de la billetera o la llave Bre-B. */
+  numero: string;
+  /** A nombre de quién está: lo que el cliente ve en su app antes de confirmar. */
+  titular?: string;
+  /** Cédula o NIT del titular; algunos bancos lo piden para inscribir la cuenta. */
+  documento?: string;
+}
+
 /**
  * Confirmación de pago (T-24.4, Nivel 1 — triaje asistido, `docs/15-plan-vision-tienda.md` §1.6).
  * Sin esto (default), el flujo sigue igual que antes de T-24: la dueña
@@ -209,6 +225,19 @@ export interface PagosConfig {
     llaveBreB?: string;
     titular?: string;
   };
+  /**
+   * T-45: todas las cuentas donde el negocio recibe plata (Nequi, Daviplata,
+   * Bancolombia, Davivienda, llave Bre-B...). Reemplaza a `datosPago`, que
+   * solo admitía un Nequi: muchos clientes pagan desde otro banco y el bot
+   * tiene que darles número, tipo de cuenta y titular para que se aseguren
+   * de que la plata le llega a la dueña. Si hay `cuentas`, `datosPago` se ignora.
+   */
+  cuentas?: CuentaPago[];
+  /**
+   * T-45: URL pública de la imagen del QR de cobro (bucket `pagos-qr`,
+   * migración 0022). El bot la manda como imagen junto con los datos.
+   */
+  qrUrl?: string;
   /**
    * Nivel 2 (T-24.5): link de pago con verificación real por webhook
    * firmado. Deliberadamente NO tiene las llaves de Wompi acá — viven en
@@ -469,6 +498,11 @@ export interface OutgoingMessage {
    * instrucción escrita equivalente.
    */
   botones?: { id: string; titulo: string }[];
+  /**
+   * T-45: URL pública de una imagen a mandar (el QR de pago). `text` va como
+   * pie de foto. Un canal sin imágenes manda solo `text`.
+   */
+  imagenUrl?: string;
 }
 
 /** Un interesado registrado por el sistema. */
