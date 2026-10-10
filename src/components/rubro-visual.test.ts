@@ -204,3 +204,15 @@ describe("tipoCitas — T-21", () => {
     expect(tipoCitas("Ferretería", template())).toBe("Sin citas");
   });
 });
+
+describe("rubros con tilde y masajes (T-40)", () => {
+  it("'Estética' (con tilde) se reconoce como servicios", () => {
+    expect(catalogLabel("Estética")).toBe("Servicios");
+    expect(rubroVisual("Estética").Icon).toBe(rubroVisual("Peluquería").Icon);
+  });
+
+  it("'Masajes / Spa' cae en la familia de salud y su catálogo son servicios", () => {
+    expect(rubroVisual("Masajes").Icon).toBe(rubroVisual("Spa").Icon);
+    expect(catalogLabel("Masajes")).toBe("Servicios");
+  });
+});

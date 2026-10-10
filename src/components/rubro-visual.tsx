@@ -31,7 +31,7 @@ const FAMILIES: { match: RegExp; visual: RubroVisual }[] = [
     visual: { bg: "bg-rubro-servicios-bg", ink: "text-rubro-servicios-ink", Icon: Scissors },
   },
   {
-    match: /salud|bienestar|farmacia|spa|clinic|consultorio/i,
+    match: /salud|bienestar|farmacia|spa|masaje|clinic|consultorio/i,
     visual: { bg: "bg-rubro-salud-bg", ink: "text-rubro-salud-ink", Icon: HeartPulse },
   },
   {
@@ -40,8 +40,17 @@ const FAMILIES: { match: RegExp; visual: RubroVisual }[] = [
   },
 ];
 
+/**
+ * T-40: el nombre del rubro sin tildes antes de comparar. Las expresiones se
+ * escribieron sin tilde, así que "Estética" no matcheaba `/estetic/` y el
+ * rubro sembrado caía en el ícono genérico con "Agregar al pedido".
+ */
+export function sinTildes(texto: string | null | undefined): string {
+  return (texto ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 export function rubroVisual(rubroNombre: string | null | undefined): RubroVisual {
-  const name = rubroNombre ?? "";
+  const name = sinTildes(rubroNombre);
   for (const { match, visual } of FAMILIES) {
     if (match.test(name)) return visual;
   }
@@ -61,9 +70,9 @@ export function catalogLabel(
   catalogo?: CatalogoConfig,
 ): string {
   if (catalogo?.etiqueta?.plural) return catalogo.etiqueta.plural;
-  const name = rubroNombre ?? "";
+  const name = sinTildes(rubroNombre);
   if (/gastro|restaur|comida|parrilla|caf|pizz/i.test(name)) return "Menú";
-  if (/servicio|peluquer|estetic|belleza|barber|salud|spa/i.test(name)) return "Servicios";
+  if (/servicio|peluquer|estetic|belleza|barber|salud|spa|masaje/i.test(name)) return "Servicios";
   return "Catálogo";
 }
 

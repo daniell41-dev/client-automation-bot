@@ -16,6 +16,7 @@
 import { randomUUID } from "node:crypto";
 import { loadEnvLocal } from "./load-env";
 import { esteticaBella } from "@/businesses/estetica-bella/config";
+import { RUBROS_BASE } from "@/businesses/rubros";
 import { parseBusinessConfig } from "@/core/config-schema";
 
 const DEMO_EMAIL = "demo@demo.local";
@@ -60,27 +61,39 @@ async function main() {
 
   await admin.from("profiles").update({ role: "invitado" }).eq("id", demoUserId);
 
-  // ── 2. Rubro de estética (plantilla = config de código) ───────────────────
+  // ── 2. Rubros base (T-40): belleza, peluquería, masajes y restaurante ─────
+  // Cada plantilla pasa por el schema antes de guardarse (regla 5 de
+  // AGENTS.md). Solo "estetica" es demo (visible sin sesión en /demo).
+  let rubroDemoId: string | undefined;
+  for (const base of RUBROS_BASE) {
+    const plantilla = parseBusinessConfig(JSON.parse(JSON.stringify(base.template)));
+    if (!plantilla) throw new Error(`La plantilla del rubro "${base.slug}" no pasa el schema`);
+    const { data: rubro, error: rubroError } = await admin
+      .from("rubros")
+      .upsert(
+        {
+          slug: base.slug,
+          nombre: base.nombre,
+          descripcion: base.descripcion,
+          template: plantilla,
+          es_demo: base.slug === RUBRO_SLUG,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "slug" },
+      )
+      .select("id")
+      .single();
+    if (rubroError) throw rubroError;
+    if (base.slug === RUBRO_SLUG) rubroDemoId = rubro.id;
+    console.log(`✔ Rubro "${base.slug}" listo`);
+  }
+  if (!rubroDemoId) throw new Error(`Falta el rubro demo "${RUBRO_SLUG}" en RUBROS_BASE`);
+
+  // El negocio demo usa la config completa de Estética Bella (bot activo,
+  // dirección, horarios), no la plantilla vacía del rubro.
   const template = parseBusinessConfig(JSON.parse(JSON.stringify(esteticaBella)));
   if (!template) throw new Error("La config de estética bella no pasa el schema");
-
-  const { data: rubro, error: rubroError } = await admin
-    .from("rubros")
-    .upsert(
-      {
-        slug: RUBRO_SLUG,
-        nombre: "Estética",
-        descripcion: "Salones de belleza: faciales, uñas, pestañas y depilación.",
-        template,
-        es_demo: true,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "slug" },
-    )
-    .select("id")
-    .single();
-  if (rubroError) throw rubroError;
-  console.log(`✔ Rubro "${RUBRO_SLUG}" listo`);
+  const rubro = { id: rubroDemoId };
 
   // ── 3. Negocio de demostración ─────────────────────────────────────────────
   const demoConfig = {
