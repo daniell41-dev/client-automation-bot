@@ -33,6 +33,9 @@ export interface LeadRow {
   confirmed_at?: string | null;
   /** Carrito de un pedido en curso (T-21, migración 0009). Ver `Lead.items`. */
   items?: { serviceId: string; cantidad: number }[] | null;
+  /** T-36 (migración 0017): modalidad elegida y dirección de entrega. */
+  entrega?: string | null;
+  direccion?: string | null;
   /**
    * FK de conveniencia a `negocios.id` (T-08): `business_slug` sigue siendo
    * lo que usan el motor y las políticas de RLS. `null`/ausente cuando el

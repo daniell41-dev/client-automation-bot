@@ -41,6 +41,7 @@ export function cerrarPedidoFinalizado(lead: Lead, now: Date): Lead {
     items: undefined,
     tentativeDate: undefined,
     entrega: undefined,
+    direccion: undefined,
     confirmedAt: undefined,
     followUpsSent: [],
     offTopicCount: 0,

@@ -34,7 +34,7 @@ import {
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { limpiarDatosCapturados } from "@/core/engine/session-lifecycle";
 import { modoDelItem } from "@/core/engine/modo-item";
-import { agregarAlCarrito } from "@/core/engine/flows/pedido";
+import { agregarAlCarrito, esDomicilio, pareceDireccion } from "@/core/engine/flows/pedido";
 
 /** Cuántos mensajes SEGUIDOS fuera de tema tolera el bot antes de cerrar la charla. */
 const OFF_TOPIC_LIMIT = 3;
@@ -100,6 +100,7 @@ function buildAgentInput(
       serviceId: lead.serviceId,
       tentativeDate: lead.tentativeDate,
       entrega: lead.entrega,
+      direccion: lead.direccion,
       yaConfirmado: lead.stage === "datos_completos",
       // T-21/PR5: distinto de `yaConfirmado` — todavía no hay nada resuelto,
       // solo se está esperando el sí/no de la dueña.
@@ -216,6 +217,14 @@ export async function runAgentTurn(
         }
         break;
       }
+      case "guardar_direccion": {
+        // T-36: solo vale para un pedido a domicilio, y con la misma guarda
+        // que el motor guiado — un "ok" no es una dirección.
+        if (esDomicilio(lead.entrega) && pareceDireccion(accion.direccion)) {
+          lead.direccion = accion.direccion.trim();
+        }
+        break;
+      }
       case "guardar_fecha": {
         // Misma guarda que el motor determinista: solo se guarda si REALMENTE
         // parece una fecha (ver docs/12-comprension-del-cliente.md).
@@ -255,6 +264,7 @@ export async function runAgentTurn(
     // nuevo" es un pedido NUEVO, no un agregado al ya entregado).
     lead.tentativeDate = undefined;
     lead.entrega = undefined;
+    lead.direccion = undefined;
     lead.items = undefined;
   }
 
@@ -263,9 +273,13 @@ export async function runAgentTurn(
 
   const confirmarPedido = aiResult.acciones.some((a) => a.tipo === "confirmar");
   const listoParaConfirmar = esPedido
-    ? // Un pedido no tiene fecha ni modalidad que exigir: alcanza con el
-      // nombre y con que el carrito tenga algo cargado.
-      !!lead.name && (lead.items?.length ?? 0) > 0
+    ? // Un pedido no tiene fecha: alcanza con el nombre y el carrito, más
+      // (T-36) la modalidad si el negocio la usa y la dirección si es a
+      // domicilio — un pedido a domicilio sin dirección no se puede entregar.
+      !!lead.name &&
+      (lead.items?.length ?? 0) > 0 &&
+      (!config.pedidos?.enabled || !!lead.entrega) &&
+      (!esDomicilio(lead.entrega) || !!lead.direccion)
     : !!lead.name &&
       !!lead.serviceId &&
       !!lead.tentativeDate &&

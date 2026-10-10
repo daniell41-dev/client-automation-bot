@@ -838,3 +838,71 @@ describe("respond — flujo de pedido (T-21)", () => {
     expect(pedido.lead.stage).toBe("esperando_cantidad");
   });
 });
+
+describe("respond — domicilio o recoger en un pedido (T-36)", () => {
+  const restaurante: BusinessConfig = {
+    ...config,
+    slug: "sabores",
+    name: "Sabores del Sur",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+    pedidos: {
+      enabled: true,
+      pregunta: "¿Te lo mandamos a domicilio o lo recogés?",
+      opciones: ["Domicilio", "Recoger en el local"],
+    },
+    services: [
+      { id: "bandeja", name: "Bandeja paisa", description: "Completa", price: 28000, keywords: ["bandeja"] },
+    ],
+  };
+
+  function hastaCarritoCerrado() {
+    let r = respond(null, msg("bandeja"), restaurante, now);
+    r = respond(r.lead, msg("Laura"), restaurante, now);
+    r = respond(r.lead, msg("2"), restaurante, now);
+    return respond(r.lead, msg("no, eso es todo"), restaurante, now);
+  }
+
+  it("al cerrar el carrito pregunta la modalidad (antes iba directo a confirmar)", () => {
+    const r = hastaCarritoCerrado();
+    expect(r.lead.stage).toBe("esperando_entrega");
+    expect(r.messages[0].text).toContain("domicilio");
+    expect(r.messages[0].options).toEqual(["Domicilio", "Recoger en el local"]);
+  });
+
+  it("a domicilio pide la dirección, no acepta un 'ok' como dirección, y la muestra al confirmar", () => {
+    let r = hastaCarritoCerrado();
+    r = respond(r.lead, msg("domicilio"), restaurante, now);
+    expect(r.lead.entrega).toBe("Domicilio");
+    expect(r.lead.stage).toBe("esperando_direccion");
+
+    r = respond(r.lead, msg("ok"), restaurante, now);
+    expect(r.lead.stage).toBe("esperando_direccion");
+    expect(r.lead.direccion).toBeUndefined();
+
+    r = respond(r.lead, msg("Calle 10 # 5-20, barrio Centro"), restaurante, now);
+    expect(r.lead.direccion).toBe("Calle 10 # 5-20, barrio Centro");
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+    expect(r.messages[0].text).toContain("Entrega: Domicilio");
+    expect(r.messages[0].text).toContain("Dirección: Calle 10 # 5-20, barrio Centro");
+
+    r = respond(r.lead, msg("sí"), restaurante, now);
+    expect(r.lead.stage).toBe("esperando_aprobacion");
+  });
+
+  it("recoger en el local no pide dirección", () => {
+    let r = hastaCarritoCerrado();
+    r = respond(r.lead, msg("lo recojo en el local"), restaurante, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+    expect(r.lead.direccion).toBeUndefined();
+    expect(r.messages[0].text).toContain("Entrega: Recoger en el local");
+  });
+
+  it("un negocio sin modalidad sigue yendo directo a confirmar", () => {
+    const sinModalidad: BusinessConfig = { ...restaurante, pedidos: undefined };
+    let r = respond(null, msg("bandeja"), sinModalidad, now);
+    r = respond(r.lead, msg("Laura"), sinModalidad, now);
+    r = respond(r.lead, msg("2"), sinModalidad, now);
+    r = respond(r.lead, msg("no, eso es todo"), sinModalidad, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+  });
+});

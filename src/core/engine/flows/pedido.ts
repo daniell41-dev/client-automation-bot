@@ -78,3 +78,32 @@ export function resumenCarrito(
   const total = totalCarrito(items, services);
   return [...lineas, `Total: ${formatPrice(config, total)}`].join("\n");
 }
+
+/**
+ * T-36: ¿la modalidad elegida es una entrega a domicilio? Las opciones las
+ * escribe cada negocio ("Domicilio", "Envío a casa", "Delivery"…), así que se
+ * reconoce por palabras y no por un valor fijo. Solo a domicilio hace falta
+ * pedir una dirección.
+ */
+export function esDomicilio(modalidad: string | undefined): boolean {
+  if (!modalidad) return false;
+  return /domicilio|env[ií]o|delivery|a (mi |tu |la )?casa|llev[ae]n|despacho/i.test(modalidad);
+}
+
+/**
+ * T-36: lo mínimo para que una dirección sirva — al menos 5 caracteres y
+ * algún número o palabra de calle. Un "sí" o "ok" en la etapa de dirección
+ * no se puede guardar como si fuera una.
+ */
+export function pareceDireccion(texto: string): boolean {
+  const t = texto.trim();
+  if (t.length < 5 || t.length > 200) return false;
+  return /\d/.test(t) || /\b(calle|carrera|cra|cl|av|avenida|diagonal|transversal|barrio|conjunto|torre|apto|casa|manzana|mz|edificio)\b/i.test(t);
+}
+
+/** Líneas de modalidad y dirección para mostrarle al cliente o a la dueña. */
+export function lineasEntrega(entrega: string | undefined, direccion: string | undefined): string {
+  return [entrega ? `Entrega: ${entrega}` : null, direccion ? `Dirección: ${direccion}` : null]
+    .filter((l): l is string => l !== null)
+    .join("\n");
+}

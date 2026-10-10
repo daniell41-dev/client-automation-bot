@@ -58,6 +58,7 @@ export function limpiarDatosCapturados(lead: Lead): void {
   lead.serviceId = undefined;
   lead.tentativeDate = undefined;
   lead.entrega = undefined;
+  lead.direccion = undefined;
   lead.notes = undefined;
   lead.offTopicCount = 0;
 }

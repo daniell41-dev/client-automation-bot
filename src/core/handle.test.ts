@@ -2468,3 +2468,70 @@ describe("Wompi: referencia por pedido, monto y aviso a la dueña (T-34)", () =>
     expect(result.ownerMessage?.text).toContain("no hay stock de: Harina 1 Kg");
   });
 });
+
+describe("pedido a domicilio con dirección (T-36)", () => {
+  const restaurante: BusinessConfig = {
+    ...tiendaConNotify,
+    pedidos: { enabled: true, pregunta: "¿Domicilio o recoger?", opciones: ["Domicilio", "Recoger en el local"] },
+    personas: { whatsapp: { name: "Isabella", tone: "cálida", language: "español colombiano" } },
+  };
+
+  it("motor guiado: el pedido guarda modalidad y dirección, y el aviso a la dueña muestra la dirección", async () => {
+    const repo = new InMemoryRepo();
+    const db = makeFakeSupabaseDb();
+    const pedidos = new SupabasePedidoRepository(db);
+    const notifier = fakeNotifier();
+    const guiado: BusinessConfig = { ...restaurante, ai: { enabled: false } };
+    for (const texto of ["harina", "Laura", "2", "no, eso es todo", "domicilio", "Calle 10 # 5-20, Centro", "sí"]) {
+      await handleIncoming(msg(texto), guiado, repo, new Date(), undefined, undefined, undefined, notifier,
+        undefined, "neg-1", undefined, undefined, undefined, pedidos);
+    }
+
+    expect(db.pedidos[0]).toMatchObject({ modalidad: "Domicilio", direccion: "Calle 10 # 5-20, Centro" });
+    expect(notifier.sent[0].text).toContain("Dirección: Calle 10 # 5-20, Centro");
+  });
+
+  it("modo agente: no confirma un pedido a domicilio sin dirección", async () => {
+    const repo = new InMemoryRepo();
+    const sessionRepo = new SessionMemoryRepository();
+    let turno = 0;
+    const llm: ILLMProvider = {
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        turno++;
+        if (turno === 1) {
+          return {
+            respuesta: "¿A qué dirección?",
+            acciones: [
+              { tipo: "elegir_servicio", servicioId: "harina" },
+              { tipo: "guardar_nombre", nombre: "Laura" },
+              { tipo: "guardar_cantidad", servicioId: "harina", cantidad: 2 },
+              { tipo: "guardar_modalidad", modalidad: "Domicilio" },
+              { tipo: "confirmar" },
+            ],
+          };
+        }
+        return {
+          respuesta: "Quedó en revisión",
+          acciones: [{ tipo: "guardar_direccion", direccion: "Calle 10 # 5-20" }, { tipo: "confirmar" }],
+        };
+      },
+    };
+
+    await handleIncoming(msg("quiero 2 harinas a domicilio, soy Laura"), restaurante, repo, new Date(), llm, sessionRepo);
+    expect(repo.leads[0].stage).not.toBe("esperando_aprobacion");
+    expect(repo.leads[0].entrega).toBe("Domicilio");
+
+    await handleIncoming(msg("Calle 10 # 5-20"), restaurante, repo, new Date(), llm, sessionRepo);
+    expect(repo.leads[0].direccion).toBe("Calle 10 # 5-20");
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion");
+  });
+});
