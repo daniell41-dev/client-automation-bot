@@ -379,6 +379,16 @@ export interface BusinessConfig {
    * pedido (usa el mismo número de WhatsApp Business del negocio para enviar).
    */
   notifyPhoneNumber?: string;
+  /**
+   * T-39: cuánto le llega a la dueña por WhatsApp. "cada_pedido" (default):
+   * un aviso con botones por pedido. "resumen": a lo sumo un mensaje cada
+   * `cadaMinutos` con cuántos pedidos esperan, y el detalle en el panel —
+   * salvo un comprobante con señal de riesgo alta, que avisa en el acto.
+   */
+  avisos?: {
+    modo: "cada_pedido" | "resumen";
+    cadaMinutos?: number;
+  };
   /** Confirmación de pago (T-24.4) — Nivel 1 del plan de pagos, ver `docs/15-plan-vision-tienda.md` §1.6. */
   pagos?: PagosConfig;
   /** Persona del bot por canal. Si un canal no está, se omite la IA para ese canal. */

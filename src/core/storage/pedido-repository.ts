@@ -92,4 +92,11 @@ export interface PedidoRepository {
 
   /** T-37: guarda el código de retiro que se le dio al cliente al aprobar. */
   asignarCodigoRetiro(id: string, codigo: string): Promise<void>;
+
+  /**
+   * T-39: ¿toca mandarle un resumen a la dueña? `true` si no se mandó
+   * ninguno en los últimos `minutos` (y lo deja marcado como mandado ahora).
+   * Atómico en la base: dos pedidos simultáneos no mandan dos resúmenes.
+   */
+  reclamarAvisoResumen(negocio: string, minutos: number): Promise<boolean>;
 }

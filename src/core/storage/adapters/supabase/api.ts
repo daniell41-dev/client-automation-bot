@@ -229,6 +229,8 @@ export interface SupabaseDb {
   updatePedidoComprobante(id: string, comprobanteId: string): Promise<void>;
   /** T-37 */
   updatePedidoCodigoRetiro(id: string, codigo: string): Promise<void>;
+  /** T-39: vía `reclamar_aviso_resumen` (migración 0020). */
+  claimAvisoResumen(negocioId: string, minutos: number): Promise<boolean>;
   updateComprobanteEstado(id: string, estado: string): Promise<void>;
   /** T-38b: sube la foto al bucket privado `comprobantes` y guarda su ruta. */
   uploadComprobanteImagen(id: string, path: string, bytes: Uint8Array, mimeType: string): Promise<void>;
@@ -522,6 +524,15 @@ class RealSupabaseDb implements SupabaseDb {
       .update({ comprobante_id: comprobanteId, updated_at: new Date().toISOString() })
       .eq("id", id);
     if (error) throw error;
+  }
+
+  async claimAvisoResumen(negocioId: string, minutos: number): Promise<boolean> {
+    const { data, error } = await this.client.rpc("reclamar_aviso_resumen", {
+      p_negocio_id: negocioId,
+      p_minutos: minutos,
+    });
+    if (error) throw error;
+    return data === true;
   }
 
   async updatePedidoCodigoRetiro(id: string, codigo: string): Promise<void> {

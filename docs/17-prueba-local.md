@@ -18,7 +18,7 @@ Leyenda: ✅ funciona hoy · 🔧 requiere la tarea indicada · ⚙️ hoy se pu
 ```mermaid
 flowchart TD
   subgraph E["0 · Entorno (una sola vez)"]
-    E1["✅ .env.local: Supabase, IA y WhatsApp<br/>(token permanente)"] --> E2["✅ Supabase: migraciones 0001→0019<br/>+ pnpm seed:supabase --admin"]
+    E1["✅ .env.local: Supabase, IA y WhatsApp<br/>(token permanente)"] --> E2["✅ Supabase: migraciones 0001→0020<br/>+ pnpm seed:supabase --admin"]
     E2 --> E3["✅ pnpm dev + ngrok"]
     E3 --> E4["✅ Webhook cargado en Meta<br/>+ subscribed_apps del WABA"]
   end
@@ -61,7 +61,7 @@ flowchart TD
     F1["✅ Mismo comprobante dos veces →<br/>⚠️ referencia repetida"]
     F2["✅ Comprobante por menos plata →<br/>⚠️ monto distinto"]
     F3["✅ Dos pedidos pendientes →<br/>se aprueba el correcto"]
-    F4["🔧 T-39: 10 pedidos en modo resumen"]
+    F4["✅ 10 pedidos en modo resumen →<br/>un solo aviso + panel"]
   end
 
   E --> T --> U --> N
@@ -109,7 +109,7 @@ igual con el simulador: `pnpm sim --business <slug>`.
    - Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y
      `SUPABASE_SERVICE_ROLE_KEY`.
 2. **Supabase:** en el SQL Editor, correr **todas** las migraciones de
-   `supabase/migrations/` en orden (de `0001` a `0019`). Después:
+   `supabase/migrations/` en orden (de `0001` a `0020`). Después:
    ```bash
    pnpm seed:supabase --admin tucorreo@dominio.com TuClave123
    ```
@@ -282,7 +282,7 @@ Lo que todavía no pasa:
 | Comprobante viejo ✅ | Comprobante de hace dos días | ⚠️ fecha vieja |
 | Dos pedidos a la vez ✅ | Pedido #1 desde un celular y #2 desde otro; la dueña toca "Aprobar #2" | Se aprueba solo el #2; el #1 sigue esperando |
 | "SÍ" suelto con dos pendientes ✅ | La dueña escribe solo `sí` | El bot no aprueba nada y le lista "#1 … · #2 …" pidiendo el número |
-| Día pico 🔧 T-39 | 10 pedidos con el aviso en modo resumen | Un solo aviso con link al panel |
+| Día pico ✅ | Configuración → Avisos de pedidos → "Solo un resumen"; hacer 10 pedidos seguidos | Un solo mensaje "tenés N pedidos por verificar"; los 10 aparecen en el panel. Un comprobante sospechoso igual avisa al instante |
 
 ---
 

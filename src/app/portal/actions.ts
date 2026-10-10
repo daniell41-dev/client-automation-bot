@@ -74,6 +74,7 @@ const PATCH_KEYS = [
   "pedidos",
   "notifyPhoneNumber",
   "pagos",
+  "avisos",
 ] as const;
 
 /**

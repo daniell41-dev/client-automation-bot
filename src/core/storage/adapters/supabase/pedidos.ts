@@ -85,6 +85,10 @@ export class SupabasePedidoRepository implements PedidoRepository {
     return rows.map(toPedido);
   }
 
+  async reclamarAvisoResumen(negocio: string, minutos: number): Promise<boolean> {
+    return this.db.claimAvisoResumen(negocio, minutos);
+  }
+
   async asignarCodigoRetiro(id: string, codigo: string): Promise<void> {
     await this.db.updatePedidoCodigoRetiro(id, codigo);
   }

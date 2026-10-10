@@ -430,7 +430,7 @@ async function handlePaymentReceiptMessage(
   }
 
   if (notifier && config.notifyPhoneNumber) {
-    await notifyOwner(lead, config, notifier, {
+    await avisarPedidoNuevo(lead, config, notifier, pedidos, negocio, {
       pidiendoAprobacion: true,
       comprobante: { descripcion, señales },
       pedido,
@@ -759,7 +759,7 @@ export async function handleIncoming(
           const alertasStockBajo = inventory
             ? await alertasDeStockBajo(inventory, negocioParaStock ?? config.slug, config, restante)
             : [];
-          await notifyOwner(lead, config, notifier, {
+          await avisarPedidoNuevo(lead, config, notifier, pedidos, negocioParaStock ?? config.slug, {
             pidiendoAprobacion: true,
             alertasStockBajo,
             pedido,
@@ -990,6 +990,47 @@ async function notifyOwner(
     });
   } catch (err) {
     console.error("[Notify] no se pudo avisar a la dueña por WhatsApp:", err);
+  }
+}
+
+/** T-39: si el negocio no eligió cada cuánto, un resumen cada 10 minutos. */
+const DEFAULT_MINUTOS_RESUMEN = 10;
+
+/**
+ * T-39: aviso de pedido nuevo según el modo que eligió la dueña. En "cada
+ * pedido" es el aviso completo con botones de siempre. En "resumen", a lo
+ * sumo un mensaje cada N minutos con cuántos pedidos esperan — el detalle
+ * está en el panel. La excepción es un comprobante con señal de riesgo alta:
+ * ese avisa en el acto, porque es justo el que no puede esperar a que ella
+ * abra el panel.
+ */
+async function avisarPedidoNuevo(
+  lead: Lead,
+  config: BusinessConfig,
+  notifier: OwnerNotifier,
+  pedidos: PedidoRepository | undefined,
+  negocio: string,
+  opciones: Parameters<typeof notifyOwner>[3],
+): Promise<void> {
+  const riesgoAlto = opciones?.comprobante?.señales.some((s) => s.nivel === "alta") ?? false;
+  if (config.avisos?.modo !== "resumen" || !pedidos || !opciones?.pedido || riesgoAlto) {
+    await notifyOwner(lead, config, notifier, opciones);
+    return;
+  }
+  try {
+    const toca = await pedidos.reclamarAvisoResumen(negocio, config.avisos.cadaMinutos ?? DEFAULT_MINUTOS_RESUMEN);
+    if (!toca) return; // ya se le mandó un resumen hace poco: lo ve en el panel
+    const pendientes = (await pedidos.pendientesDeDecision(negocio)).length || 1;
+    const texto = `🔔 ${config.name}: ${pendientes === 1 ? "tenés 1 pedido" : `tenés ${pendientes} pedidos`} por verificar. Revisalos en Nexo → Pedidos.`;
+    await notifier.send({
+      to: config.notifyPhoneNumber!,
+      text: texto,
+      plantillaParams: [config.name, "varios clientes", `${pendientes} pedido(s) por verificar, revisalos en el panel`],
+    });
+  } catch (err) {
+    // Si el resumen falla, mejor un aviso de más que uno de menos.
+    console.error("[Notify] falló el aviso en modo resumen, se manda el aviso completo:", err);
+    await notifyOwner(lead, config, notifier, opciones);
   }
 }
 
