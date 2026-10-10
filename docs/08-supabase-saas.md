@@ -63,6 +63,28 @@ Los usuarios los crea el admin desde el back office (no hay registro público), 
 1. **Authentication → Sign In / Up → Email**.
 2. Desactiva **Confirm email**.
 
+### 3-bis. Correo para invitaciones y "olvidé mi contraseña" (T-41)
+
+Para "Invitar dueña" y "¿Olvidaste tu contraseña?", Supabase tiene que poder mandar
+correos y armar los links hacia Nexo:
+
+1. **SMTP propio:** en Project Settings → Authentication → SMTP Settings, cargar un
+   proveedor. Resend tiene un plan gratis de unos 3.000 correos al mes. El correo
+   integrado de Supabase sirve para probar, pero permite muy pocos correos por hora.
+2. **URLs:** en Authentication → URL Configuration:
+   - **Site URL:** la URL pública (en local, `http://localhost:3000`).
+   - **Redirect URLs:** agregar `http://localhost:3000/auth/confirm`, la URL de ngrok y
+     la de producción, cada una terminada en `/auth/confirm`.
+3. **Plantillas de correo** (Authentication → Email Templates). Se cambia el link para
+   que pase por `/auth/confirm`, que es lo que funciona bien con sesión por cookies:
+   - **Invite user:**
+     `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/cuenta/contrasena`
+   - **Reset password:**
+     `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/cuenta/contrasena`
+
+Sin el paso 3 también funciona (`/auth/confirm` acepta el `code` del flujo por
+defecto), pero el link puede fallar si se abre en otro navegador.
+
 ## 4. Configurar `.env.local`
 
 ```bash

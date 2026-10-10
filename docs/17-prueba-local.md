@@ -30,9 +30,9 @@ flowchart TD
   end
 
   subgraph U["2 · Cuenta de la dueña"]
-    U1["✅ Back office → Usuarios →<br/>correo + contraseña (rol cliente)"]
-    U2["🔧 T-41: invitación por correo"]
-    U1 -.-> U2
+    U1["✅ Back office → Invitar dueña<br/>(correo + tipos de negocio)"]
+    U2["✅ Le llega un correo →<br/>define su contraseña"]
+    U1 --> U2
   end
 
   subgraph N["3 · Negocio"]
@@ -147,16 +147,18 @@ caés en `/backoffice`.
 
 ## Paso 2 · Cuenta de la dueña
 
-**Hoy (✅):**
-1. Back office → **Usuarios**.
-2. Cargar correo (`duena.sabores@prueba.co`), una contraseña de 8 o más caracteres y el
-   rol **cliente**.
-3. Pasarle la contraseña a la dueña. No se manda ningún correo.
+Requiere tener configurado el correo en Supabase (§3-bis de `docs/08-supabase-saas.md`).
+1. Back office → **Usuarios** → **Invitar dueña**.
+2. Cargar su correo (`duena.sabores@prueba.co`) y marcar los tipos de negocio entre los
+   que va a poder elegir.
+3. A la dueña le llega un correo. Al tocar el link, define su contraseña y entra al
+   portal.
 
-**Qué tiene que pasar:** el usuario aparece en la lista con rol cliente.
+**Qué tiene que pasar:** el usuario aparece en la lista con rol cliente y con los rubros
+asignados. Si la dueña olvida la contraseña, en el login usa "¿Olvidaste tu contraseña?".
 
-🔧 **T-41** la reemplaza por "Invitar dueña": le llega un correo y ella define su
-contraseña. También agrega "olvidé mi contraseña".
+Sin correo configurado sigue estando "Crear usuario con contraseña", y la contraseña se
+le pasa a mano.
 
 ## Paso 3 · Negocio
 

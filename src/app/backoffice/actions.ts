@@ -10,6 +10,7 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { linkDefinirContrasena } from "@/lib/sitio";
 import { redirect } from "next/navigation";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -283,6 +284,47 @@ export async function crearUsuario(
 
   revalidatePath("/backoffice/usuarios");
   return { ok: `Usuario ${email} creado.` };
+}
+
+/**
+ * T-41: invita a una dueña por correo. Supabase le manda un link; al
+ * tocarlo define su propia contraseña (`/cuenta/contrasena`) — el admin ya
+ * no inventa ni pasa contraseñas por WhatsApp. Los rubros marcados quedan
+ * asignados: son los tipos de negocio entre los que ella va a poder elegir
+ * en su primer ingreso (T-42).
+ */
+export async function invitarDuena(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const denied = await requireAdmin();
+  if (denied) return { error: denied };
+
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const rubroIds = formData.getAll("rubroIds").map(String).filter(Boolean);
+  if (!email.includes("@")) return { error: "Escribí un correo válido." };
+  if (rubroIds.length === 0) return { error: "Marcá al menos un tipo de negocio." };
+
+  const admin = createAdminClient();
+  if (!admin) return { error: "Supabase no está configurado." };
+
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: await linkDefinirContrasena(),
+  });
+  if (error || !data.user) {
+    return { error: `No se pudo invitar: ${error?.message ?? "sin usuario"}. ¿Está configurado el correo (SMTP) en Supabase?` };
+  }
+
+  const { error: asignError } = await admin
+    .from("asignaciones")
+    .upsert(
+      rubroIds.map((rubroId) => ({ user_id: data.user!.id, rubro_id: rubroId })),
+      { onConflict: "user_id,rubro_id", ignoreDuplicates: true },
+    );
+  if (asignError) return { error: `Invitación enviada, pero sin tipos de negocio: ${asignError.message}` };
+
+  revalidatePath("/backoffice/usuarios");
+  return { ok: `Invitación enviada a ${email}. Le llega un correo para definir su contraseña.` };
 }
 
 // ── Rubros ───────────────────────────────────────────────────────────────────

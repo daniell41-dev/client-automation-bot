@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signIn, type LoginState } from "./actions";
 
@@ -16,9 +17,8 @@ import { signIn, type LoginState } from "./actions";
  *    o `/portal` — ver `actions.ts`.
  *  - "Continuar con Google": deshabilitado con `title="Próximamente"`. No hay
  *    proveedor OAuth configurado en Supabase Auth.
- *  - "¿Olvidaste tu contraseña?": era un `<span>` sin destino. El reseteo de
- *    contraseña todavía no está implementado (llega con T-41); hoy solo se
- *    puede cambiar desde el dashboard de Supabase.
+ *  - "¿Olvidaste tu contraseña?": era un `<span>` sin destino. Volvió en
+ *    T-41, ahora con destino real (`/login/recuperar`).
  *  - "¿No tenés cuenta? Creá tu negocio": tampoco llevaba a ningún lado, y
  *    contradecía el modelo — no hay registro público, las cuentas las crea el
  *    admin (`crearUsuario` en `backoffice/actions.ts`).
@@ -30,6 +30,9 @@ import { signIn, type LoginState } from "./actions";
 export function LoginForm() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "";
+  // T-41: el link de un correo (invitación o recuperación) que venció o ya
+  // se usó vuelve acá con ?error=link.
+  const linkVencido = searchParams.get("error") === "link";
   const [state, formAction, pending] = useActionState<LoginState, FormData>(
     signIn,
     {},
@@ -69,6 +72,12 @@ export function LoginForm() {
         />
       </div>
 
+      {linkVencido && !state.error && (
+        <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-sm text-warn-ink">
+          El link venció o ya se usó. Pedí uno nuevo con &quot;¿Olvidaste tu contraseña?&quot;.
+        </p>
+      )}
+
       {state.error && (
         <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-sm text-warn-ink">
           {state.error}
@@ -82,6 +91,10 @@ export function LoginForm() {
       >
         {pending ? "Entrando…" : "Ingresar"}
       </button>
+
+      <Link href="/login/recuperar" className="block text-center text-sm font-semibold text-primary hover:underline">
+        ¿Olvidaste tu contraseña?
+      </Link>
     </form>
   );
 }

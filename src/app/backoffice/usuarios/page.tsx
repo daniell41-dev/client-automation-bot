@@ -5,7 +5,7 @@
 
 import Link from "next/link";
 import { createUserClient } from "@/lib/supabase/server";
-import { crearUsuario } from "@/app/backoffice/actions";
+import { crearUsuario, invitarDuena } from "@/app/backoffice/actions";
 import { ActionForm } from "@/components/action-form";
 import { DataTable } from "@/components/data-table";
 import { Avatar, Card, Pill } from "@/components/ui";
@@ -19,7 +19,7 @@ const inputCls =
 export default async function UsuariosPage() {
   const supabase = await createUserClient();
 
-  const [{ data: profiles }, { data: negocios }, { data: asignaciones }] =
+  const [{ data: profiles }, { data: negocios }, { data: asignaciones }, { data: rubros }] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -27,6 +27,7 @@ export default async function UsuariosPage() {
         .order("created_at", { ascending: false }),
       supabase.from("negocios").select("owner_id"),
       supabase.from("asignaciones").select("user_id, rubros(nombre)"),
+      supabase.from("rubros").select("id, nombre").order("nombre"),
     ]);
 
   const negociosPorUser = new Map<string, number>();
@@ -42,9 +43,33 @@ export default async function UsuariosPage() {
 
   return (
     <div className="mx-auto max-w-[980px] space-y-5 fade-up">
+      {/* T-41: el camino normal para una dueña nueva. */}
       <Card
-        title="Invitar usuario"
-        subtitle="El usuario recibe acceso inmediato con la contraseña que definas."
+        title="Invitar dueña"
+        subtitle="Le llega un correo para definir su contraseña. Los tipos de negocio marcados son entre los que va a poder elegir al entrar."
+      >
+        <ActionForm action={invitarDuena} submitLabel="Enviar invitación">
+          <div>
+            <label htmlFor="invitar-email" className={labelCls}>Correo de la dueña</label>
+            <input id="invitar-email" name="email" type="email" required placeholder="duena@negocio.co" className={inputCls} />
+          </div>
+          <fieldset>
+            <legend className={labelCls}>Tipos de negocio que puede elegir</legend>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {(rubros ?? []).map((r) => (
+                <label key={r.id} className="flex items-center gap-2 text-sm text-ink">
+                  <input type="checkbox" name="rubroIds" value={r.id} defaultChecked />
+                  {r.nombre}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </ActionForm>
+      </Card>
+
+      <Card
+        title="Crear usuario con contraseña"
+        subtitle="Alternativa sin correo: el usuario recibe acceso inmediato con la contraseña que definas."
         action={
           <Link
             href="/backoffice/asignaciones"
