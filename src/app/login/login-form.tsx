@@ -17,8 +17,8 @@ import { signIn, type LoginState } from "./actions";
  *  - "Continuar con Google": deshabilitado con `title="Próximamente"`. No hay
  *    proveedor OAuth configurado en Supabase Auth.
  *  - "¿Olvidaste tu contraseña?": era un `<span>` sin destino. El reseteo de
- *    contraseña todavía no está implementado; hoy la cambia el admin desde el
- *    back office.
+ *    contraseña todavía no está implementado (llega con T-41); hoy solo se
+ *    puede cambiar desde el dashboard de Supabase.
  *  - "¿No tenés cuenta? Creá tu negocio": tampoco llevaba a ningún lado, y
  *    contradecía el modelo — no hay registro público, las cuentas las crea el
  *    admin (`crearUsuario` en `backoffice/actions.ts`).

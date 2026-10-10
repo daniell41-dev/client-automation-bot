@@ -10,6 +10,7 @@ import { EmptyState, Pill } from "@/components/ui";
 import { Logo } from "@/components/logo";
 import { RubroTile } from "@/components/rubro-visual";
 import { ArrowRight } from "lucide-react";
+import { signOut } from "@/app/login/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,16 @@ export default async function PortalHome() {
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
               {firstName(me!.email).slice(0, 2).toUpperCase()}
             </span>
+            {/* T-35: sin esto, una dueña sin negocios no tenía forma de salir
+                (el botón de salir vive en el shell de cada negocio). */}
+            <form action={signOut}>
+              <button
+                type="submit"
+                className="rounded-[10px] px-3 py-1.5 text-sm font-semibold text-ink-mid transition-colors hover:bg-surface-3 hover:text-ink"
+              >
+                Cerrar sesión
+              </button>
+            </form>
           </span>
         </div>
       </header>
