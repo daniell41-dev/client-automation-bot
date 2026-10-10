@@ -22,11 +22,11 @@ alter table public.pedidos
 -- `crear_pedido` gana el parámetro de la marca. Se reemplaza la firma vieja
 -- (un `create or replace` con otra lista de parámetros crearía una segunda
 -- función en paralelo).
-drop function public.crear_pedido(uuid, uuid, text, text, jsonb, numeric, text, text, text, text);
+drop function public.crear_pedido(uuid, text, text, text, jsonb, numeric, text, text, text, text);
 
 create or replace function public.crear_pedido(
   p_negocio_id uuid,
-  p_lead_id uuid,
+  p_lead_id text,
   p_contacto text,
   p_cliente text,
   p_items jsonb,
@@ -63,9 +63,9 @@ begin
 end;
 $$;
 
-revoke execute on function public.crear_pedido(uuid, uuid, text, text, jsonb, numeric, text, text, text, text, boolean)
+revoke execute on function public.crear_pedido(uuid, text, text, text, jsonb, numeric, text, text, text, text, boolean)
   from public, anon, authenticated;
-grant execute on function public.crear_pedido(uuid, uuid, text, text, jsonb, numeric, text, text, text, text, boolean)
+grant execute on function public.crear_pedido(uuid, text, text, text, jsonb, numeric, text, text, text, text, boolean)
   to service_role;
 
 -- Devuelve las unidades de un carrito. Solo toca productos que tienen fila en

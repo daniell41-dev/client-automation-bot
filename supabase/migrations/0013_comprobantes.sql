@@ -28,7 +28,7 @@
 create table public.comprobantes (
   id uuid primary key default gen_random_uuid(),
   negocio_id uuid not null references public.negocios(id) on delete cascade,
-  lead_id uuid references public.leads(id) on delete set null,
+  lead_id text references public.leads(id) on delete set null, -- text, no uuid: `leads.id` es text desde 0001
   referencia text,              -- normalizada: sin espacios, mayúsculas
   monto numeric(14,2),
   moneda text,                  -- "COP" | "VES"

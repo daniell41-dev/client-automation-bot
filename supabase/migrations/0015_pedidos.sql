@@ -34,7 +34,7 @@ create table public.pedidos (
   id uuid primary key default gen_random_uuid(),
   negocio_id uuid not null references public.negocios(id) on delete cascade,
   numero int not null,
-  lead_id uuid references public.leads(id) on delete set null,
+  lead_id text references public.leads(id) on delete set null, -- text, no uuid: `leads.id` es text desde 0001
   contacto text not null,          -- WhatsApp del cliente (Lead.contact)
   cliente text,                    -- nombre que dio el cliente
   items jsonb not null,            -- [{serviceId, nombre, cantidad, precioUnitario}]
@@ -69,7 +69,7 @@ create policy pedidos_own on public.pedidos
 
 create or replace function public.crear_pedido(
   p_negocio_id uuid,
-  p_lead_id uuid,
+  p_lead_id text,
   p_contacto text,
   p_cliente text,
   p_items jsonb,
@@ -108,7 +108,7 @@ $$;
 -- Una función `security definer` expuesta por la API se puede llamar con la
 -- clave pública (anon) si no se restringe: cualquiera podría inventar
 -- pedidos. Solo el bot (service role) la ejecuta.
-revoke execute on function public.crear_pedido(uuid, uuid, text, text, jsonb, numeric, text, text, text, text)
+revoke execute on function public.crear_pedido(uuid, text, text, text, jsonb, numeric, text, text, text, text)
   from public, anon, authenticated;
-grant execute on function public.crear_pedido(uuid, uuid, text, text, jsonb, numeric, text, text, text, text)
+grant execute on function public.crear_pedido(uuid, text, text, text, jsonb, numeric, text, text, text, text)
   to service_role;
