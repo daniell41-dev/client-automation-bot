@@ -89,3 +89,47 @@ alternativa descartada es una inferencia razonable a partir del patrón de
 diseño (reutilizar el canal de notificación ya evaluado en
 `docs/10-notificaciones-y-pedidos.md`), no una cita explícita como en los otros
 dos casos.
+
+---
+
+## ADR-004: El pedido es una entidad propia, no un estado del lead
+
+**Status:** accepted (T-30). Reemplaza la parte "resolución FIFO" de ADR-003.
+
+**Contexto:** Desde T-21 el lead ERA el pedido: el carrito vivía en `lead.items`
+y el estado de la venta en `lead.stage`. Eso dejaba tres problemas sin
+solución posible:
+- La dueña no tenía a qué pedido referirse al responder SÍ, así que
+  `handleOwnerApproval` aprobaba el pendiente **más viejo**. Con dos pedidos
+  abiertos, revisar el comprobante de B y responder SÍ confirmaba A, aunque A
+  nunca hubiera pagado. Es exactamente el hueco que usa un pantallazo falso.
+- La referencia de Wompi era `lead.id`, que se repite en todos los pedidos de
+  un mismo cliente.
+- No había dónde registrar lo que pasa después de aprobar (listo, entregado,
+  código de retiro) sin seguir cargando campos en el lead.
+
+**Decisión:** Cada carrito confirmado por el cliente crea una fila en `pedidos`
+(migración `0015_pedidos.sql`):
+- **Número corto por negocio** (#1, #2, …), asignado por `crear_pedido` en la
+  misma transacción que incrementa un contador propio (`pedido_contadores`).
+  El contador no vive en `negocios` porque esa fila la puede escribir la dueña
+  desde el portal.
+- **Ítems copiados** (nombre y precio al momento de pedir).
+- **Ciclo de vida propio** (`src/core/engine/pedido-estado.ts`):
+  `esperando_pago → por_verificar → aprobado → listo → entregado`, más
+  `rechazado` y `vencido` como finales. Una transición inválida lanza; por
+  ejemplo, un webhook atrasado no puede aprobar un pedido ya rechazado.
+- El lead vuelve a ser la conversación. `handle.ts` crea y mueve el pedido en
+  modo best-effort: si la tabla no existe todavía, la charla sigue como antes.
+
+**Consecuencias:**
+- Facilita:
+  - T-31: aprobar por número o botón, sin FIFO.
+  - T-34: referencia de Wompi = id del pedido.
+  - T-37: código de retiro.
+  - T-38: panel de pedidos.
+  - Además, queda registro de cada decisión fuera de WhatsApp.
+- Complica: dos lugares con estado (lead y pedido) que tienen que moverse
+  juntos. Mientras convivan, el lead sigue siendo quien decide la conversación
+  y el pedido es el registro de la venta. Un pedido que nunca se resuelve queda
+  en `esperando_pago` hasta que exista el vencimiento (T-32).

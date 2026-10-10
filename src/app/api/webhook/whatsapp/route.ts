@@ -25,6 +25,7 @@ import {
   createAiUsageRepository,
   createCalendar,
   createComprobanteRepository,
+  createPedidoRepository,
   createInventoryRepository,
   createLeadRepository,
   createMessageDedupeRepository,
@@ -162,6 +163,7 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
       const calendar = createCalendar(business) ?? undefined;
       const inventory = createInventoryRepository();
       const comprobantes = createComprobanteRepository();
+      const pedidos = createPedidoRepository();
       const paymentGateway = (await createPaymentGateway(resolved.negocioId)) ?? undefined;
 
       // Mismo canal para responderle al cliente y para avisarle a la dueña
@@ -189,6 +191,8 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
           ownerMessage,
           business,
           repo,
+          new Date(),
+          pedidos,
         );
         if (channel) {
           await channel.send(ownerReply);
@@ -230,6 +234,7 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
         mediaDownloader,
         comprobantes,
         paymentGateway,
+        pedidos,
       );
 
       if (channel) {

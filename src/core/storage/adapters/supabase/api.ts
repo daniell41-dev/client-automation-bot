@@ -82,6 +82,26 @@ export interface ComprobanteRow {
   created_at: string;
 }
 
+/** Fila de la tabla `pedidos` (T-30, migración 0015). */
+export interface PedidoRow {
+  id: string;
+  negocio_id: string;
+  numero: number;
+  lead_id: string | null;
+  contacto: string;
+  cliente: string | null;
+  items: unknown;
+  total: number;
+  moneda: string;
+  modalidad: string | null;
+  direccion: string | null;
+  estado: string;
+  codigo_retiro: string | null;
+  comprobante_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Operaciones mínimas sobre la base que necesitan los adaptadores del bot. */
 export interface SupabaseDb {
   selectLeadByContact(businessSlug: string, contact: string): Promise<LeadRow | null>;
@@ -170,6 +190,27 @@ export interface SupabaseDb {
     integritySecret: string;
     eventsSecret: string;
   } | null>;
+  /**
+   * Crea un pedido con el siguiente número del negocio (T-30). Va por la
+   * función `crear_pedido` (0015) y no por un insert directo: el número se
+   * asigna en la misma transacción, así dos pedidos simultáneos nunca
+   * reciben el mismo.
+   */
+  insertPedido(row: {
+    negocioId: string;
+    leadId: string;
+    contacto: string;
+    cliente?: string;
+    items: unknown;
+    total: number;
+    moneda: string;
+    modalidad?: string;
+    direccion?: string;
+    estado: string;
+  }): Promise<PedidoRow>;
+  updatePedidoEstado(id: string, estado: string): Promise<void>;
+  /** Pedidos del lead que no están en `estados_cerrados`, el más reciente primero. */
+  selectPedidosAbiertosDeLead(leadId: string, estadosCerrados: string[]): Promise<PedidoRow[]>;
 }
 
 /** Implementación real sobre supabase-js. */
@@ -364,6 +405,53 @@ class RealSupabaseDb implements SupabaseDb {
       .eq("negocio_id", negocioId);
     if (error) throw error;
     return (data as ComprobanteRow[] | null) ?? [];
+  }
+
+  async insertPedido(row: {
+    negocioId: string;
+    leadId: string;
+    contacto: string;
+    cliente?: string;
+    items: unknown;
+    total: number;
+    moneda: string;
+    modalidad?: string;
+    direccion?: string;
+    estado: string;
+  }): Promise<PedidoRow> {
+    const { data, error } = await this.client.rpc("crear_pedido", {
+      p_negocio_id: row.negocioId,
+      p_lead_id: row.leadId,
+      p_contacto: row.contacto,
+      p_cliente: row.cliente ?? null,
+      p_items: row.items,
+      p_total: row.total,
+      p_moneda: row.moneda,
+      p_modalidad: row.modalidad ?? null,
+      p_direccion: row.direccion ?? null,
+      p_estado: row.estado,
+    });
+    if (error) throw error;
+    return data as PedidoRow;
+  }
+
+  async updatePedidoEstado(id: string, estado: string): Promise<void> {
+    const { error } = await this.client
+      .from("pedidos")
+      .update({ estado, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  async selectPedidosAbiertosDeLead(leadId: string, estadosCerrados: string[]): Promise<PedidoRow[]> {
+    const { data, error } = await this.client
+      .from("pedidos")
+      .select("*")
+      .eq("lead_id", leadId)
+      .not("estado", "in", `(${estadosCerrados.join(",")})`)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data as PedidoRow[] | null) ?? [];
   }
 
   async selectWompiCredentials(negocioId: string): Promise<{

@@ -27,6 +27,7 @@ import type { LeadRepository } from "@/core/storage/repository";
 import type { SessionRepository } from "@/core/storage/session-repository";
 import type { InventoryRepository } from "@/core/storage/inventory-repository";
 import type { ComprobanteRepository } from "@/core/storage/comprobante-repository";
+import type { EstadoPedido, Pedido, PedidoRepository } from "@/core/storage/pedido-repository";
 import type { PaymentGateway } from "@/core/payments/gateway";
 import type { ILLMProvider } from "@/core/ai/provider";
 import type { PaymentReceiptDescription } from "@/core/ai/payment-receipt-schema";
@@ -44,6 +45,7 @@ import { inactivo, limpiarDatosCapturados, reseteablePorInactividad } from "@/co
 import { resumenCarrito, totalCarrito } from "@/core/engine/flows/pedido";
 import { interpretarRespuestaDueña } from "@/core/engine/approval";
 import { transition } from "@/core/engine/lead-state";
+import { transicionarPedido } from "@/core/engine/pedido-estado";
 import { DEFAULT_PEDIDO_CONFIRMADO, DEFAULT_PEDIDO_RECHAZADO } from "@/core/engine/responder";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { render } from "@/core/engine/templating";
@@ -197,6 +199,72 @@ const DEFAULT_PEDIR_COMPROBANTE =
  * solo que se lo pasamos a la dueña. La confirmación real llega recién
  * cuando ella responde (reusa `handleOwnerApproval`, sin cambios).
  */
+/**
+ * T-30: crea el pedido del carrito confirmado. Best-effort, igual que los
+ * comprobantes: si la tabla todavía no existe (migración 0015 sin aplicar)
+ * o la base falla, la conversación con el cliente sigue como antes de T-30
+ * — el pedido es la libreta de la dueña, no la venta en sí.
+ */
+async function crearPedidoDelCarrito(
+  pedidos: PedidoRepository | undefined,
+  lead: Lead,
+  config: BusinessConfig,
+  negocio: string,
+  estado: EstadoPedido,
+): Promise<Pedido | undefined> {
+  if (!pedidos || !lead.items?.length) return undefined;
+  const items = lead.items.flatMap((item) => {
+    const service = config.services.find((s) => s.id === item.serviceId);
+    return service
+      ? [{ serviceId: item.serviceId, nombre: service.name, cantidad: item.cantidad, precioUnitario: service.price }]
+      : [];
+  });
+  try {
+    return await pedidos.crear({
+      negocio,
+      leadId: lead.id,
+      contacto: lead.contact,
+      cliente: lead.name,
+      items,
+      total: totalCarrito(lead.items, config.services),
+      moneda: config.currency,
+      modalidad: lead.entrega,
+      estado,
+    });
+  } catch (err) {
+    console.error("[Pedidos] no se pudo crear el pedido (la conversación sigue igual):", err);
+    return undefined;
+  }
+}
+
+/**
+ * T-30: mueve el pedido abierto del lead al estado `hacia`. Best-effort por
+ * el mismo motivo que `crearPedidoDelCarrito`; una transición inválida (p.
+ * ej. aprobar un pedido ya rechazado) se registra y NO se aplica.
+ */
+async function moverPedidoDelLead(
+  pedidos: PedidoRepository | undefined,
+  leadId: string,
+  hacia: EstadoPedido,
+): Promise<Pedido | undefined> {
+  if (!pedidos) return undefined;
+  try {
+    const pedido = await pedidos.abiertoDeLead(leadId);
+    if (!pedido) return undefined;
+    const estado = transicionarPedido(pedido.estado, hacia);
+    if (estado !== pedido.estado) await pedidos.actualizarEstado(pedido.id, estado);
+    return { ...pedido, estado };
+  } catch (err) {
+    console.error(`[Pedidos] no se pudo pasar el pedido a "${hacia}":`, err);
+    return undefined;
+  }
+}
+
+/** "pedido #12 de Laura" — o "pedido de Laura" si no hay número (sin tabla de pedidos). */
+function etiquetaPedido(lead: Lead, pedido: Pedido | undefined): string {
+  return `${pedido ? `pedido #${pedido.numero}` : "pedido"} de ${lead.name ?? lead.contact}`;
+}
+
 function respuestaComprobanteRecibido(config: BusinessConfig): string {
   return `Recibí tu comprobante, se lo paso a ${config.name} para confirmar y te aviso 🙏`;
 }
@@ -223,6 +291,7 @@ async function handlePaymentReceiptMessage(
   comprobantes: ComprobanteRepository | undefined,
   negocioParaStock: string | undefined,
   now: Date,
+  pedidos: PedidoRepository | undefined,
 ): Promise<HandleResult> {
   const media = await mediaDownloader(message.image!.mediaId);
   if (!media) {
@@ -280,10 +349,15 @@ async function handlePaymentReceiptMessage(
     }
   }
 
+  // T-30: con comprobante en mano, el pedido pasa a esperar la decisión de
+  // la dueña. Un segundo comprobante del mismo pedido lo deja igual.
+  const pedido = await moverPedidoDelLead(pedidos, lead.id, "por_verificar");
+
   if (notifier && config.notifyPhoneNumber) {
     await notifyOwner(lead, config, notifier, {
       pidiendoAprobacion: true,
       comprobante: { descripcion, señales },
+      numeroPedido: pedido?.numero,
     });
   }
 
@@ -310,6 +384,8 @@ export async function handleIncoming(
   comprobantes?: ComprobanteRepository,
   /** T-24.5: sin esto, `config.pagos.wompi.enabled` no tiene efecto — el pedido cae al camino de antes (comprobante o SÍ/NO plano). */
   paymentGateway?: PaymentGateway,
+  /** T-30: sin esto, los pedidos no se registran como entidad (sin número) — el resto sigue igual. */
+  pedidos?: PedidoRepository,
 ): Promise<HandleResult> {
   let existing = await repo.findByContact(message.businessSlug, message.from);
 
@@ -338,6 +414,7 @@ export async function handleIncoming(
         comprobantes,
         negocioParaStock,
         now,
+        pedidos,
       );
     }
     if (llm && mediaDownloader) {
@@ -507,6 +584,7 @@ export async function handleIncoming(
       // verificado (`handleWompiWebhookEvent`). Si se descontara ahora, un
       // pago que nunca se completa dejaría el stock reservado para siempre
       // sin que nadie lo libere.
+      await crearPedidoDelCarrito(pedidos, lead, config, negocioParaStock ?? config.slug, "esperando_pago");
       const total = totalCarrito(lead.items!, config.services);
       const link = paymentGateway.buildPaymentLink({
         reference: lead.id,
@@ -551,6 +629,15 @@ export async function handleIncoming(
       }
 
       if (stockOk) {
+        // T-30: el pedido nace acá, con el stock ya reservado. Con
+        // comprobante, espera el pago; sin él, va directo a la dueña.
+        const pedido = await crearPedidoDelCarrito(
+          pedidos,
+          lead,
+          config,
+          negocioParaStock ?? config.slug,
+          config.pagos?.requiereComprobante ? "esperando_pago" : "por_verificar",
+        );
         if (config.pagos?.requiereComprobante) {
           // T-24.4: reemplaza el disparador de SÍ/NO plano — no se avisa a la
           // dueña todavía, se le pide el comprobante al cliente. Recién cuando
@@ -564,7 +651,11 @@ export async function handleIncoming(
           const alertasStockBajo = inventory
             ? await alertasDeStockBajo(inventory, negocioParaStock ?? config.slug, config, restante)
             : [];
-          await notifyOwner(lead, config, notifier, { pidiendoAprobacion: true, alertasStockBajo });
+          await notifyOwner(lead, config, notifier, {
+            pidiendoAprobacion: true,
+            alertasStockBajo,
+            numeroPedido: pedido?.numero,
+          });
         }
       }
     }
@@ -713,6 +804,8 @@ async function notifyOwner(
     alertasStockBajo?: string[];
     /** T-24.4: si viene, se le muestran a la dueña los datos leídos del comprobante y las señales de riesgo (§1.7) — nunca un veredicto de validez. */
     comprobante?: { descripcion: PaymentReceiptDescription; señales: Señal[] };
+    /** T-30: número corto del pedido, para que la dueña sepa de cuál se trata. */
+    numeroPedido?: number;
   } = {},
 ): Promise<void> {
   const service = config.services.find((s) => s.id === lead.serviceId);
@@ -723,7 +816,7 @@ async function notifyOwner(
     // T-21/PR5: un pedido todavía no está "confirmado" en este punto — recién
     // lo está cuando la dueña responde. El título no debe prometer de más.
     opciones.pidiendoAprobacion
-      ? `🔔 ${config.name}: pedido nuevo, esperando tu aprobación`
+      ? `🔔 ${config.name}: pedido ${opciones.numeroPedido ? `#${opciones.numeroPedido} ` : ""}nuevo, esperando tu aprobación`
       : `🔔 ${config.name}: confirmación nueva`,
     `Cliente: ${lead.name ?? lead.contact}`,
     esPedido ? resumenCarrito(lead.items!, config.services, config) : null,
@@ -818,6 +911,8 @@ export async function handleOwnerApproval(
   config: BusinessConfig,
   repo: LeadRepository,
   now: Date = new Date(),
+  /** T-30: sin esto, el pedido no cambia de estado (solo el lead, como antes). */
+  pedidos?: PedidoRepository,
 ): Promise<OwnerApprovalResult> {
   const decision = interpretarRespuestaDueña(message.text);
   if (!decision) {
@@ -845,8 +940,9 @@ export async function handleOwnerApproval(
     lead.stage = "datos_completos";
     lead.confirmedAt = now.toISOString();
     await repo.save(lead);
+    const pedido = await moverPedidoDelLead(pedidos, lead.id, "aprobado");
     return {
-      ownerReply: { to: message.from, text: `Listo, confirmado el pedido de ${lead.name ?? lead.contact} ✅` },
+      ownerReply: { to: message.from, text: `Listo, confirmado el ${etiquetaPedido(lead, pedido)} ✅` },
       customerReply: {
         to: lead.contact,
         text: [resumen, render(config.messages.pedidoConfirmado ?? DEFAULT_PEDIDO_CONFIRMADO, nombreVars)]
@@ -863,8 +959,9 @@ export async function handleOwnerApproval(
   lead.serviceId = undefined;
   lead.items = undefined;
   await repo.save(lead);
+  const pedido = await moverPedidoDelLead(pedidos, lead.id, "rechazado");
   return {
-    ownerReply: { to: message.from, text: `Marcado como rechazado el pedido de ${lead.name ?? lead.contact}.` },
+    ownerReply: { to: message.from, text: `Marcado como rechazado el ${etiquetaPedido(lead, pedido)}.` },
     customerReply: {
       to: lead.contact,
       text: render(config.messages.pedidoRechazado ?? DEFAULT_PEDIDO_RECHAZADO, nombreVars),
@@ -900,6 +997,8 @@ export async function handleWompiWebhookEvent(
   inventory: InventoryRepository | undefined,
   negocioParaStock: string | undefined,
   now: Date = new Date(),
+  /** T-30: sin esto, el pedido no cambia de estado (solo el lead, como antes). */
+  pedidos?: PedidoRepository,
 ): Promise<WompiWebhookResult> {
   const yaConfirmado = lead.stage === "datos_completos";
   const decision = decidirAccionWompi(estado, yaConfirmado);
@@ -913,6 +1012,9 @@ export async function handleWompiWebhookEvent(
     lead.state = transition(lead.state, "perdido");
     lead.stage = "carrito_abierto";
     await repo.save(lead);
+    // El carrito sigue vivo para reintentar, pero ESTE pedido murió: si el
+    // cliente vuelve a confirmar, nace un pedido nuevo con su propio número.
+    await moverPedidoDelLead(pedidos, lead.id, "rechazado");
     return {
       customerMessage: {
         to: lead.contact,
@@ -947,6 +1049,7 @@ export async function handleWompiWebhookEvent(
   lead.stage = "datos_completos";
   lead.confirmedAt = now.toISOString();
   await repo.save(lead);
+  await moverPedidoDelLead(pedidos, lead.id, "aprobado");
 
   const resumen = resumenCarrito(lead.items ?? [], config.services, config);
   return {

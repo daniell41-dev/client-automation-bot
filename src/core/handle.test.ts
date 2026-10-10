@@ -13,6 +13,8 @@ import type { AgentTurnInput, ILLMProvider } from "@/core/ai/provider";
 import type { AgentResponse } from "@/core/ai/agent-schema";
 import { makeFakeCalendar } from "@/core/storage/adapters/google/fake-calendar";
 import { SessionMemoryRepository } from "@/core/storage/adapters/session-memory";
+import { SupabasePedidoRepository } from "@/core/storage/adapters/supabase/pedidos";
+import { makeFakeSupabaseDb } from "@/core/storage/adapters/supabase/fake-supabase";
 
 /** Inventario en memoria para tests: mismo algoritmo (validar todo, después descontar todo). */
 class InMemoryInventory implements InventoryRepository {
@@ -1889,5 +1891,180 @@ describe("handleWompiWebhookEvent — webhook ya verificado (T-24.5)", () => {
     expect(repo.leads[0].stage).toBe("esperando_aprobacion"); // no se confirmó
     expect(repo.leads[0].state).not.toBe("pagado");
     expect(result.customerMessage?.text).toContain("Harina 1 Kg");
+  });
+});
+
+describe("pedido como entidad propia (T-30)", () => {
+  function pedidosEnMemoria() {
+    const db = makeFakeSupabaseDb();
+    return { db, pedidos: new SupabasePedidoRepository(db) };
+  }
+
+  function ownerMsg(text: string): IncomingMessage {
+    return { channel: "whatsapp", businessSlug: "tienda", from: "573009998888", text, timestamp: new Date().toISOString() };
+  }
+
+  async function confirmarCarrito(
+    business: BusinessConfig,
+    repo: LeadRepository,
+    pedidos: SupabasePedidoRepository,
+    notifier = fakeNotifier(),
+    extra: { gateway?: PaymentGateway } = {},
+  ) {
+    const pasos = ["harina", "Laura", "2", "no, eso es todo", "sí"];
+    let ultimo;
+    for (const texto of pasos) {
+      ultimo = await handleIncoming(
+        msg(texto), business, repo, new Date(), undefined, undefined, undefined, notifier,
+        undefined, "neg-1", undefined, undefined, extra.gateway, pedidos,
+      );
+    }
+    return { notifier, result: ultimo! };
+  }
+
+  it("al confirmar el carrito nace el pedido #1 'por_verificar', con los ítems copiados del catálogo", async () => {
+    const repo = new InMemoryRepo();
+    const { db, pedidos } = pedidosEnMemoria();
+
+    const { notifier } = await confirmarCarrito(tiendaConNotify, repo, pedidos);
+
+    expect(db.pedidos).toHaveLength(1);
+    expect(db.pedidos[0]).toMatchObject({
+      numero: 1,
+      estado: "por_verificar",
+      negocio_id: "neg-1",
+      lead_id: repo.leads[0].id,
+      contacto: "57300000000",
+      cliente: "Laura",
+      total: 10000,
+      moneda: "COP",
+    });
+    expect(db.pedidos[0].items).toEqual([
+      { serviceId: "harina", nombre: "Harina 1 Kg", cantidad: 2, precioUnitario: 5000 },
+    ]);
+    // La dueña ve el número: es a lo que va a referirse al aprobar (T-31).
+    expect(notifier.sent[0].text).toContain("pedido #1 nuevo");
+  });
+
+  it("SÍ de la dueña pasa el pedido a 'aprobado' y el acuse menciona el número", async () => {
+    const repo = new InMemoryRepo();
+    const { db, pedidos } = pedidosEnMemoria();
+    await confirmarCarrito(tiendaConNotify, repo, pedidos);
+
+    const { ownerReply } = await handleOwnerApproval(ownerMsg("sí"), tiendaConNotify, repo, new Date(), pedidos);
+
+    expect(db.pedidos[0].estado).toBe("aprobado");
+    expect(ownerReply.text).toContain("pedido #1 de Laura");
+  });
+
+  it("NO de la dueña pasa el pedido a 'rechazado'", async () => {
+    const repo = new InMemoryRepo();
+    const { db, pedidos } = pedidosEnMemoria();
+    await confirmarCarrito(tiendaConNotify, repo, pedidos);
+
+    await handleOwnerApproval(ownerMsg("no"), tiendaConNotify, repo, new Date(), pedidos);
+
+    expect(db.pedidos[0].estado).toBe("rechazado");
+  });
+
+  it("volver a pedir después de un pedido cerrado crea el pedido #2, no reusa el anterior", async () => {
+    const repo = new InMemoryRepo();
+    const { db, pedidos } = pedidosEnMemoria();
+    await confirmarCarrito(tiendaConNotify, repo, pedidos);
+    await handleOwnerApproval(ownerMsg("no"), tiendaConNotify, repo, new Date(), pedidos);
+
+    await confirmarCarrito(tiendaConNotify, repo, pedidos);
+
+    expect(db.pedidos.map((p) => [p.numero, p.estado])).toEqual([
+      [1, "rechazado"],
+      [2, "por_verificar"],
+    ]);
+  });
+
+  it("con comprobante: nace 'esperando_pago' y pasa a 'por_verificar' cuando llega la foto", async () => {
+    const tiendaConPagos: BusinessConfig = {
+      ...tiendaConNotify,
+      pagos: { requiereComprobante: true },
+    };
+    const repo = new InMemoryRepo();
+    const { db, pedidos } = pedidosEnMemoria();
+    const notifier = fakeNotifier();
+    await confirmarCarrito(tiendaConPagos, repo, pedidos, notifier);
+    expect(db.pedidos[0].estado).toBe("esperando_pago");
+
+    const llm: ILLMProvider = {
+      supportsVision: true,
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      async describePaymentReceipt() {
+        return { banco: "nequi", referencia: "M1", monto: 10000, moneda: "COP", legible: "completo" as const };
+      },
+    };
+    await handleIncoming(
+      { ...msg(""), image: { mediaId: "m-1", mimeType: "image/jpeg" } },
+      tiendaConPagos, repo, new Date(), llm, undefined, undefined, notifier, undefined, "neg-1",
+      async () => ({ base64: "eA==", mimeType: "image/jpeg" }), undefined, undefined, pedidos,
+    );
+
+    expect(db.pedidos[0].estado).toBe("por_verificar");
+    expect(notifier.sent.at(-1)?.text).toContain("pedido #1 nuevo");
+  });
+
+  it("Wompi: el pedido nace 'esperando_pago' y el webhook APPROVED lo aprueba", async () => {
+    const tiendaConWompi: BusinessConfig = {
+      ...tiendaConNotify,
+      pagos: { wompi: { enabled: true } },
+    };
+    const gateway: PaymentGateway = { buildPaymentLink: () => "https://checkout.wompi.co/p/" };
+    const repo = new InMemoryRepo();
+    const { db, pedidos } = pedidosEnMemoria();
+    await confirmarCarrito(tiendaConWompi, repo, pedidos, fakeNotifier(), { gateway });
+    expect(db.pedidos[0].estado).toBe("esperando_pago");
+
+    await handleWompiWebhookEvent(repo.leads[0], tiendaConWompi, "APPROVED", repo, undefined, "neg-1", new Date(), pedidos);
+
+    expect(db.pedidos[0].estado).toBe("aprobado");
+  });
+
+  it("Wompi DECLINED rechaza ESTE pedido (el carrito sigue vivo para reintentar)", async () => {
+    const tiendaConWompi: BusinessConfig = {
+      ...tiendaConNotify,
+      pagos: { wompi: { enabled: true } },
+    };
+    const gateway: PaymentGateway = { buildPaymentLink: () => "https://checkout.wompi.co/p/" };
+    const repo = new InMemoryRepo();
+    const { db, pedidos } = pedidosEnMemoria();
+    await confirmarCarrito(tiendaConWompi, repo, pedidos, fakeNotifier(), { gateway });
+
+    await handleWompiWebhookEvent(repo.leads[0], tiendaConWompi, "DECLINED", repo, undefined, "neg-1", new Date(), pedidos);
+
+    expect(db.pedidos[0].estado).toBe("rechazado");
+    expect(repo.leads[0].stage).toBe("carrito_abierto");
+  });
+
+  it("si la tabla de pedidos falla, la conversación sigue igual que antes de T-30 (aviso sin número)", async () => {
+    const repo = new InMemoryRepo();
+    const roto = {
+      crear: async () => {
+        throw new Error('relation "pedidos" does not exist');
+      },
+      actualizarEstado: async () => {},
+      abiertoDeLead: async () => null,
+    } as unknown as SupabasePedidoRepository;
+
+    const { notifier } = await confirmarCarrito(tiendaConNotify, repo, roto);
+
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion");
+    expect(notifier.sent[0].text).toContain("pedido nuevo, esperando tu aprobación");
   });
 });

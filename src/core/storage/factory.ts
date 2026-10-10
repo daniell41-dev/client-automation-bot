@@ -14,6 +14,7 @@ import type { MessageDedupeRepository } from "@/core/storage/dedupe-repository";
 import type { AiUsageRepository } from "@/core/storage/usage-repository";
 import type { InventoryRepository } from "@/core/storage/inventory-repository";
 import type { ComprobanteRepository } from "@/core/storage/comprobante-repository";
+import type { PedidoRepository } from "@/core/storage/pedido-repository";
 import type { PaymentGateway } from "@/core/payments/gateway";
 import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { JsonLeadRepository } from "@/core/storage/adapters/json";
@@ -22,6 +23,7 @@ import { JsonMessageDedupeRepository } from "@/core/storage/adapters/dedupe-json
 import { JsonAiUsageRepository } from "@/core/storage/adapters/usage-json";
 import { JsonInventoryRepository } from "@/core/storage/adapters/inventory-json";
 import { JsonComprobanteRepository } from "@/core/storage/adapters/comprobante-json";
+import { JsonPedidoRepository } from "@/core/storage/adapters/pedido-json";
 import { createSheetsApi } from "@/core/storage/adapters/google/auth";
 import { createCalendarApi } from "@/core/storage/adapters/google/calendar";
 import { GoogleSheetsLeadRepository } from "@/core/storage/adapters/google/leads";
@@ -33,6 +35,7 @@ import { SupabaseMessageDedupeRepository } from "@/core/storage/adapters/supabas
 import { SupabaseAiUsageRepository } from "@/core/storage/adapters/supabase/usage";
 import { SupabaseInventoryRepository } from "@/core/storage/adapters/supabase/inventory";
 import { SupabaseComprobanteRepository } from "@/core/storage/adapters/supabase/comprobantes";
+import { SupabasePedidoRepository } from "@/core/storage/adapters/supabase/pedidos";
 import { WompiGateway } from "@/core/payments/wompi";
 
 /**
@@ -116,6 +119,17 @@ export function createInventoryRepository(): InventoryRepository {
 export function createComprobanteRepository(): ComprobanteRepository {
   const db = createSupabaseDb();
   return db ? new SupabaseComprobanteRepository(db) : new JsonComprobanteRepository();
+}
+
+/**
+ * Repositorio de pedidos (T-30): Supabase (número correlativo atómico, ver
+ * migración 0015) > JSON local. Sin Sheets, mismo motivo que los
+ * comprobantes: el panel de pedidos (T-38) vive en el portal, no en una
+ * planilla.
+ */
+export function createPedidoRepository(): PedidoRepository {
+  const db = createSupabaseDb();
+  return db ? new SupabasePedidoRepository(db) : new JsonPedidoRepository();
 }
 
 /**

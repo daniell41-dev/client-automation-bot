@@ -21,6 +21,7 @@ import type { EstadoWompi } from "@/core/engine/pago-wompi";
 import { resolveBusinessBySlug } from "@/businesses/resolve";
 import {
   createInventoryRepository,
+  createPedidoRepository,
   createLeadRepository,
   getWompiEventsSecret,
 } from "@/core/storage/factory";
@@ -83,6 +84,7 @@ export async function processWompiWebhookPayload(event: WompiWebhookEvent): Prom
       inventory,
       resolved.negocioId ?? config.slug,
       new Date(),
+      createPedidoRepository(),
     );
 
     if (result.customerMessage) {
