@@ -8,6 +8,7 @@
 
 import type { Channel, OutgoingMessage } from "@/core/types";
 import type { ChannelAdapter } from "@/core/channels/channel";
+import type { WhatsAppUsageRepository } from "@/core/storage/whatsapp-usage-repository";
 
 export interface WhatsAppChannelOptions {
   phoneNumberId: string;
@@ -32,6 +33,13 @@ export interface WhatsAppChannelOptions {
      */
     conBotones?: boolean;
   };
+  /**
+   * T-43: a qué negocio se le cuenta cada mensaje que Meta acepta. Se mide
+   * acá, en el único punto por donde sale todo (respuestas, avisos a la
+   * dueña, "tu pedido está listo"), para no depender de que cada llamador
+   * se acuerde de contar.
+   */
+  medidor?: { negocio: string; repo: WhatsAppUsageRepository };
 }
 
 export interface SendRequest {
@@ -192,7 +200,10 @@ export class WhatsAppChannel implements ChannelAdapter {
     const fetchImpl = this.opts.fetchImpl ?? fetch;
     const { url, init } = buildSendRequest(this.opts, message);
     const res = await fetchImpl(url, init);
-    if (res.ok) return;
+    if (res.ok) {
+      await this.medir({ enviados: 1 });
+      return;
+    }
 
     const detail = await res.text().catch(() => "");
 
@@ -225,6 +236,22 @@ export class WhatsAppChannel implements ChannelAdapter {
         `Envío WhatsApp falló (texto y plantilla): ${res.status} ${detail} | ` +
           `${resPlantilla.status} ${detallePlantilla}`,
       );
+    }
+    await this.medir({ plantillas: 1 });
+  }
+
+  /**
+   * Nunca lanza: el mensaje ya salió, y si la tabla del medidor no existe
+   * (migración 0021 sin aplicar) o la base falla, lanzar haría que quien
+   * llama crea que el envío falló y lo reintente — un mensaje duplicado
+   * para el cliente por culpa de una métrica.
+   */
+  private async medir(delta: { enviados?: number; plantillas?: number }): Promise<void> {
+    if (!this.opts.medidor) return;
+    try {
+      await this.opts.medidor.repo.registrar({ negocio: this.opts.medidor.negocio, ...delta });
+    } catch (err) {
+      console.error("[WhatsApp] no se pudo registrar el uso en uso_whatsapp:", err);
     }
   }
 }

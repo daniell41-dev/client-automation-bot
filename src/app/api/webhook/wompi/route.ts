@@ -24,6 +24,7 @@ import {
   createPedidoRepository,
   createLeadRepository,
   getWompiEventsSecret,
+  createWhatsAppUsageRepository,
 } from "@/core/storage/factory";
 import { handleWompiWebhookEvent } from "@/core/handle";
 import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
@@ -102,6 +103,7 @@ export async function processWompiWebhookPayload(event: WompiWebhookEvent): Prom
       const channel = new WhatsAppChannel({
         phoneNumberId: resolved.whatsappPhoneNumberId,
         accessToken,
+        medidor: { negocio: resolved.negocioId ?? config.slug, repo: createWhatsAppUsageRepository() },
       });
       if (result.customerMessage) await channel.send(result.customerMessage);
       // Texto libre: si la dueña no escribió en 24h, Meta lo rechaza y queda

@@ -24,6 +24,14 @@ interface UsoIaRow {
   imagenes: number;
 }
 
+/** Fila acumulada de `uso_whatsapp` del mes en curso, espejo de la migración 0021. */
+interface UsoWhatsappRow {
+  negocio_id: string;
+  recibidos: number;
+  enviados: number;
+  plantillas: number;
+}
+
 /** Fila de `inventario`, espejo de las migraciones 0010 y 0011. */
 interface InventarioRow {
   negocio_id: string;
@@ -47,6 +55,7 @@ interface FakeSupabaseDb extends SupabaseDb {
   negocios: NegocioRow[];
   mensajesProcesados: Set<string>;
   usoIa: UsoIaRow[];
+  usoWhatsapp: UsoWhatsappRow[];
   inventario: InventarioRow[];
   comprobantes: ComprobanteRow[];
   pedidos: PedidoRow[];
@@ -60,6 +69,7 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
   const negocios: NegocioRow[] = [];
   const mensajesProcesados = new Set<string>();
   const usoIa: UsoIaRow[] = [];
+  const usoWhatsapp: UsoWhatsappRow[] = [];
   const inventario: InventarioRow[] = [];
   const comprobantes: ComprobanteRow[] = [];
   const pedidos: PedidoRow[] = [];
@@ -72,6 +82,7 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
     negocios,
     mensajesProcesados,
     usoIa,
+    usoWhatsapp,
     inventario,
     comprobantes,
     pedidos,
@@ -136,6 +147,17 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       if (mensajesProcesados.has(messageId)) return false;
       mensajesProcesados.add(messageId);
       return true;
+    },
+
+    async recordWhatsAppUsage(entry) {
+      let fila = usoWhatsapp.find((u) => u.negocio_id === entry.negocioId);
+      if (!fila) {
+        fila = { negocio_id: entry.negocioId, recibidos: 0, enviados: 0, plantillas: 0 };
+        usoWhatsapp.push(fila);
+      }
+      fila.recibidos += entry.recibidos ?? 0;
+      fila.enviados += entry.enviados ?? 0;
+      fila.plantillas += entry.plantillas ?? 0;
     },
 
     async recordAiUsage(entry) {

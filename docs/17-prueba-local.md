@@ -18,7 +18,7 @@ Leyenda: ✅ funciona hoy · 🔧 requiere la tarea indicada · ⚙️ hoy se pu
 ```mermaid
 flowchart TD
   subgraph E["0 · Entorno (una sola vez)"]
-    E1["✅ .env.local: Supabase, IA y WhatsApp<br/>(token permanente)"] --> E2["✅ Supabase: migraciones 0001→0020<br/>+ pnpm seed:supabase --admin"]
+    E1["✅ .env.local: Supabase, IA y WhatsApp<br/>(token permanente)"] --> E2["✅ Supabase: migraciones 0001→0021<br/>+ pnpm seed:supabase --admin"]
     E2 --> E3["✅ pnpm dev + ngrok"]
     E3 --> E4["✅ Webhook cargado en Meta<br/>+ subscribed_apps del WABA"]
   end
@@ -62,6 +62,7 @@ flowchart TD
     F2["✅ Comprobante por menos plata →<br/>⚠️ monto distinto"]
     F3["✅ Dos pedidos pendientes →<br/>se aprueba el correcto"]
     F4["✅ 10 pedidos en modo resumen →<br/>un solo aviso + panel"]
+    F5["✅ T-43: Back office → Negocios<br/>muestra los WhatsApp del mes"]
   end
 
   E --> T --> U --> N
@@ -109,7 +110,7 @@ igual con el simulador: `pnpm sim --business <slug>`.
    - Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y
      `SUPABASE_SERVICE_ROLE_KEY`.
 2. **Supabase:** en el SQL Editor, correr **todas** las migraciones de
-   `supabase/migrations/` en orden (de `0001` a `0020`). Después:
+   `supabase/migrations/` en orden (de `0001` a `0021`). Después:
    ```bash
    pnpm seed:supabase --admin tucorreo@dominio.com TuClave123
    ```
@@ -290,6 +291,7 @@ Lo que todavía no pasa:
 | Dos pedidos a la vez ✅ | Pedido #1 desde un celular y #2 desde otro; la dueña toca "Aprobar #2" | Se aprueba solo el #2; el #1 sigue esperando |
 | "SÍ" suelto con dos pendientes ✅ | La dueña escribe solo `sí` | El bot no aprueba nada y le lista "#1 … · #2 …" pidiendo el número |
 | Día pico ✅ | Configuración → Avisos de pedidos → "Solo un resumen"; hacer 10 pedidos seguidos | Un solo mensaje "tenés N pedidos por verificar"; los 10 aparecen en el panel. Un comprobante sospechoso igual avisa al instante |
+| Medidor de WhatsApp ✅ | Después de las pruebas, entrar como admin a Back office → Negocios | La columna "WhatsApp (mes)" muestra cuántos mensajes salieron este mes (y cuántos fueron plantilla, que Meta cobra siempre) y cuántos entraron. Debe coincidir, a ojo, con lo que se ve en WhatsApp Manager → Analíticas |
 
 ---
 
@@ -303,3 +305,4 @@ Lo que todavía no pasa:
 | "No hay negocio para el phone_number_id" | El `phone_number_id` del negocio en el back office no coincide con el del número |
 | La dueña no recibe avisos | Su WhatsApp en Configuración, en formato `57…`, y distinto del número del negocio |
 | Datos raros | Tablas `negocios`, `leads` y `comprobantes` en Supabase |
+| "WhatsApp (mes)" muestra "—" | Falta aplicar la migración `0021_uso_whatsapp.sql` |

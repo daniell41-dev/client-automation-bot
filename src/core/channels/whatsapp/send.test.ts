@@ -264,3 +264,47 @@ describe("botones de respuesta (T-31)", () => {
     expect(JSON.parse(String(init.body)).template.components).toHaveLength(1);
   });
 });
+
+describe("WhatsAppChannel.send — medidor (T-43)", () => {
+  const msg = {
+    to: "573001112233",
+    text: "hola",
+    plantillaParams: ["Laura"],
+  };
+
+  function medidor() {
+    const registrar = vi.fn().mockResolvedValue(undefined);
+    return { registrar, opcion: { negocio: "neg-1", repo: { registrar } } };
+  }
+
+  it("cuenta un enviado cuando Meta acepta el texto", async () => {
+    const m = medidor();
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true } as Response);
+    await new WhatsAppChannel({ ...opts, fetchImpl, medidor: m.opcion }).send(msg);
+    expect(m.registrar).toHaveBeenCalledExactlyOnceWith({ negocio: "neg-1", enviados: 1 });
+  });
+
+  it("con la ventana cerrada cuenta la plantilla, no el texto rechazado", async () => {
+    const m = medidor();
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 400, text: async () => errorVentanaCerrada() } as Response)
+      .mockResolvedValueOnce({ ok: true } as Response);
+    await new WhatsAppChannel({ ...opts, fetchImpl, plantilla, medidor: m.opcion }).send(msg);
+    expect(m.registrar).toHaveBeenCalledExactlyOnceWith({ negocio: "neg-1", plantillas: 1 });
+  });
+
+  it("si Meta rechaza, no cuenta nada", async () => {
+    const m = medidor();
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: false, status: 400, text: async () => "{}" } as Response);
+    await expect(new WhatsAppChannel({ ...opts, fetchImpl, medidor: m.opcion }).send(msg)).rejects.toThrow();
+    expect(m.registrar).not.toHaveBeenCalled();
+  });
+
+  it("un fallo del medidor no rompe el envío", async () => {
+    const registrar = vi.fn().mockRejectedValue(new Error("sin tabla"));
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true } as Response);
+    const channel = new WhatsAppChannel({ ...opts, fetchImpl, medidor: { negocio: "neg-1", repo: { registrar } } });
+    await expect(channel.send(msg)).resolves.toBeUndefined();
+  });
+});

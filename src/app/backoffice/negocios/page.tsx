@@ -8,6 +8,7 @@ import { parseBusinessConfig } from "@/core/config-schema";
 import { DataTable } from "@/components/data-table";
 import { Card, Pill, StatCard } from "@/components/ui";
 import { RubroTile, camposDelNegocio } from "@/components/rubro-visual";
+import { mesDeUso } from "@/core/storage/whatsapp-usage-repository";
 import { NuevoNegocioForm } from "./nuevo-negocio-form";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export default async function NegociosPage() {
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
 
-  const [{ data: negocios }, { data: clientes }, { data: rubros }, leadsRes, leadsHoyRes] =
+  const [{ data: negocios }, { data: clientes }, { data: rubros }, leadsRes, leadsHoyRes, usoRes] =
     await Promise.all([
       supabase
         .from("negocios")
@@ -42,6 +43,12 @@ export default async function NegociosPage() {
         .from("leads")
         .select("id", { count: "exact", head: true })
         .gte("created_at", hoy.toISOString()),
+      // T-43: mensajes de WhatsApp del mes en curso. Sin la migración 0021
+      // la consulta falla y la columna muestra "—" en vez de romper la página.
+      supabase
+        .from("uso_whatsapp")
+        .select("negocio_id, recibidos, enviados, plantillas")
+        .eq("mes", mesDeUso(new Date())),
     ]);
 
   const rows = (negocios ?? []) as unknown as NegocioRow[];
@@ -52,6 +59,11 @@ export default async function NegociosPage() {
       (leadsPorNegocio.get(l.business_slug) ?? 0) + 1,
     );
   }
+
+  const usoPorNegocio = new Map(
+    (usoRes.data ?? []).map((u) => [u.negocio_id as string, u as { recibidos: number; enviados: number; plantillas: number }]),
+  );
+  const mensajesMes = (usoRes.data ?? []).reduce((t, u) => t + u.enviados + u.plantillas, 0);
 
   const parsed = rows.map((n) => ({
     row: n,
@@ -68,11 +80,12 @@ export default async function NegociosPage() {
 
   return (
     <div className="mx-auto max-w-[980px] space-y-5 fade-up">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <StatCard label="Negocios activos" value={String(activos)} />
         <StatCard label="Clientes" value={String(clientes?.length ?? 0)} />
         <StatCard label="Rubros" value={String(rubros?.length ?? 0)} />
         <StatCard label="Leads hoy" value={String(leadsHoyRes.count ?? 0)} />
+        <StatCard label="WhatsApp enviados (mes)" value={usoRes.error ? "—" : String(mensajesMes)} />
       </div>
 
       <Card
@@ -83,7 +96,7 @@ export default async function NegociosPage() {
       </Card>
 
       <DataTable
-        headers={["Negocio", "Rubro", "Cliente", "Estado", "Leads", "Plan"]}
+        headers={["Negocio", "Rubro", "Cliente", "Estado", "Leads", "WhatsApp (mes)", "Plan"]}
         emptyText="Todavía no hay negocios creados."
         rows={parsed.map(({ row, config }) => ({
           key: row.id,
@@ -110,6 +123,7 @@ export default async function NegociosPage() {
             <span key="l" className="font-display font-bold text-ink">
               {leadsPorNegocio.get(row.slug) ?? 0}
             </span>,
+            <UsoWhatsapp key="w" uso={usoPorNegocio.get(row.id)} sinTabla={Boolean(usoRes.error)} />,
             <Pill key="p" tone={config?.plan === "pro" ? "info" : "neutral"}>
               {config?.plan === "pro" ? "Pro" : "Free"}
             </Pill>,
@@ -121,5 +135,29 @@ export default async function NegociosPage() {
         Hacé clic en un negocio para editarlo, pausarlo/activarlo o eliminarlo.
       </p>
     </div>
+  );
+}
+
+/**
+ * T-43: enviados (texto libre) + plantillas, que son las que Meta cobra
+ * siempre; los recibidos van aparte porque son gratis pero abren la
+ * ventana de 24h en la que responder no cuesta.
+ */
+function UsoWhatsapp({
+  uso,
+  sinTabla,
+}: {
+  uso?: { recibidos: number; enviados: number; plantillas: number };
+  sinTabla: boolean;
+}) {
+  if (sinTabla) return <span className="text-ink-soft">—</span>;
+  return (
+    <span className="text-ink-mid" title="Enviados · plantillas · recibidos este mes">
+      <span className="font-display font-bold text-ink">{(uso?.enviados ?? 0) + (uso?.plantillas ?? 0)}</span>
+      {" "}
+      <span className="text-xs">
+        ({uso?.plantillas ?? 0} plant. · {uso?.recibidos ?? 0} recib.)
+      </span>
+    </span>
   );
 }
