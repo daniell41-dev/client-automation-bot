@@ -194,3 +194,37 @@ describe("parseInbound — imágenes (T-23.1)", () => {
     expect(parseInbound(payload)).toEqual([]);
   });
 });
+
+describe("parseInbound — respuestas a botones (T-31)", () => {
+  function conMensaje(message: Record<string, unknown>) {
+    return {
+      entry: [{ changes: [{ value: { metadata: { phone_number_id: "111" }, messages: [message] } }] }],
+    };
+  }
+
+  it("un botón de mensaje interactivo llega como texto (su título) + botonId", () => {
+    const [m] = parseInbound(
+      conMensaje({
+        from: "573009998888",
+        id: "wamid.B1",
+        timestamp: "1750500000",
+        type: "interactive",
+        interactive: { type: "button_reply", button_reply: { id: "aprobar:ped-1", title: "Aprobar #12" } },
+      }),
+    );
+    expect(m).toMatchObject({ text: "Aprobar #12", botonId: "aprobar:ped-1", from: "573009998888" });
+  });
+
+  it("un botón de plantilla (respuesta rápida) trae el payload como botonId", () => {
+    const [m] = parseInbound(
+      conMensaje({
+        from: "573009998888",
+        id: "wamid.B2",
+        timestamp: "1750500000",
+        type: "button",
+        button: { payload: "rechazar:ped-1", text: "Rechazar" },
+      }),
+    );
+    expect(m).toMatchObject({ text: "Rechazar", botonId: "rechazar:ped-1" });
+  });
+});

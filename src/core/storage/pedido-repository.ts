@@ -71,4 +71,16 @@ export interface PedidoRepository {
    * solo es posible después de que el anterior se cerró.
    */
   abiertoDeLead(leadId: string): Promise<Pedido | null>;
+
+  /** T-31: un pedido por id (el que viaja en el botón del aviso), o `null`. */
+  obtener(id: string): Promise<Pedido | null>;
+
+  /** T-31: un pedido por su número corto dentro del negocio ("SÍ 12"), o `null`. */
+  porNumero(negocio: string, numero: number): Promise<Pedido | null>;
+
+  /** T-31: los pedidos del negocio que esperan una decisión, del más viejo al más nuevo. */
+  pendientesDeDecision(negocio: string): Promise<Pedido[]>;
+
+  /** T-31: asocia el comprobante que respalda el pedido. */
+  vincularComprobante(id: string, comprobanteId: string): Promise<void>;
 }

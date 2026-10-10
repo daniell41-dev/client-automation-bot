@@ -413,6 +413,12 @@ export interface IncomingMessage {
    * descargarla: nunca se guarda la imagen en sí, solo se procesa en memoria.
    */
   image?: { mediaId: string; mimeType: string };
+  /**
+   * T-31: id del botón que se tocó, si el mensaje es la respuesta a un botón
+   * (`text` trae el título visible). Es lo que permite que la dueña apruebe
+   * UN pedido concreto sin escribir su número.
+   */
+  botonId?: string;
 }
 
 /** Mensaje saliente normalizado que un canal debe entregar. */
@@ -434,6 +440,13 @@ export interface OutgoingMessage {
    * `channels/whatsapp/send.ts`). Un canal sin esta limitación lo ignora.
    */
   plantillaParams?: string[];
+  /**
+   * T-31: botones de respuesta (WhatsApp admite hasta 3, con títulos de hasta
+   * 20 caracteres). El `id` vuelve en `IncomingMessage.botonId` cuando se
+   * toca. Un canal sin botones manda solo `text`, que siempre trae también la
+   * instrucción escrita equivalente.
+   */
+  botones?: { id: string; titulo: string }[];
 }
 
 /** Un interesado registrado por el sistema. */

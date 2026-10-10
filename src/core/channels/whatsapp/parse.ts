@@ -28,6 +28,10 @@ interface MetaMessage {
   type?: string;
   text?: { body?: string };
   image?: { id?: string; mime_type?: string; caption?: string };
+  /** T-31: respuesta a un botón de un mensaje interactivo. */
+  interactive?: { type?: string; button_reply?: { id?: string; title?: string } };
+  /** T-31: respuesta rápida de una plantilla (el payload lo define quien la manda). */
+  button?: { payload?: string; text?: string };
 }
 
 /** Mensaje de WhatsApp ya extraído y normalizado (sin resolver el negocio). */
@@ -50,6 +54,8 @@ export interface ParsedWhatsAppMessage {
    * sin tocar nada; esto es lo que le hace falta a T-23.5 para pedir la foto.
    */
   image?: { mediaId: string; mimeType: string; caption?: string };
+  /** T-31: id del botón tocado (ver `IncomingMessage.botonId`). */
+  botonId?: string;
 }
 
 /** Convierte el timestamp de Meta (segundos unix, string) a ISO 8601. */
@@ -111,6 +117,30 @@ export function parseInbound(payload: unknown): ParsedWhatsAppMessage[] {
               caption: message.image.caption,
             },
           });
+          continue;
+        }
+
+        // T-31: tocar un botón llega como su propio tipo de mensaje. Se
+        // normaliza a texto (el título visible) + `botonId`, para que quien no
+        // sepa de botones lo siga entendiendo como si se hubiera escrito.
+        const boton =
+          message.type === "interactive" && message.interactive?.type === "button_reply"
+            ? { id: message.interactive.button_reply?.id, texto: message.interactive.button_reply?.title }
+            : message.type === "button"
+              ? { id: message.button?.payload, texto: message.button?.text }
+              : null;
+        if (boton) {
+          if (boton.id || boton.texto) {
+            result.push({
+              phoneNumberId,
+              from: message.from,
+              text: boton.texto ?? "",
+              timestamp: toIso(message.timestamp),
+              contactName: nameByWaId.get(message.from),
+              messageId: message.id,
+              botonId: boton.id || undefined,
+            });
+          }
           continue;
         }
 
