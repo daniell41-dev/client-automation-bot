@@ -465,6 +465,12 @@ export interface IncomingMessage {
    */
   image?: { mediaId: string; mimeType: string };
   /**
+   * T-46: presente si el mensaje es una nota de voz. Llega con `text` vacío;
+   * `handleIncoming` la transcribe y sigue como si el cliente la hubiera
+   * escrito. Igual que la imagen, el audio nunca se guarda.
+   */
+  audio?: { mediaId: string; mimeType: string };
+  /**
    * T-31: id del botón que se tocó, si el mensaje es la respuesta a un botón
    * (`text` trae el título visible). Es lo que permite que la dueña apruebe
    * UN pedido concreto sin escribir su número.

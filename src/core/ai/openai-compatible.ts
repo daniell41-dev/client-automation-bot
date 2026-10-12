@@ -16,6 +16,7 @@
 
 import type {
   AgentTurnInput,
+  AudioInput,
   DateExtractionInput,
   ILLMProvider,
   ImageInput,
@@ -91,6 +92,34 @@ export interface OpenAICompatibleOptions {
   reasoningEffort?: string;
   /** `true` si `model` puede leer imágenes (T-23.3). Default `false`. */
   supportsVision?: boolean;
+  /** T-46: cómo transcribe audio (ver `AIPreset.transcripcion`). Sin esto, no transcribe. */
+  transcripcion?: "gemini" | "whisper";
+}
+
+/** T-46: lo que responde Gemini cuando no se entiende el audio (ver el prompt). */
+const INAUDIBLE = "[inaudible]";
+
+const PROMPT_TRANSCRIPCION =
+  "Transcribí esta nota de voz de un cliente de WhatsApp exactamente como la dice, en su idioma, " +
+  "sin resumir, corregir ni agregar nada. Devolvé solo el texto. Si no se entiende nada, respondé " +
+  `exactamente ${INAUDIBLE}.`;
+
+/** Modelo de Whisper en Groq: el turbo es más rápido y alcanza para notas de voz cortas. */
+const MODELO_WHISPER = "whisper-large-v3-turbo";
+
+const EXTENSION_AUDIO: Record<string, string> = {
+  "audio/ogg": "ogg",
+  "audio/mpeg": "mp3",
+  "audio/mp4": "m4a",
+  "audio/aac": "aac",
+  "audio/amr": "amr",
+};
+
+function base64ABytes(base64: string): Uint8Array {
+  const binario = atob(base64);
+  const bytes = new Uint8Array(binario.length);
+  for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+  return bytes;
 }
 
 export interface ChatMessage {
@@ -164,6 +193,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
   private readonly timeoutMs: number;
   private readonly agentTimeoutMs: number;
   private readonly reasoningEffort?: string;
+  private readonly transcripcion?: "gemini" | "whisper";
 
   constructor(opts: OpenAICompatibleOptions) {
     this.name = opts.name;
@@ -175,6 +205,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
     this.agentTimeoutMs = opts.agentTimeoutMs ?? 20000;
     this.reasoningEffort = opts.reasoningEffort;
     this.supportsVision = opts.supportsVision ?? false;
+    this.transcripcion = opts.transcripcion;
   }
 
   /** Llamada cruda de chat completions. Lanza si falla (red, HTTP, timeout). */
@@ -329,5 +360,77 @@ export class OpenAICompatibleProvider implements ILLMProvider {
   async describePaymentReceipt(input: ImageInput): Promise<PaymentReceiptDescription | null> {
     const text = await this.visionCompletion(buildPaymentReceiptPrompt(), input);
     return text ? parsePaymentReceipt(text) : null;
+  }
+
+  /**
+   * T-46: nota de voz → texto. Lanza ante un error HTTP o de red (igual que
+   * el resto de los métodos; `ResilientProvider` lo atrapa y prueba el
+   * siguiente). Usa el timeout largo del agente: un audio de un minuto tarda
+   * más que un prompt corto.
+   */
+  async transcribeAudio(input: AudioInput): Promise<string | null> {
+    if (this.transcripcion === "gemini") return this.transcribirConGemini(input);
+    if (this.transcripcion === "whisper") return this.transcribirConWhisper(input);
+    return null;
+  }
+
+  private async transcribirConGemini(input: AudioInput): Promise<string | null> {
+    // El baseURL del preset apunta a la capa OpenAI-compatible
+    // (".../v1beta/openai"); la API nativa vive un nivel arriba.
+    const base = this.baseURL.replace(/\/$/, "").replace(/\/openai$/, "");
+    const res = await this.fetchImpl(`${base}/models/${this.model}:generateContent`, {
+      method: "POST",
+      headers: { "x-goog-api-key": this.apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: PROMPT_TRANSCRIPCION },
+              { inline_data: { mime_type: input.mimeType, data: input.base64 } },
+            ],
+          },
+        ],
+        generationConfig: { temperature: 0 },
+      }),
+      signal: AbortSignal.timeout(this.agentTimeoutMs),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`[${this.name}] HTTP ${res.status}: ${detail}`);
+    }
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    const texto = (data.candidates?.[0]?.content?.parts ?? [])
+      .map((p) => p.text ?? "")
+      .join("")
+      .trim();
+    return texto && texto !== INAUDIBLE ? texto : null;
+  }
+
+  private async transcribirConWhisper(input: AudioInput): Promise<string | null> {
+    const form = new FormData();
+    const extension = EXTENSION_AUDIO[input.mimeType] ?? "ogg";
+    form.append(
+      "file",
+      new Blob([base64ABytes(input.base64) as BlobPart], { type: input.mimeType }),
+      `nota-de-voz.${extension}`,
+    );
+    form.append("model", MODELO_WHISPER);
+    // Fijar el idioma evita que Whisper "traduzca" o adivine mal en audios cortos.
+    form.append("language", "es");
+    form.append("response_format", "json");
+    const res = await this.fetchImpl(`${this.baseURL.replace(/\/$/, "")}/audio/transcriptions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.apiKey}` },
+      body: form,
+      signal: AbortSignal.timeout(this.agentTimeoutMs),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`[${this.name}] HTTP ${res.status}: ${detail}`);
+    }
+    const data = (await res.json()) as { text?: string };
+    return data.text?.trim() || null;
   }
 }

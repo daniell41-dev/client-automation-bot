@@ -193,6 +193,16 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
       // "Configuración → Aviso por WhatsApp"), el mensaje NUNCA entra al
       // funnel de cliente — es su sí/no a un pedido pendiente.
       if (business.notifyPhoneNumber && parsed.from === business.notifyPhoneNumber) {
+        // T-46: un audio de la dueña NO se transcribe para aprobar: un "sí"
+        // mal escuchado liberaría un pedido sin pagar. Se le pide el botón o
+        // el texto, que no tienen ambigüedad.
+        if (parsed.audio) {
+          await channel?.send({
+            to: parsed.from,
+            text: "Para aprobar o rechazar un pedido tocá los botones del aviso, o escribí SÍ 12 / NO 12 con el número del pedido.",
+          });
+          continue;
+        }
         const ownerMessage: IncomingMessage = {
           channel: "whatsapp",
           businessSlug: business.slug,
@@ -228,13 +238,15 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
         image: parsed.image
           ? { mediaId: parsed.image.mediaId, mimeType: parsed.image.mimeType }
           : undefined,
+        audio: parsed.audio,
       };
 
       // T-23.5: mismo token/versión de Graph API que usa `channel` para
       // enviar — `handle.ts` no sabe nada de WhatsApp, solo recibe esta
       // función ya armada.
       const mediaDownloader = accessToken
-        ? (mediaId: string) => downloadWhatsAppMedia(mediaId, { accessToken })
+        ? (mediaId: string, tipo?: "imagen" | "audio") =>
+            downloadWhatsAppMedia(mediaId, { accessToken, tipo })
         : undefined;
 
       const { messages: replies } = await handleIncoming(

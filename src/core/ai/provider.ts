@@ -143,6 +143,12 @@ export interface ImageInput {
   caption?: string;
 }
 
+/** T-46: una nota de voz del cliente ya descargada. `mimeType` sin parámetros ("audio/ogg"). */
+export interface AudioInput {
+  base64: string;
+  mimeType: string;
+}
+
 export interface ILLMProvider {
   /**
    * Nombre descriptivo del proveedor/modelo activo (para logs y `pnpm
@@ -204,4 +210,11 @@ export interface ILLMProvider {
    * contrato. Optativo, hermano de `describeImage`.
    */
   describePaymentReceipt?(input: ImageInput): Promise<PaymentReceiptDescription | null>;
+
+  /**
+   * T-46: pasa a texto una nota de voz del cliente, tal cual la dijo, para
+   * que el resto del bot la trate como un mensaje escrito. `null` si el
+   * proveedor no transcribe audio o no se entendió. Optativo.
+   */
+  transcribeAudio?(input: AudioInput): Promise<string | null>;
 }

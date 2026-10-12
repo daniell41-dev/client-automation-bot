@@ -21,6 +21,7 @@
 
 import type {
   AgentTurnInput,
+  AudioInput,
   DateExtractionInput,
   ILLMProvider,
   ImageInput,
@@ -207,6 +208,30 @@ export class ResilientProvider implements ILLMProvider {
         await this.registrar(provider.model ?? "?", 1, 0, 1);
         console.error(
           `[AI] ${provider.model ?? "proveedor"} falló (describePaymentReceipt), probando el siguiente:`,
+          err,
+        );
+      }
+    }
+    await this.registrar(FALLBACK_PROVIDER, 0, 1);
+    return null;
+  }
+
+  /**
+   * T-46: mismo criterio que `describeImage` — salta los proveedores que no
+   * transcriben, prueba el siguiente ante un fallo o un audio que no se
+   * entendió, y nunca lanza. Cuenta como una llamada en `uso_ia`.
+   */
+  async transcribeAudio(input: AudioInput): Promise<string | null> {
+    for (const provider of this.providers) {
+      if (!provider.transcribeAudio) continue;
+      try {
+        const texto = await provider.transcribeAudio(input);
+        await this.registrar(provider.model ?? "?", 1);
+        if (texto) return texto;
+      } catch (err) {
+        await this.registrar(provider.model ?? "?", 1);
+        console.error(
+          `[AI] ${provider.model ?? "proveedor"} falló (transcribeAudio), probando el siguiente:`,
           err,
         );
       }

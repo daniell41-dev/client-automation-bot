@@ -88,7 +88,7 @@ describe("parseInbound", () => {
     expect(parseInbound(statusPayload)).toEqual([]);
   });
 
-  it("ignora tipos que no son texto ni imagen (audio, sticker, ubicación, ...)", () => {
+  it("ignora tipos no soportados (sticker, ubicación, ...)", () => {
     const audioPayload = {
       entry: [
         {
@@ -97,7 +97,7 @@ describe("parseInbound", () => {
               value: {
                 metadata: { phone_number_id: "111" },
                 messages: [
-                  { from: "573009998877", type: "audio", audio: { id: "x" } },
+                  { from: "573009998877", type: "sticker", sticker: { id: "x" } },
                 ],
               },
             },
@@ -106,6 +106,35 @@ describe("parseInbound", () => {
       ],
     };
     expect(parseInbound(audioPayload)).toEqual([]);
+  });
+
+  it("T-46: una nota de voz llega con texto vacío y el media_id del audio", () => {
+    const payload = {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: "111" },
+                messages: [
+                  {
+                    from: "573009998877",
+                    id: "wamid.VOZ",
+                    timestamp: "1750500000",
+                    type: "audio",
+                    audio: { id: "audio-1", mime_type: "audio/ogg; codecs=opus", voice: true },
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const [m] = parseInbound(payload);
+    expect(m.text).toBe("");
+    expect(m.messageId).toBe("wamid.VOZ");
+    expect(m.audio).toEqual({ mediaId: "audio-1", mimeType: "audio/ogg; codecs=opus" });
   });
 
   it("tolera payloads vacíos o inválidos", () => {

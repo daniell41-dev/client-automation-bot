@@ -28,6 +28,8 @@ interface MetaMessage {
   type?: string;
   text?: { body?: string };
   image?: { id?: string; mime_type?: string; caption?: string };
+  /** T-46: nota de voz (`voice: true`) o archivo de audio. */
+  audio?: { id?: string; mime_type?: string; voice?: boolean };
   /** T-31: respuesta a un botón de un mensaje interactivo. */
   interactive?: { type?: string; button_reply?: { id?: string; title?: string } };
   /** T-31: respuesta rápida de una plantilla (el payload lo define quien la manda). */
@@ -54,6 +56,11 @@ export interface ParsedWhatsAppMessage {
    * sin tocar nada; esto es lo que le hace falta a T-23.5 para pedir la foto.
    */
   image?: { mediaId: string; mimeType: string; caption?: string };
+  /**
+   * T-46: presente si el mensaje es una nota de voz. `text` llega vacío; lo
+   * completa la transcripción en `handle.ts`.
+   */
+  audio?: { mediaId: string; mimeType: string };
   /** T-31: id del botón tocado (ver `IncomingMessage.botonId`). */
   botonId?: string;
 }
@@ -120,6 +127,19 @@ export function parseInbound(payload: unknown): ParsedWhatsAppMessage[] {
           continue;
         }
 
+        if (message.type === "audio" && message.audio?.id) {
+          result.push({
+            phoneNumberId,
+            from: message.from,
+            text: "",
+            timestamp: toIso(message.timestamp),
+            contactName: nameByWaId.get(message.from),
+            messageId: message.id,
+            audio: { mediaId: message.audio.id, mimeType: message.audio.mime_type ?? "" },
+          });
+          continue;
+        }
+
         // T-31: tocar un botón llega como su propio tipo de mensaje. Se
         // normaliza a texto (el título visible) + `botonId`, para que quien no
         // sepa de botones lo siga entendiendo como si se hubiera escrito.
@@ -144,7 +164,7 @@ export function parseInbound(payload: unknown): ParsedWhatsAppMessage[] {
           continue;
         }
 
-        if (message.type && message.type !== "text" && message.type !== "image") {
+        if (message.type && !["text", "image", "audio"].includes(message.type)) {
           // No los procesamos todavía, pero loguear cuáles llegan sirve para
           // saber qué pedir después (T-23.1).
           console.log(`[whatsapp/parse] mensaje descartado, tipo no soportado: ${message.type}`);

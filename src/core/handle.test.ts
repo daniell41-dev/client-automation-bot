@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handleIncoming, handleOwnerApproval, handleWompiWebhookEvent } from "@/core/handle";
+import { FALLBACK_AUDIO, handleIncoming, handleOwnerApproval, handleWompiWebhookEvent } from "@/core/handle";
 import type { PaymentGateway, PaymentLinkRequest } from "@/core/payments/gateway";
 import type { BusinessConfig, DiaAtencion, IncomingMessage, Lead, OutgoingMessage } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
@@ -2744,5 +2744,81 @@ describe("modo de aviso 'solo resumen' (T-39)", () => {
       }
     }
     expect(notifier.sent).toHaveLength(2);
+  });
+});
+
+describe("handleIncoming — notas de voz (T-46)", () => {
+  function audioMsg(): IncomingMessage {
+    return { ...msg(""), audio: { mediaId: "audio-1", mimeType: "audio/ogg; codecs=opus" } };
+  }
+
+  function fakeLLM(transcripcion: string | null): ILLMProvider {
+    return {
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      async transcribeAudio() {
+        return transcripcion;
+      },
+    };
+  }
+
+  const audio = { base64: "T2dnUw==", mimeType: "audio/ogg" };
+
+  it("transcribe el audio y responde como si el cliente lo hubiera escrito", async () => {
+    const repo = new InMemoryRepo();
+    const tipos: (string | undefined)[] = [];
+    const { messages } = await handleIncoming(
+      audioMsg(),
+      config,
+      repo,
+      new Date(),
+      fakeLLM("hola, quiero una limpieza facial"),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      async (_id, tipo) => {
+        tipos.push(tipo);
+        return audio;
+      },
+    );
+    expect(tipos).toEqual(["audio"]);
+    expect(messages[0].text).toContain("Limpieza facial");
+    expect(repo.leads[0].serviceId).toBe("limpieza-facial");
+  });
+
+  it("si no se entiende el audio, le pide que lo escriba y no toca el lead", async () => {
+    const repo = new InMemoryRepo();
+    const { messages } = await handleIncoming(
+      audioMsg(),
+      config,
+      repo,
+      new Date(),
+      fakeLLM(null),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      async () => audio,
+    );
+    expect(messages).toEqual([{ to: "57300000000", text: FALLBACK_AUDIO }]);
+    expect(repo.leads).toHaveLength(0);
+  });
+
+  it("sin descargador (o sin IA) también le pide que lo escriba", async () => {
+    const { messages } = await handleIncoming(audioMsg(), config, new InMemoryRepo());
+    expect(messages[0].text).toBe(FALLBACK_AUDIO);
   });
 });
