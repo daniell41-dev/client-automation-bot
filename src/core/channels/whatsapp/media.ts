@@ -14,6 +14,12 @@
 /** Tipos de imagen que los proveedores con visión (T-23.3) aceptan. */
 const ALLOWED_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+/**
+ * T-46: audios que aceptan Gemini y Whisper. Una nota de voz de WhatsApp
+ * llega como "audio/ogg; codecs=opus"; se compara sin los parámetros.
+ */
+const ALLOWED_AUDIO_TYPES = new Set(["audio/ogg", "audio/mpeg", "audio/mp4", "audio/aac", "audio/amr"]);
+
 /** 4 MB en base64 — no en el archivo original, que pesa menos. */
 const MAX_BASE64_BYTES = 4 * 1024 * 1024;
 
@@ -27,6 +33,8 @@ export interface WhatsAppMediaOptions {
   fetchImpl?: typeof fetch;
   /** Default 10s. Sin reintentos: si se corta, se cae a la plantilla. */
   timeoutMs?: number;
+  /** T-46: qué se espera descargar. Default "imagen" (el comportamiento de T-23). */
+  tipo?: "imagen" | "audio";
 }
 
 export interface DownloadedMedia {
@@ -69,7 +77,9 @@ async function descargar(
   if (!metaRes.ok) return null;
 
   const meta = (await metaRes.json()) as MetaMediaMetadata;
-  if (!meta.url || !meta.mime_type || !ALLOWED_MIME_TYPES.has(meta.mime_type)) {
+  const mimeType = meta.mime_type?.split(";")[0]?.trim().toLowerCase();
+  const permitidos = opts.tipo === "audio" ? ALLOWED_AUDIO_TYPES : ALLOWED_MIME_TYPES;
+  if (!meta.url || !mimeType || !permitidos.has(mimeType)) {
     return null;
   }
 
@@ -80,7 +90,7 @@ async function descargar(
   const base64 = Buffer.from(buffer).toString("base64");
   if (Buffer.byteLength(base64) > MAX_BASE64_BYTES) return null;
 
-  return { base64, mimeType: meta.mime_type };
+  return { base64, mimeType };
 }
 
 /**

@@ -97,3 +97,23 @@ describe("downloadWhatsAppMedia — fallos controlados (nunca lanza)", () => {
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
 });
+
+describe("downloadWhatsAppMedia — notas de voz (T-46)", () => {
+  const audio = { ok: true, arrayBuffer: async () => new Uint8Array([9, 9]).buffer } as Response;
+
+  it("con tipo audio acepta la nota de voz de WhatsApp (ogg con codecs)", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ url: "https://x", mime_type: "audio/ogg; codecs=opus" }))
+      .mockResolvedValueOnce(audio);
+    const result = await downloadWhatsAppMedia("media-1", { ...opts, fetchImpl, tipo: "audio" });
+    expect(result?.mimeType).toBe("audio/ogg");
+  });
+
+  it("sin tipo (imagen) rechaza un audio, y con tipo audio rechaza una imagen", async () => {
+    const conAudio = vi.fn().mockResolvedValueOnce(jsonResponse({ url: "https://x", mime_type: "audio/ogg" }));
+    expect(await downloadWhatsAppMedia("m", { ...opts, fetchImpl: conAudio })).toBeNull();
+    const conImagen = vi.fn().mockResolvedValueOnce(jsonResponse({ url: "https://x", mime_type: "image/jpeg" }));
+    expect(await downloadWhatsAppMedia("m", { ...opts, fetchImpl: conImagen, tipo: "audio" })).toBeNull();
+  });
+});

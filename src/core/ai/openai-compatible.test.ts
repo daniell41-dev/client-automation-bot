@@ -564,3 +564,79 @@ describe("OpenAICompatibleProvider.describePaymentReceipt (T-24.2)", () => {
     await expect(provider.describePaymentReceipt(imageInput)).resolves.toBeNull();
   });
 });
+
+describe("OpenAICompatibleProvider.transcribeAudio (T-46)", () => {
+  const audio = { base64: "T2dnUw==", mimeType: "audio/ogg" };
+
+  it("sin transcripción configurada devuelve null sin llamar a la red", async () => {
+    const fetchImpl = vi.fn();
+    const provider = new OpenAICompatibleProvider({ name: "cerebras", baseURL: "https://x/v1", apiKey: "k", model: "m", fetchImpl });
+    await expect(provider.transcribeAudio(audio)).resolves.toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("Gemini: usa la API nativa con el audio inline y devuelve el texto", async () => {
+    const fetchImpl = vi.fn<(url: string | URL | Request, init?: RequestInit) => Promise<Response>>(async () =>
+      new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: " Quiero dos bandejas paisas " }] } }] })),
+    );
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+      apiKey: "KEY",
+      model: "gemini-x",
+      transcripcion: "gemini",
+      fetchImpl,
+    });
+    await expect(provider.transcribeAudio(audio)).resolves.toBe("Quiero dos bandejas paisas");
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-x:generateContent");
+    expect((init!.headers as Record<string, string>)["x-goog-api-key"]).toBe("KEY");
+    const body = JSON.parse(init!.body as string);
+    expect(body.contents[0].parts[1]).toEqual({ inline_data: { mime_type: "audio/ogg", data: "T2dnUw==" } });
+  });
+
+  it("Gemini: si no se entiende el audio devuelve null", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+      apiKey: "k",
+      model: "m",
+      transcripcion: "gemini",
+      fetchImpl: vi.fn(async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "[inaudible]" }] } }] }))),
+    });
+    await expect(provider.transcribeAudio(audio)).resolves.toBeNull();
+  });
+
+  it("Whisper (Groq): manda el archivo por multipart a /audio/transcriptions", async () => {
+    const fetchImpl = vi.fn<(url: string | URL | Request, init?: RequestInit) => Promise<Response>>(async () =>
+      new Response(JSON.stringify({ text: "hola, ¿tienen domicilio?" })),
+    );
+    const provider = new OpenAICompatibleProvider({
+      name: "groq",
+      baseURL: "https://api.groq.com/openai/v1",
+      apiKey: "k",
+      model: "m",
+      transcripcion: "whisper",
+      fetchImpl,
+    });
+    await expect(provider.transcribeAudio(audio)).resolves.toBe("hola, ¿tienen domicilio?");
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("https://api.groq.com/openai/v1/audio/transcriptions");
+    const form = init!.body as FormData;
+    expect(form.get("model")).toBe("whisper-large-v3-turbo");
+    expect(form.get("language")).toBe("es");
+    expect(form.get("file")).toBeInstanceOf(Blob);
+  });
+
+  it("un error HTTP lanza (lo atrapa ResilientProvider)", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "groq",
+      baseURL: "https://api.groq.com/openai/v1",
+      apiKey: "k",
+      model: "m",
+      transcripcion: "whisper",
+      fetchImpl: vi.fn(async () => new Response("nope", { status: 500 })),
+    });
+    await expect(provider.transcribeAudio(audio)).rejects.toThrow("HTTP 500");
+  });
+});

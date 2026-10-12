@@ -85,10 +85,15 @@ export interface HandleResult {
  */
 export type MediaDownloader = (
   mediaId: string,
+  /** T-46: "audio" para notas de voz; sin esto, se espera una imagen. */
+  tipo?: "imagen" | "audio",
 ) => Promise<{ base64: string; mimeType: string } | null>;
 
 /** §1.5 del plan: nunca un error silencioso ni un mensaje vacío ante una imagen que no se pudo procesar. */
 const FALLBACK_VISION = "No pude ver bien la imagen, ¿me dices el nombre o la referencia?";
+
+/** T-46: mismo criterio que `FALLBACK_VISION`, para una nota de voz que no se pudo escuchar. */
+export const FALLBACK_AUDIO = "No pude escuchar bien tu audio 🙈 ¿Me lo escribís, porfa?";
 
 /** §1.4 del plan: recetas/fórmulas médicas NUNCA se procesan en farmacias — regla dura, sin excepción. */
 function esRubroFarmaceutico(rubro?: string): boolean {
@@ -463,6 +468,17 @@ export async function handleIncoming(
   /** T-30: sin esto, los pedidos no se registran como entidad (sin número) — el resto sigue igual. */
   pedidos?: PedidoRepository,
 ): Promise<HandleResult> {
+  // T-46: una nota de voz se transcribe ANTES de todo lo demás y desde acá
+  // sigue como un mensaje escrito — el agente, el funnel y las reglas no
+  // necesitan saber que fue un audio. Si no se pudo escuchar, se le pide que
+  // lo escriba en vez de adivinar.
+  if (message.audio) {
+    const audio = mediaDownloader ? await mediaDownloader(message.audio.mediaId, "audio") : null;
+    const texto = audio && llm?.transcribeAudio ? await llm.transcribeAudio(audio) : null;
+    if (!texto) return { messages: [{ to: message.from, text: FALLBACK_AUDIO }], modo: "guiado" };
+    message = { ...message, text: texto, audio: undefined };
+  }
+
   let existing = await repo.findByContact(message.businessSlug, message.from);
 
   // T-23.5/T-24.4: un mensaje con imagen es un camino aparte, completamente

@@ -587,3 +587,47 @@ describe("ResilientProvider — describePaymentReceipt (T-24.2)", () => {
   });
 });
 
+
+describe("ResilientProvider — transcribeAudio (T-46)", () => {
+  const audio = { base64: "T2dnUw==", mimeType: "audio/ogg" };
+
+  function proveedor(model: string, transcribe?: ILLMProvider["transcribeAudio"]): ILLMProvider {
+    return {
+      model,
+      async enhance() {
+        return "";
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      ...(transcribe ? { transcribeAudio: transcribe } : {}),
+    };
+  }
+
+  it("salta los que no transcriben y, si uno falla, prueba el siguiente", async () => {
+    const usageRepo = fakeUsageRepo();
+    const resilient = new ResilientProvider(
+      [
+        proveedor("cerebras"),
+        proveedor("gemini", async () => {
+          throw new Error("caído");
+        }),
+        proveedor("groq", async () => "quiero una limonada"),
+      ],
+      { repo: usageRepo, negocio: "neg-1" },
+    );
+    await expect(resilient.transcribeAudio(audio)).resolves.toBe("quiero una limonada");
+    expect(usageRepo.entries.map((e) => e.proveedor)).toEqual(["gemini", "groq"]);
+  });
+
+  it("si nadie la entiende devuelve null y nunca lanza", async () => {
+    const resilient = new ResilientProvider([proveedor("gemini", async () => null)]);
+    await expect(resilient.transcribeAudio(audio)).resolves.toBeNull();
+  });
+});

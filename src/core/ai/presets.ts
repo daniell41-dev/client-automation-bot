@@ -31,6 +31,12 @@ export interface AIPreset {
   reasoningEffort?: ReasoningEffort;
   /** `true` si el modelo del preset puede leer imágenes (T-23.3). Default `false`. */
   supportsVision?: boolean;
+  /**
+   * T-46: cómo transcribe notas de voz este proveedor, si puede. "gemini":
+   * la API nativa de Gemini (la capa OpenAI-compatible no acepta el ogg de
+   * WhatsApp). "whisper": el endpoint `/audio/transcriptions` de Groq.
+   */
+  transcripcion?: "gemini" | "whisper";
 }
 
 export const AI_PRESETS = {
@@ -42,6 +48,7 @@ export const AI_PRESETS = {
     defaultModel: "gemini-3.5-flash-lite",
     reasoningEffort: "low",
     supportsVision: true,
+    transcripcion: "gemini",
   },
   /** Groq. Key gratis en https://console.groq.com/keys */
   groq: {
@@ -51,6 +58,7 @@ export const AI_PRESETS = {
     // ahora imprime el listado real de modelos disponibles para tu key.
     defaultModel: "openai/gpt-oss-20b",
     reasoningEffort: "low",
+    transcripcion: "whisper",
   },
   /**
    * Groq con un modelo CON visión (T-23.3) — mismo baseURL/cuenta que `groq`,

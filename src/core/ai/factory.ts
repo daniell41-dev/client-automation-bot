@@ -70,6 +70,7 @@ function buildPresetProvider(name: PresetName): ILLMProvider | null {
     reasoningEffort: resolveReasoningEffort(preset.reasoningEffort),
     agentTimeoutMs: resolveAgentTimeoutMs(),
     supportsVision: preset.supportsVision,
+    transcripcion: preset.transcripcion,
   });
 }
 

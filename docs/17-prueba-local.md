@@ -47,6 +47,7 @@ flowchart TD
   subgraph B["4a · Prueba belleza"]
     B1["✅ Hola → servicio → nombre →<br/>fecha en horario → sí"] --> B2["✅ Aviso de cita a la dueña"]
     B2 --> B3["✅ Fecha fuera de horario →<br/>el bot pide otra"]
+    B3 --> B4["✅ T-46: pedir por nota de voz →<br/>responde igual que escrito"]
   end
 
   subgraph R["4b · Prueba restaurante"]
@@ -260,6 +261,12 @@ Con la IA en modo agente el bot puede juntar pasos: si el cliente escribe
 `2 bandejas paisas y una limonada`, debería armar el carrito de una. Lo que importa es el
 resultado (el resumen con el total correcto), no la cantidad de mensajes.
 
+**Nota de voz (✅ T-46):** en cualquier paso, en vez de escribir, mandar un audio (por
+ejemplo "quiero dos bandejas paisas y una limonada"). El bot tiene que responder igual que
+si se hubiera escrito. Si el audio no se entiende (ruido, silencio), contesta "No pude
+escuchar bien tu audio… ¿me lo escribís?". Si **la dueña** manda un audio, el bot no lo
+usa para aprobar: le recuerda usar los botones o escribir `SÍ 12`.
+
 **La dueña** recibe "pedido #1 nuevo, esperando tu aprobación" con:
 - el resumen;
 - los datos del comprobante y las ⚠️ señales, si las hay;
@@ -312,3 +319,4 @@ Lo que todavía no pasa:
 | Datos raros | Tablas `negocios`, `leads` y `comprobantes` en Supabase |
 | "WhatsApp (mes)" muestra "—" | Falta aplicar la migración `0021_uso_whatsapp.sql` |
 | "Subir QR" da error de bucket | Falta aplicar la migración `0022_pagos_qr.sql` |
+| A todos los audios responde "No pude escuchar bien tu audio" | La transcripción necesita `GEMINI_API_KEY` (o `GROQ_API_KEY`, que usa Whisper). En la terminal de `pnpm dev` aparece el error de `transcribeAudio` con el motivo |
