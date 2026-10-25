@@ -76,6 +76,7 @@ describe("limpiarDatosCapturados", () => {
       serviceId: "limpieza-facial",
       tentativeDate: "el sábado",
       entrega: "Retirar en el local",
+      items: [{ serviceId: "bandeja", cantidad: 1 }],
       notes: "nota vieja",
       offTopicCount: 2,
       state: "interesado",
@@ -92,6 +93,7 @@ describe("limpiarDatosCapturados", () => {
     expect(lead.serviceId).toBeUndefined();
     expect(lead.tentativeDate).toBeUndefined();
     expect(lead.entrega).toBeUndefined();
+    expect(lead.items).toBeUndefined();
     expect(lead.notes).toBeUndefined();
     expect(lead.offTopicCount).toBe(0);
   });

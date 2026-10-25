@@ -32,6 +32,8 @@ const agentActionSchema = z.discriminatedUnion("tipo", [
     servicioId: z.string().min(1),
     cantidad: z.number().positive(),
   }),
+  /** T-57: el cliente ya no quiere un producto del carrito ("sacá la bandeja"). */
+  z.object({ tipo: z.literal("quitar_producto"), servicioId: z.string().min(1) }),
   /** Ya hay nombre + servicio + fecha (+ modalidad si aplica), o nombre + carrito con algo: confirmar la cita/pedido. */
   z.object({ tipo: z.literal("confirmar") }),
   /** El mensaje no tiene nada que ver con el negocio (charla ajena al contexto de venta). */
@@ -81,6 +83,7 @@ const CAMPOS_POR_TIPO: Record<string, string[]> = {
   guardar_modalidad: ["modalidad"],
   guardar_direccion: ["direccion"],
   guardar_cantidad: ["servicioId", "cantidad"],
+  quitar_producto: ["servicioId"],
 };
 
 /**

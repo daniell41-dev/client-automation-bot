@@ -385,6 +385,12 @@ export async function runAgentTurn(
         }
         break;
       }
+      case "quitar_producto": {
+        lead.items = lead.items?.filter((i) => i.serviceId !== accion.servicioId);
+        if (!lead.items?.length) lead.items = undefined;
+        if (lead.serviceId === accion.servicioId) lead.serviceId = lead.items?.[0]?.serviceId;
+        break;
+      }
       case "fuera_de_contexto":
         sawOffTopic = true;
         break;
@@ -415,7 +421,9 @@ export async function runAgentTurn(
   // paisa") y la IA no declaró nada del carrito: se anota igual. Sin esto el
   // carrito quedaba vacío y el pedido nunca se podía cerrar. Una pregunta
   // ("¿la bandeja trae aguacate?") no cuenta como pedido.
-  const tocoElCarrito = acciones.some((a) => a.tipo === "elegir_servicio" || a.tipo === "guardar_cantidad");
+  const tocoElCarrito = acciones.some(
+    (a) => a.tipo === "elegir_servicio" || a.tipo === "guardar_cantidad" || a.tipo === "quitar_producto",
+  );
   if (!tocoElCarrito && !message.text.includes("?")) {
     const nombrado = productoNombrado(message.text, config);
     if (nombrado && !lead.items?.some((i) => i.serviceId === nombrado.id)) {
