@@ -37,6 +37,7 @@ import {
   looksLikeDate,
   matchEntrega,
   normalizeDateText,
+  parseCantidad,
 } from "@/core/engine/intake";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { limpiarDatosCapturados } from "@/core/engine/session-lifecycle";
@@ -167,6 +168,36 @@ function preguntaQueFaltaPedido(lead: Lead, config: BusinessConfig): string {
 function matchEntregaExplicita(texto: string, opciones: string[]): string | undefined {
   const elegida = matchEntrega(texto, opciones);
   return elegida && !/^\s*\d+\s*$/.test(texto) ? elegida : undefined;
+}
+
+/** Solo los dígitos, para comparar "300 123 4567" con "3001234567". */
+function soloDigitos(texto: string): string {
+  return texto.replace(/\D/g, "");
+}
+
+/**
+ * T-51: ¿la IA escribió un número de cuenta o de teléfono que el negocio no
+ * cargó? En la tercera prueba real inventó "Nequi o Bancolombia al
+ * 3123456789". Mandarle plata a un número inventado es el peor error posible
+ * de este bot, así que no se confía en el prompt: cualquier secuencia de 7 o
+ * más dígitos (sin contar precios con "$") tiene que ser una cuenta real.
+ */
+export function inventaDatosDePago(texto: string, config: BusinessConfig): boolean {
+  const permitidos = new Set(
+    [
+      ...(config.pagos?.cuentas ?? []).map((c) => c.numero),
+      config.pagos?.datosPago?.nequi,
+      config.pagos?.telefonoDestino,
+    ]
+      .filter((n): n is string => Boolean(n))
+      .map(soloDigitos),
+  );
+  const sinPrecios = texto.replace(/\$\s?[\d.,]+/g, "");
+  const candidatos = sinPrecios.match(/\d[\d\s.-]{5,}\d/g) ?? [];
+  return candidatos
+    .map(soloDigitos)
+    .filter((d) => d.length >= 7)
+    .some((d) => !permitidos.has(d));
 }
 
 /** T-48: ¿cambió algo de lo que el cliente ya vio en el resumen? Si cambió, se le vuelve a mostrar. */
@@ -330,6 +361,22 @@ export async function runAgentTurn(
     }
   }
 
+  // T-51: "dame una bandeja paisa" llegaba como `elegir_servicio` sin
+  // `guardar_cantidad`, el carrito quedaba vacío y el pedido nunca se podía
+  // cerrar. Un producto que se vende y que el cliente eligió entra al carrito
+  // con la cantidad que dijo, o 1: el resumen se la muestra antes de confirmar.
+  for (const accion of acciones) {
+    if (accion.tipo !== "elegir_servicio") continue;
+    const servicio = availableServices(config.services).find((s) => s.id === accion.servicioId);
+    if (!servicio || modoDelItem(servicio, config.catalogo) !== "pedido") continue;
+    const yaEnCarrito = lead.items?.some((i) => i.serviceId === servicio.id);
+    const conCantidad = acciones.some((a) => a.tipo === "guardar_cantidad" && a.servicioId === servicio.id);
+    if (!yaEnCarrito && !conCantidad) {
+      lead.items = agregarAlCarrito(lead.items, servicio.id, parseCantidad(message.text) ?? 1);
+      if (lead.state === "nuevo") lead.state = "interesado";
+    }
+  }
+
   // T-50: si el cliente nombró la modalidad ("domicilio por favor") y la IA
   // no la declaró, se toma del mensaje — misma comparación que usa el motor
   // guiado. Solo con un pedido en curso, para no confundir una pregunta suelta.
@@ -416,7 +463,15 @@ export async function runAgentTurn(
 
   let respuestaFinal = aiResult.respuesta;
   let opciones: string[] | undefined;
-  if (preguntarFaltante) {
+  if (inventaDatosDePago(aiResult.respuesta, config)) {
+    console.error("[Agent] la IA escribió un número de cuenta que no está configurado; se descarta su respuesta");
+    respuestaFinal = mostrarResumen
+      ? resumenParaConfirmar(lead, config)
+      : esPedido && !listoParaConfirmar
+        ? preguntaQueFaltaPedido(lead, config)
+        : "Los datos para pagar te llegan apenas confirmes tu pedido 🙌";
+    if (mostrarResumen) opciones = PEDIDO_CONFIRM_OPTIONS;
+  } else if (preguntarFaltante) {
     respuestaFinal = preguntaQueFaltaPedido(lead, config);
   } else if (mostrarResumen) {
     // Si la IA creyó que ya cerraba (declaró "confirmar"), su texto promete
