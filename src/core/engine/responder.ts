@@ -76,7 +76,8 @@ const DEFAULT_CITA_VIGENTE =
  * de los negocios (los que agendan) ni usa.
  */
 const DEFAULT_ASK_CANTIDAD = "¿Cuántas unidades de {{servicio}} querés, {{nombre}}?";
-const DEFAULT_ASK_CONFIRM_PEDIDO = "¿Confirmás tu pedido?";
+/** Exportado (T-48): el modo agente cierra el pedido con la misma pregunta. */
+export const DEFAULT_ASK_CONFIRM_PEDIDO = "¿Confirmás tu pedido?";
 /**
  * T-21/PR5: entre que el cliente confirma y la dueña acepta/rechaza por
  * WhatsApp, el pedido queda "en revisión" — ya no se confirma directo, ver
@@ -99,9 +100,9 @@ const DEFAULT_PEDIDO_VIGENTE =
 /** Pregunta fija (no configurable, como el resto de la micro-copy de interrupción) tras agregar un producto. */
 const ASK_ALGO_MAS = "¿Querés agregar algo más a tu pedido?";
 const ALGO_MAS_DONE_OPTION = "No, eso es todo";
-const PEDIDO_CONFIRM_OPTIONS = ["Sí, confirmar", "Agregar más"];
+export const PEDIDO_CONFIRM_OPTIONS = ["Sí, confirmar", "Agregar más"];
 /** T-36: se pide solo si el cliente eligió una modalidad a domicilio. */
-const ASK_DIRECCION = "¿A qué dirección te lo mandamos? Incluí el barrio y alguna referencia 🏠";
+export const ASK_DIRECCION = "¿A qué dirección te lo mandamos? Incluí el barrio y alguna referencia 🏠";
 
 /** Crea un lead nuevo a partir del primer mensaje. Exportado: lo reutiliza `agent.ts`. */
 export function createLead(message: IncomingMessage, now: Date): Lead {

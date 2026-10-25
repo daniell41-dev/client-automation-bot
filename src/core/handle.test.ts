@@ -2557,6 +2557,9 @@ describe("pedido a domicilio con dirección (T-36)", () => {
 
     await handleIncoming(msg("Calle 10 # 5-20"), restaurante, repo, new Date(), llm, sessionRepo);
     expect(repo.leads[0].direccion).toBe("Calle 10 # 5-20");
+    // T-48: con la dirección se muestra el resumen; el sí lo manda a la dueña.
+    expect(repo.leads[0].stage).toBe("esperando_confirmacion");
+    await handleIncoming(msg("sí"), restaurante, repo, new Date(), llm, sessionRepo);
     expect(repo.leads[0].stage).toBe("esperando_aprobacion");
   });
 });

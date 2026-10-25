@@ -636,12 +636,22 @@ describe("runAgentTurn — flujo de pedido en modo agente (T-21)", () => {
     );
 
     expect(result!.lead.items).toEqual([{ serviceId: "harina", cantidad: 2 }]);
-    // T-21/PR5: NO pasa a "pagado"/"datos_completos" directo — el estado
-    // sigue "interesado" hasta que la dueña acepte o rechace por WhatsApp
-    // (eso lo maneja `handleOwnerApproval` en `handle.ts`, no `agent.ts`).
-    expect(result!.lead.stage).toBe("esperando_aprobacion");
-    expect(result!.lead.state).toBe("interesado");
-    expect(result!.lead.tentativeDate).toBeUndefined();
+    // T-48: el primer "confirmar" muestra el resumen con el total — el
+    // cliente todavía no lo vio — y reemplaza el texto de la IA, que decía
+    // algo que no pasó ("quedó en revisión").
+    expect(result!.lead.stage).toBe("esperando_confirmacion");
+    expect(result!.messages[0].text).toContain("2x Harina 1 Kg");
+    expect(result!.messages[0].text).toContain("Total:");
+    expect(result!.messages[0].text).not.toContain("en revisión");
+
+    // Con el "sí" al resumen recién pasa a la dueña. T-21/PR5: NO pasa a
+    // "pagado"/"datos_completos" directo — el estado sigue "interesado" hasta
+    // que la dueña acepte o rechace (eso lo maneja `handle.ts`).
+    const llmSi = fakeAgentLLM({ respuesta: "¡Listo! Quedó en revisión.", acciones: [] });
+    const confirmado = await runAgentTurn(result!.lead, msg("sí"), tienda, llmSi, persona, [], now);
+    expect(confirmado!.lead.stage).toBe("esperando_aprobacion");
+    expect(confirmado!.lead.state).toBe("interesado");
+    expect(confirmado!.lead.tentativeDate).toBeUndefined();
   });
 
   it("una vez esperando_aprobacion, un mensaje nuevo NO re-deriva el stage (sticky)", async () => {
@@ -691,7 +701,11 @@ describe("runAgentTurn — flujo de pedido en modo agente (T-21)", () => {
       { serviceId: "harina", cantidad: 2 },
       { serviceId: "aceite", cantidad: 1 },
     ]);
-    expect(result!.lead.stage).toBe("carrito_abierto"); // hay carrito, pero no se confirmó
+    // T-48: con nombre y carrito ya está listo para cerrar: el motor suma el
+    // resumen con el total y pregunta, aunque la IA no lo haya hecho.
+    expect(result!.lead.stage).toBe("esperando_confirmacion");
+    expect(result!.messages[0].text).toContain("Anotado: 2 harinas y 1 aceite.");
+    expect(result!.messages[0].text).toContain("Total:");
   });
 
   it("sin fecha (un pedido nunca la necesita), 'confirmar' NO se bloquea por falta de tentativeDate", async () => {
@@ -705,9 +719,42 @@ describe("runAgentTurn — flujo de pedido en modo agente (T-21)", () => {
       ],
     });
     const result = await runAgentTurn(null, msg("una harina, soy Laura"), tienda, llm, persona, [], now);
-    // Sin `tentativeDate` igual llega a "esperando_aprobacion" — `confirmar`
-    // no se bloqueó por falta de fecha (un pedido nunca la exige).
-    expect(result!.lead.stage).toBe("esperando_aprobacion");
+    // Sin `tentativeDate` igual llega al resumen y, con el sí, a
+    // "esperando_aprobacion" — `confirmar` no se bloquea por falta de fecha.
+    expect(result!.lead.stage).toBe("esperando_confirmacion");
+    const confirmado = await runAgentTurn(result!.lead, msg("sí"), tienda, fakeAgentLLM({ respuesta: "ok", acciones: [{ tipo: "confirmar" }] }), persona, [], now);
+    expect(confirmado!.lead.stage).toBe("esperando_aprobacion");
+  });
+
+  it("T-48: si la IA quiere cerrar un pedido al que le falta algo, el bot pregunta lo que falta (no promete nada)", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "¡Ya le pasamos tu pedido a la dueña!",
+      acciones: [{ tipo: "elegir_servicio", servicioId: "harina" }, { tipo: "guardar_nombre", nombre: "Laura" }, { tipo: "confirmar" }],
+    });
+    const result = await runAgentTurn(null, msg("harina, soy Laura"), tienda, llm, persona, [], now);
+    expect(result!.lead.stage).not.toBe("esperando_aprobacion");
+    expect(result!.messages[0].text).toBe("¿Qué te gustaría pedir y cuántas unidades?");
+  });
+
+  it("T-48: si el pedido cambia después del resumen, el sí no confirma: se muestra el resumen nuevo", async () => {
+    const llm1 = fakeAgentLLM({
+      respuesta: "Anotado.",
+      acciones: [
+        { tipo: "elegir_servicio", servicioId: "harina" },
+        { tipo: "guardar_nombre", nombre: "Laura" },
+        { tipo: "guardar_cantidad", servicioId: "harina", cantidad: 1 },
+      ],
+    });
+    const r1 = await runAgentTurn(null, msg("una harina, soy Laura"), tienda, llm1, persona, [], now);
+    expect(r1!.lead.stage).toBe("esperando_confirmacion");
+
+    const llm2 = fakeAgentLLM({
+      respuesta: "Listo, agregado.",
+      acciones: [{ tipo: "guardar_cantidad", servicioId: "aceite", cantidad: 1 }, { tipo: "confirmar" }],
+    });
+    const r2 = await runAgentTurn(r1!.lead, msg("sí, y agregá un aceite"), tienda, llm2, persona, [], now);
+    expect(r2!.lead.stage).toBe("esperando_confirmacion");
+    expect(r2!.messages[0].text).toContain("1x Aceite 1 Lt");
   });
 
   it("ignora guardar_cantidad contra un ítem que no existe en el catálogo", async () => {
