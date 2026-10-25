@@ -151,11 +151,18 @@ export function CitasEditor({
                       .join(" · ")}
                   </span>
                 </span>
-                <Toggle
-                  checked={Boolean(s.reservable)}
-                  onChange={(next) => toggleReservable(s.id, next)}
-                  label={`Reservable: ${s.name}`}
-                />
+                {/* T-47: sin duración no se puede agendar (el schema lo
+                    rechaza al guardar). En un restaurante los platos no
+                    tienen duración: se piden, no se reservan. */}
+                {s.durationMinutes || s.reservable ? (
+                  <Toggle
+                    checked={Boolean(s.reservable)}
+                    onChange={(next) => toggleReservable(s.id, next)}
+                    label={`Reservable: ${s.name}`}
+                  />
+                ) : (
+                  <span className="text-right text-xs text-ink-soft">Se pide, no se reserva</span>
+                )}
               </div>
             ))}
           </div>

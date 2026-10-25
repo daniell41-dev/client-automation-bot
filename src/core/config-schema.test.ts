@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseBusinessConfig, personaSchema, serviceSchema, servicesSchema } from "@/core/config-schema";
+import { motivoConfigInvalida, parseBusinessConfig, personaSchema, serviceSchema, servicesSchema } from "@/core/config-schema";
 import { esteticaBella } from "@/businesses/estetica-bella/config";
 
 describe("parseBusinessConfig", () => {
@@ -336,5 +336,19 @@ describe("parseBusinessConfig — catálogo por rubro (T-21)", () => {
     expect(parsed).not.toBeNull();
     expect(parsed?.services.every((s) => s.durationMinutes! > 0)).toBe(true);
     expect(parsed?.catalogo).toBeUndefined();
+  });
+});
+
+describe("motivoConfigInvalida (T-47)", () => {
+  it("null si la config es válida", () => {
+    expect(motivoConfigInvalida(esteticaBella)).toBeNull();
+  });
+
+  it("un plato marcado para agendar sin duración da el mensaje propio", () => {
+    const config = {
+      ...esteticaBella,
+      services: [{ id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000, reservable: true }],
+    };
+    expect(motivoConfigInvalida(config)).toBe("Un servicio que se agenda necesita una duración.");
   });
 });
