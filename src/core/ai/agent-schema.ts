@@ -55,7 +55,53 @@ const agentActionSchema = z.discriminatedUnion("tipo", [
  */
 function descartarAccionesInvalidas(val: unknown): unknown {
   if (!Array.isArray(val)) return val;
-  return val.filter((item) => agentActionSchema.safeParse(item).success);
+  return val.map(normalizarAccion).filter((item) => {
+    const ok = agentActionSchema.safeParse(item).success;
+    // T-54: antes se descartaban en silencio — así se perdían el nombre y el
+    // carrito en las pruebas reales sin ningún rastro en la terminal.
+    if (!ok) console.warn("[Agent] acción descartada por no cumplir el contrato:", JSON.stringify(item));
+    return ok;
+  });
+}
+
+/** T-54: nombres alternativos que usan los modelos para cada campo del contrato. */
+const ALIAS_CAMPOS: Record<string, string[]> = {
+  servicioId: ["servicio_id", "servicio", "serviceId", "service_id", "productoId", "producto_id", "producto", "itemId", "id"],
+  nombre: ["name", "valor", "value", "cliente"],
+  fecha: ["date", "valor", "value"],
+  modalidad: ["entrega", "opcion", "valor", "value"],
+  direccion: ["address", "valor", "value"],
+  cantidad: ["qty", "quantity", "unidades", "valor", "value"],
+};
+
+const CAMPOS_POR_TIPO: Record<string, string[]> = {
+  elegir_servicio: ["servicioId"],
+  guardar_nombre: ["nombre"],
+  guardar_fecha: ["fecha"],
+  guardar_modalidad: ["modalidad"],
+  guardar_direccion: ["direccion"],
+  guardar_cantidad: ["servicioId", "cantidad"],
+};
+
+/**
+ * T-54: completa el campo que espera el contrato cuando el modelo lo mandó
+ * con otro nombre (`{"tipo":"guardar_nombre","valor":"Valero"}`) y pasa a
+ * número una cantidad escrita como texto ("2"). Solo renombra: el valor se
+ * sigue validando contra el catálogo y el estado real en `agent.ts`.
+ */
+function normalizarAccion(item: unknown): unknown {
+  if (!item || typeof item !== "object") return item;
+  const accion = { ...(item as Record<string, unknown>) };
+  for (const campo of CAMPOS_POR_TIPO[String(accion.tipo)] ?? []) {
+    if (accion[campo] === undefined) {
+      const alias = ALIAS_CAMPOS[campo]?.find((a) => accion[a] !== undefined);
+      if (alias) accion[campo] = accion[alias];
+    }
+  }
+  if (typeof accion.cantidad === "string" && /^\d+$/.test(accion.cantidad.trim())) {
+    accion.cantidad = Number(accion.cantidad);
+  }
+  return accion;
 }
 
 export const agentResponseSchema = z.object({
