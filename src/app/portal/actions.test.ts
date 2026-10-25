@@ -222,16 +222,16 @@ describe("actualizarWompi", () => {
       formData({
         slug: "estetica-bella",
         public_key: "pub_prod_123",
-        integrity_secret: "int-secret",
-        events_secret: "ev-secret",
+        integrity_secret: "prod_integrity_abc123",
+        events_secret: "prod_events_abc123",
       }),
     );
 
     expect(result.ok).toBeTruthy();
     const guardado = updatedWith();
     expect(guardado?.wompi_public_key).toBe("pub_prod_123");
-    expect(guardado?.wompi_integrity_secret).toBe("int-secret");
-    expect(guardado?.wompi_events_secret).toBe("ev-secret");
+    expect(guardado?.wompi_integrity_secret).toBe("prod_integrity_abc123");
+    expect(guardado?.wompi_events_secret).toBe("prod_events_abc123");
   });
 
   it("dejar un campo en blanco no lo incluye en el update (no lo borra)", async () => {
@@ -252,6 +252,19 @@ describe("actualizarWompi", () => {
     expect(guardado?.wompi_public_key).toBe("pub_prod_123");
     expect(guardado).not.toHaveProperty("wompi_integrity_secret");
     expect(guardado).not.toHaveProperty("wompi_events_secret");
+  });
+
+  it("T-49: lo que autocompleta el navegador (un correo) no se guarda como llave", async () => {
+    const { client, updatedWith } = fakeSupabaseNegocios();
+    createUserClientMock.mockResolvedValue(client);
+
+    const result = await actualizarWompi(
+      {},
+      formData({ slug: "estetica-bella", public_key: "saboresdelsur@gmail.com", integrity_secret: "", events_secret: "" }),
+    );
+
+    expect(result.error).toContain("llave pública");
+    expect(updatedWith()).toBeUndefined();
   });
 
   it("los tres campos vacíos: error, no llega a llamar a Supabase", async () => {

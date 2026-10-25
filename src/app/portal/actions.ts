@@ -13,6 +13,7 @@
 import { revalidatePath } from "next/cache";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { errorLlaveWompi, type CampoWompi } from "@/core/payments/wompi-llaves";
 import { motivoConfigInvalida, parseBusinessConfig } from "@/core/config-schema";
 import { invalidateBusinessCache } from "@/businesses/business-cache";
 import { cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
@@ -305,7 +306,10 @@ export async function actualizarWompi(
   const patch: Record<string, string> = {};
   for (const [columna, campo] of Object.entries(campos)) {
     const valor = String(formData.get(campo) ?? "").trim();
-    if (valor) patch[columna] = valor;
+    if (!valor) continue;
+    const error = errorLlaveWompi(campo as CampoWompi, valor);
+    if (error) return { error };
+    patch[columna] = valor;
   }
   if (Object.keys(patch).length === 0) {
     return { error: "Completá al menos un campo para guardar." };
