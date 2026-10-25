@@ -463,6 +463,8 @@ export function ConfiguracionEditor({
                     className={inputCls}
                     placeholder="pub_prod_..."
                     autoComplete="off"
+                    data-1p-ignore
+                    data-lpignore="true"
                   />
                 </div>
                 <div>
@@ -472,7 +474,11 @@ export function ConfiguracionEditor({
                     type="password"
                     className={inputCls}
                     placeholder="•••••••••••"
-                    autoComplete="off"
+                    // T-49: Chrome ignora "off" en campos de contraseña y metía
+                    // la clave de la dueña; "new-password" sí lo frena.
+                    autoComplete="new-password"
+                    data-1p-ignore
+                    data-lpignore="true"
                   />
                 </div>
                 <div>
@@ -482,7 +488,11 @@ export function ConfiguracionEditor({
                     type="password"
                     className={inputCls}
                     placeholder="•••••••••••"
-                    autoComplete="off"
+                    // T-49: Chrome ignora "off" en campos de contraseña y metía
+                    // la clave de la dueña; "new-password" sí lo frena.
+                    autoComplete="new-password"
+                    data-1p-ignore
+                    data-lpignore="true"
                   />
                 </div>
               </div>
