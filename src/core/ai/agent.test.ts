@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inventaDatosDePago, runAgentTurn } from "@/core/ai/agent";
+import { cantidadPegadaAlProducto, inventaDatosDePago, runAgentTurn } from "@/core/ai/agent";
 import type { AgentResponse } from "@/core/ai/agent-schema";
 import type { ILLMProvider } from "@/core/ai/provider";
 import type { BusinessConfig, IncomingMessage, Lead, PersonaConfig } from "@/core/types";
@@ -1034,5 +1034,49 @@ describe("inventaDatosDePago (T-51)", () => {
 
   it("los precios, las direcciones y las cantidades no cuentan", () => {
     expect(inventaDatosDePago("Total: $1.250.000, Av 7 # 5-68, 2 bandejas", conCuenta)).toBe(false);
+  });
+});
+
+describe("runAgentTurn — costo de domicilio (T-52)", () => {
+  it("el resumen suma el domicilio al total cuando la entrega es a domicilio", async () => {
+    const restaurante: BusinessConfig = {
+      ...config,
+      slug: "sabores",
+      catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+      services: [{ id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000 }],
+      pedidos: {
+        enabled: true,
+        pregunta: "¿Domicilio o recoger?",
+        opciones: ["Domicilio", "Recoger en el local"],
+        costoDomicilio: 5000,
+      },
+    };
+    const r = await runAgentTurn(
+      null,
+      msg("una bandeja a la Av 7 # 5-68, soy Valero"),
+      restaurante,
+      fakeAgentLLM({
+        respuesta: "¡Anotado!",
+        acciones: [
+          { tipo: "elegir_servicio", servicioId: "bandeja" },
+          { tipo: "guardar_nombre", nombre: "Valero" },
+          { tipo: "guardar_direccion", direccion: "Av 7 # 5-68" },
+        ],
+      }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.messages[0].text).toContain("Domicilio — $");
+    expect(r!.messages[0].text).toMatch(/Total: \$\s?33\.000/);
+  });
+});
+
+describe("cantidadPegadaAlProducto (T-52)", () => {
+  it("toma el número pegado al producto, no el de la dirección", () => {
+    expect(cantidadPegadaAlProducto("una bandeja a la Av 7 # 5-68", "Bandeja paisa")).toBe(1);
+    expect(cantidadPegadaAlProducto("quiero dos bandejas paisas", "Bandeja paisa")).toBe(2);
+    expect(cantidadPegadaAlProducto("mandame 3 de bandeja", "Bandeja paisa")).toBe(3);
+    expect(cantidadPegadaAlProducto("bandeja paisa a la calle 10", "Bandeja paisa")).toBeUndefined();
   });
 });

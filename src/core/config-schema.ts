@@ -107,6 +107,7 @@ const pedidosSchema = z.object({
   enabled: z.boolean(),
   pregunta: z.string().min(1),
   opciones: z.array(z.string().min(1)).min(2).max(4),
+  costoDomicilio: z.number().min(0).optional(),
 });
 
 const messagesSchema = z.object({

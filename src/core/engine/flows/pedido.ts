@@ -67,6 +67,8 @@ export function resumenCarrito(
   items: CartItem[],
   services: Service[],
   config: BusinessConfig,
+  /** T-52: con una entrega a domicilio cobrada, el resumen suma esa línea y el total la incluye. */
+  entrega?: string,
 ): string {
   const lineas = items
     .map((item) => {
@@ -75,8 +77,29 @@ export function resumenCarrito(
       return `${item.cantidad}x ${service.name} — ${formatPrice(config, service.price * item.cantidad)}`;
     })
     .filter((l): l is string => l !== null);
-  const total = totalCarrito(items, services);
+  const domicilio = costoEntrega(config, entrega);
+  if (domicilio > 0) lineas.push(`Domicilio — ${formatPrice(config, domicilio)}`);
+  const total = totalPedido(items, services, config, entrega);
   return [...lineas, `Total: ${formatPrice(config, total)}`].join("\n");
+}
+
+/** T-52: cuánto se cobra por la entrega elegida (0 si no es a domicilio o el negocio no lo cobra). */
+export function costoEntrega(config: BusinessConfig, entrega: string | undefined): number {
+  return esDomicilio(entrega) ? (config.pedidos?.costoDomicilio ?? 0) : 0;
+}
+
+/**
+ * T-52: el total que paga el cliente — carrito más el domicilio si
+ * corresponde. Es el que se guarda en el pedido y contra el que se comparan
+ * el comprobante y el pago de Wompi, así que todos lo calculan acá.
+ */
+export function totalPedido(
+  items: CartItem[],
+  services: Service[],
+  config: BusinessConfig,
+  entrega: string | undefined,
+): number {
+  return totalCarrito(items, services) + costoEntrega(config, entrega);
 }
 
 /**
