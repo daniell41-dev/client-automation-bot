@@ -188,6 +188,21 @@ export function cantidadPegadaAlProducto(texto: string, nombreProducto: string):
   return m ? parseCantidad(m[1]) : undefined;
 }
 
+/**
+ * T-54: el producto que se vende y que el cliente nombró por su nombre o una
+ * palabra clave. A diferencia de `matchService`, no acepta un número suelto
+ * como selección del menú: acá no hay un menú numerado pendiente.
+ */
+function productoNombrado(texto: string, config: BusinessConfig) {
+  const sinTildes = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const t = sinTildes(texto);
+  return availableServices(config.services).find(
+    (s) =>
+      modoDelItem(s, config.catalogo) === "pedido" &&
+      (t.includes(sinTildes(s.name)) || (s.keywords ?? []).some((k) => k.length >= 4 && t.includes(sinTildes(k)))),
+  );
+}
+
 /** Solo los dígitos, para comparar "300 123 4567" con "3001234567". */
 function soloDigitos(texto: string): string {
   return texto.replace(/\D/g, "");
@@ -395,6 +410,20 @@ export async function runAgentTurn(
     }
   }
 
+  // T-54: el cliente nombró un producto que se vende ("dame una bandeja
+  // paisa") y la IA no declaró nada del carrito: se anota igual. Sin esto el
+  // carrito quedaba vacío y el pedido nunca se podía cerrar. Una pregunta
+  // ("¿la bandeja trae aguacate?") no cuenta como pedido.
+  const tocoElCarrito = acciones.some((a) => a.tipo === "elegir_servicio" || a.tipo === "guardar_cantidad");
+  if (!tocoElCarrito && !message.text.includes("?")) {
+    const nombrado = productoNombrado(message.text, config);
+    if (nombrado && !lead.items?.some((i) => i.serviceId === nombrado.id)) {
+      lead.items = agregarAlCarrito(lead.items, nombrado.id, cantidadPegadaAlProducto(message.text, nombrado.name) ?? 1);
+      lead.serviceId ??= nombrado.id;
+      if (lead.state === "nuevo") lead.state = "interesado";
+    }
+  }
+
   // T-50: si el cliente nombró la modalidad ("domicilio por favor") y la IA
   // no la declaró, se toma del mensaje — misma comparación que usa el motor
   // guiado. Solo con un pedido en curso, para no confundir una pregunta suelta.
@@ -524,6 +553,15 @@ export async function runAgentTurn(
       lead.offTopicCount = 0;
     }
   }
+
+  // T-54: una línea por turno con lo que la IA declaró y lo que quedó
+  // guardado. Sin esto, cuando el bot "no muestra el resumen" en una prueba
+  // real solo se puede adivinar desde la captura del chat.
+  console.log(
+    `[Agent] acciones=${JSON.stringify(aiResult.acciones)} → stage=${lead.stage} ` +
+      `nombre=${lead.name ?? "-"} carrito=${JSON.stringify(lead.items ?? [])} ` +
+      `entrega=${lead.entrega ?? "-"} direccion=${lead.direccion ?? "-"}`,
+  );
 
   const messages: OutgoingMessage[] = [
     { to: message.from, text: respuestaFinal, ...(opciones ? { options: opciones } : {}) },

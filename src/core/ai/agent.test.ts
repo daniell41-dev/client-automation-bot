@@ -1112,3 +1112,38 @@ describe("runAgentTurn — pedido sin elegir_servicio (T-53)", () => {
     expect(r!.messages[0].text).toContain("¿Confirmás tu pedido?");
   });
 });
+
+describe("runAgentTurn — producto nombrado sin acciones (T-54)", () => {
+  const restaurante: BusinessConfig = {
+    ...config,
+    slug: "sabores",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+    services: [{ id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000, keywords: ["bandeja", "paisa"] }],
+  };
+
+  it("si la IA no anota el plato que el cliente pidió, lo anota el sistema", async () => {
+    const r = await runAgentTurn(
+      null,
+      msg("Dame una bandeja paisa"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "¡Anotamos una bandeja paisa por $28.000!", acciones: [] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.lead.items).toEqual([{ serviceId: "bandeja", cantidad: 1 }]);
+  });
+
+  it("una pregunta sobre el plato no lo agrega", async () => {
+    const r = await runAgentTurn(
+      null,
+      msg("¿la bandeja trae aguacate?"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "Sí, trae aguacate.", acciones: [] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.lead.items).toBeUndefined();
+  });
+});
