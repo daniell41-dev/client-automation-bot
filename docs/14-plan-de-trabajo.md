@@ -571,6 +571,11 @@ mirando. Se documenta como ADR-004.
   bot le manda al cliente.
 - **T-46** · Notas de voz: el bot escucha el audio del cliente y responde como si lo
   hubiera escrito.
+- **T-56** · Costo real de la IA por negocio y por mes: contar los tokens de cada
+  llamada en `uso_ia` (hoy se guardan en 0) y mostrar en el back office el costo
+  estimado en dólares según el modelo. Sirve para decidir cuándo pasar a la capa paga
+  de Gemini (límites diarios y privacidad: en la capa gratis Google puede usar las
+  conversaciones) y para ajustar el precio con datos propios.
 
 ### Documentación
 - **T-44** · `docs/17-prueba-local.md`: guía de prueba local. Cada PR de arriba actualiza
