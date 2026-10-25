@@ -38,6 +38,7 @@ import { calcularSeñalesPago, type Señal } from "@/core/engine/señales-pago";
 import { destinosDePago, normalizarReferencia, textoCuentasPago } from "@/core/engine/datos-pago";
 import { decidirAccionWompi, type EstadoWompi } from "@/core/engine/pago-wompi";
 import { runAgentTurn } from "@/core/ai/agent";
+import { isResetRequest } from "@/core/engine/intake";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
 import { validarCita } from "@/core/engine/horarios";
 import { citaCumplida, cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
@@ -573,7 +574,10 @@ export async function handleIncoming(
 
   if (modoAgente) {
     if (llm && sessionRepo && persona) {
-      session = await getOrCreateSession(sessionRepo, message, reiniciarHilo);
+      // T-55: "empezar de nuevo" también vacía el historial de charla — si
+      // no, la IA seguía viendo el nombre y el pedido viejos en la
+      // conversación aunque los datos guardados ya estuvieran en blanco.
+      session = await getOrCreateSession(sessionRepo, message, reiniciarHilo || isResetRequest(message.text));
       result = await runAgentTurn(existing, message, config, llm, persona, session.history, now);
       usedAgent = result !== null;
       if (!usedAgent) {

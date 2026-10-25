@@ -30,6 +30,18 @@ function formatPrice(config: BusinessConfig, price: number): string {
  * estaba cargado, SUMA la cantidad en la misma línea en vez de duplicarla:
  * "2 harinas" y después "una más" terminan en una sola fila con 3.
  */
+/**
+ * T-55: deja la cantidad de un producto en `cantidad` (no la suma). Es lo
+ * que significa "guardar_cantidad" en modo agente: en la prueba real el
+ * cliente dijo "una bandeja", después "ya te dije que 1", y la suma dejó 2.
+ */
+export function fijarCantidad(items: CartItem[] | undefined, serviceId: string, cantidad: number): CartItem[] {
+  const actuales = items ?? [];
+  return actuales.some((i) => i.serviceId === serviceId)
+    ? actuales.map((i) => (i.serviceId === serviceId ? { ...i, cantidad } : i))
+    : [...actuales, { serviceId, cantidad }];
+}
+
 export function agregarAlCarrito(
   items: CartItem[] | undefined,
   serviceId: string,
