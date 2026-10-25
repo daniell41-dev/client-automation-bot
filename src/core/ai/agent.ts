@@ -415,8 +415,14 @@ export async function runAgentTurn(
     lead.items = undefined;
   }
 
+  // T-53: con carrito, es un pedido aunque la IA nunca haya declarado
+  // `elegir_servicio` (cuarta prueba real: solo mandó `guardar_cantidad`, el
+  // pedido no se reconocía como tal y nunca aparecía el resumen con el total).
+  if (!lead.serviceId && lead.items?.length) lead.serviceId = lead.items[0].serviceId;
   const servicioElegido = config.services.find((s) => s.id === lead.serviceId);
-  const esPedido = !!servicioElegido && modoDelItem(servicioElegido, config.catalogo) === "pedido";
+  const esPedido =
+    (lead.items?.length ?? 0) > 0 ||
+    (!!servicioElegido && modoDelItem(servicioElegido, config.catalogo) === "pedido");
 
   const declaroConfirmar = aiResult.acciones.some((a) => a.tipo === "confirmar");
   const listoParaConfirmar = esPedido
