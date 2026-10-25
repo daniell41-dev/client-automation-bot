@@ -192,18 +192,20 @@ ${buildCatalogBlock(input)}${buildHorariosBlock(input)}${buildPedidosBlock(input
 Datos que ya tenés de este cliente: ${buildDatosConocidos(input)}.${buildConfirmadoBlock(input)}${buildEsperandoAprobacionBlock(input)}${buildOffTopicNote(input)}
 
 Acciones disponibles (declará las que correspondan a este turno, pueden ser varias si el cliente dio varios datos juntos, o ninguna):
-- "elegir_servicio": el cliente eligió (o cambió) de servicio. Usá el id EXACTO del catálogo de arriba.
-- "guardar_nombre": el cliente dio su nombre real (no una pregunta, no un saludo).
-- "guardar_fecha": el cliente dio una fecha/hora real (no una pregunta). Solo para ítems marcados [SE AGENDA] — un ítem [SE VENDE] nunca necesita fecha.
-- "guardar_modalidad": SOLO si este negocio pregunta modalidad de entrega (ver arriba) — usá el texto EXACTO de una de sus opciones.
-- "guardar_direccion": la dirección de entrega que dio el cliente, SOLO si eligió entrega a domicilio. Copiala tal cual la escribió.
-- "guardar_cantidad": el cliente dijo cuánto quiere de un ítem [SE VENDE] ("2 harinas", "una nomás"). Usá el id EXACTO del catálogo y la cantidad como número. Si en el mismo pedido pide VARIOS productos distintos, declará una acción "guardar_cantidad" por cada uno.
-- "confirmar": para un ítem [SE AGENDA], SOLO cuando ya tengas nombre + servicio + fecha (+ modalidad, si este negocio la usa) — tu respuesta puede decir que quedó confirmado/agendado. Para un ítem [SE VENDE], SOLO cuando tengas nombre + al menos un producto cargado (ver "carrito" en los datos que ya tenés) + la modalidad si este negocio la usa + la dirección si es a domicilio, y el cliente haya respondido "sí" al resumen con el total que le mostró el sistema. El resumen (productos, total, entrega y dirección) lo agrega el sistema solo cuando están todos los datos: vos no lo escribas ni inventes totales. NUNCA digas que el pedido ya se le pasó a la dueña, que quedó registrado ni que está confirmado: eso lo informa el sistema cuando de verdad pasa. Si falta algo, pedilo en tu respuesta y NO declares esta acción.
-- "fuera_de_contexto": el mensaje no tiene NADA que ver con este negocio (política, deportes, chistes, otro tema totalmente ajeno). Respondé breve y amablemente, y redirigí hacia el negocio.
-- "reiniciar": el cliente dice que los datos que tenemos están MAL o quiere empezar de cero ("yo no pedí nada", "ese no es mi nombre", "cambié de idea", "empecemos de nuevo", "cancelá todo"). Borra todo lo capturado. Es tu ÚNICA forma de corregir un dato viejo o equivocado: las demás acciones solo agregan, no borran. Si sospechás que un dato guardado no corresponde a esta conversación, usá esta acción en vez de seguir adelante con él.
+- {"tipo": "elegir_servicio", "servicioId": "<id>"}: el cliente eligió (o cambió) de servicio. Usá el id EXACTO del catálogo de arriba.
+- {"tipo": "guardar_nombre", "nombre": "<nombre>"}: el cliente dio su nombre real (no una pregunta, no un saludo).
+- {"tipo": "guardar_fecha", "fecha": "<texto de la fecha>"}: el cliente dio una fecha/hora real (no una pregunta). Solo para ítems marcados [SE AGENDA] — un ítem [SE VENDE] nunca necesita fecha.
+- {"tipo": "guardar_modalidad", "modalidad": "<opción exacta>"}: SOLO si este negocio pregunta modalidad de entrega (ver arriba) — usá el texto EXACTO de una de sus opciones.
+- {"tipo": "guardar_direccion", "direccion": "<dirección>"}: la dirección de entrega que dio el cliente, SOLO si eligió entrega a domicilio. Copiala tal cual la escribió.
+- {"tipo": "guardar_cantidad", "servicioId": "<id>", "cantidad": <número>}: el cliente dijo cuánto quiere de un ítem [SE VENDE] ("2 harinas", "una nomás"). Usá el id EXACTO del catálogo y la cantidad como número. Si en el mismo pedido pide VARIOS productos distintos, declará una acción "guardar_cantidad" por cada uno.
+- {"tipo": "confirmar"}: para un ítem [SE AGENDA], SOLO cuando ya tengas nombre + servicio + fecha (+ modalidad, si este negocio la usa) — tu respuesta puede decir que quedó confirmado/agendado. Para un ítem [SE VENDE], SOLO cuando tengas nombre + al menos un producto cargado (ver "carrito" en los datos que ya tenés) + la modalidad si este negocio la usa + la dirección si es a domicilio, y el cliente haya respondido "sí" al resumen con el total que le mostró el sistema. El resumen (productos, total, entrega y dirección) lo agrega el sistema solo cuando están todos los datos: vos no lo escribas ni inventes totales. NUNCA digas que el pedido ya se le pasó a la dueña, que quedó registrado ni que está confirmado: eso lo informa el sistema cuando de verdad pasa. Si falta algo, pedilo en tu respuesta y NO declares esta acción.
+- {"tipo": "fuera_de_contexto"}: el mensaje no tiene NADA que ver con este negocio (política, deportes, chistes, otro tema totalmente ajeno). Respondé breve y amablemente, y redirigí hacia el negocio.
+- {"tipo": "reiniciar"}: el cliente dice que los datos que tenemos están MAL o quiere empezar de cero ("yo no pedí nada", "ese no es mi nombre", "cambié de idea", "empecemos de nuevo", "cancelá todo"). Borra todo lo capturado. Es tu ÚNICA forma de corregir un dato viejo o equivocado: las demás acciones solo agregan, no borran. Si sospechás que un dato guardado no corresponde a esta conversación, usá esta acción en vez de seguir adelante con él.
+
+Cada acción va con los campos EXACTOS de arriba (no "valor" ni otros nombres): una acción sin su campo se descarta y el dato se pierde. Si el cliente da varios datos en un mensaje, declará una acción por cada uno.
 
 Respondé ÚNICAMENTE un JSON con esta forma exacta, sin texto fuera del JSON ni markdown:
-{"respuesta": "tu respuesta para el cliente", "acciones": [{"tipo": "..."}]}
+{"respuesta": "tu respuesta para el cliente", "acciones": [{"tipo": "guardar_nombre", "nombre": "Laura"}, {"tipo": "guardar_cantidad", "servicioId": "<id>", "cantidad": 2}]}
 Si no corresponde ninguna acción, "acciones" va vacío: [].`;
 }
 

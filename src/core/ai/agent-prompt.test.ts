@@ -423,3 +423,28 @@ describe("buildAgentSystemPrompt — esperando aprobación de la dueña (T-21/PR
     expect(prompt).not.toMatch(/ya se le mandó a la dueña/i);
   });
 });
+
+describe("parseAgentResponse — campos con otro nombre (T-54)", () => {
+  it("recupera el nombre y el producto aunque el modelo use 'valor' o 'producto'", () => {
+    const raw = JSON.stringify({
+      respuesta: "¡Gracias, Valero!",
+      acciones: [
+        { tipo: "guardar_nombre", valor: "Valero" },
+        { tipo: "elegir_servicio", producto: "bandeja" },
+        { tipo: "guardar_cantidad", id: "bandeja", cantidad: "2" },
+      ],
+    });
+    const result = parseAgentResponse(raw);
+    expect(result.ok && result.value.acciones).toEqual([
+      { tipo: "guardar_nombre", nombre: "Valero" },
+      { tipo: "elegir_servicio", servicioId: "bandeja" },
+      { tipo: "guardar_cantidad", servicioId: "bandeja", cantidad: 2 },
+    ]);
+  });
+
+  it("una acción sin ningún campo reconocible se sigue descartando", () => {
+    const raw = JSON.stringify({ respuesta: "ok", acciones: [{ tipo: "guardar_nombre" }] });
+    const result = parseAgentResponse(raw);
+    expect(result.ok && result.value.acciones).toEqual([]);
+  });
+});
