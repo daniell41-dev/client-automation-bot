@@ -59,6 +59,10 @@ export function limpiarDatosCapturados(lead: Lead): void {
   lead.tentativeDate = undefined;
   lead.entrega = undefined;
   lead.direccion = undefined;
+  // T-57: el carrito también. Sin esto "empezar de nuevo" dejaba los
+  // productos de antes y volvían a aparecer en el resumen siguiente. No hay
+  // stock que devolver: se descuenta recién cuando el pedido pasa a la dueña.
+  lead.items = undefined;
   lead.notes = undefined;
   lead.offTopicCount = 0;
 }

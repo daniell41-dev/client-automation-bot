@@ -1178,3 +1178,63 @@ describe("runAgentTurn — la cantidad se fija, no se suma (T-55)", () => {
     expect(r2!.lead.items).toEqual([{ serviceId: "bandeja", cantidad: 1 }]);
   });
 });
+
+describe("runAgentTurn — empezar de nuevo y quitar productos (T-57)", () => {
+  const restaurante: BusinessConfig = {
+    ...config,
+    slug: "sabores",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+    services: [
+      { id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000, keywords: ["bandeja"] },
+      { id: "prueba", name: "Plato de prueba", description: "x", price: 400, keywords: ["prueba"] },
+    ],
+  };
+  const conBandeja: Lead = {
+    id: "lead-1",
+    businessSlug: "sabores",
+    channel: "mock",
+    contact: "57300000000",
+    name: "Valero",
+    serviceId: "bandeja",
+    items: [{ serviceId: "bandeja", cantidad: 1 }],
+    state: "interesado",
+    stage: "carrito_abierto",
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    lastInboundAt: now.toISOString(),
+    followUpsSent: [],
+  };
+
+  it("'empezar de nuevo' vacía también el carrito", async () => {
+    const r = await runAgentTurn(conBandeja, msg("empezar de nuevo"), restaurante, fakeAgentLLM({ respuesta: "¡Arrancamos de cero!", acciones: [] }), persona, [], now);
+    expect(r!.lead.items).toBeUndefined();
+    expect(r!.lead.name).toBeUndefined();
+  });
+
+  it("la acción reiniciar de la IA también vacía el carrito, y lo nuevo del mismo turno queda", async () => {
+    const r = await runAgentTurn(
+      conBandeja,
+      msg("no, solo pedí la prueba"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "Listo", acciones: [{ tipo: "reiniciar" }, { tipo: "elegir_servicio", servicioId: "prueba" }] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.lead.items).toEqual([{ serviceId: "prueba", cantidad: 1 }]);
+  });
+
+  it("quitar_producto saca ese producto y deja el resto", async () => {
+    const r = await runAgentTurn(
+      { ...conBandeja, items: [{ serviceId: "bandeja", cantidad: 1 }, { serviceId: "prueba", cantidad: 1 }] },
+      msg("sacá la bandeja"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "Listo", acciones: [{ tipo: "quitar_producto", servicioId: "bandeja" }] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.lead.items).toEqual([{ serviceId: "prueba", cantidad: 1 }]);
+    expect(r!.lead.serviceId).toBe("prueba");
+  });
+});
