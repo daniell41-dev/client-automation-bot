@@ -911,3 +911,53 @@ describe("runAgentTurn — le pasa a la IA las reglas rápidas del negocio", () 
     expect(reglasVistas).toBeUndefined();
   });
 });
+
+describe("runAgentTurn — modalidad y dirección (T-50)", () => {
+  const restaurante: BusinessConfig = {
+    ...config,
+    slug: "sabores",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+    services: [
+      { id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000 },
+      { id: "limonada", name: "Limonada de coco", description: "x", price: 8000 },
+    ],
+    pedidos: { enabled: true, pregunta: "¿Domicilio o recoger?", opciones: ["Domicilio", "Recoger en el local"] },
+  };
+  const base = [
+    { tipo: "elegir_servicio" as const, servicioId: "bandeja" },
+    { tipo: "guardar_nombre" as const, nombre: "Oriana" },
+    { tipo: "guardar_cantidad" as const, servicioId: "bandeja", cantidad: 1 },
+  ];
+
+  it("la dirección antes que la modalidad en el mismo turno no se pierde", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "Anotado.",
+      acciones: [
+        ...base,
+        { tipo: "guardar_direccion", direccion: "Avenida 7 # 5-68" },
+        { tipo: "guardar_modalidad", modalidad: "Domicilio" },
+      ],
+    });
+    const r = await runAgentTurn(null, msg("una bandeja a domicilio, Avenida 7 # 5-68, soy Oriana"), restaurante, llm, persona, [], now);
+    expect(r!.lead.entrega).toBe("Domicilio");
+    expect(r!.lead.direccion).toBe("Avenida 7 # 5-68");
+    expect(r!.lead.stage).toBe("esperando_confirmacion");
+    expect(r!.messages[0].text).toContain("Total: $");
+  });
+
+  it("una dirección sin modalidad declarada implica domicilio", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "Anotado.",
+      acciones: [...base, { tipo: "guardar_direccion", direccion: "Calle 10 # 5-20, San Luis" }],
+    });
+    const r = await runAgentTurn(null, msg("mandala a la Calle 10 # 5-20"), restaurante, llm, persona, [], now);
+    expect(r!.lead.entrega).toBe("Domicilio");
+    expect(r!.lead.direccion).toBe("Calle 10 # 5-20, San Luis");
+  });
+
+  it("si el cliente nombra la modalidad y la IA no la declara, se toma del mensaje", async () => {
+    const llm = fakeAgentLLM({ respuesta: "¿A qué dirección?", acciones: base });
+    const r = await runAgentTurn(null, msg("Domicilio por favor"), restaurante, llm, persona, [], now);
+    expect(r!.lead.entrega).toBe("Domicilio");
+  });
+});
