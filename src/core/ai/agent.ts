@@ -159,6 +159,16 @@ function preguntaQueFaltaPedido(lead: Lead, config: BusinessConfig): string {
   return render(config.messages.askName, { nombre: "", servicio: "" });
 }
 
+/**
+ * T-50: la opción de entrega que el cliente nombró textualmente. Más estricta
+ * que `matchEntrega` (que también acepta "1"/"2" y palabras sueltas cortas):
+ * acá no hay una pregunta pendiente que dé contexto a un número.
+ */
+function matchEntregaExplicita(texto: string, opciones: string[]): string | undefined {
+  const elegida = matchEntrega(texto, opciones);
+  return elegida && !/^\s*\d+\s*$/.test(texto) ? elegida : undefined;
+}
+
 /** T-48: ¿cambió algo de lo que el cliente ya vio en el resumen? Si cambió, se le vuelve a mostrar. */
 function cambioElPedido(antes: Lead | null, ahora: Lead): boolean {
   if (!antes) return true;
@@ -229,8 +239,17 @@ export async function runAgentTurn(
     wasAwaitingApproval = false;
   }
 
+  // T-50: la modalidad se aplica ANTES que la dirección aunque la IA las
+  // mande al revés — la dirección solo se guarda si ya se sabe que es a
+  // domicilio, y en la prueba real se perdían las dos (y con ellas el
+  // resumen con el total, que solo aparece con el pedido completo).
+  const ORDEN_ACCIONES: Partial<Record<string, number>> = { guardar_modalidad: -1 };
+  const acciones = [...aiResult.acciones].sort(
+    (a, b) => (ORDEN_ACCIONES[a.tipo] ?? 0) - (ORDEN_ACCIONES[b.tipo] ?? 0),
+  );
+
   let sawOffTopic = false;
-  for (const accion of aiResult.acciones) {
+  for (const accion of acciones) {
     switch (accion.tipo) {
       case "elegir_servicio": {
         const servicio = availableServices(config.services).find(
@@ -266,6 +285,13 @@ export async function runAgentTurn(
         break;
       }
       case "guardar_direccion": {
+        // T-50: dar una dirección ES elegir domicilio. Si la IA no declaró la
+        // modalidad, se toma la opción de domicilio del negocio en vez de
+        // tirar la dirección y volver a preguntar algo que el cliente ya dijo.
+        if (!lead.entrega && config.pedidos?.enabled && pareceDireccion(accion.direccion)) {
+          const opcionDomicilio = config.pedidos.opciones.find((o) => esDomicilio(o));
+          if (opcionDomicilio) lead.entrega = opcionDomicilio;
+        }
         // T-36: solo vale para un pedido a domicilio, y con la misma guarda
         // que el motor guiado — un "ok" no es una dirección.
         if (esDomicilio(lead.entrega) && pareceDireccion(accion.direccion)) {
@@ -302,6 +328,14 @@ export async function runAgentTurn(
       case "confirmar":
         break; // se procesa después de aplicar el resto de las acciones
     }
+  }
+
+  // T-50: si el cliente nombró la modalidad ("domicilio por favor") y la IA
+  // no la declaró, se toma del mensaje — misma comparación que usa el motor
+  // guiado. Solo con un pedido en curso, para no confundir una pregunta suelta.
+  if (config.pedidos?.enabled && !lead.entrega && (lead.items?.length ?? 0) > 0) {
+    const elegida = matchEntregaExplicita(message.text, config.pedidos.opciones);
+    if (elegida) lead.entrega = elegida;
   }
 
   const hadNewServiceSelection = aiResult.acciones.some((a) => a.tipo === "elegir_servicio");
