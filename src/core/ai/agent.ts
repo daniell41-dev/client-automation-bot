@@ -20,10 +20,17 @@ import type {
 } from "@/core/types";
 import type { AgentTurnInput, ILLMProvider } from "@/core/ai/provider";
 import type { RespondResult } from "@/core/engine/responder";
-import { createLead } from "@/core/engine/responder";
+import {
+  ASK_DIRECCION,
+  DEFAULT_ASK_CONFIRM_PEDIDO,
+  PEDIDO_CONFIRM_OPTIONS,
+  createLead,
+} from "@/core/engine/responder";
+import { render } from "@/core/engine/templating";
 import { transition } from "@/core/engine/lead-state";
 import {
   availableServices,
+  isAffirmative,
   isGreeting,
   isMenuRequest,
   isResetRequest,
@@ -34,7 +41,13 @@ import {
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { limpiarDatosCapturados } from "@/core/engine/session-lifecycle";
 import { modoDelItem } from "@/core/engine/modo-item";
-import { agregarAlCarrito, esDomicilio, pareceDireccion } from "@/core/engine/flows/pedido";
+import {
+  agregarAlCarrito,
+  esDomicilio,
+  lineasEntrega,
+  pareceDireccion,
+  resumenCarrito,
+} from "@/core/engine/flows/pedido";
 
 /** Cuántos mensajes SEGUIDOS fuera de tema tolera el bot antes de cerrar la charla. */
 const OFF_TOPIC_LIMIT = 3;
@@ -119,6 +132,41 @@ function buildAgentInput(
     nowISO: now.toISOString(),
     timezone: config.timezone ?? DEFAULT_TIMEZONE,
   };
+}
+
+/**
+ * T-48: el resumen que el cliente tiene que ver ANTES de que su pedido pase a
+ * la dueña — productos, total, entrega y dirección — y la pregunta de
+ * confirmación. Lo arma el motor, no la IA: en la primera prueba real el
+ * agente se salteó el total y le dijo al cliente que el pedido ya estaba con
+ * la dueña sin que el sistema lo hubiera registrado.
+ */
+function resumenParaConfirmar(lead: Lead, config: BusinessConfig): string {
+  return [
+    resumenCarrito(lead.items ?? [], config.services, config),
+    lineasEntrega(lead.entrega, lead.direccion),
+    config.messages.askConfirmPedido ?? DEFAULT_ASK_CONFIRM_PEDIDO,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+/** T-48: lo próximo que falta para poder cerrar el pedido, en el orden del motor guiado. */
+function preguntaQueFaltaPedido(lead: Lead, config: BusinessConfig): string {
+  if (!(lead.items?.length ?? 0)) return "¿Qué te gustaría pedir y cuántas unidades?";
+  if (config.pedidos?.enabled && !lead.entrega) return config.pedidos.pregunta;
+  if (esDomicilio(lead.entrega) && !lead.direccion) return ASK_DIRECCION;
+  return render(config.messages.askName, { nombre: "", servicio: "" });
+}
+
+/** T-48: ¿cambió algo de lo que el cliente ya vio en el resumen? Si cambió, se le vuelve a mostrar. */
+function cambioElPedido(antes: Lead | null, ahora: Lead): boolean {
+  if (!antes) return true;
+  return (
+    JSON.stringify(antes.items ?? []) !== JSON.stringify(ahora.items ?? []) ||
+    antes.entrega !== ahora.entrega ||
+    antes.direccion !== ahora.direccion
+  );
 }
 
 /**
@@ -271,7 +319,7 @@ export async function runAgentTurn(
   const servicioElegido = config.services.find((s) => s.id === lead.serviceId);
   const esPedido = !!servicioElegido && modoDelItem(servicioElegido, config.catalogo) === "pedido";
 
-  const confirmarPedido = aiResult.acciones.some((a) => a.tipo === "confirmar");
+  const declaroConfirmar = aiResult.acciones.some((a) => a.tipo === "confirmar");
   const listoParaConfirmar = esPedido
     ? // Un pedido no tiene fecha: alcanza con el nombre y el carrito, más
       // (T-36) la modalidad si el negocio la usa y la dirección si es a
@@ -285,7 +333,30 @@ export async function runAgentTurn(
       !!lead.tentativeDate &&
       (!config.pedidos?.enabled || !!lead.entrega);
 
-  if (confirmarPedido && listoParaConfirmar && !wasAlreadyConfirmed && !wasAwaitingApproval) {
+  // T-48: un pedido solo pasa a la dueña si el cliente dijo que sí DESPUÉS
+  // de ver el resumen con el total (el turno anterior quedó en
+  // `esperando_confirmacion` y desde entonces no cambió nada). Si la IA
+  // declara "confirmar" antes, se muestra el resumen en vez de confirmar.
+  const resumenYaVisto =
+    !pidioReinicioExplicito && existing?.stage === "esperando_confirmacion" && !cambioElPedido(existing, lead);
+  // Un "sí" al resumen confirma aunque la IA se olvide de declararlo: es la
+  // respuesta exacta a la pregunta que hizo el motor.
+  const confirmarPedido =
+    declaroConfirmar || (esPedido && resumenYaVisto && isAffirmative(message.text));
+  let mostrarResumen = false;
+  let preguntarFaltante = false;
+
+  if (
+    esPedido &&
+    listoParaConfirmar &&
+    !wasAlreadyConfirmed &&
+    !wasAwaitingApproval &&
+    (!confirmarPedido || !resumenYaVisto)
+  ) {
+    lead.stage = "esperando_confirmacion";
+    // Si ya lo vio y solo preguntó algo, no se le repite el resumen.
+    mostrarResumen = !resumenYaVisto;
+  } else if (confirmarPedido && listoParaConfirmar && !wasAlreadyConfirmed && !wasAwaitingApproval) {
     if (esPedido) {
       // T-21/PR5: NO pasa a "pagado" todavía — el estado sigue "interesado"
       // hasta que la dueña acepte o rechace (`handle.ts` es quien descuenta
@@ -304,9 +375,23 @@ export async function runAgentTurn(
     lead.stage = "esperando_aprobacion";
   } else {
     lead.stage = deriveStage(lead, config);
+    // T-48: la IA quiso cerrar un pedido al que le falta algo. Su respuesta
+    // seguramente dice que ya se lo pasó a la dueña, y no es cierto.
+    preguntarFaltante = esPedido && confirmarPedido;
   }
 
   let respuestaFinal = aiResult.respuesta;
+  let opciones: string[] | undefined;
+  if (preguntarFaltante) {
+    respuestaFinal = preguntaQueFaltaPedido(lead, config);
+  } else if (mostrarResumen) {
+    // Si la IA creyó que ya cerraba (declaró "confirmar"), su texto promete
+    // algo que no pasó: se reemplaza. Si no, se le suma el resumen.
+    respuestaFinal = confirmarPedido
+      ? resumenParaConfirmar(lead, config)
+      : `${aiResult.respuesta}\n\n${resumenParaConfirmar(lead, config)}`;
+    opciones = PEDIDO_CONFIRM_OPTIONS;
+  }
 
   // El conteo de "fuera de tema" no aplica una vez que ya se confirmó (ni
   // mientras se espera la respuesta de la dueña, T-21/PR5): una charla
@@ -327,6 +412,8 @@ export async function runAgentTurn(
     }
   }
 
-  const messages: OutgoingMessage[] = [{ to: message.from, text: respuestaFinal }];
+  const messages: OutgoingMessage[] = [
+    { to: message.from, text: respuestaFinal, ...(opciones ? { options: opciones } : {}) },
+  ];
   return { lead, messages };
 }
