@@ -273,7 +273,7 @@ export function respond(
    */
   const askAlgoMasText = (): { text: string; options?: string[] } => {
     lead.stage = "carrito_abierto";
-    const resumen = resumenCarrito(lead.items ?? [], config.services, config);
+    const resumen = resumenCarrito(lead.items ?? [], config.services, config, lead.entrega);
     return {
       text: joinParts(resumen, ASK_ALGO_MAS),
       options: [...pedidoMenuOptions(config), ALGO_MAS_DONE_OPTION],
@@ -290,7 +290,7 @@ export function respond(
     lead.stage = "esperando_confirmacion";
     if (lead.state === "nuevo") lead.state = "interesado";
     const resumen = joinParts(
-      resumenCarrito(lead.items ?? [], config.services, config),
+      resumenCarrito(lead.items ?? [], config.services, config, lead.entrega),
       lineasEntrega(lead.entrega, lead.direccion),
     );
     return {
@@ -409,7 +409,7 @@ export function respond(
   // preguntó si quiere agregar algo más. Un producto nuevo se suma al
   // carrito; "no"/"eso es todo" pasa a confirmar el pedido completo.
   if (lead.stage === "carrito_abierto") {
-    const resumenActual = resumenCarrito(lead.items ?? [], config.services, config);
+    const resumenActual = resumenCarrito(lead.items ?? [], config.services, config, lead.entrega);
     const pendingText = joinParts(resumenActual, ASK_ALGO_MAS);
     const opciones = [...pedidoMenuOptions(config), ALGO_MAS_DONE_OPTION];
     const interrupted = interruption(pendingText, opciones);
@@ -469,7 +469,7 @@ export function respond(
     const esPedido = (lead.items?.length ?? 0) > 0;
     const resumenPedido = esPedido
       ? joinParts(
-          resumenCarrito(lead.items!, config.services, config),
+          resumenCarrito(lead.items!, config.services, config, lead.entrega),
           lineasEntrega(lead.entrega, lead.direccion),
         )
       : "";

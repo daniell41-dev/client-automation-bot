@@ -200,6 +200,9 @@ Cerrar sesión, entrar con el usuario de la dueña y abrir el negocio:
 - **Modalidad (restaurante):** en la sección de citas, activar la pregunta de modalidad
   con las opciones "Domicilio" y "Recoger en el local". Si el cliente elige domicilio,
   el bot le pide la dirección.
+- **Costo del domicilio (✅ T-52):** en la misma tarjeta, "Costo del domicilio" (por
+  ejemplo `5000`). El bot lo suma al resumen ("Domicilio — $5.000") y al total que se
+  cobra, solo si el cliente elige domicilio. Vacío o 0: no se cobra aparte.
 - **Citas/Horarios:** días y horas de atención. En belleza, cada servicio marcado como
   reservable.
 - **Configuración:**

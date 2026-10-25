@@ -43,7 +43,7 @@ import { validarCita } from "@/core/engine/horarios";
 import { citaCumplida, cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
 import { pedidoFinalizado, cerrarPedidoFinalizado } from "@/core/engine/pedido-lifecycle";
 import { inactivo, limpiarDatosCapturados, reseteablePorInactividad } from "@/core/engine/session-lifecycle";
-import { resumenCarrito, totalCarrito } from "@/core/engine/flows/pedido";
+import { resumenCarrito, totalPedido } from "@/core/engine/flows/pedido";
 import { BOTON_APROBAR, BOTON_RECHAZAR, interpretarDecisionDueña } from "@/core/engine/approval";
 import { transition } from "@/core/engine/lead-state";
 import { pagoVencido, pedidoPendienteDeDecision, transicionarPedido } from "@/core/engine/pedido-estado";
@@ -238,7 +238,7 @@ async function crearPedidoDelCarrito(
       contacto: lead.contact,
       cliente: lead.name,
       items,
-      total: totalCarrito(lead.items, config.services),
+      total: totalPedido(lead.items, config.services, config, lead.entrega),
       moneda: config.currency,
       modalidad: lead.entrega,
       direccion: lead.direccion,
@@ -375,7 +375,7 @@ async function handlePaymentReceiptMessage(
   }
 
   const negocio = negocioParaStock ?? config.slug;
-  const total = totalCarrito(lead.items ?? [], config.services);
+  const total = totalPedido(lead.items ?? [], config.services, config, lead.entrega);
 
   let señales: Señal[] = [];
   let comprobanteCreado: { id: string } | undefined;
@@ -699,7 +699,7 @@ export async function handleIncoming(
         "esperando_pago",
         false,
       );
-      const total = totalCarrito(lead.items!, config.services);
+      const total = totalPedido(lead.items!, config.services, config, lead.entrega);
       const link = paymentGateway.buildPaymentLink({
         // T-34: la referencia es el PEDIDO, no el lead. El id del lead se
         // repite en todos los pedidos de un cliente, así que un link viejo
@@ -709,7 +709,7 @@ export async function handleIncoming(
         currency: config.currency,
         redirectUrl: config.pagos.wompi.redirectUrl,
       });
-      const resumenPedido = resumenCarrito(lead.items!, config.services, config);
+      const resumenPedido = resumenCarrito(lead.items!, config.services, config, lead.entrega);
       messages = [
         {
           to: message.from,
@@ -760,7 +760,7 @@ export async function handleIncoming(
           // T-24.4: reemplaza el disparador de SÍ/NO plano — no se avisa a la
           // dueña todavía, se le pide el comprobante al cliente. Recién cuando
           // llega la foto (`handlePaymentReceiptMessage`) se le avisa a ella.
-          const resumenPedido = resumenCarrito(lead.items!, config.services, config);
+          const resumenPedido = resumenCarrito(lead.items!, config.services, config, lead.entrega);
           const datosPago = textoCuentasPago(config.pagos);
           const plantillaPedir =
             config.messages.pedirComprobante ??
@@ -958,7 +958,7 @@ async function notifyOwner(
       ? `🔔 ${config.name}: pedido ${opciones.pedido ? `#${opciones.pedido.numero} ` : ""}nuevo, esperando tu aprobación`
       : `🔔 ${config.name}: confirmación nueva`,
     `Cliente: ${lead.name ?? lead.contact}`,
-    esPedido ? resumenCarrito(lead.items!, config.services, config) : null,
+    esPedido ? resumenCarrito(lead.items!, config.services, config, lead.entrega) : null,
     !esPedido && service
       ? `${config.pedidos?.enabled ? "Pedido" : "Servicio"}: ${service.name}`
       : null,
@@ -994,7 +994,7 @@ async function notifyOwner(
   // la plantilla lleva lo mínimo para decidir, y su respuesta SÍ/NO reabre la
   // ventana para el resto de la conversación.
   const resumenCarritoTexto = esPedido
-    ? resumenCarrito(lead.items!, config.services, config)
+    ? resumenCarrito(lead.items!, config.services, config, lead.entrega)
     : (service?.name ?? lead.tentativeDate ?? "");
   const resumenPlantilla = opciones.pedido
     ? `#${opciones.pedido.numero} · ${resumenCarritoTexto}`
@@ -1209,7 +1209,7 @@ export async function handleOwnerApproval(
   }
 
   // 3. Aplicar la decisión al lead, al pedido y al comprobante.
-  const resumen = resumenCarrito(lead.items ?? [], config.services, config);
+  const resumen = resumenCarrito(lead.items ?? [], config.services, config, lead.entrega);
   const nombreVars = { nombre: lead.name ?? "" };
   const etiqueta = etiquetaPedido(lead, pedido ?? undefined);
 
@@ -1397,7 +1397,7 @@ export async function handleWompiWebhookEvent(
   // "confirmar" (estado APPROVED verificado).
   const itemsPedido = pedido?.items ?? lead.items ?? [];
   const esperadoCentavos = Math.round(
-    (pedido?.total ?? totalCarrito(lead.items ?? [], config.services)) * 100,
+    (pedido?.total ?? totalPedido(lead.items ?? [], config.services, config, lead.entrega)) * 100,
   );
   if (opciones.montoEnCentavos !== undefined && opciones.montoEnCentavos !== esperadoCentavos) {
     return {
@@ -1443,7 +1443,7 @@ export async function handleWompiWebhookEvent(
   await repo.save(lead);
   const codigo = await cerrarDecisionDelPedido(pedidos, undefined, pedido, "aprobado");
 
-  const resumen = resumenCarrito(lead.items ?? [], config.services, config);
+  const resumen = resumenCarrito(lead.items ?? [], config.services, config, lead.entrega);
   return {
     customerMessage: {
       to: lead.contact,

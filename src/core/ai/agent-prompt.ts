@@ -70,7 +70,11 @@ function buildHorariosBlock(input: AgentTurnInput): string {
 
 function buildPedidosBlock(input: AgentTurnInput): string {
   if (!input.pedidos) return "";
-  return `\n\nEste negocio pregunta la modalidad de entrega antes de confirmar (también en los pedidos [SE VENDE]): "${input.pedidos.pregunta}" — opciones EXACTAS: ${input.pedidos.opciones.join(", ")}. Si el cliente elige una entrega a domicilio, pedile la dirección (con barrio y una referencia) antes de confirmar.`;
+  return `\n\nEste negocio pregunta la modalidad de entrega antes de confirmar (también en los pedidos [SE VENDE]): "${input.pedidos.pregunta}" — opciones EXACTAS: ${input.pedidos.opciones.join(", ")}. Si el cliente elige una entrega a domicilio, pedile la dirección (con barrio y una referencia) antes de confirmar.${
+    input.pedidos.costoDomicilio
+      ? ` El domicilio cuesta ${formatPrice(input, input.pedidos.costoDomicilio)} (el sistema ya lo suma al total del resumen: si te preguntan, decí ese valor, nunca otro).`
+      : " El domicilio no tiene costo aparte."
+  }`;
 }
 
 function buildKnowledgeBlock(input: AgentTurnInput): string {

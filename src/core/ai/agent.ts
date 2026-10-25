@@ -107,7 +107,11 @@ function buildAgentInput(
     })),
     horarios: config.horarios,
     pedidos: config.pedidos?.enabled
-      ? { pregunta: config.pedidos.pregunta, opciones: config.pedidos.opciones }
+      ? {
+          pregunta: config.pedidos.pregunta,
+          opciones: config.pedidos.opciones,
+          costoDomicilio: config.pedidos.costoDomicilio,
+        }
       : undefined,
     lead: {
       name: lead.name,
@@ -144,7 +148,7 @@ function buildAgentInput(
  */
 function resumenParaConfirmar(lead: Lead, config: BusinessConfig): string {
   return [
-    resumenCarrito(lead.items ?? [], config.services, config),
+    resumenCarrito(lead.items ?? [], config.services, config, lead.entrega),
     lineasEntrega(lead.entrega, lead.direccion),
     config.messages.askConfirmPedido ?? DEFAULT_ASK_CONFIRM_PEDIDO,
   ]
@@ -168,6 +172,20 @@ function preguntaQueFaltaPedido(lead: Lead, config: BusinessConfig): string {
 function matchEntregaExplicita(texto: string, opciones: string[]): string | undefined {
   const elegida = matchEntrega(texto, opciones);
   return elegida && !/^\s*\d+\s*$/.test(texto) ? elegida : undefined;
+}
+
+/**
+ * T-52: la cantidad que el cliente puso JUSTO antes del producto ("dos
+ * bandejas", "2 de bandeja", "una bandeja"). No sirve buscar el primer
+ * número del mensaje: en "una bandeja a la Av 7 # 5-68" eso daba 7 bandejas.
+ */
+export function cantidadPegadaAlProducto(texto: string, nombreProducto: string): number | undefined {
+  const sinTildes = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const palabra = sinTildes(nombreProducto).split(/\s+/).find((w) => w.length >= 3);
+  if (!palabra) return undefined;
+  const raiz = palabra.replace(/(es|s)$/, "");
+  const m = sinTildes(texto).match(new RegExp(`(\\d{1,3}|[a-z]+)\\s+(?:de\\s+)?${raiz}`));
+  return m ? parseCantidad(m[1]) : undefined;
 }
 
 /** Solo los dígitos, para comparar "300 123 4567" con "3001234567". */
@@ -372,7 +390,7 @@ export async function runAgentTurn(
     const yaEnCarrito = lead.items?.some((i) => i.serviceId === servicio.id);
     const conCantidad = acciones.some((a) => a.tipo === "guardar_cantidad" && a.servicioId === servicio.id);
     if (!yaEnCarrito && !conCantidad) {
-      lead.items = agregarAlCarrito(lead.items, servicio.id, parseCantidad(message.text) ?? 1);
+      lead.items = agregarAlCarrito(lead.items, servicio.id, cantidadPegadaAlProducto(message.text, servicio.name) ?? 1);
       if (lead.state === "nuevo") lead.state = "interesado";
     }
   }

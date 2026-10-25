@@ -127,7 +127,8 @@ export interface AgentTurnInput {
   /** Zona horaria IANA del negocio, para mostrar la fecha de hoy en su hora local. */
   timezone: string;
   /** Presente solo si el negocio activó la modalidad de entrega/pedidos. */
-  pedidos?: { pregunta: string; opciones: string[] };
+  /** T-52: `costoDomicilio` para que la IA pueda contestar cuánto sale el domicilio. */
+  pedidos?: { pregunta: string; opciones: string[]; costoDomicilio?: number };
   lead: AgentLeadState;
   /** Historial reciente de la conversación. */
   history: ConversationTurn[];

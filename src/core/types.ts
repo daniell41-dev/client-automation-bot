@@ -178,6 +178,12 @@ export interface PedidosConfig {
   pregunta: string;
   /** Opciones de modalidad (2 a 4), p. ej. ["Retirar en el local", "Comer en el restaurante"]. */
   opciones: string[];
+  /**
+   * T-52: lo que cobra el negocio por llevar el pedido. Se suma al total
+   * (resumen, pedido, comprobante, Wompi) solo cuando el cliente eligió una
+   * opción a domicilio. Sin esto o en 0, el domicilio no se cobra aparte.
+   */
+  costoDomicilio?: number;
 }
 
 /** T-45: tipo de cuenta, para que el cliente sepa cómo transferir. */

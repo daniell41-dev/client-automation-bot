@@ -8,6 +8,7 @@
 import { useActionState, useState } from "react";
 import { CalendarDays, Check, Plus, X } from "lucide-react";
 import type { DiaAtencion, PedidosConfig, Service } from "@/core/types";
+import { esDomicilio } from "@/core/engine/flows/pedido";
 import { guardarConfigParcial, marcarAtendido, type ActionState } from "@/app/portal/actions";
 import { Card, EmptyState, Pill, Toggle } from "@/components/ui";
 import { PhonePreview } from "@/components/phone-preview";
@@ -238,6 +239,33 @@ export function CitasEditor({
                   </button>
                 )}
               </div>
+              {/* T-52: solo aplica si alguna opción es a domicilio; el bot
+                  lo suma al total del resumen, del pedido y del comprobante. */}
+              {pedidos.opciones.some((o) => esDomicilio(o)) && (
+                <div className="max-w-xs">
+                  <label className={labelCls} htmlFor="costo-domicilio">
+                    Costo del domicilio
+                  </label>
+                  <input
+                    id="costo-domicilio"
+                    type="number"
+                    min={0}
+                    step={500}
+                    className={inputCls}
+                    value={pedidos.costoDomicilio ?? ""}
+                    onChange={(e) =>
+                      setPedidos((prev) => ({
+                        ...prev,
+                        costoDomicilio: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value)),
+                      }))
+                    }
+                    placeholder="0 = sin costo"
+                  />
+                  <p className="mt-1.5 text-xs text-ink-soft">
+                    Se suma al total cuando el cliente elige domicilio. Vacío o 0: no se cobra aparte.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </Card>

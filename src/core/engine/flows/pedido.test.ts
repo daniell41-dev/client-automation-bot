@@ -5,6 +5,7 @@ import {
   pareceDireccion,
   resumenCarrito,
   totalCarrito,
+  totalPedido,
 } from "@/core/engine/flows/pedido";
 import type { BusinessConfig, CartItem, Service } from "@/core/types";
 
@@ -93,5 +94,31 @@ describe("esDomicilio / pareceDireccion (T-36)", () => {
     expect(pareceDireccion("Barrio La Riviera, casa azul")).toBe(true);
     expect(pareceDireccion("ok")).toBe(false);
     expect(pareceDireccion("ya te digo")).toBe(false);
+  });
+});
+
+describe("costo de domicilio (T-52)", () => {
+  const conCosto: BusinessConfig = {
+    ...config,
+    pedidos: { enabled: true, pregunta: "¿?", opciones: ["Domicilio", "Recoger en el local"], costoDomicilio: 5000 },
+  };
+  const items: CartItem[] = [{ serviceId: "harina", cantidad: 2 }];
+
+  it("se suma al total solo si la entrega es a domicilio", () => {
+    expect(totalPedido(items, services, conCosto, "Domicilio")).toBe(15000);
+    expect(totalPedido(items, services, conCosto, "Recoger en el local")).toBe(10000);
+    expect(totalPedido(items, services, conCosto, undefined)).toBe(10000);
+    expect(totalPedido(items, services, config, "Domicilio")).toBe(10000);
+  });
+
+  it("el resumen muestra la línea del domicilio y el total con el costo", () => {
+    const resumen = resumenCarrito(items, services, conCosto, "Domicilio");
+    expect(resumen).toContain("Domicilio — $");
+    expect(resumen).toContain("5.000");
+    expect(resumen).toMatch(/Total: \$\s?15\.000/);
+  });
+
+  it("sin entrega a domicilio, el resumen queda como antes", () => {
+    expect(resumenCarrito(items, services, conCosto, "Recoger en el local")).toBe(resumenCarrito(items, services, config));
   });
 });
