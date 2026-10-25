@@ -45,6 +45,7 @@ import { modoDelItem } from "@/core/engine/modo-item";
 import {
   agregarAlCarrito,
   esDomicilio,
+  fijarCantidad,
   lineasEntrega,
   pareceDireccion,
   resumenCarrito,
@@ -379,7 +380,7 @@ export async function runAgentTurn(
         );
         const cantidad = Math.round(accion.cantidad);
         if (servicio && modoDelItem(servicio, config.catalogo) === "pedido" && cantidad > 0) {
-          lead.items = agregarAlCarrito(lead.items, servicio.id, cantidad);
+          lead.items = fijarCantidad(lead.items, servicio.id, cantidad);
           if (lead.state === "nuevo") lead.state = "interesado";
         }
         break;

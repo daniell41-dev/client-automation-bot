@@ -1147,3 +1147,34 @@ describe("runAgentTurn — producto nombrado sin acciones (T-54)", () => {
     expect(r!.lead.items).toBeUndefined();
   });
 });
+
+describe("runAgentTurn — la cantidad se fija, no se suma (T-55)", () => {
+  it("'dame una bandeja' y después 'ya te dije que 1' deja 1, no 2", async () => {
+    const restaurante: BusinessConfig = {
+      ...config,
+      slug: "sabores",
+      catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+      services: [{ id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000, keywords: ["bandeja"] }],
+    };
+    const r1 = await runAgentTurn(
+      null,
+      msg("Dame una bandeja"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "¿Cuántas?", acciones: [] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r1!.lead.items).toEqual([{ serviceId: "bandeja", cantidad: 1 }]);
+    const r2 = await runAgentTurn(
+      r1!.lead,
+      msg("Ya te dije que 1"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "Perfecto", acciones: [{ tipo: "guardar_cantidad", servicioId: "bandeja", cantidad: 1 }] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r2!.lead.items).toEqual([{ serviceId: "bandeja", cantidad: 1 }]);
+  });
+});
