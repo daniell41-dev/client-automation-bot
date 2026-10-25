@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runAgentTurn } from "@/core/ai/agent";
+import { inventaDatosDePago, runAgentTurn } from "@/core/ai/agent";
 import type { AgentResponse } from "@/core/ai/agent-schema";
 import type { ILLMProvider } from "@/core/ai/provider";
 import type { BusinessConfig, IncomingMessage, Lead, PersonaConfig } from "@/core/types";
@@ -731,9 +731,14 @@ describe("runAgentTurn — flujo de pedido en modo agente (T-21)", () => {
       respuesta: "¡Ya le pasamos tu pedido a la dueña!",
       acciones: [{ tipo: "elegir_servicio", servicioId: "harina" }, { tipo: "guardar_nombre", nombre: "Laura" }, { tipo: "confirmar" }],
     });
-    const result = await runAgentTurn(null, msg("harina, soy Laura"), tienda, llm, persona, [], now);
+    // T-51: la harina entra al carrito con cantidad 1; lo que falta es la modalidad.
+    const conModalidad: BusinessConfig = {
+      ...tienda,
+      pedidos: { enabled: true, pregunta: "¿Domicilio o recoger?", opciones: ["Domicilio", "Recoger en el local"] },
+    };
+    const result = await runAgentTurn(null, msg("harina, soy Laura"), conModalidad, llm, persona, [], now);
     expect(result!.lead.stage).not.toBe("esperando_aprobacion");
-    expect(result!.messages[0].text).toBe("¿Qué te gustaría pedir y cuántas unidades?");
+    expect(result!.messages[0].text).toBe("¿Domicilio o recoger?");
   });
 
   it("T-48: si el pedido cambia después del resumen, el sí no confirma: se muestra el resumen nuevo", async () => {
@@ -959,5 +964,75 @@ describe("runAgentTurn — modalidad y dirección (T-50)", () => {
     const llm = fakeAgentLLM({ respuesta: "¿A qué dirección?", acciones: base });
     const r = await runAgentTurn(null, msg("Domicilio por favor"), restaurante, llm, persona, [], now);
     expect(r!.lead.entrega).toBe("Domicilio");
+  });
+});
+
+describe("runAgentTurn — cantidad por defecto y cuentas inventadas (T-51)", () => {
+  const restaurante: BusinessConfig = {
+    ...config,
+    slug: "sabores",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+    services: [{ id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000 }],
+    pagos: {
+      requiereComprobante: true,
+      cuentas: [{ entidad: "Bancolombia", tipo: "ahorros", numero: "123-456789-01", titular: "Laura" }],
+    },
+  };
+
+  it("elegir un plato sin cantidad lo pone en el carrito con la del mensaje (o 1)", async () => {
+    const una = await runAgentTurn(
+      null,
+      msg("Dame una bandeja paisa por favor"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "¡Excelente elección!", acciones: [{ tipo: "elegir_servicio", servicioId: "bandeja" }] }),
+      persona,
+      [],
+      now,
+    );
+    expect(una!.lead.items).toEqual([{ serviceId: "bandeja", cantidad: 1 }]);
+
+    const dos = await runAgentTurn(
+      null,
+      msg("quiero dos bandejas"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "¡Dale!", acciones: [{ tipo: "elegir_servicio", servicioId: "bandeja" }] }),
+      persona,
+      [],
+      now,
+    );
+    expect(dos!.lead.items).toEqual([{ serviceId: "bandeja", cantidad: 2 }]);
+  });
+
+  it("si la IA escribe un número de cuenta que no está configurado, su respuesta no sale", async () => {
+    const r = await runAgentTurn(
+      null,
+      msg("¿a dónde pago?"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "Transferí a Nequi al 312 345 6789 y mandame el comprobante", acciones: [] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.messages[0].text).not.toContain("312");
+  });
+});
+
+describe("inventaDatosDePago (T-51)", () => {
+  const conCuenta: BusinessConfig = {
+    ...config,
+    pagos: { cuentas: [{ entidad: "Nequi", tipo: "billetera", numero: "300 000 0000" }] },
+  };
+
+  it("un número cargado en la configuración está permitido, con o sin espacios", () => {
+    expect(inventaDatosDePago("Nequi 3000000000", conCuenta)).toBe(false);
+    expect(inventaDatosDePago("Nequi 300-000-0000", conCuenta)).toBe(false);
+  });
+
+  it("un número que no está cargado se detecta", () => {
+    expect(inventaDatosDePago("Bancolombia al 3123456789", conCuenta)).toBe(true);
+  });
+
+  it("los precios, las direcciones y las cantidades no cuentan", () => {
+    expect(inventaDatosDePago("Total: $1.250.000, Av 7 # 5-68, 2 bandejas", conCuenta)).toBe(false);
   });
 });
