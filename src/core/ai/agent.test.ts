@@ -1080,3 +1080,35 @@ describe("cantidadPegadaAlProducto (T-52)", () => {
     expect(cantidadPegadaAlProducto("bandeja paisa a la calle 10", "Bandeja paisa")).toBeUndefined();
   });
 });
+
+describe("runAgentTurn — pedido sin elegir_servicio (T-53)", () => {
+  it("con carrito, nombre, domicilio y dirección muestra el resumen aunque la IA solo haya mandado guardar_cantidad", async () => {
+    const restaurante: BusinessConfig = {
+      ...config,
+      slug: "sabores",
+      catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+      services: [{ id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000 }],
+      pedidos: { enabled: true, pregunta: "¿Domicilio o recoger?", opciones: ["Domicilio", "Recoger en el local"], costoDomicilio: 8500 },
+    };
+    const r = await runAgentTurn(
+      null,
+      msg("una bandeja, domicilio a la Av 7 #5-68 San Luis, soy Valero"),
+      restaurante,
+      fakeAgentLLM({
+        respuesta: "¡Mucho gusto, Valero! Ya tenemos todo listo.",
+        acciones: [
+          { tipo: "guardar_cantidad", servicioId: "bandeja", cantidad: 1 },
+          { tipo: "guardar_modalidad", modalidad: "Domicilio" },
+          { tipo: "guardar_direccion", direccion: "Av 7 #5-68 San Luis" },
+          { tipo: "guardar_nombre", nombre: "Valero" },
+        ],
+      }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.lead.stage).toBe("esperando_confirmacion");
+    expect(r!.messages[0].text).toMatch(/Total: \$\s?36\.500/);
+    expect(r!.messages[0].text).toContain("¿Confirmás tu pedido?");
+  });
+});
