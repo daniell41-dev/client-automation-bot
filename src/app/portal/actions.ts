@@ -13,7 +13,7 @@
 import { revalidatePath } from "next/cache";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { parseBusinessConfig } from "@/core/config-schema";
+import { motivoConfigInvalida, parseBusinessConfig } from "@/core/config-schema";
 import { invalidateBusinessCache } from "@/businesses/business-cache";
 import { cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
 import { fromRow, toRow } from "@/core/storage/adapters/supabase/leads";
@@ -116,7 +116,7 @@ export async function guardarConfigParcial(
   }
 
   const config = parseBusinessConfig(merged);
-  if (!config) return { error: "Los cambios no cumplen la forma esperada." };
+  if (!config) return { error: `No se pudo guardar: ${motivoConfigInvalida(merged) ?? "los cambios no cumplen la forma esperada."}` };
   config.slug = slug; // el slug del motor nunca cambia desde los editores
 
   const { data, error } = await supabase

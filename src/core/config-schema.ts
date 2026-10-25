@@ -242,6 +242,20 @@ export const businessConfigSchema = z.object({
  * Parsea un JSON desconocido a `BusinessConfig`, o `null` si es inválido
  * (se registra el motivo; el llamador decide el fallback).
  */
+/**
+ * T-47: el primer motivo por el que la config no valida, en palabras para la
+ * dueña, o `null` si es válida. Sin esto el portal solo decía "los cambios no
+ * cumplen la forma esperada" y no había forma de saber qué corregir.
+ */
+export function motivoConfigInvalida(json: unknown): string | null {
+  const result = businessConfigSchema.safeParse(json);
+  if (result.success) return null;
+  const issue = result.error.issues[0];
+  // Los mensajes propios (los de `superRefine`) ya están escritos para la
+  // dueña; los genéricos de Zod no, así que se dice dónde está el problema.
+  return issue?.code === "custom" ? issue.message : `Hay un dato inválido en ${issue?.path.join(" → ") || "la configuración"}.`;
+}
+
 export function parseBusinessConfig(json: unknown): BusinessConfig | null {
   const result = businessConfigSchema.safeParse(json);
   if (!result.success) {
