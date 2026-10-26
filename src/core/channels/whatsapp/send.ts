@@ -40,6 +40,13 @@ export interface WhatsAppChannelOptions {
    * se acuerde de contar.
    */
   medidor?: { negocio: string; repo: WhatsAppUsageRepository };
+  /**
+   * T-59: mandar la plantilla DIRECTAMENTE (sin probar el texto libre) a los
+   * mensajes que la traen. Se usa para avisarle a la dueña cuando su ventana
+   * de 24h está cerrada: Meta acepta el texto y recién después avisa que no
+   * lo entregó, así que esperar el rechazo para reintentar no sirve.
+   */
+  forzarPlantilla?: boolean;
 }
 
 export interface SendRequest {
@@ -219,6 +226,21 @@ export class WhatsAppChannel implements ChannelAdapter {
 
   async send(message: OutgoingMessage): Promise<void> {
     const fetchImpl = this.opts.fetchImpl ?? fetch;
+    if (this.opts.forzarPlantilla && this.opts.plantilla && (message.plantillaParams?.length ?? 0) > 0) {
+      const plantilla = buildTemplateRequest(
+        { ...this.opts, plantilla: this.opts.plantilla },
+        message.to,
+        message.plantillaParams!,
+        message.botones,
+      );
+      const res = await fetchImpl(plantilla.url, plantilla.init);
+      if (!res.ok) {
+        const detalle = await res.text().catch(() => "");
+        throw new Error(`Envío WhatsApp (plantilla) falló: ${res.status} ${detalle}`);
+      }
+      await this.medir({ plantillas: 1 });
+      return;
+    }
     const { url, init } = buildSendRequest(this.opts, message);
     const res = await fetchImpl(url, init);
     if (res.ok) {

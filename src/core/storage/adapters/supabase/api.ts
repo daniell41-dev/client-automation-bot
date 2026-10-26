@@ -240,6 +240,10 @@ export interface SupabaseDb {
   updatePedidoComprobante(id: string, comprobanteId: string): Promise<void>;
   /** T-37 */
   updatePedidoCodigoRetiro(id: string, codigo: string): Promise<void>;
+  /** T-59: anota cuándo escribió la dueña (migración 0023). */
+  updateDuenaEscribio(negocioId: string, cuandoISO: string): Promise<void>;
+  /** T-59: última vez que escribió la dueña, o `null`. */
+  selectDuenaEscribio(negocioId: string): Promise<string | null>;
   /** T-39: vía `reclamar_aviso_resumen` (migración 0020). */
   claimAvisoResumen(negocioId: string, minutos: number): Promise<boolean>;
   updateComprobanteEstado(id: string, estado: string): Promise<void>;
@@ -559,6 +563,21 @@ class RealSupabaseDb implements SupabaseDb {
     });
     if (error) throw error;
     return data === true;
+  }
+
+  async updateDuenaEscribio(negocioId: string, cuandoISO: string): Promise<void> {
+    const { error } = await this.client.from("negocios").update({ duena_escribio_at: cuandoISO }).eq("id", negocioId);
+    if (error) throw error;
+  }
+
+  async selectDuenaEscribio(negocioId: string): Promise<string | null> {
+    const { data, error } = await this.client
+      .from("negocios")
+      .select("duena_escribio_at")
+      .eq("id", negocioId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as { duena_escribio_at: string | null } | null)?.duena_escribio_at ?? null;
   }
 
   async updatePedidoCodigoRetiro(id: string, codigo: string): Promise<void> {

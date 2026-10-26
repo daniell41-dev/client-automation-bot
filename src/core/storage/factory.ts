@@ -13,6 +13,9 @@ import type { SessionRepository } from "@/core/storage/session-repository";
 import type { MessageDedupeRepository } from "@/core/storage/dedupe-repository";
 import type { AiUsageRepository } from "@/core/storage/usage-repository";
 import type { WhatsAppUsageRepository } from "@/core/storage/whatsapp-usage-repository";
+import type { VentanaDuenaRepository } from "@/core/storage/ventana-duena-repository";
+import { MemoryVentanaDuenaRepository } from "@/core/storage/adapters/ventana-duena-memory";
+import { SupabaseVentanaDuenaRepository } from "@/core/storage/adapters/supabase/ventana-duena";
 import type { InventoryRepository } from "@/core/storage/inventory-repository";
 import type { ComprobanteRepository } from "@/core/storage/comprobante-repository";
 import type { PedidoRepository } from "@/core/storage/pedido-repository";
@@ -168,4 +171,10 @@ export async function getWompiEventsSecret(negocioId: string | undefined): Promi
   if (!db) return null;
   const credenciales = await db.selectWompiCredentials(negocioId);
   return credenciales?.eventsSecret ?? null;
+}
+
+/** T-59: cuándo escribió la dueña — Supabase > memoria (desarrollo local). */
+export function createVentanaDuenaRepository(): VentanaDuenaRepository {
+  const db = createSupabaseDb();
+  return db ? new SupabaseVentanaDuenaRepository(db) : new MemoryVentanaDuenaRepository();
 }
