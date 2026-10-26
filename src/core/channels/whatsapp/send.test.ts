@@ -324,3 +324,26 @@ describe("buildSendRequest — imagen (T-45)", () => {
     });
   });
 });
+
+describe("WhatsAppChannel.send — forzarPlantilla (T-59)", () => {
+  const aviso = { to: "573159998877", text: "🔔 Pedido nuevo", plantillaParams: ["Sabores", "Valero", "#1 · Total $400"] };
+
+  it("con la ventana cerrada manda la plantilla directo, sin probar el texto", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true } as Response);
+    await new WhatsAppChannel({ ...opts, fetchImpl, plantilla, forzarPlantilla: true }).send(aviso);
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body as string).type).toBe("template");
+  });
+
+  it("un mensaje sin parámetros de plantilla sale como texto aunque esté forzada", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true } as Response);
+    await new WhatsAppChannel({ ...opts, fetchImpl, plantilla, forzarPlantilla: true }).send({ to: "57300", text: "hola" });
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body as string).type).toBe("text");
+  });
+
+  it("sin plantilla configurada, forzar no cambia nada (sale texto)", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true } as Response);
+    await new WhatsAppChannel({ ...opts, fetchImpl, forzarPlantilla: true }).send(aviso);
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body as string).type).toBe("text");
+  });
+});

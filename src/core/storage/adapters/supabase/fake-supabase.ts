@@ -74,6 +74,7 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
   const comprobantes: ComprobanteRow[] = [];
   const pedidos: PedidoRow[] = [];
   const ultimoResumen = new Map<string, number>();
+  const duenaEscribio = new Map<string, string>();
   const wompiCredenciales = new Map<string, WompiCredenciales>();
 
   return {
@@ -336,6 +337,14 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       if (ultimo !== undefined && ahora - ultimo < minutos * 60_000) return false;
       ultimoResumen.set(negocioId, ahora);
       return true;
+    },
+
+    async updateDuenaEscribio(negocioId, cuandoISO) {
+      duenaEscribio.set(negocioId, cuandoISO);
+    },
+
+    async selectDuenaEscribio(negocioId) {
+      return duenaEscribio.get(negocioId) ?? null;
     },
 
     async updatePedidoCodigoRetiro(id, codigo) {

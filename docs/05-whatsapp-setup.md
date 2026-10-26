@@ -152,10 +152,26 @@ nada antes. Si su último mensaje al número del negocio tiene más de 24h, Meta
 el texto libre con el código **131047** y el aviso **no se entrega** — la dueña nunca se
 entera del pedido y el cliente queda esperando.
 
-Por eso el canal intenta primero el texto libre (completo y sin costo de conversación
-cuando la ventana está abierta) y, **solo si Meta lo rechaza por ventana cerrada**,
-reintenta con una plantilla aprobada. Sin `WHATSAPP_TEMPLATE_APROBACION` configurada no
-hay reintento: el aviso falla igual que antes y queda en el log.
+**Ojo (T-58/T-59, comprobado en la prueba real):** Meta casi nunca rechaza el texto al
+enviarlo. Lo **acepta** (HTTP 200) y recién después manda por el webhook un estado
+`failed` con el código 131047. Por eso el bot ya no espera el rechazo: anota cuándo
+escribió la dueña por última vez (`negocios.duena_escribio_at`, migración 0023) y, al
+avisarle de un pedido:
+
+- si escribió hace menos de ~24h → va el aviso completo en texto libre (sin costo);
+- si no (o nunca escribió) → va **directamente la plantilla**.
+
+Sin `WHATSAPP_TEMPLATE_APROBACION` configurada siempre va texto libre, y fuera de la
+ventana la dueña no lo recibe: en la terminal queda
+`[WhatsApp] Meta NO entregó un mensaje … (código 131047)`.
+
+Variables en `.env.local` una vez aprobada la plantilla:
+
+```
+WHATSAPP_TEMPLATE_APROBACION=aviso_pedido_aprobacion
+WHATSAPP_TEMPLATE_IDIOMA=es
+WHATSAPP_TEMPLATE_BOTONES=true
+```
 
 ### Texto a cargar en Meta
 

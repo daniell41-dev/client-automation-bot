@@ -31,8 +31,10 @@ import {
   createMessageDedupeRepository,
   createPaymentGateway,
   createSessionRepository,
+  createVentanaDuenaRepository,
   createWhatsAppUsageRepository,
 } from "@/core/storage/factory";
+import { ventanaAbierta } from "@/core/storage/ventana-duena-repository";
 import { createLLMProvider } from "@/core/ai/factory";
 import { handleIncoming, handleOwnerApproval } from "@/core/handle";
 import type { IncomingMessage } from "@/core/types";
@@ -204,7 +206,16 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
       // T-21/PR5: si quien escribe es la dueña (el número que carga en
       // "Configuración → Aviso por WhatsApp"), el mensaje NUNCA entra al
       // funnel de cliente — es su sí/no a un pedido pendiente.
+      // T-59: dónde se anota cuándo escribió la dueña (para saber si su
+      // ventana de 24h está abierta al avisarle de un pedido).
+      const ventanaDuena = createVentanaDuenaRepository();
+      const negocioVentana = resolved.negocioId ?? business.slug;
+
       if (business.notifyPhoneNumber && parsed.from === business.notifyPhoneNumber) {
+        // Cualquier mensaje suyo (texto, botón o audio) reabre la ventana.
+        await ventanaDuena.registrarMensaje(negocioVentana, new Date()).catch((err) => {
+          console.error("[WhatsApp] no se pudo anotar el mensaje de la dueña:", err);
+        });
         // T-46: un audio de la dueña NO se transcribe para aprobar: un "sí"
         // mal escuchado liberaría un pedido sin pagar. Se le pide el botón o
         // el texto, que no tienen ambigüedad.
@@ -261,6 +272,21 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
             downloadWhatsAppMedia(mediaId, { accessToken, tipo })
         : undefined;
 
+      // T-59: el aviso a la dueña sale con plantilla si su ventana de 24h
+      // está cerrada (o nunca escribió). Si está abierta, va el aviso
+      // completo en texto libre, que además no tiene costo.
+      const ultimoDuena = await ventanaDuena.ultimoMensaje(negocioVentana).catch(() => undefined);
+      const notificadorDuena =
+        accessToken && plantillaAviso && !ventanaAbierta(ultimoDuena, new Date())
+          ? new WhatsAppChannel({
+              phoneNumberId: parsed.phoneNumberId,
+              accessToken,
+              plantilla: plantillaAviso,
+              forzarPlantilla: true,
+              medidor: { negocio: negocioUso, repo: usoWhatsapp },
+            })
+          : channel;
+
       const { messages: replies } = await handleIncoming(
         message,
         business,
@@ -269,7 +295,7 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
         llm ?? undefined,
         sessionRepo,
         calendar,
-        channel,
+        notificadorDuena,
         inventory,
         resolved.negocioId ?? business.slug,
         mediaDownloader,
