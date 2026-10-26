@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseInbound } from "@/core/channels/whatsapp/parse";
+import { esVentanaCerradaEnEstado, parseEnviosFallidos, parseInbound } from "@/core/channels/whatsapp/parse";
 
 // Payload de ejemplo con la forma real de un webhook de mensajes de Meta.
 const samplePayload = {
@@ -255,5 +255,38 @@ describe("parseInbound — respuestas a botones (T-31)", () => {
       }),
     );
     expect(m).toMatchObject({ text: "Rechazar", botonId: "rechazar:ped-1" });
+  });
+});
+
+describe("parseEnviosFallidos (T-58)", () => {
+  it("devuelve los envíos que Meta reportó como fallidos, con código y detalle", () => {
+    const payload = {
+      entry: [
+        {
+          changes: [
+            {
+              value: {
+                metadata: { phone_number_id: "111" },
+                statuses: [
+                  { id: "wamid.1", status: "delivered", recipient_id: "573001112233" },
+                  {
+                    id: "wamid.2",
+                    status: "failed",
+                    recipient_id: "573159998877",
+                    errors: [{ code: 131047, title: "Re-engagement message", error_data: { details: "More than 24 hours have passed" } }],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    const fallidos = parseEnviosFallidos(payload);
+    expect(fallidos).toEqual([
+      { phoneNumberId: "111", destinatario: "573159998877", codigo: 131047, detalle: "More than 24 hours have passed" },
+    ]);
+    expect(esVentanaCerradaEnEstado(fallidos[0].codigo)).toBe(true);
+    expect(parseInbound(payload)).toEqual([]);
   });
 });

@@ -17,7 +17,7 @@ import {
   verifyChallenge,
   verifySignature,
 } from "@/core/channels/whatsapp/verify";
-import { parseInbound } from "@/core/channels/whatsapp/parse";
+import { esVentanaCerradaEnEstado, parseEnviosFallidos, parseInbound } from "@/core/channels/whatsapp/parse";
 import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
 import { downloadWhatsAppMedia } from "@/core/channels/whatsapp/media";
 import { resolveBusinessByPhoneNumberId } from "@/businesses/resolve";
@@ -133,6 +133,18 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
         conBotones: process.env.WHATSAPP_TEMPLATE_BOTONES === "true",
       }
     : undefined;
+
+  // T-58: Meta avisa DESPUÉS, por este mismo webhook, cuando no pudo
+  // entregar algo que el bot mandó. Sin este log, un aviso a la dueña
+  // perdido por la ventana de 24h no dejaba ningún rastro.
+  for (const fallido of parseEnviosFallidos(payload)) {
+    console.error(
+      `[WhatsApp] Meta NO entregó un mensaje a ${fallido.destinatario} (código ${fallido.codigo ?? "?"}): ${fallido.detalle}` +
+        (esVentanaCerradaEnEstado(fallido.codigo)
+          ? " → esa persona no le escribió al número del negocio en las últimas 24h. Hace falta que escriba primero, o la plantilla aprobada (docs/05 §7)."
+          : ""),
+    );
+  }
 
   try {
     for (const parsed of parseInbound(payload)) {
