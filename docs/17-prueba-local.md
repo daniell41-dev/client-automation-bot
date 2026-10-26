@@ -318,7 +318,7 @@ Lo que todavía no pasa:
 | No llega nada a ngrok | `subscribed_apps` del WABA (§8 de `05-whatsapp-setup.md`) |
 | Error 401 / código 190 | Token vencido: usar el permanente (§9) |
 | "No hay negocio para el phone_number_id" | El `phone_number_id` del negocio en el back office no coincide con el del número |
-| La dueña no recibe avisos | Su WhatsApp en Configuración, en formato `57…`, y distinto del número del negocio |
+| La dueña no recibe avisos | Su WhatsApp en Configuración, en formato `57…`, y distinto del número del negocio. Si en la terminal aparece `[WhatsApp] Meta NO entregó un mensaje … (código 131047)`, es la ventana de 24h: la dueña tiene que escribirle primero al número del negocio, o hace falta la plantilla aprobada (`docs/05` §7) |
 | Datos raros | Tablas `negocios`, `leads` y `comprobantes` en Supabase |
 | "WhatsApp (mes)" muestra "—" | Falta aplicar la migración `0021_uso_whatsapp.sql` |
 | "Subir QR" da error de bucket | Falta aplicar la migración `0022_pagos_qr.sql` |

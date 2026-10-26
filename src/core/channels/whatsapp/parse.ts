@@ -18,8 +18,16 @@ interface MetaChange {
 }
 interface MetaValue {
   metadata?: { phone_number_id?: string };
+  /** T-58: avisos de entrega (sent/delivered/read/failed) de lo que mandó el bot. */
+  statuses?: MetaStatus[];
   contacts?: { wa_id?: string; profile?: { name?: string } }[];
   messages?: MetaMessage[];
+}
+interface MetaStatus {
+  id?: string;
+  status?: string;
+  recipient_id?: string;
+  errors?: { code?: number; title?: string; message?: string; error_data?: { details?: string } }[];
 }
 interface MetaMessage {
   id?: string;
@@ -174,4 +182,44 @@ export function parseInbound(payload: unknown): ParsedWhatsAppMessage[] {
   }
 
   return result;
+}
+
+/** T-58: un mensaje del bot que Meta aceptó pero después no pudo entregar. */
+export interface EnvioFallido {
+  phoneNumberId: string;
+  destinatario: string;
+  codigo?: number;
+  detalle: string;
+}
+
+/**
+ * T-58: los envíos que Meta reporta como `failed` en el webhook. Meta acepta
+ * el envío (HTTP 200) y recién DESPUÉS avisa que no lo entregó — el caso
+ * típico es la ventana de 24h cerrada (131047). Sin leer esto, el aviso a la
+ * dueña desaparecía sin ningún rastro en la terminal.
+ */
+export function parseEnviosFallidos(payload: unknown): EnvioFallido[] {
+  const data = (payload ?? {}) as MetaPayload;
+  const fallidos: EnvioFallido[] = [];
+  for (const entry of data.entry ?? []) {
+    for (const change of entry.changes ?? []) {
+      const phoneNumberId = change.value?.metadata?.phone_number_id ?? "";
+      for (const st of change.value?.statuses ?? []) {
+        if (st.status !== "failed") continue;
+        const error = st.errors?.[0];
+        fallidos.push({
+          phoneNumberId,
+          destinatario: st.recipient_id ?? "?",
+          codigo: error?.code,
+          detalle: error?.error_data?.details ?? error?.message ?? error?.title ?? "sin detalle",
+        });
+      }
+    }
+  }
+  return fallidos;
+}
+
+/** T-58: Meta no entregó porque el destinatario no escribió en las últimas 24h. */
+export function esVentanaCerradaEnEstado(codigo: number | undefined): boolean {
+  return codigo === 131047 || codigo === 470;
 }
