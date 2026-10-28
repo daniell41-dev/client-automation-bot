@@ -49,3 +49,7 @@ next-env.d.ts
 /graphify-out/
 /.atl/
 /.codebase-memory/
+
+# T-61: secretos del VPS
+deploy/.env.production
+!deploy/.env.production.example

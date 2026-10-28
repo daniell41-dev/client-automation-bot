@@ -1,0 +1,53 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# T-61: Nexo en un VPS — Traefik (HTTPS automático con Let's Encrypt) + la app.
+# Guía completa: docs/19-vps.md. Se usa desde la carpeta deploy/:
+#
+#   docker compose --env-file .env.production up -d --build
+#
+# La base de datos, el login y los archivos siguen en Supabase: el VPS solo
+# corre la app (así los backups y el mantenimiento de la base no son nuestros).
+# ═══════════════════════════════════════════════════════════════════════════
+
+services:
+  traefik:
+    image: traefik:v3.1
+    restart: unless-stopped
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      # Todo lo que entra por http se redirige a https.
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --certificatesresolvers.le.acme.httpchallenge=true
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt:/letsencrypt
+
+  app:
+    build:
+      context: ..
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+    restart: unless-stopped
+    env_file: .env.production
+    # Margen para que termine de procesar los webhooks en curso al reiniciar.
+    stop_grace_period: 30s
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.nexo.rule=Host(`${DOMINIO}`)
+      - traefik.http.routers.nexo.entrypoints=websecure
+      - traefik.http.routers.nexo.tls.certresolver=le
+      - traefik.http.services.nexo.loadbalancer.server.port=3000
+
+volumes:
+  letsencrypt:
