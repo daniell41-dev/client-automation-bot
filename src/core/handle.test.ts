@@ -1624,6 +1624,10 @@ describe("handleIncoming — confirmación de pago con comprobante (T-24.4)", ()
 
     expect(notifier.sent).toHaveLength(1);
     expect(notifier.sent[0].text).toMatch(/ya se usó|referencia/i);
+    // T-63: la plantilla (aviso fuera de la ventana de 24h) también lleva la
+    // alerta — en la prueba real llegó sin ella y la dueña no se enteraba.
+    expect(notifier.sent[0].plantillaParams?.[2]).toMatch(/⚠️ REVISAR/);
+    expect(notifier.sent[0].plantillaParams?.[2]).toMatch(/ya se usó|referencia/i);
   });
 
   it("un comprobante ilegible pide que lo reenvíen, sin avisar a la dueña", async () => {
