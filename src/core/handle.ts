@@ -1000,9 +1000,18 @@ async function notifyOwner(
   const resumenCarritoTexto = esPedido
     ? resumenCarrito(lead.items!, config.services, config, lead.entrega)
     : (service?.name ?? lead.tentativeDate ?? "");
-  const resumenPlantilla = opciones.pedido
-    ? `#${opciones.pedido.numero} · ${resumenCarritoTexto}`
-    : resumenCarritoTexto;
+  // T-63: las alertas del comprobante van también en la plantilla. En la
+  // prueba real un comprobante reciclado llegó por plantilla sin ningún ⚠️:
+  // la dueña lo habría aprobado sin saber. Van al final del mismo parámetro
+  // ({{3}}), porque el texto fijo de la plantilla ya está aprobado por Meta.
+  const alertasPlantilla = opciones.comprobante?.señales.length
+    ? ` · ⚠️ REVISAR: ${opciones.comprobante.señales.map((s) => s.detalle).join(" · ")}`
+    : opciones.comprobante
+      ? " · Revisá en tu app del banco que llegó la plata"
+      : "";
+  const resumenPlantilla =
+    (opciones.pedido ? `#${opciones.pedido.numero} · ${resumenCarritoTexto}` : resumenCarritoTexto) +
+    alertasPlantilla;
 
   try {
     await notifier.send({
