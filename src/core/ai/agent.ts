@@ -204,6 +204,26 @@ function productoNombrado(texto: string, config: BusinessConfig) {
   );
 }
 
+/**
+ * T-62: ¿el cliente está pidiendo corregir lo anotado o empezar de cero?
+ * ("no, yo no pedí eso", "cambié de idea", "cancelá todo", "empezar de
+ * nuevo", "me equivoqué"). Es la condición para aceptar un "reiniciar" de la IA.
+ */
+export function pideCorregirOEmpezar(texto: string): boolean {
+  const t = texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return (
+    isResetRequest(texto) ||
+    // "no pedí eso", "yo no he pedido nada", "ese no es mi nombre", "no quiero eso".
+    // Sin un "no, eso es todo" (cierre normal del carrito) por el medio.
+    /\bno\s+(he\s+)?(pedi\w*|ordene\w*)/.test(t) ||
+    /\b(ese|esa|eso)\s+no\s+(es|era)\b|\bno\s+(es|era)\s+(mi|lo que)\b/.test(t) ||
+    /\bno\s+quiero\s+(eso|esa|ese|nada de eso)\b/.test(t) ||
+    // "solo pedí la prueba": corrige el carrito anotado.
+    /\bsolo\s+(pedi|quiero|queria)\b/.test(t) ||
+    /\b(cancel\w*|cambi\w* de idea|equivoq\w*|equivoc\w*|borr\w*|olvid\w*|de nuevo|desde cero|otra vez|reinici\w*)\b/.test(t)
+  );
+}
+
 /** Solo los dígitos, para comparar "300 123 4567" con "3001234567". */
 function soloDigitos(texto: string): string {
   return texto.replace(/\D/g, "");
@@ -298,7 +318,11 @@ export async function runAgentTurn(
   // La IA detectó que los datos guardados no corresponden ("yo no pedí
   // nada", "cambié de idea"). Se limpia ANTES de aplicar el resto de las
   // acciones, para que un `elegir_servicio` del MISMO turno sobreviva.
-  if (aiResult.acciones.some((a) => a.tipo === "reiniciar")) {
+  // T-62: solo si el mensaje del cliente lo pide. En la prueba real, con
+  // Gemini caído por timeout, el modelo de respaldo declaró "reiniciar" en
+  // CADA mensaje ("Dame un plato de prueba" incluido) y borraba el pedido en
+  // curso. Borrar datos del cliente es irreversible: no se confía en la IA.
+  if (aiResult.acciones.some((a) => a.tipo === "reiniciar") && pideCorregirOEmpezar(message.text)) {
     limpiarDatosCapturados(lead);
     wasAlreadyConfirmed = false;
     wasAwaitingApproval = false;

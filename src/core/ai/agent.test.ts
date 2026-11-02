@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cantidadPegadaAlProducto, inventaDatosDePago, runAgentTurn } from "@/core/ai/agent";
+import { cantidadPegadaAlProducto, inventaDatosDePago, pideCorregirOEmpezar, runAgentTurn } from "@/core/ai/agent";
 import type { AgentResponse } from "@/core/ai/agent-schema";
 import type { ILLMProvider } from "@/core/ai/provider";
 import type { BusinessConfig, IncomingMessage, Lead, PersonaConfig } from "@/core/types";
@@ -1236,5 +1236,66 @@ describe("runAgentTurn — empezar de nuevo y quitar productos (T-57)", () => {
     );
     expect(r!.lead.items).toEqual([{ serviceId: "prueba", cantidad: 1 }]);
     expect(r!.lead.serviceId).toBe("prueba");
+  });
+});
+
+describe("reiniciar solo si el cliente lo pide (T-62)", () => {
+  it("reconoce pedidos de corregir o empezar de cero", () => {
+    for (const t of ["empezar de nuevo", "no, yo no pedí eso", "cambié de idea", "cancelá todo", "me equivoqué", "borrá lo anterior"]) {
+      expect(pideCorregirOEmpezar(t)).toBe(true);
+    }
+  });
+
+  it("un pedido normal no es un pedido de reinicio", () => {
+    for (const t of ["Dame un plato de prueba", "Recoger en el local", "Valero", "sí", "quiero una bandeja paisa"]) {
+      expect(pideCorregirOEmpezar(t)).toBe(false);
+    }
+  });
+
+  it("un 'reiniciar' de la IA sin que el cliente lo pida no borra el pedido", async () => {
+    const restaurante: BusinessConfig = {
+      ...config,
+      slug: "sabores",
+      catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+      services: [{ id: "prueba", name: "Plato de prueba", description: "x", price: 400, keywords: ["prueba"] }],
+    };
+    const conPedido: Lead = {
+      id: "lead-1",
+      businessSlug: "sabores",
+      channel: "mock",
+      contact: "57300000000",
+      name: "Valero",
+      serviceId: "prueba",
+      items: [{ serviceId: "prueba", cantidad: 1 }],
+      state: "interesado",
+      stage: "carrito_abierto",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      lastInboundAt: now.toISOString(),
+      followUpsSent: [],
+    };
+    const r = await runAgentTurn(
+      conPedido,
+      msg("Recoger en el local"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "Listo", acciones: [{ tipo: "reiniciar" }] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.lead.name).toBe("Valero");
+    expect(r!.lead.items).toEqual([{ serviceId: "prueba", cantidad: 1 }]);
+  });
+});
+
+describe("pideCorregirOEmpezar — casos límite (T-62)", () => {
+  it("'pero yo no he pedido nada' y 'ese no es mi nombre' piden corregir", () => {
+    expect(pideCorregirOEmpezar("pero yo no he pedido nada")).toBe(true);
+    expect(pideCorregirOEmpezar("ese no es mi nombre")).toBe(true);
+  });
+
+  it("cerrar el carrito ('no, eso es todo') no es reiniciar", () => {
+    expect(pideCorregirOEmpezar("no, eso es todo")).toBe(false);
+    expect(pideCorregirOEmpezar("no quiero nada más")).toBe(false);
   });
 });
