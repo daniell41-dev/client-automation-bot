@@ -136,6 +136,24 @@ Si Meta manda un mensaje justo en ese momento, lo reintenta solo.
 - **Espacio en disco:** cada build deja imágenes viejas; limpiar cada tanto con
   `docker image prune -f`.
 
+### Monitor con alertas al celular (T-65, obligatorio antes de vender)
+
+La app expone `https://bot.tudominio.com/api/health`: responde **200** si la app y la
+base (Supabase) andan, y **503** si la base no contesta. Un monitor externo la llama
+cada minuto y avisa si falla — así uno se entera antes que el cliente.
+
+1. Crear cuenta gratis en **UptimeRobot** (uptimerobot.com) o **Better Stack**
+   (betterstack.com/uptime).
+2. Nuevo monitor → tipo **HTTP(s)** → URL `https://bot.tudominio.com/api/health` →
+   intervalo **1–5 minutos** (lo que permita el plan gratis).
+3. Alertas: correo, y la app del monitor en el celular (notificaciones push) o
+   Telegram.
+4. Probarlo: `docker compose stop app` en el servidor → tiene que llegar la alerta en
+   pocos minutos → `docker compose start app` → llega el aviso de que volvió.
+
+Si el servidor se cae un rato, **no se pierden mensajes**: Meta reintenta los webhooks
+y llegan cuando vuelve (comprobado en la prueba real con ngrok caído).
+
 ### Portainer (opcional)
 
 Para ver los contenedores desde el navegador en vez de la terminal:

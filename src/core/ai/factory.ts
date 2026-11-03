@@ -29,7 +29,7 @@ export function resolveReasoningEffort(presetDefault: string | undefined): strin
   return override === "" ? undefined : override;
 }
 
-/** Timeout de `runAgent` en ms: `AI_AGENT_TIMEOUT_MS` o el default del provider (20000). */
+/** Timeout de `runAgent` en ms: `AI_AGENT_TIMEOUT_MS` o el default del provider (8000, T-65). */
 export function resolveAgentTimeoutMs(): number | undefined {
   const raw = process.env.AI_AGENT_TIMEOUT_MS;
   if (!raw) return undefined;
