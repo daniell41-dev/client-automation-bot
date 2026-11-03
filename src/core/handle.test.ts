@@ -2117,6 +2117,38 @@ describe("aprobación por pedido, sin FIFO (T-31)", () => {
     return { repo, db, pedidos, notifier };
   }
 
+  it("T-64: rechazar un pedido viejo del mismo cliente no rompe el pedido nuevo en curso", async () => {
+    const repo = new InMemoryRepo();
+    const db = makeFakeSupabaseDb();
+    const pedidos = new SupabasePedidoRepository(db);
+    const notifier = fakeNotifier();
+    const m = cliente("57300000000");
+    const pedir = async () => {
+      for (const texto of ["harina", "Carlos", "1", "no, eso es todo", "sí"]) {
+        await handleIncoming(m(texto), tiendaConNotify, repo, new Date(), undefined, undefined, undefined, notifier,
+          undefined, "neg-1", undefined, undefined, undefined, pedidos);
+      }
+    };
+    await pedir(); // #1, queda sin decidir
+    // El cliente empieza de nuevo (como en la prueba real) y hace el #2.
+    repo.leads[0] = { ...repo.leads[0], stage: "inicio", state: "nuevo", items: undefined, serviceId: undefined, name: undefined };
+    await pedir(); // #2, en curso
+    expect(db.pedidos.map((p) => p.numero)).toEqual([1, 2]);
+
+    const rechazo = await handleOwnerApproval(
+      ownerMsg("Rechazar", `rechazar:${db.pedidos[0].id}`), tiendaConNotify, repo, new Date(), pedidos, "neg-1",
+    );
+    expect(rechazo.customerReply?.text).toMatch(/^Pedido #1: /);
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion"); // la conversación sigue siendo del #2
+
+    const aprobacion = await handleOwnerApproval(
+      ownerMsg("Aprobar", `aprobar:${db.pedidos[1].id}`), tiendaConNotify, repo, new Date(), pedidos, "neg-1",
+    );
+    expect(aprobacion.customerReply?.text).toMatch(/^Pedido #2/);
+    expect(db.pedidos[1].estado).toBe("aprobado");
+    expect(db.pedidos[0].estado).toBe("rechazado");
+  });
+
   it("el aviso trae botones Aprobar/Rechazar con el id del pedido y la instrucción escrita", async () => {
     const { db, notifier } = await dosPedidos();
 
