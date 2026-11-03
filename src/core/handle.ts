@@ -1213,6 +1213,18 @@ export async function handleOwnerApproval(
     }
     lead = pendientes[0] ?? null;
   }
+  // T-64: un cliente puede tener un pedido viejo sin decidir y uno nuevo en
+  // curso (en la prueba real: #4 con comprobante reciclado y #5 recién
+  // pagado). Decidir sobre el viejo NO puede tocar el estado de la
+  // conversación, que ya es del nuevo: antes, rechazar el #4 dejaba al lead
+  // en "inicio" y aprobar el #5 fallaba con "ya no está esperando".
+  if (pedido && lead) {
+    const actual = pedidos ? await pedidos.abiertoDeLead(lead.id).catch(() => null) : null;
+    const esElDeLaConversacion = lead.stage === "esperando_aprobacion" && (!actual || actual.id === pedido.id);
+    if (!esElDeLaConversacion) {
+      return decidirSoloElPedido(message, config, lead, pedido, respuesta.decision, pedidos, comprobantes, inventory, negocioKey);
+    }
+  }
   if (!lead || lead.stage !== "esperando_aprobacion") {
     return reply(
       pedido
@@ -1240,6 +1252,7 @@ export async function handleOwnerApproval(
       customerReply: {
         to: lead.contact,
         text: [
+          pedido ? `Pedido #${pedido.numero}` : null,
           resumen,
           render(config.messages.pedidoConfirmado ?? DEFAULT_PEDIDO_CONFIRMADO, nombreVars),
           lineaCodigoRetiro(pedido, codigo),
@@ -1271,7 +1284,70 @@ export async function handleOwnerApproval(
     ownerReply: { to: message.from, text: `Marcado como rechazado el ${etiqueta}.` },
     customerReply: {
       to: lead.contact,
-      text: render(config.messages.pedidoRechazado ?? DEFAULT_PEDIDO_RECHAZADO, nombreVars),
+      text: conNumero(pedido, render(config.messages.pedidoRechazado ?? DEFAULT_PEDIDO_RECHAZADO, nombreVars)),
+    },
+  };
+}
+
+/**
+ * T-64: el cliente tiene que saber de QUÉ pedido se le habla. Sin el número,
+ * un rechazo de un pedido viejo parecía el rechazo del que acababa de pagar.
+ */
+function conNumero(pedido: Pedido | null, texto: string): string {
+  return pedido ? `Pedido #${pedido.numero}: ${texto}` : texto;
+}
+
+/**
+ * T-64: decide sobre un pedido que ya no es el de la conversación en curso
+ * (el cliente hizo otro después). Se mueven el pedido, su comprobante y el
+ * stock, pero el lead queda como está: su estado es del pedido nuevo.
+ */
+async function decidirSoloElPedido(
+  message: IncomingMessage,
+  config: BusinessConfig,
+  lead: Lead,
+  pedido: Pedido,
+  decision: "aceptado" | "rechazado",
+  pedidos: PedidoRepository | undefined,
+  comprobantes: ComprobanteRepository | undefined,
+  inventory: InventoryRepository | undefined,
+  negocioKey: string,
+): Promise<OwnerApprovalResult> {
+  const nombreVars = { nombre: lead.name ?? pedido.cliente ?? "" };
+  const etiqueta = `pedido #${pedido.numero} de ${pedido.cliente ?? lead.name ?? pedido.contacto}`;
+  if (decision === "aceptado") {
+    const codigo = await cerrarDecisionDelPedido(pedidos, comprobantes, pedido, "aprobado");
+    const resumen = resumenCarrito(
+      pedido.items.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
+      config.services,
+      config,
+      pedido.modalidad,
+    );
+    return {
+      ownerReply: {
+        to: message.from,
+        text: `Listo, confirmado el ${etiqueta} ✅${codigo ? `\nCódigo de retiro: ${codigo} — entregalo solo contra este código.` : ""}`,
+      },
+      customerReply: {
+        to: pedido.contacto,
+        text: [
+          `Pedido #${pedido.numero}`,
+          resumen,
+          render(config.messages.pedidoConfirmado ?? DEFAULT_PEDIDO_CONFIRMADO, nombreVars),
+          lineaCodigoRetiro(pedido, codigo),
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
+      },
+    };
+  }
+  await devolverStock(inventory, negocioKey, pedido.stockReservado ? pedido.items : undefined);
+  await cerrarDecisionDelPedido(pedidos, comprobantes, pedido, "rechazado");
+  return {
+    ownerReply: { to: message.from, text: `Marcado como rechazado el ${etiqueta}.` },
+    customerReply: {
+      to: pedido.contacto,
+      text: conNumero(pedido, render(config.messages.pedidoRechazado ?? DEFAULT_PEDIDO_RECHAZADO, nombreVars)),
     },
   };
 }
