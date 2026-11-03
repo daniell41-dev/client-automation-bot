@@ -104,7 +104,7 @@ Verificar que funciona: `pnpm ai:doctor` — revisa cada proveedor configurado (
 
 Gemini 3 y `gpt-oss` (el modelo de Groq) "piensan" antes de responder — **incluso si no se les manda `reasoning_effort` en absoluto**: el campo no es "on/off", es "cuánto"; omitirlo no lo apaga, deja el nivel por defecto del proveedor (más alto que "low"). `presets.ts` configura `reasoning_effort: "low"` para Gemini y Groq (Cerebras no lo necesita, no razona) y **todos** los métodos (`enhance()`, `interpret()`, `extractDateTime()`, `runAgent()`) mandan ese mismo valor.
 
-`runAgent()` (modo agente: prompt largo + JSON estricto, ver `docs/13-modo-agente.md`) además usa `max_tokens` holgado (1600) y timeout propio (20s por defecto vs. 8s del resto), porque esos tokens de razonamiento salen del mismo presupuesto que la respuesta y razonar tarda más cuanto más crece el catálogo + historial.
+`runAgent()` (modo agente: prompt largo + JSON estricto, ver `docs/13-modo-agente.md`) además usa `max_tokens` holgado (1600) y timeout propio (8 s por defecto desde T-65; antes 20 s, pero con el cliente esperando conviene pasar rápido al siguiente proveedor), porque esos tokens de razonamiento salen del mismo presupuesto que la respuesta y razonar tarda más cuanto más crece el catálogo + historial.
 
 Que sea el MISMO valor en todos los métodos no fue la primera opción — se llegó ahí probando las otras dos con keys reales y viendo que fallaban peor (`pnpm ai:doctor`, sept-2026):
 
@@ -121,7 +121,8 @@ Configurable sin tocar código:
 # el campo — no lo recomendamos: peor que "low" (ver arriba).
 # AI_REASONING_EFFORT=
 
-# Timeout de runAgent en ms (default 20000). En Vercel Hobby el límite de
+# Timeout de runAgent en ms (default 8000, T-65: pasado ese tiempo responde
+# el siguiente proveedor). En Vercel Hobby el límite de
 # función es 10s: si migrás ahí, bajalo o pasate a un plan con más tiempo.
 # AI_AGENT_TIMEOUT_MS=
 ```

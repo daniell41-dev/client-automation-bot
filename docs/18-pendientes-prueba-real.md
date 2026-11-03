@@ -27,6 +27,11 @@ retome, seguir en este orden. La guía completa sigue siendo `docs/17-prueba-loc
 
 ## 3. Pruebas pendientes
 
+Estado al 3-nov-2026: ✅ el aviso con plantilla llega sin que la dueña escriba (botones
+Aprobar / Rechazar incluidos); ✅ el rechazo del #4 (comprobante reciclado) se aplicó
+—tarde, por la caída de ngrok, pero Meta lo reintentó. **Seguir desde "Pedido bueno":**
+`git pull`, reiniciar `pnpm dev` (con ngrok de dominio fijo) y que la dueña apruebe el #5.
+
 Usar el plato "Plato de prueba" ($400) y **recoger en el local** para transferir poco.
 
 - [ ] **Aviso con plantilla:** la dueña NO le escribe al bot antes. Pedido completo con
@@ -46,6 +51,9 @@ Usar el plato "Plato de prueba" ($400) y **recoger en el local** para transferir
 Si algo falla: captura del chat + las líneas `[Agent]` y `[WhatsApp]` de la terminal.
 
 ## 4. Antes de vender
+
+- [ ] **Bot en el VPS** (no en la compu con ngrok): `docs/19-vps.md`.
+- [ ] **Monitor con alertas al celular** sobre `/api/health`: `docs/19-vps.md` §9.
 
 - [ ] Verificación de la empresa en Meta (RUT de persona natural) — sin esto, 2 números.
 - [ ] Publicar la app de Meta (pide URL de política de privacidad: falta la página `/privacidad`).

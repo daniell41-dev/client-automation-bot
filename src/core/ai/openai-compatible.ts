@@ -52,9 +52,12 @@ export interface OpenAICompatibleOptions {
   /** Timeout de la llamada en ms (default 8000; Vercel Hobby corta a 10s). */
   timeoutMs?: number;
   /**
-   * Timeout propio para `runAgent` (default 20000). Un modelo que razona
-   * tarda más que un `enhance()`/`interpret()` corto, y ese tiempo crece con
-   * el catálogo + historial del prompt de agente.
+   * Timeout propio para `runAgent` (default 8000). Un modelo que razona
+   * tarda más que un `enhance()`/`interpret()` corto, pero T-65: el cliente
+   * está esperando en WhatsApp. Antes eran 20 s; en la prueba real Gemini se
+   * puso lento y cada mensaje esperaba los 20 s enteros antes de pasar al
+   * respaldo (Groq responde en ~0,4 s). Mejor cortar antes y que conteste el
+   * siguiente proveedor.
    */
   agentTimeoutMs?: number;
   /**
@@ -192,6 +195,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
   private readonly fetchImpl: typeof fetch;
   private readonly timeoutMs: number;
   private readonly agentTimeoutMs: number;
+  private readonly transcripcionTimeoutMs: number;
   private readonly reasoningEffort?: string;
   private readonly transcripcion?: "gemini" | "whisper";
 
@@ -202,7 +206,10 @@ export class OpenAICompatibleProvider implements ILLMProvider {
     this.model = opts.model;
     this.fetchImpl = opts.fetchImpl ?? fetch;
     this.timeoutMs = opts.timeoutMs ?? 8000;
-    this.agentTimeoutMs = opts.agentTimeoutMs ?? 20000;
+    this.agentTimeoutMs = opts.agentTimeoutMs ?? 8000;
+    // Una nota de voz larga tarda más en subir y transcribirse que un turno
+    // de texto: no se le aplica el corte corto del agente.
+    this.transcripcionTimeoutMs = Math.max(this.agentTimeoutMs, 20000);
     this.reasoningEffort = opts.reasoningEffort;
     this.supportsVision = opts.supportsVision ?? false;
     this.transcripcion = opts.transcripcion;
@@ -365,7 +372,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
   /**
    * T-46: nota de voz → texto. Lanza ante un error HTTP o de red (igual que
    * el resto de los métodos; `ResilientProvider` lo atrapa y prueba el
-   * siguiente). Usa el timeout largo del agente: un audio de un minuto tarda
+   * siguiente). Usa un timeout propio, más largo que el del agente (T-65): un audio de un minuto tarda
    * más que un prompt corto.
    */
   async transcribeAudio(input: AudioInput): Promise<string | null> {
@@ -392,7 +399,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         ],
         generationConfig: { temperature: 0 },
       }),
-      signal: AbortSignal.timeout(this.agentTimeoutMs),
+      signal: AbortSignal.timeout(this.transcripcionTimeoutMs),
     });
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
@@ -424,7 +431,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
       method: "POST",
       headers: { Authorization: `Bearer ${this.apiKey}` },
       body: form,
-      signal: AbortSignal.timeout(this.agentTimeoutMs),
+      signal: AbortSignal.timeout(this.transcripcionTimeoutMs),
     });
     if (!res.ok) {
       const detail = await res.text().catch(() => "");
