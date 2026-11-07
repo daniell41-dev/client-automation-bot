@@ -55,6 +55,27 @@ describe("SupabasePedidoRepository", () => {
     expect((await repo.obtener(pedido.id))?.montoPagado).toBe(20000);
   });
 
+  it("T-67: el ciclo de la devolución — pedir cuenta, guardarla, marcar devuelto", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabasePedidoRepository(db);
+    const pedido = await repo.crear(nuevo());
+    expect(await repo.esperandoCuentaDeLead("lead-1")).toBeNull();
+
+    await repo.pedirCuentaDevolucion(pedido.id);
+    expect((await repo.esperandoCuentaDeLead("lead-1"))?.devolucion).toEqual({ estado: "pidiendo_cuenta" });
+
+    await repo.guardarCuentaDevolucion(pedido.id, "Nequi 3001234567");
+    expect(await repo.esperandoCuentaDeLead("lead-1")).toBeNull();
+    expect((await repo.obtener(pedido.id))?.devolucion).toEqual({ estado: "pendiente", cuenta: "Nequi 3001234567" });
+
+    await repo.marcarDevuelto(pedido.id, "2026-11-07T18:00:00.000Z");
+    expect((await repo.obtener(pedido.id))?.devolucion).toEqual({
+      estado: "devuelta",
+      cuenta: "Nequi 3001234567",
+      devueltaEn: "2026-11-07T18:00:00.000Z",
+    });
+  });
+
   it("abiertoDeLead devuelve el abierto y nunca uno cerrado", async () => {
     const db = makeFakeSupabaseDb();
     const repo = new SupabasePedidoRepository(db);

@@ -59,6 +59,19 @@ describe("JsonPedidoRepository", () => {
     expect((await repo.obtener(pedido.id))?.montoPagado).toBe(20000);
   });
 
+  it("T-67: el ciclo de la devolución", async () => {
+    const repo = new JsonPedidoRepository(filePath);
+    const pedido = await repo.crear(nuevo());
+    await repo.pedirCuentaDevolucion(pedido.id);
+    expect((await repo.esperandoCuentaDeLead("lead-1"))?.id).toBe(pedido.id);
+
+    await repo.guardarCuentaDevolucion(pedido.id, "Nequi 3001234567");
+    expect(await repo.esperandoCuentaDeLead("lead-1")).toBeNull();
+
+    await repo.marcarDevuelto(pedido.id, "2026-11-07T18:00:00.000Z");
+    expect((await repo.obtener(pedido.id))?.devolucion).toMatchObject({ estado: "devuelta", cuenta: "Nequi 3001234567" });
+  });
+
   it("abiertoDeLead ignora los pedidos cerrados del mismo cliente", async () => {
     const repo = new JsonPedidoRepository(filePath);
     const viejo = await repo.crear(nuevo());

@@ -38,7 +38,7 @@ export default async function PedidosPage({ params }: { params: Promise<{ slug: 
   if (!config) notFound();
 
   const desde = haceUnDia(new Date());
-  const [{ data: abiertos }, { data: entregados }] = await Promise.all([
+  const [{ data: abiertos }, { data: entregados }, { data: devoluciones }] = await Promise.all([
     supabase
       .from("pedidos")
       .select("*, comprobantes(*)")
@@ -54,6 +54,15 @@ export default async function PedidosPage({ params }: { params: Promise<{ slug: 
       .gte("updated_at", desde)
       .order("numero", { ascending: false })
       .limit(30),
+    // T-67: rechazados con plata por devolver. Sin la migración 0025 la
+    // consulta falla y la sección simplemente no aparece.
+    supabase
+      .from("pedidos")
+      .select("*")
+      .eq("negocio_id", negocio.id)
+      .in("devolucion_estado", ["pidiendo_cuenta", "pendiente"])
+      .order("numero", { ascending: true })
+      .limit(50),
   ]);
 
   const filas = [...(abiertos ?? []), ...(entregados ?? [])] as unknown as (PedidoRow & {
@@ -90,6 +99,7 @@ export default async function PedidosPage({ params }: { params: Promise<{ slug: 
         moneda={config.currency}
         locale={config.locale ?? "es-CO"}
         panel={armarPanel(filas.map(toPedido))}
+        devoluciones={((devoluciones ?? []) as PedidoRow[]).map(toPedido)}
         señales={señales}
       />
     </>

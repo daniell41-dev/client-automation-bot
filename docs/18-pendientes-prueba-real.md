@@ -8,6 +8,7 @@ retome, seguir en este orden. La guía completa sigue siendo `docs/17-prueba-loc
 
 - [ ] Supabase: correr la migración `0023_duena_escribio.sql`.
 - [ ] Supabase: correr la migración `0024_pedido_monto_pagado.sql` (T-66, pedir el resto).
+- [ ] Supabase: correr la migración `0025_devoluciones.sql` (T-67, devoluciones).
 - [ ] `git pull` en `develop` y reiniciar `pnpm dev` (sin reiniciar corre el código viejo).
 - [ ] Opcional: `GEMINI_MODEL` con un modelo "flash" no lite (ver `pnpm ai:doctor`).
 
@@ -45,9 +46,11 @@ Usar el plato "Plato de prueba" ($400) y **recoger en el local** para transferir
       un tercer botón "Pedir resto #N" (o "RESTO N" escrito si llegó la plantilla) → al
       cliente le llega "te faltan $300" → transferir $300 → el aviso nuevo ya no trae
       ⚠️ de monto → aprobar.
-- [ ] **Rechazo con plata de por medio (T-66):** rechazar un pedido con comprobante →
-      el cliente lee "si ya transferiste, escribinos y coordinamos la devolución" y la
-      dueña "acordate de devolvérselos".
+- [ ] **Devolución (T-66/T-67):** rechazar un pedido con comprobante → el cliente lee
+      que le devuelven si la plata salió de su cuenta y que mande banco/Nequi, número y
+      titular → responde con su Nequi → le llega "anotamos tu cuenta" y a la dueña la
+      cuenta → en el panel → Pedidos aparece **💸 Devoluciones** con "Devolver $X" y la
+      cuenta → "Ya devolví" → al cliente le llega "ya te devolvimos".
 - [ ] **Aviso con plantilla:** la dueña NO le escribe al bot antes. Pedido completo con
       comprobante real → le llega la plantilla con Aprobar / Rechazar → aprueba → al
       cliente le llega número de pedido y código de retiro.

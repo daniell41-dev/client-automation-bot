@@ -6,6 +6,7 @@
 
 import type { PedidoRow, SupabaseDb } from "@/core/storage/adapters/supabase/api";
 import type {
+  EstadoDevolucion,
   EstadoPedido,
   ItemPedido,
   NuevoPedido,
@@ -38,6 +39,13 @@ export function toPedido(row: PedidoRow): Pedido {
     stockReservado: row.stock_reservado ?? false,
     // Sin la migración 0024 la columna no viene: se lee como "nada pagado".
     montoPagado: row.monto_pagado != null ? Number(row.monto_pagado) : undefined,
+    devolucion: row.devolucion_estado
+      ? {
+          estado: row.devolucion_estado as EstadoDevolucion,
+          cuenta: row.devolucion_cuenta ?? undefined,
+          devueltaEn: row.devuelta_at ?? undefined,
+        }
+      : undefined,
     creadoEn: row.created_at,
     actualizadoEn: row.updated_at,
   };
@@ -97,6 +105,23 @@ export class SupabasePedidoRepository implements PedidoRepository {
 
   async registrarPago(id: string, montoPagado: number): Promise<void> {
     await this.db.updatePedidoMontoPagado(id, montoPagado);
+  }
+
+  async pedirCuentaDevolucion(id: string): Promise<void> {
+    await this.db.updatePedidoDevolucion(id, { devolucion_estado: "pidiendo_cuenta" });
+  }
+
+  async esperandoCuentaDeLead(leadId: string): Promise<Pedido | null> {
+    const row = await this.db.selectPedidoEsperandoCuenta(leadId);
+    return row ? toPedido(row) : null;
+  }
+
+  async guardarCuentaDevolucion(id: string, cuenta: string): Promise<void> {
+    await this.db.updatePedidoDevolucion(id, { devolucion_estado: "pendiente", devolucion_cuenta: cuenta });
+  }
+
+  async marcarDevuelto(id: string, cuandoISO: string): Promise<void> {
+    await this.db.updatePedidoDevolucion(id, { devolucion_estado: "devuelta", devuelta_at: cuandoISO });
   }
 
   async vincularComprobante(id: string, comprobanteId: string): Promise<void> {

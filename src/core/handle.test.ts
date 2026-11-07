@@ -2991,9 +2991,60 @@ describe("pagó de menos: pedir el resto (T-66)", () => {
     );
 
     expect(db.pedidos[0].estado).toBe("rechazado");
-    expect(customerReply?.text).toContain("Si ya transferiste, escribinos y coordinamos la devolución");
     expect(customerReply?.text).toContain("el pedido era de");
+    // T-67: en el mismo mensaje se le pide la cuenta.
+    expect(customerReply?.text).toContain("respondé con el banco o Nequi");
+    expect(ownerReply.text).toContain("hay que devolvérselos");
+    expect(db.pedidos[0].devolucion_estado).toBe("pidiendo_cuenta");
+  });
+
+  it("T-67: el cliente manda la cuenta → queda anotada, se le confirma y la dueña la recibe", async () => {
+    const { repo, db, pedidos, notifier, mandarComprobante } = await pedidoConfirmado();
+    await mandarComprobante(3000, "M1");
+    await handleOwnerApproval(ownerMsg("no 1"), tiendaConPagos, repo, new Date(), pedidos, "neg-1");
+    const avisosAntes = notifier.sent.length;
+
+    const result = await handleIncoming(
+      msg("Nequi 300 123 4567 Laura Gómez"), tiendaConPagos, repo, new Date(), undefined, undefined, undefined, notifier,
+      undefined, "neg-1", undefined, undefined, undefined, pedidos,
+    );
+
+    expect(db.pedidos[0].devolucion_estado).toBe("pendiente");
+    expect(db.pedidos[0].devolucion_cuenta).toBe("Nequi 300 123 4567 Laura Gómez");
+    expect(result.messages[0].text).toContain("anotamos tu cuenta");
+    expect(notifier.sent).toHaveLength(avisosAntes + 1);
+    expect(notifier.sent.at(-1)!.text).toContain("Nequi 300 123 4567 Laura Gómez");
+    expect(notifier.sent.at(-1)!.text).toContain("pedido #1");
+  });
+
+  it("T-67: un mensaje sin número de cuenta sigue la conversación normal y la devolución sigue esperando", async () => {
+    const { repo, db, pedidos, notifier, mandarComprobante } = await pedidoConfirmado();
+    await mandarComprobante(3000, "M1");
+    await handleOwnerApproval(ownerMsg("no 1"), tiendaConPagos, repo, new Date(), pedidos, "neg-1");
+
+    const result = await handleIncoming(
+      msg("hola"), tiendaConPagos, repo, new Date(), undefined, undefined, undefined, notifier,
+      undefined, "neg-1", undefined, undefined, undefined, pedidos,
+    );
+
+    expect(result.messages[0].text).not.toContain("anotamos tu cuenta");
+    expect(db.pedidos[0].devolucion_estado).toBe("pidiendo_cuenta");
+  });
+
+  it("T-67: sin la migración 0025 el rechazo no pide la cuenta (no habría dónde anotarla)", async () => {
+    const { repo, db, pedidos, mandarComprobante } = await pedidoConfirmado();
+    await mandarComprobante(3000, "M1");
+    pedidos.pedirCuentaDevolucion = async () => {
+      throw new Error('column "devolucion_estado" does not exist');
+    };
+
+    const { ownerReply, customerReply } = await handleOwnerApproval(
+      ownerMsg("no 1"), tiendaConPagos, repo, new Date(), pedidos, "neg-1",
+    );
+
+    expect(customerReply?.text).toContain("Si ya transferiste, escribinos y coordinamos la devolución");
     expect(ownerReply.text).toContain("acordate de devolvérselos");
+    expect(db.pedidos[0].estado).toBe("rechazado");
   });
 
   it("un rechazo sin comprobante sigue con el mensaje de siempre", async () => {

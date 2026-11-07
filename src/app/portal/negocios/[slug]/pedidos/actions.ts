@@ -16,6 +16,7 @@ import { resolveBusinessBySlug, type ResolvedBusiness } from "@/businesses/resol
 import { handleOwnerApproval } from "@/core/handle";
 import { mensajePedidoListo, validarEntrega } from "@/core/engine/panel-pedidos";
 import { transicionarPedido } from "@/core/engine/pedido-estado";
+import { devolucionPendiente, mensajeDevuelto } from "@/core/engine/devolucion";
 import { BOTON_APROBAR, BOTON_RECHAZAR } from "@/core/engine/approval";
 import { toPedido } from "@/core/storage/adapters/supabase/pedidos";
 import type { PedidoRow } from "@/core/storage/adapters/supabase/api";
@@ -132,4 +133,31 @@ export async function entregarPedido(_prev: ActionState, formData: FormData): Pr
   await createPedidoRepository().actualizarEstado(pedido.id, transicionarPedido(pedido.estado, "entregado"));
   revalidatePath(`/portal/negocios/${slug}/pedidos`);
   return { ok: `Pedido #${pedido.numero} entregado ✅` };
+}
+
+/**
+ * T-67: la dueña ya transfirió la devolución desde su banco. El bot no mueve
+ * plata: solo deja de recordárselo y le avisa al cliente que revise su cuenta.
+ */
+export async function marcarDevuelto(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const me = await getUserRole();
+  if (!me) return { error: "No autorizado." };
+  const slug = String(formData.get("slug") ?? "");
+  const pedido = await pedidoDeLaDueña(String(formData.get("pedidoId") ?? ""));
+  if (!pedido) return { error: "Pedido no encontrado o sin permisos." };
+  if (!devolucionPendiente(pedido)) return { error: `El pedido #${pedido.numero} no tiene una devolución pendiente.` };
+
+  const resolved = await resolveBusinessBySlug(slug);
+  if (!resolved || resolved.negocioId !== pedido.negocio) return { error: "Pedido no encontrado o sin permisos." };
+
+  await createPedidoRepository().marcarDevuelto(pedido.id, new Date().toISOString());
+  const monto = new Intl.NumberFormat(resolved.config.locale ?? "es-CO", {
+    style: "currency",
+    currency: resolved.config.currency,
+    maximumFractionDigits: 0,
+  }).format(pedido.montoPagado ?? 0);
+  await avisarCliente(resolved, { to: pedido.contacto, text: mensajeDevuelto(pedido.numero, monto) });
+
+  revalidatePath(`/portal/negocios/${slug}/pedidos`);
+  return { ok: `Devolución del pedido #${pedido.numero} marcada ✅` };
 }

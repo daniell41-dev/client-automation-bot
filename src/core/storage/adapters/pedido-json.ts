@@ -118,6 +118,40 @@ export class JsonPedidoRepository implements PedidoRepository {
     await this.writeAll(todos);
   }
 
+  private async modificar(id: string, cambio: (pedido: Pedido) => void): Promise<void> {
+    const todos = await this.readAll();
+    const pedido = todos.find((p) => p.id === id);
+    if (!pedido) throw new Error(`No existe el pedido ${id}`);
+    cambio(pedido);
+    pedido.actualizadoEn = new Date().toISOString();
+    await this.writeAll(todos);
+  }
+
+  async pedirCuentaDevolucion(id: string): Promise<void> {
+    await this.modificar(id, (p) => {
+      p.devolucion = { estado: "pidiendo_cuenta" };
+    });
+  }
+
+  async esperandoCuentaDeLead(leadId: string): Promise<Pedido | null> {
+    const esperando = (await this.readAll())
+      .filter((p) => p.leadId === leadId && p.devolucion?.estado === "pidiendo_cuenta")
+      .sort((a, b) => b.numero - a.numero);
+    return esperando[0] ?? null;
+  }
+
+  async guardarCuentaDevolucion(id: string, cuenta: string): Promise<void> {
+    await this.modificar(id, (p) => {
+      p.devolucion = { estado: "pendiente", cuenta };
+    });
+  }
+
+  async marcarDevuelto(id: string, cuandoISO: string): Promise<void> {
+    await this.modificar(id, (p) => {
+      p.devolucion = { ...p.devolucion, estado: "devuelta", devueltaEn: cuandoISO };
+    });
+  }
+
   async vincularComprobante(id: string, comprobanteId: string): Promise<void> {
     const todos = await this.readAll();
     const pedido = todos.find((p) => p.id === id);

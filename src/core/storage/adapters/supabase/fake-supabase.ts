@@ -359,6 +359,20 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       pedido.monto_pagado = montoPagado;
     },
 
+    async updatePedidoDevolucion(id, cambios) {
+      const pedido = pedidos.find((p) => p.id === id);
+      if (!pedido) throw new Error(`No existe el pedido ${id}`);
+      Object.assign(pedido, cambios);
+    },
+
+    async selectPedidoEsperandoCuenta(leadId) {
+      return (
+        pedidos
+          .filter((p) => p.lead_id === leadId && p.devolucion_estado === "pidiendo_cuenta")
+          .sort((a, b) => b.numero - a.numero)[0] ?? null
+      );
+    },
+
     async uploadComprobanteImagen(id, path, bytes) {
       const comprobante = comprobantes.find((c) => c.id === id);
       if (!comprobante) throw new Error(`No existe el comprobante ${id}`);
