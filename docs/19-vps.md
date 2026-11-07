@@ -22,8 +22,11 @@ Archivos que usa esta guía: `Dockerfile`, `.dockerignore`, `deploy/docker-compo
 1. Crear cuenta en un proveedor. Probado con la idea de **Hetzner Cloud**; sirven igual
    DigitalOcean, Vultr, Contabo, etc.
 2. Crear el servidor:
-   - **Ubicación:** EE. UU. costa este (Ashburn / Virginia / Nueva York): es la más
-     cercana a Colombia y a Supabase.
+   - **Ubicación:** la **misma región que Supabase** (Supabase → Project Settings →
+     General → Region). Si es `us-east-1`, EE. UU. costa este (Ashburn / Virginia /
+     Nueva York). Cada pantalla del panel hace varias consultas a la base una detrás de
+     otra: con el servidor al lado de Supabase cada una tarda milisegundos; desde una
+     compu en Colombia, cientos (T-69).
    - **Imagen:** Ubuntu 24.04.
    - **Tamaño:** 2 vCPU y **4 GB de RAM** (el `docker build` de Next necesita memoria;
      con 2 GB hay que agregar swap, paso 3).
