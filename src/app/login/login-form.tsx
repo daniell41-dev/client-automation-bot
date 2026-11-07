@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signIn, type LoginState } from "./actions";
@@ -37,6 +38,9 @@ export function LoginForm() {
     signIn,
     {},
   );
+  // T-68: ver la contraseña. En el celular, con teclado chico, es la causa
+  // número uno de "credenciales incorrectas" sin saber por qué.
+  const [verClave, setVerClave] = useState(false);
 
   return (
     <form action={formAction} className="mt-6 space-y-4">
@@ -61,15 +65,25 @@ export function LoginForm() {
         <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-ink">
           Contraseña
         </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          placeholder="••••••••"
-          className="input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft"
-        />
+        <div className="relative">
+          <input
+            id="password"
+            name="password"
+            type={verClave ? "text" : "password"}
+            required
+            autoComplete="current-password"
+            placeholder="••••••••"
+            className="input-nexo w-full py-2.5 pl-3.5 pr-11 text-sm text-ink placeholder:text-ink-soft"
+          />
+          <button
+            type="button"
+            onClick={() => setVerClave((v) => !v)}
+            aria-label={verClave ? "Ocultar contraseña" : "Mostrar contraseña"}
+            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-ink-soft transition-colors hover:text-ink"
+          >
+            {verClave ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
 
       {linkVencido && !state.error && (
@@ -87,7 +101,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-[10px] bg-primary py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+        className="w-full rounded-[10px] bg-primary py-3 text-sm font-bold text-white shadow-[0_8px_20px_-8px_rgba(42,111,219,.7)] transition-all hover:-translate-y-px hover:bg-primary-hover disabled:translate-y-0 disabled:opacity-50"
       >
         {pending ? "Entrando…" : "Ingresar"}
       </button>
