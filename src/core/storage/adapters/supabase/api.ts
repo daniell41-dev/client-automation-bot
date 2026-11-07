@@ -87,6 +87,13 @@ export interface ComprobanteRow {
   created_at: string;
 }
 
+/** T-67: columnas de la devolución que se cambian juntas. */
+export interface CambiosDevolucion {
+  devolucion_estado: "pidiendo_cuenta" | "pendiente" | "devuelta";
+  devolucion_cuenta?: string;
+  devuelta_at?: string;
+}
+
 /** Fila de la tabla `pedidos` (T-30, migración 0015). */
 export interface PedidoRow {
   id: string;
@@ -107,6 +114,10 @@ export interface PedidoRow {
   stock_reservado?: boolean;
   /** T-66: suma de lo que dicen los comprobantes (migración 0024). */
   monto_pagado?: number | null;
+  /** T-67 (migración 0025) */
+  devolucion_estado?: string | null;
+  devolucion_cuenta?: string | null;
+  devuelta_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -244,6 +255,10 @@ export interface SupabaseDb {
   updatePedidoCodigoRetiro(id: string, codigo: string): Promise<void>;
   /** T-66 (migración 0024) */
   updatePedidoMontoPagado(id: string, montoPagado: number): Promise<void>;
+  /** T-67 (migración 0025) */
+  updatePedidoDevolucion(id: string, cambios: CambiosDevolucion): Promise<void>;
+  /** T-67: el pedido más nuevo del lead que espera la cuenta de devolución, o `null`. */
+  selectPedidoEsperandoCuenta(leadId: string): Promise<PedidoRow | null>;
   /** T-59: anota cuándo escribió la dueña (migración 0023). */
   updateDuenaEscribio(negocioId: string, cuandoISO: string): Promise<void>;
   /** T-59: última vez que escribió la dueña, o `null`. */
@@ -602,6 +617,27 @@ class RealSupabaseDb implements SupabaseDb {
       .update({ monto_pagado: montoPagado, updated_at: new Date().toISOString() })
       .eq("id", id);
     if (error) throw error;
+  }
+
+  async updatePedidoDevolucion(id: string, cambios: CambiosDevolucion): Promise<void> {
+    const { error } = await this.client
+      .from("pedidos")
+      .update({ ...cambios, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  async selectPedidoEsperandoCuenta(leadId: string): Promise<PedidoRow | null> {
+    const { data, error } = await this.client
+      .from("pedidos")
+      .select("*")
+      .eq("lead_id", leadId)
+      .eq("devolucion_estado", "pidiendo_cuenta")
+      .order("numero", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as PedidoRow | null) ?? null;
   }
 
   async uploadComprobanteImagen(id: string, path: string, bytes: Uint8Array, mimeType: string): Promise<void> {

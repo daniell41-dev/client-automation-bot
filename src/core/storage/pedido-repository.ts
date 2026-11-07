@@ -17,6 +17,20 @@ export type EstadoPedido =
   | "vencido";
 
 /**
+ * T-67: devolución de la plata de un pedido rechazado. `pidiendo_cuenta`: se
+ * le preguntó al cliente a qué cuenta; `pendiente`: la dio y falta que la
+ * dueña transfiera; `devuelta`: la dueña marcó que ya devolvió.
+ */
+export type EstadoDevolucion = "pidiendo_cuenta" | "pendiente" | "devuelta";
+
+export interface Devolucion {
+  estado: EstadoDevolucion;
+  /** Lo que escribió el cliente (banco, número, titular), tal cual. */
+  cuenta?: string;
+  devueltaEn?: string;
+}
+
+/**
  * Una línea del pedido, con nombre y precio COPIADOS del catálogo al momento
  * de pedir: si la dueña cambia el precio mañana, el pedido de hoy tiene que
  * seguir diciendo lo que el cliente aceptó pagar.
@@ -64,6 +78,8 @@ export interface Pedido extends NuevoPedido {
    * rechaza, nunca para aprobar solo.
    */
   montoPagado?: number;
+  /** T-67: solo en pedidos rechazados con comprobante. */
+  devolucion?: Devolucion;
   creadoEn: string;
   actualizadoEn: string;
 }
@@ -99,6 +115,18 @@ export interface PedidoRepository {
 
   /** T-66: guarda la suma de lo pagado según los comprobantes del pedido. */
   registrarPago(id: string, montoPagado: number): Promise<void>;
+
+  /** T-67: se le preguntó al cliente a qué cuenta devolverle. */
+  pedirCuentaDevolucion(id: string): Promise<void>;
+
+  /** T-67: el pedido del lead que está esperando que el cliente mande su cuenta, o `null`. */
+  esperandoCuentaDeLead(leadId: string): Promise<Pedido | null>;
+
+  /** T-67: el cliente mandó la cuenta; queda pendiente de que la dueña transfiera. */
+  guardarCuentaDevolucion(id: string, cuenta: string): Promise<void>;
+
+  /** T-67: la dueña marcó que ya devolvió. */
+  marcarDevuelto(id: string, cuandoISO: string): Promise<void>;
 
   /** T-37: guarda el código de retiro que se le dio al cliente al aprobar. */
   asignarCodigoRetiro(id: string, codigo: string): Promise<void>;

@@ -49,6 +49,12 @@ import { BOTON_APROBAR, BOTON_RECHAZAR, BOTON_RESTO, interpretarDecisionDueña }
 import { transition } from "@/core/engine/lead-state";
 import { pagoVencido, pedidoPendienteDeDecision, transicionarPedido } from "@/core/engine/pedido-estado";
 import { generarCodigoRetiro, mensajeCodigoRetiro } from "@/core/engine/codigo-retiro";
+import {
+  avisoCuentaParaDueña,
+  mensajeCuentaRecibida,
+  mensajePedirCuenta,
+  pareceCuenta,
+} from "@/core/engine/devolucion";
 import { DEFAULT_PEDIDO_CONFIRMADO, DEFAULT_PEDIDO_RECHAZADO } from "@/core/engine/responder";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { render } from "@/core/engine/templating";
@@ -538,6 +544,15 @@ export async function handleIncoming(
       return handleImageMessage(message, config, llm, sessionRepo, mediaDownloader, now);
     }
     return { messages: [{ to: message.from, text: FALLBACK_VISION }], modo: "guiado" };
+  }
+
+  // T-67: si al cliente se le pidió la cuenta para devolverle la plata de un
+  // pedido rechazado, un mensaje con número de cuenta es esa respuesta. Se
+  // mira ANTES que el agente: si no, "Nequi 3001234567" se tomaría como un
+  // pedido nuevo o una charla suelta. Cualquier otro mensaje sigue normal.
+  if (existing && pedidos && message.text && pareceCuenta(message.text)) {
+    const resultado = await anotarCuentaDevolucion(message, config, existing, pedidos, notifier, sessionRepo, now);
+    if (resultado) return resultado;
   }
 
   // T-20: si la cita del lead ya se cumplió (pasó su fecha, o pasaron los 7
@@ -1325,7 +1340,7 @@ export async function handleOwnerApproval(
   lead.direccion = undefined;
   await repo.save(lead);
   await cerrarDecisionDelPedido(pedidos, comprobantes, pedido, "rechazado");
-  return respuestasRechazo(message, config, pedido, lead.contact, etiqueta, nombreVars);
+  return respuestasRechazo(message, config, pedido, lead.contact, etiqueta, nombreVars, pedidos);
 }
 
 /**
@@ -1335,26 +1350,55 @@ export async function handleOwnerApproval(
  * a la dueña nada le recordaba que tenía que devolverlo. El bot no puede
  * saber si la plata llegó de verdad (la cuenta puede ser otra, el pantallazo
  * puede ser falso): por eso a la dueña le dice "si te llegó", y al cliente
- * "si ya transferiste".
+ * "si la transferencia salió de tu cuenta".
+ *
+ * T-67: en vez de "escribinos y coordinamos", se le pide la cuenta en el
+ * mismo mensaje y el pedido queda marcado para anotarla cuando responda.
  */
-function respuestasRechazo(
+async function respuestasRechazo(
   message: IncomingMessage,
   config: BusinessConfig,
   pedido: Pedido | null,
   contacto: string,
   etiqueta: string,
   nombreVars: { nombre: string },
-): OwnerApprovalResult {
+  pedidos: PedidoRepository | undefined,
+): Promise<OwnerApprovalResult> {
   const pagado = pedido?.montoPagado ?? 0;
+  const montoTexto = formatPrice(config, pagado);
   const base = render(config.messages.pedidoRechazado ?? DEFAULT_PEDIDO_RECHAZADO, nombreVars);
+
+  // Si no se pudo marcar, no se pide la cuenta: la respuesta del cliente no
+  // tendría dónde anotarse y quedaría como un mensaje suelto al agente.
+  let pidiendoCuenta = false;
+  if (pagado > 0 && pedido && pedidos) {
+    try {
+      await pedidos.pedirCuentaDevolucion(pedido.id);
+      pidiendoCuenta = true;
+    } catch (err) {
+      console.error(`[Pedidos] no se pudo marcar la devolución del pedido #${pedido.numero} (falta la migración 0025?):`, err);
+    }
+  }
+
   const devolucionCliente =
     pagado <= 0
       ? null
-      : pagado < pedido!.total
-        ? `El comprobante que mandaste es por ${formatPrice(config, pagado)} y el pedido era de ${formatPrice(config, pedido!.total)}. Si ya transferiste, escribinos y coordinamos la devolución 🙏`
-        : "Si ya transferiste, escribinos y coordinamos la devolución 🙏";
+      : [
+          pagado < pedido!.total
+            ? `El comprobante que mandaste es por ${montoTexto} y el pedido era de ${formatPrice(config, pedido!.total)}.`
+            : null,
+          pidiendoCuenta
+            ? mensajePedirCuenta(montoTexto)
+            : "Si ya transferiste, escribinos y coordinamos la devolución 🙏",
+        ]
+          .filter(Boolean)
+          .join(" ");
   const recordatorioDueña =
-    pagado > 0 ? `💸 Si te llegaron los ${formatPrice(config, pagado)}, acordate de devolvérselos.` : null;
+    pagado <= 0
+      ? null
+      : pidiendoCuenta
+        ? `💸 Si te llegaron los ${montoTexto}, hay que devolvérselos. Le pedí la cuenta al cliente: la vas a ver en el panel → Pedidos → Devoluciones.`
+        : `💸 Si te llegaron los ${montoTexto}, acordate de devolvérselos.`;
   return {
     ownerReply: {
       to: message.from,
@@ -1365,6 +1409,55 @@ function respuestasRechazo(
       text: conNumero(pedido, [base, devolucionCliente].filter(Boolean).join("\n\n")),
     },
   };
+}
+
+/**
+ * T-67: anota la cuenta que mandó el cliente, le confirma que la recibió y
+ * se la pasa a la dueña. `null` si no había ninguna devolución esperando
+ * cuenta (el mensaje sigue su camino normal).
+ */
+async function anotarCuentaDevolucion(
+  message: IncomingMessage,
+  config: BusinessConfig,
+  lead: Lead,
+  pedidos: PedidoRepository,
+  notifier: OwnerNotifier | undefined,
+  sessionRepo: SessionRepository | undefined,
+  now: Date,
+): Promise<HandleResult | null> {
+  let pedido: Pedido | null;
+  try {
+    pedido = await pedidos.esperandoCuentaDeLead(lead.id);
+  } catch (err) {
+    console.error("[Pedidos] no se pudo buscar una devolución pendiente:", err);
+    return null;
+  }
+  if (!pedido) return null;
+
+  const cuenta = message.text.trim();
+  try {
+    await pedidos.guardarCuentaDevolucion(pedido.id, cuenta);
+  } catch (err) {
+    console.error(`[Pedidos] no se pudo guardar la cuenta de devolución del pedido #${pedido.numero}:`, err);
+    return null;
+  }
+  const montoTexto = formatPrice(config, pedido.montoPagado ?? 0);
+  if (notifier && config.notifyPhoneNumber) {
+    try {
+      await notifier.send({ to: config.notifyPhoneNumber, text: avisoCuentaParaDueña(pedido, montoTexto, cuenta) });
+    } catch (err) {
+      // El panel la muestra igual: la dueña no pierde la cuenta, solo el aviso.
+      console.error("[Notify] no se pudo avisar la cuenta de devolución:", err);
+    }
+  }
+  const texto = mensajeCuentaRecibida(pedido.numero, montoTexto);
+  if (sessionRepo) {
+    const session = await getOrCreateSession(sessionRepo, message, false);
+    session.history.push({ role: "user", text: message.text, timestamp: message.timestamp });
+    session.history.push({ role: "assistant", text: texto, timestamp: now.toISOString() });
+    await sessionRepo.save(session);
+  }
+  return { messages: [{ to: message.from, text: texto }], modo: "guiado" };
 }
 
 /**
@@ -1476,7 +1569,7 @@ async function decidirSoloElPedido(
   }
   await devolverStock(inventory, negocioKey, pedido.stockReservado ? pedido.items : undefined);
   await cerrarDecisionDelPedido(pedidos, comprobantes, pedido, "rechazado");
-  return respuestasRechazo(message, config, pedido, pedido.contacto, etiqueta, nombreVars);
+  return respuestasRechazo(message, config, pedido, pedido.contacto, etiqueta, nombreVars, pedidos);
 }
 
 /**
