@@ -574,6 +574,14 @@ mirando. Se documenta como ADR-004.
 - **T-61** · La app en un VPS propio con Docker + Traefik (HTTPS automático), Supabase
   se queda como base de datos/login/archivos. Ahorra Vercel Pro (el plan gratis no
   permite uso comercial) y elimina ngrok. Guía: `docs/19-vps.md`.
+- **T-66** · Pagó de menos: tercer botón "Pedir resto #N" en el aviso (o "RESTO N"
+  escrito) cuando el comprobante no alcanza. El pedido vuelve a esperar el pago y el
+  segundo comprobante se suma al primero (`pedidos.monto_pagado`, migración 0024). Al
+  rechazar un pedido con comprobante, el cliente sabe qué pasa con su plata y la dueña
+  recibe el recordatorio de devolverla.
+- **T-67** · Devoluciones: al rechazar con plata de por medio, el bot le pide al cliente
+  a qué cuenta devolverle; el panel muestra "Devolver $X" con esa cuenta hasta que la
+  dueña marque "Ya devolví".
 - **T-56** · Costo real de la IA por negocio y por mes: contar los tokens de cada
   llamada en `uso_ia` (hoy se guardan en 0) y mostrar en el back office el costo
   estimado en dólares según el modelo. Sirve para decidir cuándo pasar a la capa paga

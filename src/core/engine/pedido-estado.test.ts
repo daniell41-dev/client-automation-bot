@@ -33,6 +33,12 @@ describe("pedido-estado — transiciones", () => {
     expect(puedeTransicionarPedido("aprobado", "rechazado")).toBe(false);
   });
 
+  it("T-66: con comprobante incompleto, la dueña puede devolverlo a esperar el resto", () => {
+    expect(transicionarPedido("por_verificar", "esperando_pago")).toBe("esperando_pago");
+    // Pero uno aprobado no vuelve a pedir plata.
+    expect(puedeTransicionarPedido("aprobado", "esperando_pago")).toBe(false);
+  });
+
   it("ir al mismo estado es un no-op válido", () => {
     expect(transicionarPedido("aprobado", "aprobado")).toBe("aprobado");
   });

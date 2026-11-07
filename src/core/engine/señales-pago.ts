@@ -54,6 +54,13 @@ export interface DatosPagoNegocio {
 
 export interface PedidoEsperado {
   total: number;
+  /**
+   * T-66: lo que ya dijeron comprobantes anteriores de este mismo pedido (el
+   * cliente pagó una parte y la dueña le pidió el resto). El comprobante
+   * nuevo se compara contra lo que FALTA, no contra el total: si no, el
+   * segundo pago de $300 de un pedido de $400 saldría como "monto distinto".
+   */
+  pagadoAntes?: number;
 }
 
 /** Un comprobante con más de esto se marca "fecha vieja". */
@@ -89,11 +96,16 @@ export function calcularSeñalesPago(
     }
   }
 
-  if (comprobante.monto !== undefined && comprobante.monto !== pedido.total) {
+  const pagadoAntes = pedido.pagadoAntes ?? 0;
+  const esperado = pedido.total - pagadoAntes;
+  if (comprobante.monto !== undefined && comprobante.monto !== esperado) {
     señales.push({
       tipo: "monto_distinto",
       nivel: "media",
-      detalle: `El comprobante dice ${comprobante.monto}, el pedido es ${pedido.total}.`,
+      detalle:
+        pagadoAntes > 0
+          ? `El comprobante dice ${comprobante.monto}, faltaban ${esperado} (ya había pagado ${pagadoAntes} de ${pedido.total}).`
+          : `El comprobante dice ${comprobante.monto}, el pedido es ${pedido.total}.`,
     });
   }
 

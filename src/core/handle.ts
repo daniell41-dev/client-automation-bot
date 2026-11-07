@@ -45,7 +45,7 @@ import { citaCumplida, cerrarCitaCumplida } from "@/core/engine/appointment-life
 import { pedidoFinalizado, cerrarPedidoFinalizado } from "@/core/engine/pedido-lifecycle";
 import { inactivo, limpiarDatosCapturados, reseteablePorInactividad } from "@/core/engine/session-lifecycle";
 import { resumenCarrito, totalPedido } from "@/core/engine/flows/pedido";
-import { BOTON_APROBAR, BOTON_RECHAZAR, interpretarDecisionDueña } from "@/core/engine/approval";
+import { BOTON_APROBAR, BOTON_RECHAZAR, BOTON_RESTO, interpretarDecisionDueña } from "@/core/engine/approval";
 import { transition } from "@/core/engine/lead-state";
 import { pagoVencido, pedidoPendienteDeDecision, transicionarPedido } from "@/core/engine/pedido-estado";
 import { generarCodigoRetiro, mensajeCodigoRetiro } from "@/core/engine/codigo-retiro";
@@ -376,7 +376,12 @@ async function handlePaymentReceiptMessage(
   }
 
   const negocio = negocioParaStock ?? config.slug;
-  const total = totalPedido(lead.items ?? [], config.services, config, lead.entrega);
+  // T-66: el pedido abierto ANTES de moverlo, para saber cuánto pagó ya con
+  // comprobantes anteriores (pagó una parte y la dueña le pidió el resto).
+  // Su total es la copia congelada al confirmar: manda sobre el carrito.
+  const abierto = pedidos ? await pedidos.abiertoDeLead(lead.id).catch(() => null) : null;
+  const total = abierto?.total ?? totalPedido(lead.items ?? [], config.services, config, lead.entrega);
+  const pagadoAntes = abierto?.montoPagado ?? 0;
 
   let señales: Señal[] = [];
   let comprobanteCreado: { id: string } | undefined;
@@ -385,7 +390,7 @@ async function handlePaymentReceiptMessage(
       const previos = await comprobantes.listar(negocio);
       señales = calcularSeñalesPago(
         descripcion,
-        { total },
+        { total, pagadoAntes },
         {
           destinos: destinosDePago(config.pagos),
           comprobantesPrevios: previos.map((p) => ({
@@ -435,11 +440,30 @@ async function handlePaymentReceiptMessage(
     }
   }
 
+  // T-66: se suma lo que dice este comprobante. Uno con referencia repetida
+  // no suma: es la misma transferencia mandada otra vez (o un pantallazo
+  // reciclado), y contarla dos veces haría creer que ya no falta nada.
+  let faltante: number | undefined;
+  const repetido = señales.some((s) => s.tipo === "referencia_repetida");
+  if (pedido && pedidos && descripcion.monto !== undefined && !repetido) {
+    const pagado = pagadoAntes + descripcion.monto;
+    try {
+      await pedidos.registrarPago(pedido.id, pagado);
+      pedido.montoPagado = pagado;
+    } catch (err) {
+      console.error("[Pedidos] no se pudo registrar lo pagado (falta la migración 0024?):", err);
+    }
+    // Solo si quedó guardado: si no, el segundo comprobante no tendría
+    // contra qué sumarse y "pedir el resto" terminaría en "monto distinto".
+    if (pedido.montoPagado === pagado && pagado < total) faltante = total - pagado;
+  }
+
   if (notifier && config.notifyPhoneNumber) {
     await avisarPedidoNuevo(lead, config, notifier, pedidos, negocio, {
       pidiendoAprobacion: true,
       comprobante: { descripcion, señales },
       pedido,
+      faltante,
     });
   }
 
@@ -949,8 +973,14 @@ async function notifyOwner(
      * sobre ESTE pedido, nunca sobre "el más viejo".
      */
     pedido?: Pick<Pedido, "id" | "numero">;
+    /**
+     * T-66: cuánto falta pagar según los comprobantes. Con esto la dueña
+     * tiene una tercera opción además de aprobar o rechazar: pedirle el resto.
+     */
+    faltante?: number;
   } = {},
 ): Promise<void> {
+  const pideResto = Boolean(opciones.pidiendoAprobacion && opciones.pedido && (opciones.faltante ?? 0) > 0);
   const service = config.services.find((s) => s.id === lead.serviceId);
   // T-21: un carrito (varios productos posibles) se resume aparte — no tiene
   // sentido reducirlo a "Servicio: <un nombre>" como una cita.
@@ -975,6 +1005,9 @@ async function notifyOwner(
     // que verifica el pago es la app del banco de la dueña (§1.6 del plan).
     opciones.pidiendoAprobacion && opciones.comprobante
       ? "👀 Antes de aprobar, revisá en tu app del banco que la plata llegó."
+      : null,
+    pideResto
+      ? `💸 Faltan ${formatPrice(config, opciones.faltante!)}. Para pedírselos al cliente tocá Pedir resto o respondé RESTO ${opciones.pedido!.numero}.`
       : null,
     // Instrucción explícita — es lo que el webhook interpreta como la
     // respuesta de la dueña (ver `handleOwnerApproval`). Con número de
@@ -1009,9 +1042,14 @@ async function notifyOwner(
     : opciones.comprobante
       ? " · Revisá en tu app del banco que llegó la plata"
       : "";
+  // La plantilla aprobada solo tiene dos botones: pedir el resto va escrito.
+  const restoPlantilla = pideResto
+    ? ` · Faltan ${formatPrice(config, opciones.faltante!)}: para pedírselos respondé RESTO ${opciones.pedido!.numero}`
+    : "";
   const resumenPlantilla =
     (opciones.pedido ? `#${opciones.pedido.numero} · ${resumenCarritoTexto}` : resumenCarritoTexto) +
-    alertasPlantilla;
+    alertasPlantilla +
+    restoPlantilla;
 
   try {
     await notifier.send({
@@ -1025,6 +1063,9 @@ async function notifyOwner(
           ? [
               { id: `${BOTON_APROBAR}${opciones.pedido.id}`, titulo: `Aprobar #${opciones.pedido.numero}` },
               { id: `${BOTON_RECHAZAR}${opciones.pedido.id}`, titulo: `Rechazar #${opciones.pedido.numero}` },
+              ...(pideResto
+                ? [{ id: `${BOTON_RESTO}${opciones.pedido.id}`, titulo: `Pedir resto #${opciones.pedido.numero}` }]
+                : []),
             ]
           : undefined,
     });
@@ -1213,6 +1254,10 @@ export async function handleOwnerApproval(
     }
     lead = pendientes[0] ?? null;
   }
+  if (respuesta.decision === "resto") {
+    return pedirElResto(message, config, lead, pedido, pedidos);
+  }
+
   // T-64: un cliente puede tener un pedido viejo sin decidir y uno nuevo en
   // curso (en la prueba real: #4 con comprobante reciclado y #5 recién
   // pagado). Decidir sobre el viejo NO puede tocar el estado de la
@@ -1280,11 +1325,99 @@ export async function handleOwnerApproval(
   lead.direccion = undefined;
   await repo.save(lead);
   await cerrarDecisionDelPedido(pedidos, comprobantes, pedido, "rechazado");
+  return respuestasRechazo(message, config, pedido, lead.contact, etiqueta, nombreVars);
+}
+
+/**
+ * T-66: los mensajes de un rechazo. Si el cliente mandó comprobantes, los
+ * dos tienen que hablar de esa plata: antes el cliente recibía un "no
+ * pudimos confirmar tu pedido" sin saber qué pasaba con lo que transfirió, y
+ * a la dueña nada le recordaba que tenía que devolverlo. El bot no puede
+ * saber si la plata llegó de verdad (la cuenta puede ser otra, el pantallazo
+ * puede ser falso): por eso a la dueña le dice "si te llegó", y al cliente
+ * "si ya transferiste".
+ */
+function respuestasRechazo(
+  message: IncomingMessage,
+  config: BusinessConfig,
+  pedido: Pedido | null,
+  contacto: string,
+  etiqueta: string,
+  nombreVars: { nombre: string },
+): OwnerApprovalResult {
+  const pagado = pedido?.montoPagado ?? 0;
+  const base = render(config.messages.pedidoRechazado ?? DEFAULT_PEDIDO_RECHAZADO, nombreVars);
+  const devolucionCliente =
+    pagado <= 0
+      ? null
+      : pagado < pedido!.total
+        ? `El comprobante que mandaste es por ${formatPrice(config, pagado)} y el pedido era de ${formatPrice(config, pedido!.total)}. Si ya transferiste, escribinos y coordinamos la devolución 🙏`
+        : "Si ya transferiste, escribinos y coordinamos la devolución 🙏";
+  const recordatorioDueña =
+    pagado > 0 ? `💸 Si te llegaron los ${formatPrice(config, pagado)}, acordate de devolvérselos.` : null;
   return {
-    ownerReply: { to: message.from, text: `Marcado como rechazado el ${etiqueta}.` },
+    ownerReply: {
+      to: message.from,
+      text: [`Marcado como rechazado el ${etiqueta}.`, recordatorioDueña].filter(Boolean).join("\n"),
+    },
+    customerReply: {
+      to: contacto,
+      text: conNumero(pedido, [base, devolucionCliente].filter(Boolean).join("\n\n")),
+    },
+  };
+}
+
+/**
+ * T-66: el cliente pagó de menos y la dueña le pide lo que falta. El pedido
+ * vuelve a "esperando_pago" y la conversación queda donde estaba (esperando
+ * comprobante), así la próxima foto del cliente entra como el pago del resto
+ * y se suma a lo anterior.
+ *
+ * Solo para el pedido de la conversación en curso: si el cliente ya empezó
+ * otro, su próxima foto se tomaría como pago del pedido nuevo.
+ */
+async function pedirElResto(
+  message: IncomingMessage,
+  config: BusinessConfig,
+  lead: Lead | null,
+  pedido: Pedido | null,
+  pedidos: PedidoRepository | undefined,
+): Promise<OwnerApprovalResult> {
+  const reply = (text: string): OwnerApprovalResult => ({ ownerReply: { to: message.from, text } });
+  if (!pedido || !pedidos) {
+    return reply("Para pedir el resto necesito el número del pedido (ej: RESTO 12).");
+  }
+  if (pedido.estado !== "por_verificar") {
+    return reply(`El pedido #${pedido.numero} ya está esperando que el cliente pague; no cambié nada.`);
+  }
+  const pagado = pedido.montoPagado ?? 0;
+  const faltante = pedido.total - pagado;
+  if (pagado <= 0 || faltante <= 0) {
+    return reply(
+      `En el pedido #${pedido.numero} no veo un pago parcial que completar. Revisá el comprobante y tocá Aprobar o Rechazar.`,
+    );
+  }
+  const actual = lead ? await pedidos.abiertoDeLead(lead.id).catch(() => null) : null;
+  if (!lead || lead.stage !== "esperando_aprobacion" || actual?.id !== pedido.id) {
+    return reply(
+      `El cliente del pedido #${pedido.numero} ya está con otro pedido, así que no le puedo pedir el resto por acá. Aprobalo o rechazalo.`,
+    );
+  }
+  try {
+    await pedidos.actualizarEstado(pedido.id, transicionarPedido(pedido.estado, "esperando_pago"));
+  } catch (err) {
+    console.error(`[Pedidos] no se pudo devolver el pedido #${pedido.numero} a esperar el pago:`, err);
+    return reply(`No pude actualizar el pedido #${pedido.numero}. Probá de nuevo en un momento.`);
+  }
+  const cliente = pedido.cliente ?? lead.name ?? pedido.contacto;
+  return {
+    ownerReply: {
+      to: message.from,
+      text: `Listo, le pedí a ${cliente} los ${formatPrice(config, faltante)} que faltan del pedido #${pedido.numero}. Cuando mande el comprobante te aviso.`,
+    },
     customerReply: {
       to: lead.contact,
-      text: conNumero(pedido, render(config.messages.pedidoRechazado ?? DEFAULT_PEDIDO_RECHAZADO, nombreVars)),
+      text: `Pedido #${pedido.numero}: recibimos ${formatPrice(config, pagado)} y el total es ${formatPrice(config, pedido.total)}. Te faltan ${formatPrice(config, faltante)} — mandanos el comprobante del resto y seguimos con tu pedido 🙏`,
     },
   };
 }
@@ -1343,13 +1476,7 @@ async function decidirSoloElPedido(
   }
   await devolverStock(inventory, negocioKey, pedido.stockReservado ? pedido.items : undefined);
   await cerrarDecisionDelPedido(pedidos, comprobantes, pedido, "rechazado");
-  return {
-    ownerReply: { to: message.from, text: `Marcado como rechazado el ${etiqueta}.` },
-    customerReply: {
-      to: pedido.contacto,
-      text: conNumero(pedido, render(config.messages.pedidoRechazado ?? DEFAULT_PEDIDO_RECHAZADO, nombreVars)),
-    },
-  };
+  return respuestasRechazo(message, config, pedido, pedido.contacto, etiqueta, nombreVars);
 }
 
 /**

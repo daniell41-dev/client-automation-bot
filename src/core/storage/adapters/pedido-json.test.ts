@@ -51,6 +51,14 @@ describe("JsonPedidoRepository", () => {
     expect((await repo.abiertoDeLead("lead-1"))?.estado).toBe("aprobado");
   });
 
+  it("T-66: registrarPago guarda lo pagado", async () => {
+    const repo = new JsonPedidoRepository(filePath);
+    const pedido = await repo.crear(nuevo());
+    await repo.registrarPago(pedido.id, 20000);
+
+    expect((await repo.obtener(pedido.id))?.montoPagado).toBe(20000);
+  });
+
   it("abiertoDeLead ignora los pedidos cerrados del mismo cliente", async () => {
     const repo = new JsonPedidoRepository(filePath);
     const viejo = await repo.crear(nuevo());

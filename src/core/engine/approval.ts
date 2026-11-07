@@ -21,7 +21,11 @@ export function interpretarRespuestaDueña(text: string): RespuestaDueña {
  * el bot solo sabía "sí" o "no" y tenía que adivinar el pedido (FIFO).
  */
 export interface DecisionDueña {
-  decision: Exclude<RespuestaDueña, null>;
+  /**
+   * T-66: "resto" = el cliente pagó de menos y la dueña le pide lo que falta,
+   * en vez de rechazar el pedido (y quedarse con una plata que hay que devolver).
+   */
+  decision: Exclude<RespuestaDueña, null> | "resto";
   /** Id del pedido, si tocó un botón del aviso. */
   pedidoId?: string;
   /** Número corto del pedido, si lo escribió ("SÍ 12"). */
@@ -31,6 +35,8 @@ export interface DecisionDueña {
 /** Prefijos de los ids de botón que arma `notifyOwner` (`aprobar:<id>` / `rechazar:<id>`). */
 export const BOTON_APROBAR = "aprobar:";
 export const BOTON_RECHAZAR = "rechazar:";
+/** T-66: tercer botón, solo cuando el comprobante dice menos de lo que falta. */
+export const BOTON_RESTO = "resto:";
 
 /**
  * Interpreta la respuesta de la dueña con su referencia al pedido. El botón
@@ -46,6 +52,9 @@ export function interpretarDecisionDueña(text: string, botonId?: string): Decis
   if (botonId?.startsWith(BOTON_RECHAZAR)) {
     return { decision: "rechazado", pedidoId: botonId.slice(BOTON_RECHAZAR.length) };
   }
+  if (botonId?.startsWith(BOTON_RESTO)) {
+    return { decision: "resto", pedidoId: botonId.slice(BOTON_RESTO.length) };
+  }
 
   const coincidencia = text.match(/#?\s*(\d{1,6})\b/);
   const numero = coincidencia ? Number.parseInt(coincidencia[1], 10) : undefined;
@@ -54,11 +63,15 @@ export function interpretarDecisionDueña(text: string, botonId?: string): Decis
   // "Aprobar #12" / "Rechazar #12": el título de un botón que llegó sin id
   // (o escrito a mano copiando el botón).
   const palabras = sinNumero.trim().toLowerCase();
-  const decision: RespuestaDueña = /^(aprobar|aprobado|aceptar|aceptado)\b/.test(palabras)
+  // "RESTO 7" / "Pedir resto #7" (T-66): se mira antes que SÍ/NO porque
+  // ninguna de esas palabras es una afirmación ni una negación.
+  const decision: DecisionDueña["decision"] | null = /^(aprobar|aprobado|aceptar|aceptado)\b/.test(palabras)
     ? "aceptado"
     : /^(rechazar|rechazado)\b/.test(palabras)
       ? "rechazado"
-      : interpretarRespuestaDueña(sinNumero);
+      : /^(pedir\s+(el\s+)?)?resto\b/.test(palabras)
+        ? "resto"
+        : interpretarRespuestaDueña(sinNumero);
   if (!decision) return null;
   return numero !== undefined ? { decision, numero } : { decision };
 }

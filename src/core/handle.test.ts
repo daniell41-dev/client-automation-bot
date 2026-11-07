@@ -2861,3 +2861,149 @@ describe("handleIncoming — notas de voz (T-46)", () => {
     expect(messages[0].text).toBe(FALLBACK_AUDIO);
   });
 });
+
+describe("pagó de menos: pedir el resto (T-66)", () => {
+  const tiendaConPagos: BusinessConfig = { ...tiendaConNotify, pagos: { requiereComprobante: true } };
+
+  function ownerMsg(text: string, botonId?: string): IncomingMessage {
+    return { channel: "whatsapp", businessSlug: "tienda", from: "573009998888", text, timestamp: new Date().toISOString(), botonId };
+  }
+
+  function llmQueLee(monto: number, referencia: string): ILLMProvider {
+    return {
+      supportsVision: true,
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent() {
+        return null;
+      },
+      async describePaymentReceipt() {
+        return { banco: "nequi", referencia, monto, moneda: "COP", legible: "completo" as const };
+      },
+    };
+  }
+
+  async function pedidoConfirmado() {
+    const repo = new InMemoryRepo();
+    const db = makeFakeSupabaseDb();
+    const pedidos = new SupabasePedidoRepository(db);
+    const notifier = fakeNotifier();
+    for (const texto of ["harina", "Laura", "2", "no, eso es todo", "sí"]) {
+      await handleIncoming(msg(texto), tiendaConPagos, repo, new Date(), undefined, undefined, undefined, notifier,
+        undefined, "neg-1", undefined, undefined, undefined, pedidos);
+    }
+    const mandarComprobante = (monto: number, referencia: string) =>
+      handleIncoming(
+        { ...msg(""), image: { mediaId: `m-${referencia}`, mimeType: "image/jpeg" } },
+        tiendaConPagos, repo, new Date(), llmQueLee(monto, referencia), undefined, undefined, notifier, undefined, "neg-1",
+        async () => ({ base64: "eA==", mimeType: "image/jpeg" }), undefined, undefined, pedidos,
+      );
+    return { repo, db, pedidos, notifier, mandarComprobante };
+  }
+
+  it("un comprobante de menos guarda lo pagado y le ofrece a la dueña un tercer botón", async () => {
+    const { db, notifier, mandarComprobante } = await pedidoConfirmado();
+
+    await mandarComprobante(3000, "M1"); // el pedido es de 10000
+
+    expect(db.pedidos[0].monto_pagado).toBe(3000);
+    const aviso = notifier.sent.at(-1)!;
+    expect(aviso.botones?.map((b) => b.id)).toEqual([
+      `aprobar:${db.pedidos[0].id}`,
+      `rechazar:${db.pedidos[0].id}`,
+      `resto:${db.pedidos[0].id}`,
+    ]);
+    expect(aviso.text).toContain("RESTO 1");
+    // La plantilla no tiene tercer botón: la opción va escrita.
+    expect(aviso.plantillaParams?.[2]).toContain("RESTO 1");
+  });
+
+  it("con el pago completo no aparece 'Pedir resto'", async () => {
+    const { notifier, mandarComprobante } = await pedidoConfirmado();
+
+    await mandarComprobante(10000, "M1");
+
+    expect(notifier.sent.at(-1)!.botones).toHaveLength(2);
+  });
+
+  it("Pedir resto: el pedido vuelve a esperar el pago, el cliente sabe cuánto falta, y el segundo comprobante se suma", async () => {
+    const { repo, db, pedidos, notifier, mandarComprobante } = await pedidoConfirmado();
+    await mandarComprobante(3000, "M1");
+
+    const resto = await handleOwnerApproval(
+      ownerMsg("Pedir resto #1", `resto:${db.pedidos[0].id}`), tiendaConPagos, repo, new Date(), pedidos, "neg-1",
+    );
+
+    expect(db.pedidos[0].estado).toBe("esperando_pago");
+    expect(repo.leads[0].stage).toBe("esperando_aprobacion"); // sigue esperando comprobante
+    expect(resto.customerReply?.to).toBe("57300000000");
+    expect(resto.customerReply?.text).toMatch(/^Pedido #1: /);
+    expect(resto.customerReply?.text).toContain("Te faltan");
+    expect(resto.ownerReply.text).toContain("Laura");
+
+    await mandarComprobante(7000, "M2");
+
+    expect(db.pedidos[0].estado).toBe("por_verificar");
+    expect(db.pedidos[0].monto_pagado).toBe(10000);
+    const aviso = notifier.sent.at(-1)!;
+    expect(aviso.text).not.toContain("El comprobante dice"); // 7000 era justo lo que faltaba
+    expect(aviso.botones).toHaveLength(2);
+
+    await handleOwnerApproval(ownerMsg("sí 1"), tiendaConPagos, repo, new Date(), pedidos, "neg-1");
+    expect(db.pedidos[0].estado).toBe("aprobado");
+  });
+
+  it("'RESTO 1' escrito funciona igual que el botón", async () => {
+    const { repo, db, pedidos, mandarComprobante } = await pedidoConfirmado();
+    await mandarComprobante(3000, "M1");
+
+    await handleOwnerApproval(ownerMsg("RESTO 1"), tiendaConPagos, repo, new Date(), pedidos, "neg-1");
+
+    expect(db.pedidos[0].estado).toBe("esperando_pago");
+  });
+
+  it("no se puede pedir el resto de un pedido que ya está pago completo", async () => {
+    const { repo, db, pedidos, mandarComprobante } = await pedidoConfirmado();
+    await mandarComprobante(10000, "M1");
+
+    const { ownerReply, customerReply } = await handleOwnerApproval(
+      ownerMsg("RESTO 1"), tiendaConPagos, repo, new Date(), pedidos, "neg-1",
+    );
+
+    expect(customerReply).toBeUndefined();
+    expect(ownerReply.text).toContain("no veo un pago parcial");
+    expect(db.pedidos[0].estado).toBe("por_verificar");
+  });
+
+  it("al rechazar con plata de por medio, el cliente sabe qué pasa con su pago y la dueña recibe el recordatorio", async () => {
+    const { repo, db, pedidos, mandarComprobante } = await pedidoConfirmado();
+    await mandarComprobante(3000, "M1");
+
+    const { ownerReply, customerReply } = await handleOwnerApproval(
+      ownerMsg("Rechazar", `rechazar:${db.pedidos[0].id}`), tiendaConPagos, repo, new Date(), pedidos, "neg-1",
+    );
+
+    expect(db.pedidos[0].estado).toBe("rechazado");
+    expect(customerReply?.text).toContain("Si ya transferiste, escribinos y coordinamos la devolución");
+    expect(customerReply?.text).toContain("el pedido era de");
+    expect(ownerReply.text).toContain("acordate de devolvérselos");
+  });
+
+  it("un rechazo sin comprobante sigue con el mensaje de siempre", async () => {
+    const { repo, pedidos } = await pedidoConfirmado();
+
+    const { ownerReply, customerReply } = await handleOwnerApproval(
+      ownerMsg("no 1"), tiendaConPagos, repo, new Date(), pedidos, "neg-1",
+    );
+
+    expect(customerReply?.text).not.toContain("devolución");
+    expect(ownerReply.text).not.toContain("devolvérselos");
+  });
+});

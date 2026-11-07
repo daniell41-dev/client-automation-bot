@@ -105,6 +105,8 @@ export interface PedidoRow {
   comprobante_id: string | null;
   /** T-32: si este pedido descontó stock (migración 0016). */
   stock_reservado?: boolean;
+  /** T-66: suma de lo que dicen los comprobantes (migración 0024). */
+  monto_pagado?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -240,6 +242,8 @@ export interface SupabaseDb {
   updatePedidoComprobante(id: string, comprobanteId: string): Promise<void>;
   /** T-37 */
   updatePedidoCodigoRetiro(id: string, codigo: string): Promise<void>;
+  /** T-66 (migración 0024) */
+  updatePedidoMontoPagado(id: string, montoPagado: number): Promise<void>;
   /** T-59: anota cuándo escribió la dueña (migración 0023). */
   updateDuenaEscribio(negocioId: string, cuandoISO: string): Promise<void>;
   /** T-59: última vez que escribió la dueña, o `null`. */
@@ -515,7 +519,11 @@ class RealSupabaseDb implements SupabaseDb {
       .select("*")
       .eq("lead_id", leadId)
       .not("estado", "in", `(${estadosCerrados.join(",")})`)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      // Desempate por número: dos pedidos del mismo cliente con la misma
+      // marca de tiempo (pasa en los tests, y puede pasar con reintentos)
+      // tienen que devolver siempre el más nuevo primero.
+      .order("numero", { ascending: false });
     if (error) throw error;
     return (data as PedidoRow[] | null) ?? [];
   }
@@ -584,6 +592,14 @@ class RealSupabaseDb implements SupabaseDb {
     const { error } = await this.client
       .from("pedidos")
       .update({ codigo_retiro: codigo, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  async updatePedidoMontoPagado(id: string, montoPagado: number): Promise<void> {
+    const { error } = await this.client
+      .from("pedidos")
+      .update({ monto_pagado: montoPagado, updated_at: new Date().toISOString() })
       .eq("id", id);
     if (error) throw error;
   }

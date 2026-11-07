@@ -18,7 +18,9 @@ const TRANSICIONES: Record<EstadoPedido, EstadoPedido[]> = {
   // pago por fuera (efectivo, su app del banco) sin que llegue la foto.
   esperando_pago: ["por_verificar", "aprobado", "rechazado", "vencido"],
   // Hay comprobante (o no se pide): la dueña tiene que decidir.
-  por_verificar: ["aprobado", "rechazado", "vencido"],
+  // T-66: puede volver a "esperando_pago" si el cliente pagó de menos y la
+  // dueña le pide el resto — el pedido sigue vivo, solo falta plata.
+  por_verificar: ["aprobado", "rechazado", "vencido", "esperando_pago"],
   // "listo" es opcional: un pedido que se entrega en el acto salta directo.
   aprobado: ["listo", "entregado"],
   listo: ["entregado"],

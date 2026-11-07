@@ -353,6 +353,12 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       pedido.codigo_retiro = codigo;
     },
 
+    async updatePedidoMontoPagado(id, montoPagado) {
+      const pedido = pedidos.find((p) => p.id === id);
+      if (!pedido) throw new Error(`No existe el pedido ${id}`);
+      pedido.monto_pagado = montoPagado;
+    },
+
     async uploadComprobanteImagen(id, path, bytes) {
       const comprobante = comprobantes.find((c) => c.id === id);
       if (!comprobante) throw new Error(`No existe el comprobante ${id}`);
@@ -369,7 +375,7 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
     async selectPedidosAbiertosDeLead(leadId, estadosCerrados) {
       return pedidos
         .filter((p) => p.lead_id === leadId && !estadosCerrados.includes(p.estado))
-        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+        .sort((a, b) => b.created_at.localeCompare(a.created_at) || b.numero - a.numero);
     },
   };
 }

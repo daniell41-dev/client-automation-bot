@@ -37,6 +37,12 @@ describe("interpretarDecisionDueña (T-31)", () => {
     expect(interpretarDecisionDueña("sí")).toEqual({ decision: "aceptado" });
   });
 
+  it("T-66: 'Pedir resto' por botón o escrito", () => {
+    expect(interpretarDecisionDueña("Pedir resto #7", "resto:ped-1")).toEqual({ decision: "resto", pedidoId: "ped-1" });
+    expect(interpretarDecisionDueña("RESTO 7")).toEqual({ decision: "resto", numero: 7 });
+    expect(interpretarDecisionDueña("pedir el resto #7")).toEqual({ decision: "resto", numero: 7 });
+  });
+
   it("un número sin decisión no aprueba nada", () => {
     expect(interpretarDecisionDueña("12")).toBeNull();
     expect(interpretarDecisionDueña("quién es el 12?")).toBeNull();

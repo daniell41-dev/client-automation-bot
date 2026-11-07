@@ -259,6 +259,17 @@ describe("botones de respuesta (T-31)", () => {
     ]);
   });
 
+  it("T-66: el tercer botón (Pedir resto) no viaja en la plantilla, que solo tiene dos", () => {
+    const { init } = buildTemplateRequest(
+      { ...opts, plantilla: { ...plantilla, conBotones: true } },
+      "573009998888",
+      ["Tienda", "Laura", "#12 · 2x Harina"],
+      [...botones, { id: "resto:ped-1", titulo: "Pedir resto #12" }],
+    );
+    const components = JSON.parse(String(init.body)).template.components;
+    expect(components.slice(1)).toHaveLength(2);
+  });
+
   it("una plantilla sin botones cargados en Meta no los manda (Meta rechazaría el envío)", () => {
     const { init } = buildTemplateRequest({ ...opts, plantilla }, "573009998888", ["a", "b", "c"], botones);
     expect(JSON.parse(String(init.body)).template.components).toHaveLength(1);
