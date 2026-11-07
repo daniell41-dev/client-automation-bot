@@ -582,6 +582,13 @@ mirando. Se documenta como ADR-004.
 - **T-67** · Devoluciones: al rechazar con plata de por medio, el bot le pide al cliente
   a qué cuenta devolverle; el panel muestra "Devolver $X" con esa cuenta hasta que la
   dueña marque "Ya devolví".
+- **T-68** · Login con marca: el panel izquierdo muestra un pedido real por WhatsApp,
+  el aviso a la dueña y los beneficios; botón para ver la contraseña.
+- **T-69** · Panel más rápido: el rol del usuario se calcula una vez por request (antes
+  tres), la sesión se verifica con `getClaims` (sin ir al servidor de Auth si el
+  proyecto tiene claves asimétricas) y el WhatsApp al cliente sale después de
+  responderle al panel (`after`). El resto de la espera es distancia a Supabase: en el
+  VPS, misma región que la base (`docs/19-vps.md` §1).
 - **T-56** · Costo real de la IA por negocio y por mes: contar los tokens de cada
   llamada en `uso_ia` (hoy se guardan en 0) y mostrar en el back office el costo
   estimado en dólares según el modelo. Sirve para decidir cuándo pasar a la capa paga

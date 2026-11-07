@@ -11,6 +11,7 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { resolveBusinessBySlug, type ResolvedBusiness } from "@/businesses/resolve";
 import { handleOwnerApproval } from "@/core/handle";
@@ -39,11 +40,20 @@ async function pedidoDeLaDueña(pedidoId: string): Promise<Pedido | null> {
   return data ? toPedido(data as PedidoRow) : null;
 }
 
-/** Manda un mensaje al cliente por el número del negocio. Sin token o sin número conectado, no hace nada. */
-async function avisarCliente(
-  resolved: ResolvedBusiness | null,
-  message: OutgoingMessage,
-): Promise<void> {
+/**
+ * Manda un mensaje al cliente por el número del negocio. Sin token o sin
+ * número conectado, no hace nada.
+ *
+ * T-69: se manda DESPUÉS de responderle al panel (`after`). Meta tarda entre
+ * medio y un segundo en aceptar el envío, y la dueña no tiene por qué
+ * esperarlo para ver el pedido moverse: la decisión ya quedó guardada. Si
+ * el envío falla, queda en la terminal igual que antes.
+ */
+function avisarCliente(resolved: ResolvedBusiness | null, message: OutgoingMessage): void {
+  after(() => enviarAlCliente(resolved, message));
+}
+
+async function enviarAlCliente(resolved: ResolvedBusiness | null, message: OutgoingMessage): Promise<void> {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   const phoneNumberId = resolved?.whatsappPhoneNumberId;
   if (!accessToken || !phoneNumberId) return;
@@ -93,7 +103,7 @@ export async function decidirPedido(_prev: ActionState, formData: FormData): Pro
     createComprobanteRepository(),
     createInventoryRepository(),
   );
-  if (customerReply) await avisarCliente(resolved, customerReply);
+  if (customerReply) avisarCliente(resolved, customerReply);
 
   revalidatePath(`/portal/negocios/${slug}/pedidos`);
   return customerReply ? { ok: ownerReply.text } : { error: ownerReply.text };
@@ -113,7 +123,7 @@ export async function marcarListo(_prev: ActionState, formData: FormData): Promi
     return { error: `El pedido #${pedido.numero} no está en preparación.` };
   }
   const resolved = await resolveBusinessBySlug(slug);
-  await avisarCliente(resolved, { to: pedido.contacto, text: mensajePedidoListo(pedido) });
+  avisarCliente(resolved, { to: pedido.contacto, text: mensajePedidoListo(pedido) });
 
   revalidatePath(`/portal/negocios/${slug}/pedidos`);
   return { ok: `Pedido #${pedido.numero} listo.` };
@@ -156,7 +166,7 @@ export async function marcarDevuelto(_prev: ActionState, formData: FormData): Pr
     currency: resolved.config.currency,
     maximumFractionDigits: 0,
   }).format(pedido.montoPagado ?? 0);
-  await avisarCliente(resolved, { to: pedido.contacto, text: mensajeDevuelto(pedido.numero, monto) });
+  avisarCliente(resolved, { to: pedido.contacto, text: mensajeDevuelto(pedido.numero, monto) });
 
   revalidatePath(`/portal/negocios/${slug}/pedidos`);
   return { ok: `Devolución del pedido #${pedido.numero} marcada ✅` };

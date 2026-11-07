@@ -37,9 +37,10 @@ export async function updateSession(request: NextRequest): Promise<{
     },
   });
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // T-69: `getClaims` refresca la sesión igual que `getUser`, pero verifica
+  // el token localmente cuando el proyecto tiene claves asimétricas: un viaje
+  // menos a Supabase en CADA página del portal.
+  const { data } = await supabase.auth.getClaims();
 
-  return { response, hasUser: user !== null };
+  return { response, hasUser: Boolean(data?.claims.sub) };
 }
