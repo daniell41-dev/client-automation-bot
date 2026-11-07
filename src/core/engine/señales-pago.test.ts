@@ -83,6 +83,29 @@ describe("calcularSeñalesPago — monto distinto", () => {
     );
     expect(señales.some((s) => s.tipo === "monto_distinto")).toBe(false);
   });
+  it("T-66: el segundo comprobante se compara contra lo que faltaba, no contra el total", () => {
+    const señales = calcularSeñalesPago(
+      comprobante({ monto: 30000 }),
+      { total: 45000, pagadoAntes: 15000 },
+      {},
+      "57300000000",
+      ahora,
+    );
+    expect(señales.some((s) => s.tipo === "monto_distinto")).toBe(false);
+  });
+
+  it("T-66: si el segundo tampoco alcanza, la señal dice cuánto faltaba y cuánto ya había pagado", () => {
+    const señales = calcularSeñalesPago(
+      comprobante({ monto: 10000 }),
+      { total: 45000, pagadoAntes: 15000 },
+      {},
+      "57300000000",
+      ahora,
+    );
+    expect(señales.find((s) => s.tipo === "monto_distinto")?.detalle).toBe(
+      "El comprobante dice 10000, faltaban 30000 (ya había pagado 15000 de 45000).",
+    );
+  });
 });
 
 describe("calcularSeñalesPago — destino no coincide", () => {

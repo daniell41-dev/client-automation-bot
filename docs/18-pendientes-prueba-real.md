@@ -7,6 +7,7 @@ retome, seguir en este orden. La guía completa sigue siendo `docs/17-prueba-loc
 ## 1. Antes de probar (una vez)
 
 - [ ] Supabase: correr la migración `0023_duena_escribio.sql`.
+- [ ] Supabase: correr la migración `0024_pedido_monto_pagado.sql` (T-66, pedir el resto).
 - [ ] `git pull` en `develop` y reiniciar `pnpm dev` (sin reiniciar corre el código viejo).
 - [ ] Opcional: `GEMINI_MODEL` con un modelo "flash" no lite (ver `pnpm ai:doctor`).
 
@@ -32,8 +33,21 @@ Aprobar / Rechazar incluidos); ✅ el rechazo del #4 (comprobante reciclado) se 
 —tarde, por la caída de ngrok, pero Meta lo reintentó. **Seguir desde "Pedido bueno":**
 `git pull`, reiniciar `pnpm dev` (con ngrok de dominio fijo) y que la dueña apruebe el #5.
 
+Estado al 7-nov-2026: ✅ pedido bueno de punta a punta (#6: aprobado, código de retiro,
+Listo y Entregar en el panel); ✅ monto distinto (#7: comprobante de $100 en un pedido de
+$400 → ⚠️ en el aviso, rechazado, al cliente le llegó el rechazo). De ahí salió la T-66.
+
 Usar el plato "Plato de prueba" ($400) y **recoger en el local** para transferir poco.
 
+- [x] **Pedido bueno + panel** (#6).
+- [x] **Monto distinto** (#7).
+- [ ] **Pedir el resto (T-66):** transferir $100 de un pedido de $400 → a la dueña le sale
+      un tercer botón "Pedir resto #N" (o "RESTO N" escrito si llegó la plantilla) → al
+      cliente le llega "te faltan $300" → transferir $300 → el aviso nuevo ya no trae
+      ⚠️ de monto → aprobar.
+- [ ] **Rechazo con plata de por medio (T-66):** rechazar un pedido con comprobante →
+      el cliente lee "si ya transferiste, escribinos y coordinamos la devolución" y la
+      dueña "acordate de devolvérselos".
 - [ ] **Aviso con plantilla:** la dueña NO le escribe al bot antes. Pedido completo con
       comprobante real → le llega la plantilla con Aprobar / Rechazar → aprueba → al
       cliente le llega número de pedido y código de retiro.
@@ -41,7 +55,6 @@ Usar el plato "Plato de prueba" ($400) y **recoger en el local** para transferir
       cliente le llega el aviso) y Entregar con el código.
 - [ ] **Comprobante repetido:** misma captura en un pedido nuevo → ⚠️ referencia repetida;
       la dueña rechaza y al cliente le llega el aviso.
-- [ ] **Monto distinto:** 2 platos ($800) con comprobante de $400 → ⚠️ monto distinto.
 - [ ] **Cuenta equivocada:** transferir a otra cuenta propia → ⚠️ se pagó a otro número.
 - [ ] **Dos pedidos a la vez** (necesita un tercer celular): "sí" suelto no aprueba nada;
       "Aprobar #2" aprueba solo ese.

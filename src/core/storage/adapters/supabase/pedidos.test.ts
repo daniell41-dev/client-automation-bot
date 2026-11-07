@@ -43,6 +43,18 @@ describe("SupabasePedidoRepository", () => {
     expect(db.pedidos[0].estado).toBe("aprobado");
   });
 
+  it("T-66: registrarPago guarda lo pagado y se lee de vuelta; sin la columna se lee como nada pagado", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabasePedidoRepository(db);
+    const pedido = await repo.crear(nuevo());
+    expect((await repo.obtener(pedido.id))?.montoPagado).toBeUndefined();
+
+    await repo.registrarPago(pedido.id, 20000);
+
+    expect(db.pedidos[0].monto_pagado).toBe(20000);
+    expect((await repo.obtener(pedido.id))?.montoPagado).toBe(20000);
+  });
+
   it("abiertoDeLead devuelve el abierto y nunca uno cerrado", async () => {
     const db = makeFakeSupabaseDb();
     const repo = new SupabasePedidoRepository(db);

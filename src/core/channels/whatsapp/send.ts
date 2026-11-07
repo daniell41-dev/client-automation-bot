@@ -117,7 +117,7 @@ export function buildTemplateRequest(
         // El título de cada botón es fijo (lo aprobó Meta); lo único que se
         // completa al enviar es el payload, por posición.
         ...(opts.plantilla.conBotones
-          ? botones.slice(0, MAX_BOTONES).map((b, index) => ({
+          ? botones.slice(0, MAX_BOTONES_PLANTILLA).map((b, index) => ({
               type: "button",
               sub_type: "quick_reply",
               index: String(index),
@@ -142,6 +142,12 @@ export function buildTemplateRequest(
 
 /** Límites de Meta para mensajes interactivos con botones de respuesta. */
 const MAX_BOTONES = 3;
+/**
+ * T-66: la plantilla aprobada en Meta tiene DOS botones (Aprobar/Rechazar).
+ * Mandarle un tercer parámetro de botón hace fallar el envío entero, así que
+ * "Pedir resto" solo viaja como botón en el texto libre.
+ */
+const MAX_BOTONES_PLANTILLA = 2;
 const MAX_TITULO_BOTON = 20;
 const MAX_CUERPO_INTERACTIVO = 1024;
 

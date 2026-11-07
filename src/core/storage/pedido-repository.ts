@@ -57,6 +57,13 @@ export interface Pedido extends NuevoPedido {
   codigoRetiro?: string;
   /** T-31: el comprobante que respalda este pedido, si lo hay. */
   comprobanteId?: string;
+  /**
+   * T-66: cuánto dicen los comprobantes que ya se pagó (suma de todos los de
+   * este pedido). Es lo que el CLIENTE declara con sus fotos, no plata
+   * verificada: sirve para calcular cuánto falta y cuánto devolver si se
+   * rechaza, nunca para aprobar solo.
+   */
+  montoPagado?: number;
   creadoEn: string;
   actualizadoEn: string;
 }
@@ -89,6 +96,9 @@ export interface PedidoRepository {
 
   /** T-31: asocia el comprobante que respalda el pedido. */
   vincularComprobante(id: string, comprobanteId: string): Promise<void>;
+
+  /** T-66: guarda la suma de lo pagado según los comprobantes del pedido. */
+  registrarPago(id: string, montoPagado: number): Promise<void>;
 
   /** T-37: guarda el código de retiro que se le dio al cliente al aprobar. */
   asignarCodigoRetiro(id: string, codigo: string): Promise<void>;

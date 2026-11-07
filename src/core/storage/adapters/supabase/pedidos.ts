@@ -36,6 +36,8 @@ export function toPedido(row: PedidoRow): Pedido {
     codigoRetiro: row.codigo_retiro ?? undefined,
     comprobanteId: row.comprobante_id ?? undefined,
     stockReservado: row.stock_reservado ?? false,
+    // Sin la migración 0024 la columna no viene: se lee como "nada pagado".
+    montoPagado: row.monto_pagado != null ? Number(row.monto_pagado) : undefined,
     creadoEn: row.created_at,
     actualizadoEn: row.updated_at,
   };
@@ -91,6 +93,10 @@ export class SupabasePedidoRepository implements PedidoRepository {
 
   async asignarCodigoRetiro(id: string, codigo: string): Promise<void> {
     await this.db.updatePedidoCodigoRetiro(id, codigo);
+  }
+
+  async registrarPago(id: string, montoPagado: number): Promise<void> {
+    await this.db.updatePedidoMontoPagado(id, montoPagado);
   }
 
   async vincularComprobante(id: string, comprobanteId: string): Promise<void> {
