@@ -73,6 +73,29 @@ function tonoActual(tone: string): Tono {
   return "cercano";
 }
 
+/**
+ * T-73: el <input type="file"> nativo sale con el idioma del navegador
+ * ("Choose File · No file chosen") y en un celular angosto se salía de la
+ * tarjeta. Se esconde y se reemplaza por un botón en español con el nombre
+ * del archivo elegido.
+ */
+function SelectorImagen({ name }: { name: string }) {
+  const [archivo, setArchivo] = useState<string | null>(null);
+  return (
+    <label className="flex min-w-0 cursor-pointer items-center gap-3 rounded-[10px] border border-dashed border-line-input px-3 py-2.5 text-sm transition-colors hover:bg-surface-3">
+      <input
+        type="file"
+        name={name}
+        accept="image/png,image/jpeg,image/webp"
+        className="sr-only"
+        onChange={(e) => setArchivo(e.target.files?.[0]?.name ?? null)}
+      />
+      <span className="shrink-0 font-semibold text-primary">Elegir imagen</span>
+      <span className="min-w-0 truncate text-ink-soft">{archivo ?? "Ninguna elegida"}</span>
+    </label>
+  );
+}
+
 export function ConfiguracionEditor({
   slug,
   nombre,
@@ -420,7 +443,7 @@ export function ConfiguracionEditor({
             )}
             <ActionForm action={subirQrPago} submitLabel={initialPagos?.qrUrl ? "Cambiar QR" : "Subir QR"} className="mt-3 space-y-3">
               <input type="hidden" name="slug" value={slug} />
-              <input type="file" name="qr" accept="image/png,image/jpeg,image/webp" className="block text-sm" />
+              <SelectorImagen name="qr" />
             </ActionForm>
           </div>
         </div>

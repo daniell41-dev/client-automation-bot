@@ -136,7 +136,7 @@ export function CatalogoEditor({
   return (
     <div className="flex flex-wrap items-start gap-5 fade-up">
       {/* ── Columna de trabajo ── */}
-      <div className="min-w-[300px] flex-[1_1_460px] space-y-4 sm:min-w-[420px]">
+      <div className="min-w-0 flex-[1_1_460px] space-y-4 sm:min-w-[420px]">
         {/* Toolbar */}
         <div className="flex gap-3">
           <SearchInput
@@ -164,16 +164,24 @@ export function CatalogoEditor({
         ) : (
           <div className="space-y-2">
             {visibles.map((s) => (
-              <button
+              // T-73: la fila era un <button> con el interruptor (otro <button>)
+              // adentro: HTML inválido que rompía la hidratación y confundía a los
+              // lectores de pantalla. Ahora el contenedor es un div y la parte
+              // que selecciona es un botón hermano del interruptor.
+              <div
                 key={s.id}
-                type="button"
-                onClick={() => setSelectedId(s.id)}
-                className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
+                className={`flex w-full items-center gap-3 rounded-xl border p-3 transition-colors ${
                   s.id === selectedId
                     ? "border-primary bg-primary-tint"
                     : "border-line bg-surface hover:bg-surface-3"
                 }`}
               >
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(s.id)}
+                  aria-pressed={s.id === selectedId}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                >
                 <span
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] text-sm font-extrabold ${iconBg} ${iconInk}`}
                 >
@@ -187,12 +195,13 @@ export function CatalogoEditor({
                     {[s.categoria, precio.format(s.price)].filter(Boolean).join(" · ")}
                   </span>
                 </span>
+                </button>
                 <Toggle
                   checked={s.disponible !== false}
                   onChange={(next) => patchService(s.id, { disponible: next })}
                   label={`Disponibilidad de ${s.name}`}
                 />
-              </button>
+              </div>
             ))}
           </div>
         )}

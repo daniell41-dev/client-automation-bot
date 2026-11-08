@@ -40,6 +40,18 @@ export interface ShellNegocio {
   vendePedidos?: boolean;
 }
 
+/**
+ * T-73: en la barra de abajo del celular entran hasta 6 accesos en 320 px.
+ * Con los nombres largos, "Citas y reservas" se partía en dos líneas y
+ * "Configuración" tocaba el borde.
+ */
+const ETIQUETA_CORTA: Record<string, string> = {
+  "Citas y reservas": "Citas",
+  "Respuestas y flujos": "Respuestas",
+  Conversaciones: "Chats",
+  "Configuración": "Ajustes",
+};
+
 export function PortalShell({
   negocio,
   negocios,
@@ -302,12 +314,12 @@ export function PortalShell({
           <Link
             key={href}
             href={href}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10.5px] font-semibold ${
+            className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[10.5px] font-semibold ${
               isActive(href) ? "text-primary" : "text-ink-soft"
             }`}
           >
             <Icon className="h-5 w-5" />
-            {label}
+            <span className="max-w-full truncate px-0.5">{ETIQUETA_CORTA[label] ?? label}</span>
           </Link>
         ))}
       </nav>
