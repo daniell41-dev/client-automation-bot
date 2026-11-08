@@ -45,6 +45,11 @@ export default async function ConfiguracionPage({
       }
       personas={config.personas}
       initialAi={config.ai ?? { enabled: true }}
+      initialPagos={config.pagos}
+      initialAvisos={config.avisos}
     />
   );
 }
+
+// T-71: el nombre de la pestaña ("Configuración · Nexo"); la plantilla vive en el layout raíz.
+export const metadata = { title: "Configuración" };

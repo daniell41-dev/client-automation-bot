@@ -6,22 +6,32 @@
 >
 > Versión 2 (sept-2026): alcance reducido a **un solo rubro (estética)** y a un
 > circuito mínimo admin → cliente. Ver el registro de cambios al final.
+>
+> **Versión 3 (oct-2026):** este documento había quedado desactualizado — el backlog
+> se detenía en T-19 y no reflejaba nada de lo construido después (T-20 a T-26:
+> pedidos multi-rubro, pagos, Wompi, conexión real a WhatsApp). Se revisó cada tarea
+> contra el código real (no de memoria) para marcar qué está hecho, qué quedó
+> superado por un camino distinto al planeado, y qué sigue pendiente. Detalle del
+> trabajo posterior a T-19 en la sección 4-bis. Ver el registro de cambios al final.
 
 ---
 
 ## 1. Dónde estamos
 
-- **`main` contiene solo el scaffold de `create-next-app`.** Todo el proyecto real
-  (bot, portal, back office, Supabase, IA) vive en `develop`.
-- Ya existe y funciona: arquitectura de puertos y adaptadores, cadena de respaldo de
-  IA (Gemini → Groq → Cerebras → custom), multi-tenancy en Supabase con RLS, modo
-  agente con JSON validado por Zod, 322 tests en Vitest, y los scripts `pnpm sim`,
-  `pnpm ai:doctor`, `pnpm seed:supabase`.
-- El diseño hi-fi está en el bundle `design_handoff_flujo_bot_whatsapp/`
-  (README con tokens y mapeo a Supabase, TASKS con 35 tareas, 18 capturas).
-  **Todavía no está publicado en el repo**: `docs/09-diseno-nexo.md` es una copia
-  vieja del README a la que le faltan los modales, el detalle de negocio y los
-  menús de fila. Lo arregla T-19.
+> Actualizado oct-2026 — ver v3 en el encabezado. Lo que sigue reemplaza la foto de
+> sept-2026 (322 tests, diseño sin publicar, etc.): ya no es la situación actual.
+
+- **`main` tiene el código real** (T-01, hecho — `main` ya no es el scaffold de
+  `create-next-app`). `develop` sigue siendo la rama de trabajo.
+- El diseño hi-fi **ya está publicado** en `docs/design/` (T-19, hecho).
+- Mucho más construido que la v2 de este plan: el circuito completo de **pedidos
+  multi-producto con stock atómico**, **confirmación de pago** (comprobante + IA +
+  Wompi), **el bot entiende imágenes**, y el bot está **conectado a WhatsApp real**
+  (no solo al simulador) — todo esto es T-20 a T-26, fuera del alcance que describía
+  este documento. Ver la sección 4-bis.
+- **821 tests** en Vitest (eran 322 cuando se escribió la v2).
+- Los ADRs de arquitectura (motor+agente, stock atómico, aprobación por WhatsApp)
+  están documentados en `docs/15-adr.md`.
 
 ---
 
@@ -44,6 +54,13 @@ coherente, sin ganar nada. Además el free tier da solo 2 proyectos activos y el
 segundo se reserva para staging.
 
 ### 2.3 Un solo rubro en la v1: estética
+
+> **⚠️ Superado en la práctica (oct-2026).** El segundo rubro (Tienda) llegó antes de
+> lo que preveía este plan, y no por el camino de `Service.extras` que describe 2.4
+> — se resolvió con `modo-item.ts` (cada ítem declara si es "cita" o "pedido") y
+> `catalogo.campos` en la plantilla del rubro. Ver `docs/15-plan-vision-tienda.md` y
+> `docs/15-adr.md`. Se deja el texto original abajo como registro de la decisión que
+> regía en su momento — no se reescribe, como con los ADRs.
 La v1 se construye para **un rubro: estética y belleza** — el que ya está en la
 demo (uñas, depilación, limpieza facial, pestañas). Un solo vertical, campos
 fijos, cero abstracción especulativa.
@@ -182,7 +199,7 @@ para no romper los issues que ya existan.
 
 ### Fase 0 — Desbloquear (nada avanza sin esto)
 
-**T-01 · Publicar `develop` en `main`**
+**T-01 · Publicar `develop` en `main`** — ✅ **Hecho.** `main` tiene el código real.
 Revisar y mergear el PR abierto. Dejar `main` como la rama que refleja el proyecto real.
 Actualizar el `README.md` de la raíz (hoy es el de `create-next-app`) con: qué es el
 proyecto, cómo levantarlo, y el índice de `docs/`.
@@ -192,7 +209,7 @@ proyecto, cómo levantarlo, y el índice de `docs/`.
 
 ---
 
-**T-02 · `AGENTS.md` real**
+**T-02 · `AGENTS.md` real** — ✅ **Hecho.** `AGENTS.md` tiene las 7 reglas desarrolladas.
 El actual tiene 4 líneas sobre Next.js. Reescribirlo con: el principio de `core/`
 sin dependencias de framework, la exigencia de tests en Vitest, el estilo de
 comentarios, la validación con Zod al escribir, y un enlace a este plan.
@@ -202,7 +219,7 @@ comentarios, la validación con Zod al escribir, y un enlace a este plan.
 
 ---
 
-**T-03 · Arreglar dos bugs de RLS** (migración `0003_fix_rls.sql`)
+**T-03 · Arreglar dos bugs de RLS** (migración `0003_fix_rls.sql`) — ✅ **Hecho.**
 
 En `0001_schema_inicial.sql` hay dos referencias de columna sin calificar que
 Postgres resuelve contra la tabla interna de la subconsulta:
@@ -239,7 +256,7 @@ PostgREST. RLS es justamente lo que debe frenar ese camino.
 
 ---
 
-**T-04 · Sanear los modelos de IA**
+**T-04 · Sanear los modelos de IA** — ✅ **Hecho** (`presets.ts` usa `gemini-3.5-flash-lite`).
 Correr `pnpm ai:doctor` y corregir `src/core/ai/presets.ts` con los IDs reales que
 devuelve el diagnóstico. Verificar en particular que `gemini-3.5-flash-lite` exista
 (el catálogo público solo menciona 3.1 Flash-Lite). `CEREBRAS_API_KEY` ya está en
@@ -257,7 +274,7 @@ Nota de límites vigentes a sept-2026, para elegir el orden de la cadena:
 
 ---
 
-**T-19 · Publicar el handoff de diseño en el repo**
+**T-19 · Publicar el handoff de diseño en el repo** — ✅ **Hecho**, `docs/design/` existe.
 Copiar el bundle a `docs/design/`: `README.md`, `TASKS.md` y `screenshots/` (18 png).
 Retirar `docs/09-diseno-nexo.md`, que es una copia vieja del mismo README (le faltan
 los modales, el detalle de negocio y los menús de fila), dejando en su lugar un
@@ -275,7 +292,7 @@ ella entra y ajusta tono, conocimiento y servicios; el bot responde con eso.**
 
 ---
 
-**T-11 · Modal "Nuevo / Editar negocio" en el back office**
+**T-11 · Modal "Nuevo / Editar negocio" en el back office** — ✅ **Hecho** (`crearNegocio` vive en `backoffice/actions.ts`, el portal ya no crea negocios).
 Implementar `14-modal-nuevo-negocio.png`: nombre, **cliente dueño** (lista con radio),
 **rubro plantilla** (con preview de los campos que hereda), WhatsApp, plan. El negocio
 nace `Pausado` y con 0 leads.
@@ -298,7 +315,11 @@ Además, en la misma tarea (decisión 2.6):
 
 ---
 
-**T-16 · Reducir el portal a lo que el cliente puede tocar**
+**T-16 · Reducir el portal a lo que el cliente puede tocar** — ⚠️ **No se ejecutó
+así.** El sidebar (`src/components/portal-shell.tsx`) sigue mostrando las 6 secciones
+originales — tiene sentido: una vez que llegó el rubro Tienda (2.3), "Citas y
+reservas" volvió a ser relevante para negocios que sí agendan. Esta tarea queda
+superada por el enfoque multi-rubro real, no pendiente de hacer tal cual se describe.
 Ocultar del menú lateral **Citas y reservas**, **Respuestas y flujos** y
 **Conversaciones** (decisión 2.7). El cliente queda con Resumen, Catálogo y
 Configuración. No borrar el código de esas secciones ni sus rutas: solo dejan de
@@ -312,7 +333,7 @@ para poder reactivarlas sin buscar por todo el repo.
 
 ---
 
-**T-17 · Configuración = nombre del bot + tono + conocimiento**
+**T-17 · Configuración = nombre del bot + tono + conocimiento** — ✅ **Hecho.**
 Mover el textarea "Información del negocio" (`ai.knowledge`) desde "Respuestas y
 flujos" a la pantalla de Configuración, junto al nombre del bot y el segmented de
 tono que ya existen. Es el único punto donde el cliente le enseña algo al bot que no
@@ -325,7 +346,8 @@ sea un precio.
 
 ---
 
-**T-18 · Catálogo alineado al diseño**
+**T-18 · Catálogo alineado al diseño** — ❓ **No verificado en esta revisión** (es un
+criterio visual contra una captura, no algo que se confirme leyendo código).
 Revisar el editor de Catálogo contra `04-catalogo.png`: lista con toggle de
 disponibilidad, card "Editar producto" (nombre, precio, categoría, descripción) y
 preview de WhatsApp en vivo. Los campos ya existen; la tarea es cerrar la brecha
@@ -340,7 +362,7 @@ visual y de interacción, y que el label de la sección salga del rubro
 
 ### Fase 2 — Que el bot aguante tráfico real
 
-**T-05 · El webhook responde 200 antes de procesar**
+**T-05 · El webhook responde 200 antes de procesar** — ✅ **Hecho** (`after()` en `src/app/api/webhook/whatsapp/route.ts`, dedupe por `message.id`).
 Hoy `POST /api/webhook/whatsapp` hace todo en línea (resolver negocio, llamar IA,
 guardar lead, enviar respuesta) y recién ahí contesta a Meta. Meta espera un ACK
 rápido: si tarda, **reintenta el mismo mensaje y el bot responde dos veces**.
@@ -356,7 +378,7 @@ dentro de `after()` de `next/server`.
 
 ---
 
-**T-06 · Cachear la resolución del negocio**
+**T-06 · Cachear la resolución del negocio** — ✅ **Hecho** (`business-cache.ts`, `invalidateBusinessCache()`).
 `resolveBusinessByPhoneNumberId` hace un `select` a Supabase **por cada mensaje
 entrante de cada negocio**, para leer una config que cambia una vez por semana.
 Un negocio con 500 mensajes/día son 500 lecturas evitables.
@@ -370,7 +392,7 @@ Cachear con `unstable_cache`/`cacheLife` de Next, con invalidación explícita d
 
 ---
 
-**T-07 · Tabla `uso_ia` y medición de consumo**
+**T-07 · Tabla `uso_ia` y medición de consumo** — ✅ **Hecho** (migración `0005_uso_ia.sql`).
 Sin esto no hay forma de saber cuándo hay que pagar.
 
 ```sql
@@ -394,7 +416,7 @@ y cada caída a plantilla.
 
 ---
 
-**T-08 · `negocio_id` como clave foránea en `leads` y `sesiones`**
+**T-08 · `negocio_id` como clave foránea en `leads` y `sesiones`** — ✅ **Hecho** (migración `0006_negocio_id_fk.sql`).
 Hoy se enlazan por `business_slug` (texto). Si el slug cambia quedan huérfanos; si
 se borra el negocio, quedan registros. Agregar `negocio_id uuid references
 negocios(id) on delete cascade`, con backfill, manteniendo el slug como columna de
@@ -407,7 +429,7 @@ conveniencia para el motor.
 
 ### Fase 3 — Validación y UX de formularios
 
-**T-12 · Zod en los formularios de la v1**
+**T-12 · Zod en los formularios de la v1** — ✅ **Hecho** (`safeParse` en `configuracion-editor.tsx` y `catalogo-editor.tsx`).
 Los schemas ya existen en `core/config-schema.ts` pero solo se usan al escribir en
 la base. Exportar los sub-schemas y validar también en el cliente antes de enviar,
 con el mismo objeto Zod en ambos lados. Alcance: los formularios que sobreviven a
@@ -419,7 +441,7 @@ T-16 (Catálogo, Configuración) y el modal de negocio del back office.
 
 ---
 
-**T-13 · Confirmación de borrado y toasts**
+**T-13 · Confirmación de borrado y toasts** — ✅ **Hecho** (`confirm-delete-button.tsx`, `toast.tsx`).
 Modal de confirmación antes de eliminar negocio, usuario o rubro, con aviso de
 impacto ("este rubro tiene 2 negocios asociados"). Toasts de éxito y error.
 
@@ -430,7 +452,7 @@ impacto ("este rubro tiene 2 negocios asociados"). Toasts de éxito y error.
 
 ### Fase 4 — Automatización
 
-**T-14 · Plantilla de PR e instalación de la GitHub Action**
+**T-14 · Plantilla de PR e instalación de la GitHub Action** — ✅ **Hecho** (`.github/pull_request_template.md` existe y se usa en cada PR).
 `.github/pull_request_template.md` con la estructura de la sección 5, y
 `/install-github-app` para habilitar `@claude` en issues y PRs. Incluir aquí el
 workflow que corre el test de RLS de T-03 contra un Postgres de servicio.
@@ -439,7 +461,7 @@ workflow que corre el test de RLS de T-03 contra un Postgres de servicio.
 
 ---
 
-**T-15 · Alarma de deprecación de modelos**
+**T-15 · Alarma de deprecación de modelos** — ✅ **Hecho** (`.github/workflows/ai-doctor-alarm.yml`).
 GitHub Action programada (lunes y jueves) que corre `pnpm ai:doctor`. Si un
 proveedor falla, abre un issue con el error exacto y el catálogo de modelos
 disponibles para esa key.
@@ -449,26 +471,154 @@ disponibles para esa key.
 
 ---
 
-### Aplazadas hasta el segundo rubro
+### Aplazadas hasta el segundo rubro — ⚠️ superadas, el segundo rubro ya llegó
 
-No empezar hasta que exista un negocio real de otro rubro. Diseño en la sección 2.4.
+> El disparador de esta sección ("el día que haya que dar de alta un negocio que no
+> sea de estética") ya pasó: la Tienda es el segundo rubro real. Pero no se resolvió
+> con `Service.extras` como describía 2.4 — ver la nota en 2.3 y la sección 4-bis.
 
-- **T-09 · `Service.extras` + schema en la plantilla del rubro.**
-- **T-10 · Formulario de catálogo generado desde la plantilla.**
+- **T-09 · `Service.extras` + schema en la plantilla del rubro.** No se hizo así;
+  en su lugar, `modo-item.ts` decide "cita" o "pedido" por ítem.
+- **T-10 · Formulario de catálogo generado desde la plantilla.** No se hizo así; el
+  catálogo sigue siendo el mismo editor, mostrando/ocultando campos según
+  `catalogo.campos` de la plantilla del rubro.
 
-**Disparador:** el día que haya que dar de alta un negocio que no sea de estética.
-Antes de eso, cualquier campo nuevo se agrega al `Service` fijo y listo.
+---
+
+## 4-bis. Lo construido después de T-19 (no estaba en este plan)
+
+Esta sección no sigue el formato de "Criterio de aceptación / Cómo lo pruebo yo" del
+resto del backlog — son tareas ya cerradas, documentadas a fondo en otros lugares.
+Está acá solo para que quien lea este plan sepa que existen y dónde mirar.
+
+**T-20/T-21 · El rubro declara qué hace el bot; flujo de pedido multi-producto.**
+Cada ítem del catálogo declara si es "cita" (agenda) o "pedido" (carrito), con stock
+propio y descuento atómico. Reemplaza el enfoque de 2.3/2.4. Documentado en
+`docs/15-adr.md` (ADR-001, ADR-002, ADR-003).
+
+**T-22 · Stock e imágenes.** Alertas de stock bajo al dueño; el bot entiende fotos
+(describe la imagen, busca el producto en el catálogo).
+
+**T-23 · Visión conectada al flujo real.** El camino de imagen queda enganchado a
+`handle.ts`: el cliente manda una foto y el bot responde según qué encontró.
+
+**T-24 · Confirmación de pago, dos niveles.** Nivel 1: comprobante (captura) + IA
+que lo transcribe + señales de riesgo (referencia repetida, monto distinto, etc.) +
+aprobación de la dueña. Nivel 2: pago con Wompi (tarjeta/PSE en Colombia), con
+confirmación automática por webhook firmado — nunca por la redirección del
+checkout. Las credenciales de Wompi tienen pantalla propia en el portal. Sin probar
+contra un comercio real de Wompi todavía.
+
+**T-25 · Plantilla de respaldo para el aviso a la dueña.** El aviso de pedido nuevo
+lo inicia el bot; si la dueña no escribió en 24h, WhatsApp exige una plantilla
+aprobada. Implementado con reintento automático — ver `docs/05-whatsapp-setup.md §7`.
+
+**T-26 · Conexión real a WhatsApp (Meta Cloud API).** Probada de punta a punta con
+un número de prueba real, no solo con el simulador. Guía completa y troubleshooting
+en `docs/05-whatsapp-setup.md` (incluye el hallazgo de que la cuenta de WhatsApp
+Business hay que suscribirla a la app explícitamente — no pasa sola).
+
+**T-28 · Token permanente (usuario del sistema).** El token temporal de la consola
+de Meta vence a las 24h y el bot deja de responder con un 401 (código 190). Se
+reemplazó por un token sin vencimiento emitido por un usuario del sistema del
+portafolio de Meta, con la app y la cuenta de WhatsApp asignadas como activos.
+Probado: el bot sigue respondiendo con ese token. Paso a paso en
+`docs/05-whatsapp-setup.md §9`.
+
+---
+
+## 4-ter. Backlog de lanzamiento (oct-2026): belleza + restaurantes en Cúcuta
+
+Decidido con el dueño del producto: Nexo sigue con belleza (estética, peluquería,
+masajes) y suma **restaurantes**, con foco en el fraude por pantallazos de
+transferencias falsas. El alta la hace el administrador; la dueña recibe una invitación
+y elige el tipo de negocio en su primer ingreso. La guía para probar todo en local antes
+de vender es `docs/17-prueba-local.md` (T-44).
+
+**Decisión de diseño:** el pedido pasa a ser una entidad propia (tabla `pedidos`, con
+número corto por negocio, estados y código de retiro). Hoy el lead *es* el pedido, y eso
+causa que el SÍ de la dueña apruebe el pedido pendiente más viejo en vez del que está
+mirando. Se documenta como ADR-004.
+
+### Fase 0 — Que lo que existe no le cueste plata a nadie (antes de cualquier piloto)
+- Paso previo: PR `develop → main` (lo decide el dueño) y Supabase sano en local.
+- **T-30** · Pedido como entidad (`0015_pedidos.sql`, `PedidoRepository`, ADR-004).
+- **T-31** · Aprobación por pedido: botones de WhatsApp con el id del pedido y respaldo
+  "SÍ 142". Arregla la aprobación del pedido equivocado.
+- **T-32** · Devolver el stock cuando la dueña rechaza o el pedido vence.
+- **T-33** · Datos de pago (Nequi, llave Bre-B) que el bot le da al cliente, pantalla para
+  pedir comprobante y normalización de referencia y teléfono destino.
+- **T-34** · Wompi: avisar a la dueña, comparar el monto, referencia = id del pedido.
+- **T-35** · Login: bloquear redirecciones `//…`, cerrar sesión en `/portal`.
+
+### Fase 1 — Restaurante de verdad
+- **T-36** · Domicilio o recoger en el camino de pedido, con dirección.
+- **T-37** · Código de retiro al aprobar.
+- **T-38** · Panel de pedidos en el portal (foto del comprobante, señales, estados).
+- **T-39** · Modo de aviso "solo resumen" para días pico.
+- **T-40** · Rubros base sembrados: Belleza, Peluquería, Masajes, Restaurante.
+
+### Fase 2 — Alta de dueñas
+- **T-41** · Invitación por correo, definir contraseña y "olvidé mi contraseña".
+- **T-42** · Asistente de primer ingreso: la dueña elige el tipo y carga su negocio.
+
+### Fase 3 — Costos
+- **T-43** · Medidor de mensajes de WhatsApp por negocio y por mes. Según varias fuentes,
+  desde el 1-oct-2026 Meta cobra los mensajes de servicio pasado un cupo mensual.
+
+### Fase 4 — Pedidos de los pilotos
+- **T-45** · Varias cuentas de cobro (banco, tipo, número, titular) y QR de pago que el
+  bot le manda al cliente.
+- **T-46** · Notas de voz: el bot escucha el audio del cliente y responde como si lo
+  hubiera escrito.
+- **T-61** · La app en un VPS propio con Docker + Traefik (HTTPS automático), Supabase
+  se queda como base de datos/login/archivos. Ahorra Vercel Pro (el plan gratis no
+  permite uso comercial) y elimina ngrok. Guía: `docs/19-vps.md`.
+- **T-66** · Pagó de menos: tercer botón "Pedir resto #N" en el aviso (o "RESTO N"
+  escrito) cuando el comprobante no alcanza. El pedido vuelve a esperar el pago y el
+  segundo comprobante se suma al primero (`pedidos.monto_pagado`, migración 0024). Al
+  rechazar un pedido con comprobante, el cliente sabe qué pasa con su plata y la dueña
+  recibe el recordatorio de devolverla.
+- **T-67** · Devoluciones: al rechazar con plata de por medio, el bot le pide al cliente
+  a qué cuenta devolverle; el panel muestra "Devolver $X" con esa cuenta hasta que la
+  dueña marque "Ya devolví".
+- **T-68** · Login con marca: el panel izquierdo muestra un pedido real por WhatsApp,
+  el aviso a la dueña y los beneficios; botón para ver la contraseña.
+- **T-69** · Panel más rápido: el rol del usuario se calcula una vez por request (antes
+  tres), la sesión se verifica con `getClaims` (sin ir al servidor de Auth si el
+  proyecto tiene claves asimétricas) y el WhatsApp al cliente sale después de
+  responderle al panel (`after`). El resto de la espera es distancia a Supabase: en el
+  VPS, misma región que la base (`docs/19-vps.md` §1).
+- **T-56** · Costo real de la IA por negocio y por mes: contar los tokens de cada
+  llamada en `uso_ia` (hoy se guardan en 0) y mostrar en el back office el costo
+  estimado en dólares según el modelo. Sirve para decidir cuándo pasar a la capa paga
+  de Gemini (límites diarios y privacidad: en la capa gratis Google puede usar las
+  conversaciones) y para ajustar el precio con datos propios.
+
+### Documentación
+- **T-44** · `docs/17-prueba-local.md`: guía de prueba local. Cada PR de arriba actualiza
+  su paso.
+
+### Precio (propuesta, a validar con los pilotos)
+Costos fijos ≈ 48 USD/mes (Supabase Pro, Vercel Pro, dominio). Propuesta en pesos, sin
+comisión, con instalación gratis y 14 días de prueba: **Belleza COP 59.900/mes** y
+**Restaurante COP 99.900/mes**. Con 3-4 clientes se cubren los fijos. Reemplaza la
+pregunta abierta de "Planes Free/Pro" de abajo.
 
 ---
 
 ### Pendiente de decisión del dueño del producto
 
+- ~~**Conexión de WhatsApp:** ¿API oficial de Meta o sesión por QR?~~ **Decidido y
+  hecho (oct-2026): API oficial de Meta (Cloud API).** Probada de punta a punta con
+  un número de prueba real — ver `docs/05-whatsapp-setup.md`. Sigue pendiente pasar
+  de "número de prueba" a un número real de producción (ver "Próximos pasos" en ese
+  mismo doc: verificación de negocio y publicar la app). El token permanente ya
+  está resuelto (T-28).
+
 No empezar estas hasta tener respuesta:
-- **Conexión de WhatsApp:** ¿API oficial de Meta o sesión por QR? Define toda la
-  pantalla de Configuración → Conectar WhatsApp, que es la pieza crítica que falta
-  para que la v1 sirva en producción.
-- **Planes Free/Pro:** ¿tienen límites reales de negocios o mensajes? Si sí, hay
-  que diseñar los bloqueos.
+- ~~**Planes Free/Pro:**~~ Reemplazada por la propuesta de precio de la sección
+  4-ter; los límites se deciden con los datos de T-43.
 - **Rol agente/empleado** con acceso solo a Conversaciones: queda fuera de la v1 por
   la decisión 2.7; revisar cuando se reactive esa sección.
 
@@ -517,6 +667,28 @@ plan o se reinicie el período: con un cliente pagando, eso es un incidente, no 
 ---
 
 ## 7. Registro de cambios
+
+**v4 — oct-2026.** Agregada la sección 4-ter: backlog de lanzamiento T-30 a T-44
+(belleza + restaurantes, antifraude, alta de dueñas, costos) y la propuesta de precio.
+
+**v3.1 — oct-2026.** Agregada T-28 (token permanente vía usuario del sistema) a la
+sección 4-bis y sacada de los pendientes de la conexión de WhatsApp: ya está hecha
+y probada.
+
+**v3 — oct-2026.** Realineación del documento con el código real, no un rediseño del
+plan. Se verificó cada tarea de T-01 a T-19 contra el repo (migraciones, archivos,
+workflows) en vez de asumir su estado:
+- Marcadas ✅ **Hecho**: T-01, T-02, T-03, T-04, T-05, T-06, T-07, T-08, T-11, T-12,
+  T-13, T-14, T-15, T-17, T-19.
+- Marcada ❓ sin verificar: T-18 (criterio visual, no se confirma leyendo código).
+- Marcadas ⚠️ superadas por un camino distinto al planeado: T-09, T-10, T-16, y la
+  premisa de single-rubro de 2.3/2.4 (ver la nota ahí).
+- Resuelta la decisión pendiente de "Conexión de WhatsApp": API oficial de Meta,
+  implementada y probada (T-26).
+- Agregada la sección 4-bis con lo construido en T-20 a T-26, que no estaba en
+  ninguna versión anterior de este plan — son tareas ya cerradas y documentadas a
+  fondo en `docs/15-adr.md`, `docs/15-plan-vision-tienda.md` y
+  `docs/05-whatsapp-setup.md`, así que acá solo se resumen con puntero a cada una.
 
 **v2 — sept-2026.** Se reduce el alcance a un circuito mínimo verificable en
 producción con un solo negocio real.

@@ -16,8 +16,10 @@
 
 import type {
   AgentTurnInput,
+  AudioInput,
   DateExtractionInput,
   ILLMProvider,
+  ImageInput,
   InterpretInput,
   LLMContext,
 } from "@/core/ai/provider";
@@ -33,6 +35,10 @@ import {
   parseAgentResponse,
 } from "@/core/ai/agent-prompt";
 import type { AgentResponse } from "@/core/ai/agent-schema";
+import { buildImageDescriptionPrompt, parseImageDescription } from "@/core/ai/image-prompt";
+import type { ImageDescription } from "@/core/ai/image-schema";
+import { buildPaymentReceiptPrompt, parsePaymentReceipt } from "@/core/ai/payment-receipt-prompt";
+import type { PaymentReceiptDescription } from "@/core/ai/payment-receipt-schema";
 
 export interface OpenAICompatibleOptions {
   /** Nombre corto para logs/errores (p. ej. "gemini", "groq"). */
@@ -46,29 +52,88 @@ export interface OpenAICompatibleOptions {
   /** Timeout de la llamada en ms (default 8000; Vercel Hobby corta a 10s). */
   timeoutMs?: number;
   /**
-   * Timeout propio para `runAgent` (default 20000). Un modelo que razona
-   * tarda más que un `enhance()`/`interpret()` corto, y ese tiempo crece con
-   * el catálogo + historial del prompt de agente.
+   * Timeout propio para `runAgent` (default 8000). Un modelo que razona
+   * tarda más que un `enhance()`/`interpret()` corto, pero T-65: el cliente
+   * está esperando en WhatsApp. Antes eran 20 s; en la prueba real Gemini se
+   * puso lento y cada mensaje esperaba los 20 s enteros antes de pasar al
+   * respaldo (Groq responde en ~0,4 s). Mejor cortar antes y que conteste el
+   * siguiente proveedor.
    */
   agentTimeoutMs?: number;
   /**
-   * `reasoning_effort` a mandar SOLO en `runAgent()` (ver `AIPreset`). El
-   * resto de los métodos (`enhance`/`interpret`/`extractDateTime`) NO lo
-   * usan: son prompts cortos y libres, y bajarles el esfuerzo de
-   * razonamiento puede hacer que el modelo, en vez de reformular, devuelva
-   * el texto de entrada sin tocar — visto en producción con Groq
-   * (`openai/gpt-oss-20b`): con `reasoning_effort: "low"`, `enhance()`
-   * devolvía el borrador idéntico. `runAgent()` sí lo necesita: su prompt es
-   * largo y pide JSON estricto, y ahí el problema real es el modelo
-   * gastando `max_tokens` pensando (ver el comentario en `runAgent`).
+   * `reasoning_effort` para TODOS los métodos que llaman a este provider —
+   * mismo valor en `enhance()`/`interpret()`/`extractDateTime()` que en
+   * `runAgent()`. Historia real de por qué no hay una versión "apagada"
+   * distinta para los métodos cortos (los tres intentos, probados con keys
+   * reales, sept-2026):
+   *
+   * 1. **Mandar este mismo valor ("low") en todos lados** (el diseño
+   *    original): con Groq (`openai/gpt-oss-20b`), `enhance()` devolvía el
+   *    borrador SIN NINGÚN cambio — con el esfuerzo bajo pero no nulo, el
+   *    modelo optaba por la respuesta "más segura" frente a las reglas de no
+   *    inventar/conservar datos: copiar el texto de entrada tal cual.
+   * 2. **No mandar nada en enhance/interpret/extractDateTime** (para evitar
+   *    lo de arriba): resultó PEOR. Omitir el campo no apaga el
+   *    razonamiento — Gemini 3 y `gpt-oss` razonan por defecto igual.
+   *    `pnpm ai:doctor` real: Gemini hacía timeout (>8s en un prompt corto)
+   *    y Groq devolvía vacío (`finish_reason=length`, sin `max_tokens`).
+   * 3. **Mandar `"none"` explícito** (para apagarlo del todo, ya que omitir
+   *    no alcanza): **ninguno de los dos proveedores lo acepta**. Groq
+   *    devuelve HTTP 400 con el mensaje exacto: `` `reasoning_effort` must
+   *    be one of `low`, `medium`, or `high` ``. Gemini también 400
+   *    (`INVALID_ARGUMENT`, mismo cambio). No es un valor válido del enum —
+   *    ni en el OpenAI-compatible de Groq ni en el de Gemini.
+   *
+   * Con "none" descartado por evidencia real y "nada" objetivamente peor que
+   * "low" (timeout/vacío vs. un borrador sin cambios que al menos no
+   * revienta), se volvió al mismo valor en todos los métodos (opción 1). El
+   * caso conocido de Groq en `enhance()` (punto 1) sigue siendo un límite
+   * real de ese modelo, no un bug de este código — si hace falta que
+   * `enhance()` reformule de verdad con Groq, el próximo paso sería probar
+   * `"medium"` específicamente para Groq (no probado todavía).
    */
   reasoningEffort?: string;
+  /** `true` si `model` puede leer imágenes (T-23.3). Default `false`. */
+  supportsVision?: boolean;
+  /** T-46: cómo transcribe audio (ver `AIPreset.transcripcion`). Sin esto, no transcribe. */
+  transcripcion?: "gemini" | "whisper";
+}
+
+/** T-46: lo que responde Gemini cuando no se entiende el audio (ver el prompt). */
+const INAUDIBLE = "[inaudible]";
+
+const PROMPT_TRANSCRIPCION =
+  "Transcribí esta nota de voz de un cliente de WhatsApp exactamente como la dice, en su idioma, " +
+  "sin resumir, corregir ni agregar nada. Devolvé solo el texto. Si no se entiende nada, respondé " +
+  `exactamente ${INAUDIBLE}.`;
+
+/** Modelo de Whisper en Groq: el turbo es más rápido y alcanza para notas de voz cortas. */
+const MODELO_WHISPER = "whisper-large-v3-turbo";
+
+const EXTENSION_AUDIO: Record<string, string> = {
+  "audio/ogg": "ogg",
+  "audio/mpeg": "mp3",
+  "audio/mp4": "m4a",
+  "audio/aac": "aac",
+  "audio/amr": "amr",
+};
+
+function base64ABytes(base64: string): Uint8Array {
+  const binario = atob(base64);
+  const bytes = new Uint8Array(binario.length);
+  for (let i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+  return bytes;
 }
 
 export interface ChatMessage {
   role: "system" | "user";
   content: string;
 }
+
+/** Formato multimodal OpenAI-compatible (texto + imagen) para `describeImage`. */
+type VisionContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
 
 export interface ChatCompletionParams {
   temperature: number;
@@ -123,13 +188,16 @@ interface ChatCompletionResponse {
 
 export class OpenAICompatibleProvider implements ILLMProvider {
   readonly model: string;
+  readonly supportsVision: boolean;
   private readonly name: string;
   private readonly baseURL: string;
   private readonly apiKey: string;
   private readonly fetchImpl: typeof fetch;
   private readonly timeoutMs: number;
   private readonly agentTimeoutMs: number;
+  private readonly transcripcionTimeoutMs: number;
   private readonly reasoningEffort?: string;
+  private readonly transcripcion?: "gemini" | "whisper";
 
   constructor(opts: OpenAICompatibleOptions) {
     this.name = opts.name;
@@ -138,8 +206,13 @@ export class OpenAICompatibleProvider implements ILLMProvider {
     this.model = opts.model;
     this.fetchImpl = opts.fetchImpl ?? fetch;
     this.timeoutMs = opts.timeoutMs ?? 8000;
-    this.agentTimeoutMs = opts.agentTimeoutMs ?? 20000;
+    this.agentTimeoutMs = opts.agentTimeoutMs ?? 8000;
+    // Una nota de voz larga tarda más en subir y transcribirse que un turno
+    // de texto: no se le aplica el corte corto del agente.
+    this.transcripcionTimeoutMs = Math.max(this.agentTimeoutMs, 20000);
     this.reasoningEffort = opts.reasoningEffort;
+    this.supportsVision = opts.supportsVision ?? false;
+    this.transcripcion = opts.transcripcion;
   }
 
   /** Llamada cruda de chat completions. Lanza si falla (red, HTTP, timeout). */
@@ -177,7 +250,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         { role: "system", content: buildSystemPrompt(ctx) },
         { role: "user", content: buildUserMessage(ctx) },
       ],
-      { temperature: 0.7, maxTokens: 512 },
+      { temperature: 0.7, maxTokens: 512, reasoningEffort: this.reasoningEffort },
     );
   }
 
@@ -187,7 +260,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         { role: "system", content: buildDateExtractionPrompt(input) },
         { role: "user", content: input.text },
       ],
-      { temperature: 0, maxTokens: 40 },
+      { temperature: 0, maxTokens: 40, reasoningEffort: this.reasoningEffort },
     );
     return parseExtractedDateTime(raw);
   }
@@ -198,7 +271,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         { role: "system", content: buildInterpretPrompt(input) },
         { role: "user", content: input.text },
       ],
-      { temperature: 0, maxTokens: 30 },
+      { temperature: 0, maxTokens: 30, reasoningEffort: this.reasoningEffort },
     );
     return parseInterpretation(raw, input.options);
   }
@@ -234,5 +307,137 @@ export class OpenAICompatibleProvider implements ILLMProvider {
       );
     }
     return parsed.value;
+  }
+
+  /**
+   * Llamada cruda de visión compartida por `describeImage` y
+   * `describePaymentReceipt` — mismo formato multimodal, distinto prompt de
+   * sistema. `null` de entrada si el modelo no tiene visión, o si la
+   * respuesta vino vacía.
+   */
+  private async visionCompletion(systemPrompt: string, input: ImageInput): Promise<string | null> {
+    if (!this.supportsVision) return null;
+
+    const content: VisionContentPart[] = [
+      {
+        type: "text",
+        text: input.caption
+          ? `El cliente escribió esto junto con la foto: "${input.caption}"`
+          : "Describí la imagen.",
+      },
+      { type: "image_url", image_url: { url: `data:${input.mimeType};base64,${input.base64}` } },
+    ];
+    const url = `${this.baseURL.replace(/\/$/, "")}/chat/completions`;
+    const body = {
+      model: this.model,
+      temperature: 0,
+      max_tokens: 500,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content },
+      ],
+    };
+    const res = await this.fetchImpl(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(this.timeoutMs),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`[${this.name}] HTTP ${res.status}: ${detail}`);
+    }
+    const data = (await res.json()) as ChatCompletionResponse;
+    return data.choices?.[0]?.message?.content?.trim() || null;
+  }
+
+  async describeImage(input: ImageInput): Promise<ImageDescription | null> {
+    const text = await this.visionCompletion(buildImageDescriptionPrompt(), input);
+    return text ? parseImageDescription(text) : null;
+  }
+
+  /**
+   * T-24.2: transcribe un comprobante de pago — nunca opina sobre su
+   * validez (§1.6). `null` si el modelo no ve imágenes o la respuesta no
+   * valida contra el contrato.
+   */
+  async describePaymentReceipt(input: ImageInput): Promise<PaymentReceiptDescription | null> {
+    const text = await this.visionCompletion(buildPaymentReceiptPrompt(), input);
+    return text ? parsePaymentReceipt(text) : null;
+  }
+
+  /**
+   * T-46: nota de voz → texto. Lanza ante un error HTTP o de red (igual que
+   * el resto de los métodos; `ResilientProvider` lo atrapa y prueba el
+   * siguiente). Usa un timeout propio, más largo que el del agente (T-65): un audio de un minuto tarda
+   * más que un prompt corto.
+   */
+  async transcribeAudio(input: AudioInput): Promise<string | null> {
+    if (this.transcripcion === "gemini") return this.transcribirConGemini(input);
+    if (this.transcripcion === "whisper") return this.transcribirConWhisper(input);
+    return null;
+  }
+
+  private async transcribirConGemini(input: AudioInput): Promise<string | null> {
+    // El baseURL del preset apunta a la capa OpenAI-compatible
+    // (".../v1beta/openai"); la API nativa vive un nivel arriba.
+    const base = this.baseURL.replace(/\/$/, "").replace(/\/openai$/, "");
+    const res = await this.fetchImpl(`${base}/models/${this.model}:generateContent`, {
+      method: "POST",
+      headers: { "x-goog-api-key": this.apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: PROMPT_TRANSCRIPCION },
+              { inline_data: { mime_type: input.mimeType, data: input.base64 } },
+            ],
+          },
+        ],
+        generationConfig: { temperature: 0 },
+      }),
+      signal: AbortSignal.timeout(this.transcripcionTimeoutMs),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`[${this.name}] HTTP ${res.status}: ${detail}`);
+    }
+    const data = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    };
+    const texto = (data.candidates?.[0]?.content?.parts ?? [])
+      .map((p) => p.text ?? "")
+      .join("")
+      .trim();
+    return texto && texto !== INAUDIBLE ? texto : null;
+  }
+
+  private async transcribirConWhisper(input: AudioInput): Promise<string | null> {
+    const form = new FormData();
+    const extension = EXTENSION_AUDIO[input.mimeType] ?? "ogg";
+    form.append(
+      "file",
+      new Blob([base64ABytes(input.base64) as BlobPart], { type: input.mimeType }),
+      `nota-de-voz.${extension}`,
+    );
+    form.append("model", MODELO_WHISPER);
+    // Fijar el idioma evita que Whisper "traduzca" o adivine mal en audios cortos.
+    form.append("language", "es");
+    form.append("response_format", "json");
+    const res = await this.fetchImpl(`${this.baseURL.replace(/\/$/, "")}/audio/transcriptions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${this.apiKey}` },
+      body: form,
+      signal: AbortSignal.timeout(this.transcripcionTimeoutMs),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "");
+      throw new Error(`[${this.name}] HTTP ${res.status}: ${detail}`);
+    }
+    const data = (await res.json()) as { text?: string };
+    return data.text?.trim() || null;
   }
 }

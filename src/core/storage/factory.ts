@@ -12,11 +12,23 @@ import type { LeadRepository } from "@/core/storage/repository";
 import type { SessionRepository } from "@/core/storage/session-repository";
 import type { MessageDedupeRepository } from "@/core/storage/dedupe-repository";
 import type { AiUsageRepository } from "@/core/storage/usage-repository";
+import type { WhatsAppUsageRepository } from "@/core/storage/whatsapp-usage-repository";
+import type { VentanaDuenaRepository } from "@/core/storage/ventana-duena-repository";
+import { MemoryVentanaDuenaRepository } from "@/core/storage/adapters/ventana-duena-memory";
+import { SupabaseVentanaDuenaRepository } from "@/core/storage/adapters/supabase/ventana-duena";
+import type { InventoryRepository } from "@/core/storage/inventory-repository";
+import type { ComprobanteRepository } from "@/core/storage/comprobante-repository";
+import type { PedidoRepository } from "@/core/storage/pedido-repository";
+import type { PaymentGateway } from "@/core/payments/gateway";
 import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { JsonLeadRepository } from "@/core/storage/adapters/json";
 import { SessionJsonRepository } from "@/core/storage/adapters/session-json";
 import { JsonMessageDedupeRepository } from "@/core/storage/adapters/dedupe-json";
 import { JsonAiUsageRepository } from "@/core/storage/adapters/usage-json";
+import { JsonWhatsAppUsageRepository } from "@/core/storage/adapters/whatsapp-usage-json";
+import { JsonInventoryRepository } from "@/core/storage/adapters/inventory-json";
+import { JsonComprobanteRepository } from "@/core/storage/adapters/comprobante-json";
+import { JsonPedidoRepository } from "@/core/storage/adapters/pedido-json";
 import { createSheetsApi } from "@/core/storage/adapters/google/auth";
 import { createCalendarApi } from "@/core/storage/adapters/google/calendar";
 import { GoogleSheetsLeadRepository } from "@/core/storage/adapters/google/leads";
@@ -26,6 +38,11 @@ import { SupabaseLeadRepository } from "@/core/storage/adapters/supabase/leads";
 import { SupabaseSessionRepository } from "@/core/storage/adapters/supabase/sessions";
 import { SupabaseMessageDedupeRepository } from "@/core/storage/adapters/supabase/dedupe";
 import { SupabaseAiUsageRepository } from "@/core/storage/adapters/supabase/usage";
+import { SupabaseWhatsAppUsageRepository } from "@/core/storage/adapters/supabase/whatsapp-usage";
+import { SupabaseInventoryRepository } from "@/core/storage/adapters/supabase/inventory";
+import { SupabaseComprobanteRepository } from "@/core/storage/adapters/supabase/comprobantes";
+import { SupabasePedidoRepository } from "@/core/storage/adapters/supabase/pedidos";
+import { WompiGateway } from "@/core/payments/wompi";
 
 /**
  * Repositorio de leads: Supabase > Sheets del negocio > JSON local.
@@ -86,4 +103,78 @@ export function createMessageDedupeRepository(): MessageDedupeRepository {
 export function createAiUsageRepository(): AiUsageRepository {
   const db = createSupabaseDb();
   return db ? new SupabaseAiUsageRepository(db) : new JsonAiUsageRepository();
+}
+
+/** T-43: medidor de mensajes de WhatsApp — Supabase > JSON local, igual que el de IA. */
+export function createWhatsAppUsageRepository(): WhatsAppUsageRepository {
+  const db = createSupabaseDb();
+  return db ? new SupabaseWhatsAppUsageRepository(db) : new JsonWhatsAppUsageRepository();
+}
+
+/**
+ * Repositorio de stock (T-21): Supabase (descuento atómico real, ver
+ * migración 0010) > JSON local (leer-restar-escribir, sin garantía de
+ * concurrencia — suficiente para desarrollo de un solo proceso). Sin Sheets,
+ * mismo motivo que el resto del bookkeeping técnico: no es un dato que un
+ * negocio necesite ver en su propia planilla.
+ */
+export function createInventoryRepository(): InventoryRepository {
+  const db = createSupabaseDb();
+  return db ? new SupabaseInventoryRepository(db) : new JsonInventoryRepository();
+}
+
+/**
+ * Repositorio de comprobantes de pago (T-24.1): Supabase (referencia única
+ * real, ver migración 0013) > JSON local. Sin Sheets, mismo motivo que el
+ * resto del bookkeeping técnico.
+ */
+export function createComprobanteRepository(): ComprobanteRepository {
+  const db = createSupabaseDb();
+  return db ? new SupabaseComprobanteRepository(db) : new JsonComprobanteRepository();
+}
+
+/**
+ * Repositorio de pedidos (T-30): Supabase (número correlativo atómico, ver
+ * migración 0015) > JSON local. Sin Sheets, mismo motivo que los
+ * comprobantes: el panel de pedidos (T-38) vive en el portal, no en una
+ * planilla.
+ */
+export function createPedidoRepository(): PedidoRepository {
+  const db = createSupabaseDb();
+  return db ? new SupabasePedidoRepository(db) : new JsonPedidoRepository();
+}
+
+/**
+ * Pasarela de pago Nivel 2 (T-24.5). `null` si el negocio no tiene Wompi
+ * configurado (columnas propias de `negocios`, migración 0014 — NUNCA en
+ * `negocios.config`, ver el comentario en `types.ts#PagosConfig.wompi`) o si
+ * no hay Supabase: Nivel 2 requiere una cuenta de comercio real, no existe
+ * un fallback JSON para esto.
+ */
+export async function createPaymentGateway(negocioId: string | undefined): Promise<PaymentGateway | null> {
+  if (!negocioId) return null;
+  const db = createSupabaseDb();
+  if (!db) return null;
+  const credenciales = await db.selectWompiCredentials(negocioId);
+  if (!credenciales) return null;
+  return new WompiGateway({ publicKey: credenciales.publicKey, integritySecret: credenciales.integritySecret });
+}
+
+/**
+ * Solo el secreto de eventos del negocio, para verificar la firma de un
+ * webhook de Wompi — separado de `createPaymentGateway` porque el webhook
+ * necesita este único valor antes de saber si vale la pena armar el resto.
+ */
+export async function getWompiEventsSecret(negocioId: string | undefined): Promise<string | null> {
+  if (!negocioId) return null;
+  const db = createSupabaseDb();
+  if (!db) return null;
+  const credenciales = await db.selectWompiCredentials(negocioId);
+  return credenciales?.eventsSecret ?? null;
+}
+
+/** T-59: cuándo escribió la dueña — Supabase > memoria (desarrollo local). */
+export function createVentanaDuenaRepository(): VentanaDuenaRepository {
+  const db = createSupabaseDb();
+  return db ? new SupabaseVentanaDuenaRepository(db) : new MemoryVentanaDuenaRepository();
 }

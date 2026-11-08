@@ -16,17 +16,62 @@ cp .env.example .env.local
 | Variable | Para qué |
 |----------|----------|
 | `WHATSAPP_VERIFY_TOKEN` | Token que tú inventas; Meta lo envía al verificar el webhook. |
-| `WHATSAPP_ACCESS_TOKEN` | Token de acceso de la app de Meta para llamar a la Graph API. |
+| `WHATSAPP_ACCESS_TOKEN` | Token de acceso de la app de Meta para llamar a la Graph API. Usá el permanente del usuario del sistema (§9); el de "Paso 1" vence a las 24h. |
 | `WHATSAPP_PHONE_NUMBER_ID` | ID del número de WhatsApp Business (no el número en sí). |
 | `WHATSAPP_APP_SECRET` | Secreto de la app; valida la firma `X-Hub-Signature-256`. |
+| `WHATSAPP_TEMPLATE_APROBACION` | Opcional (T-25). Nombre de la plantilla para avisarle a la dueña fuera de la ventana de 24h — ver §7. |
+| `WHATSAPP_TEMPLATE_IDIOMA` | Opcional. Idioma de esa plantilla (default `es`). |
 
 > **Nunca** commitees `.env.local` ni pegues estos valores en el código o en issues/PRs.
 
 ## 1. Crear la app en Meta
 
-1. Crea una app en <https://developers.facebook.com/> y agrega el producto **WhatsApp**.
-2. Obtén el `WHATSAPP_PHONE_NUMBER_ID` y un `WHATSAPP_ACCESS_TOKEN`.
-3. Copia el **App Secret** de la app → `WHATSAPP_APP_SECRET`.
+Necesitás una cuenta personal de Facebook — es solo el login del panel de desarrolladores,
+no hace falta usarla como red social.
+
+1. Andá a <https://developers.facebook.com/> → **Mis aplicaciones** → **Crear app**.
+2. **Detalles de la aplicación**: ponele un nombre.
+   ⚠️ El nombre **no puede contener** `WhatsApp`, `Meta`, `Facebook`, `Insta` ni `Gram` —
+   Meta rechaza la app por política de marca y hay que empezar de nuevo.
+3. **Casos de uso**: elegí **"Otros"** en el filtro de la izquierda y, de la lista,
+   **"Crea una aplicación sin un caso de uso"** (el ícono con el círculo tachado). WhatsApp
+   ya no aparece como "caso de uso" en este wizard — se agrega después, como producto.
+   No uses la opción "Otro (This option is going away soon)": Meta avisa que la va a
+   eliminar.
+4. **Empresa**: seleccioná un portafolio comercial existente o creá uno nuevo. **No hace
+   falta que esté verificado todavía** — alcanza con conectarlo. El nombre del portafolio
+   es puramente administrativo y se puede renombrar después desde
+   `business.facebook.com` → Configuración del negocio → Información de la empresa, sin
+   afectar nada de lo ya configurado.
+5. **Requisitos** e **Información general**: revisá y confirmá → **Crear aplicación**.
+
+### Agregar el producto WhatsApp
+
+1. Ya con la app creada, **"Añadir casos de uso"** → marcá **"Conecta con los clientes a
+   través de WhatsApp"** → **Guardar** → **Añadir a la aplicación** (el aviso de "pasos
+   adicionales" es solo para cuando publiques la app; no aplica todavía).
+2. En el panel de la app, entrá a **"Personaliza el caso de uso Conectar con los clientes
+   a través de WhatsApp"** → elegí tu portafolio → **Continuar**. Vas a llegar a
+   **"Información general"** con **"Integrar con API"** ya seleccionado (es lo que
+   necesita el bot; la otra opción, "Hazte socio", es para otro tipo de integración).
+3. Entrá a **"Paso 1. Pruébala"**. Ahí Meta te da, sin costo:
+   - Un **número de prueba** (de Meta, no tuyo)
+   - Su **Phone Number ID** (se ve, por ejemplo, en la URL del `curl` de ejemplo que
+     muestra esa misma pantalla)
+   - Un botón para **generar un token de acceso temporal** (dura 24h)
+4. En **"Destinatario"**, agregá tu propio WhatsApp — Meta te va a mandar un código de
+   verificación por WhatsApp para confirmarlo. **Mientras la app no esté publicada, el
+   número de prueba solo puede intercambiar mensajes con los números que agregues acá**
+   (hasta 5).
+5. Copiá `WHATSAPP_PHONE_NUMBER_ID` (el Phone Number ID) y `WHATSAPP_ACCESS_TOKEN` (el
+   token generado).
+6. `WHATSAPP_APP_SECRET`: **Configuración de la aplicación → Información básica →
+   "Clave secreta de la aplicación" → Mostrar**. Si esa página te carga en blanco, es
+   casi siempre un bloqueador de anuncios/privacidad (uBlock, Brave Shields, etc.)
+   interfiriendo con `fbcdn.net` — desactivalo para `developers.facebook.com` o probá en
+   una ventana de incógnito.
+7. `WHATSAPP_VERIFY_TOKEN`: **te lo inventás vos** (cualquier texto, ej.
+   `nexo-bot-2026`). Solo tiene que coincidir entre tu `.env.local` y el panel de Meta.
 
 ## 2. Exponer el webhook con una URL pública HTTPS
 
@@ -40,6 +85,19 @@ ngrok http 3000               # o: cloudflared tunnel --url http://localhost:300
 
 Tu webhook será: `https://<tu-tunel>/api/webhook/whatsapp`. En producción, la URL de
 Vercel u otro host.
+
+### Cargar el webhook en Meta
+
+En **"Paso 2. Configuración de producción" → "Configurar Webhooks"**:
+
+- **URL de devolución de llamada**: `https://<tu-url>/api/webhook/whatsapp`
+- **Identificador de verificación**: el mismo valor que `WHATSAPP_VERIFY_TOKEN`
+- **Verificar y guardar**
+
+Debajo, en **"Campos de webhook"**, confirmá que **`messages`** esté suscrito (Meta lo
+suele activar solo, junto con otros campos como `message_template_status_update`).
+
+⚠️ **Este paso NO alcanza por sí solo** — ver el problema más común en la sección de abajo.
 
 ## 3. Verificación del webhook (`hub.challenge`)
 
@@ -62,6 +120,12 @@ cualquiera falsifique mensajes.
 > Importante: la firma se calcula sobre el **raw body**, así que hay que leer el cuerpo
 > como texto antes de hacer `JSON.parse`.
 
+Si `WHATSAPP_APP_SECRET` **no está configurado**, el webhook responde `503` y no procesa
+nada: sin el secreto no hay forma de distinguir un evento de Meta de uno de cualquier
+otro, y la URL del webhook es pública. Para probar sin Meta usá `pnpm sim` o
+`/api/dev/simulate`; si aun así necesitás postearle al webhook real a mano en desarrollo,
+`WHATSAPP_ALLOW_UNSIGNED=true` lo habilita (nunca en producción).
+
 ## 5. La ventana de 24 horas
 
 WhatsApp solo permite mensajes **de formato libre** dentro de las **24 horas** posteriores
@@ -81,9 +145,239 @@ tocan; enviarlos vendrá con el cron + las plantillas aprobadas.
 - **Receive**: envía un WhatsApp al número de prueba; deberías ver el lead creado (en
   `/admin` o en el archivo de datos) y la respuesta automática.
 
+## 7. Plantilla para el aviso a la dueña (T-25)
+
+El aviso de "pedido nuevo, respondé SÍ/NO" **lo inicia el bot**: la dueña no escribió
+nada antes. Si su último mensaje al número del negocio tiene más de 24h, Meta rechaza
+el texto libre con el código **131047** y el aviso **no se entrega** — la dueña nunca se
+entera del pedido y el cliente queda esperando.
+
+**Ojo (T-58/T-59, comprobado en la prueba real):** Meta casi nunca rechaza el texto al
+enviarlo. Lo **acepta** (HTTP 200) y recién después manda por el webhook un estado
+`failed` con el código 131047. Por eso el bot ya no espera el rechazo: anota cuándo
+escribió la dueña por última vez (`negocios.duena_escribio_at`, migración 0023) y, al
+avisarle de un pedido:
+
+- si escribió hace menos de ~24h → va el aviso completo en texto libre (sin costo);
+- si no (o nunca escribió) → va **directamente la plantilla**.
+
+Sin `WHATSAPP_TEMPLATE_APROBACION` configurada siempre va texto libre, y fuera de la
+ventana la dueña no lo recibe: en la terminal queda
+`[WhatsApp] Meta NO entregó un mensaje … (código 131047)`.
+
+Variables en `.env.local` una vez aprobada la plantilla:
+
+```
+WHATSAPP_TEMPLATE_APROBACION=aviso_pedido_aprobacion
+WHATSAPP_TEMPLATE_IDIOMA=es
+WHATSAPP_TEMPLATE_BOTONES=true
+```
+
+### Texto a cargar en Meta
+
+En **WhatsApp Manager → Plantillas de mensajes → Crear plantilla**:
+
+- **Nombre**: `aviso_pedido_aprobacion` (el mismo que pongas en `WHATSAPP_TEMPLATE_APROBACION`)
+- **Categoría**: `Utility` (no `Marketing` — es una notificación transaccional de algo
+  que el cliente pidió; `Marketing` se aprueba peor y cuesta más)
+- **Idioma**: Español (`es`)
+- **Cuerpo**:
+
+```
+Tenés un pedido nuevo en {{1}}.
+Cliente: {{2}}
+Pedido: {{3}}
+Tocá Aprobar o Rechazar, o respondé SÍ o NO con el número del pedido.
+```
+
+- **Botones** (T-31, recomendado): agregar dos botones de **respuesta rápida**, en este
+  orden: `Aprobar` y `Rechazar`. Con `WHATSAPP_TEMPLATE_BOTONES=true` en el `.env.local`,
+  el bot completa cada botón con el id del pedido, así un toque aprueba **ese** pedido
+  aunque hayan pasado más de 24h. Sin botones también funciona: la dueña responde
+  "SÍ 12" (el número viene en `{{3}}`).
+
+- **Ejemplos** (Meta los pide para aprobar): `{{1}}` = `Estética Bella`,
+  `{{2}}` = `Laura Pérez`, `{{3}}` = `#12 · 2x Harina 1 Kg · 1x Aceite 1 Lt · Total: $45.000`
+
+Si ya tenías aprobada la versión anterior (sin botones), editarla la manda de nuevo a
+revisión. También podés crear una nueva y cambiar `WHATSAPP_TEMPLATE_APROBACION`.
+
+La aprobación suele tardar entre unos minutos y un día.
+
+### Detalles que importan
+
+- **Los parámetros no admiten saltos de línea** ni tabs ni más de 4 espacios seguidos:
+  Meta rechaza el envío entero. El adaptador ya los aplana a `·` (`aplanarParametro`),
+  por eso el ejemplo de `{{3}}` va en una sola línea.
+- **La plantilla lleva menos información que el texto libre**: no incluye las señales de
+  riesgo del comprobante ni las alertas de stock bajo. Es a propósito — lleva lo mínimo
+  para decidir, y cuando la dueña responde SÍ/NO **se reabre la ventana de 24h**, así que
+  el resto de la conversación vuelve a ser texto libre.
+- **El aviso informativo de cita confirmada no usa plantilla**: no espera respuesta y no
+  bloquea nada, así que si cae fuera de la ventana simplemente no se envía. Si en algún
+  momento se quiere cubrir, hace falta registrar una plantilla aparte (el texto fijo es
+  distinto).
+
+## 8. Problemas comunes al conectar por primera vez
+
+Encontrados armando la conexión real por primera vez — quedan acá para no repetir la
+misma vuelta la próxima vez que se dé de alta un número.
+
+### El mensaje real nunca llega al webhook (el más importante)
+
+**Síntoma**: la verificación del webhook (`hub.challenge`) da `200 OK`, la URL está bien
+escrita, mandás un WhatsApp real al número de prueba y **no pasa nada** — ni en la
+terminal de `pnpm dev` ni en el inspector de ngrok (`http://127.0.0.1:4040`). Sin
+embargo, en Meta, dentro de "Paso 1. Pruébala → Comprobar webhooks de prueba", el evento
+`messages` con tu texto real **sí aparece** — Meta lo procesó, solo que no te lo mandó.
+
+**Causa**: cargar la URL del webhook en la app **no suscribe automáticamente** tu cuenta
+de WhatsApp Business a esa app. Son dos cosas separadas en la API de Meta. La cuenta de
+prueba puede terminar suscrita, por defecto, a una app interna de Meta
+(`WA DevX Webhook Events 1P App`) en vez de a la tuya — por eso el evento se genera pero
+nunca sale hacia tu servidor.
+
+**Diagnóstico** (con el `WHATSAPP_ACCESS_TOKEN` vigente y el ID de tu WABA — se ve en el
+JSON de "Comprobar webhooks de prueba", campo `entry[0].id`):
+
+```bash
+curl -X GET "https://graph.facebook.com/v21.0/<WABA_ID>/subscribed_apps?access_token=<TOKEN>"
+```
+
+Si la respuesta trae una app que no es la tuya (o `{"data":[]}`), ahí está el problema.
+
+**Arreglo**:
+
+```bash
+curl -X POST "https://graph.facebook.com/v21.0/<WABA_ID>/subscribed_apps?access_token=<TOKEN>"
+```
+
+Responde `{"success":true}`. No hace falta sacar la otra app suscrita — una WABA puede
+tener varias apps suscritas a la vez, cada una recibe los eventos en su propio webhook.
+
+> En **Windows con PowerShell**, `curl` es un alias de `Invoke-WebRequest` y no entiende
+> `-X`. Usá `curl.exe` (con la extensión) para forzar el binario real.
+
+### El token de acceso temporal vence a las 24h
+
+**Síntomas**: un `curl` devuelve `"Error validating access token... Session has
+expired"`, o la terminal de `pnpm dev` muestra `Envío WhatsApp falló: 401 ...
+"Authentication Error","code":190` — el bot **recibe** el mensaje pero falla al
+**responder**.
+
+Arreglo temporal: generá uno nuevo desde "Paso 1. Pruébala → Generar Identificador",
+actualizá `WHATSAPP_ACCESS_TOKEN` en `.env.local` y reiniciá `pnpm dev` (las env vars
+no se recargan solas). **Arreglo definitivo**: el token permanente del §9.
+
+### El número de prueba no tiene ningún negocio asociado
+
+El webhook puede estar perfecto y aun así el bot no contesta: si `phone_number_id` (el
+que llega en el payload real, **no necesariamente igual al que aparece truncado en el
+`curl` de ejemplo de la UI de Meta** — copiá el valor completo) no está mapeado a ningún
+negocio, `resolveBusinessByPhoneNumberId` devuelve `null` y el mensaje se descarta en
+silencio (a propósito — ver `src/app/api/webhook/whatsapp/route.ts`).
+
+Para probar en local sin Supabase, en `src/businesses/registry.ts`:
+
+```ts
+const PHONE_NUMBER_ID_TO_SLUG: Record<string, string> = {
+  "<phone_number_id real de tu número de prueba>": "estetica-bella",
+};
+```
+
+**Esto es solo para probar en tu máquina — nunca se commitea.** Es un ID de tu propio
+sandbox de Meta, no un dato del proyecto; si lo subís a una rama compartida, revertilo
+antes de abrir el PR.
+
+### `Error procesando webhook de WhatsApp` con `getaddrinfo ENOTFOUND ...supabase.co`
+
+**Síntoma**: el webhook recibe el mensaje real (confirmado en el inspector de ngrok y en
+"Comprobar webhooks de prueba" de Meta) pero la terminal de `pnpm dev` tira un error de
+DNS apenas intenta resolver el negocio — nunca llega ni a mirar `registry.ts`.
+
+**Causa**: `.env.local` tiene `NEXT_PUBLIC_SUPABASE_URL` y/o `SUPABASE_SERVICE_ROLE_KEY`
+configuradas (ver `src/lib/supabase/admin.ts`), así que `resolveBusinessByPhoneNumberId`
+intenta Supabase **antes** de caer al `registry.ts` local — y esa llamada no tiene
+`try/catch`, así que si el proyecto de Supabase no resuelve (pausado, borrado, URL mal
+copiada), el error se propaga hasta el `catch` general del webhook y aborta todo el
+procesamiento del mensaje, sin llegar nunca al fallback.
+
+**Arreglo rápido** (para seguir probando solo con el negocio local): comentar o borrar
+**las dos** variables —`NEXT_PUBLIC_SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`— de
+`.env.local` y reiniciar `pnpm dev`. Con ninguna de las dos presentes,
+`createAdminClient()` devuelve `null` y el código usa `registry.ts` directo, sin intentar
+Supabase. Si lo que hace falta es la base real, el problema está del lado de Supabase
+(proyecto pausado/borrado o URL con un typo), no del bot.
+
+## 9. Token permanente (usuario del sistema)
+
+El token de "Paso 1. Pruébala" vence a las 24h. Para uno que no vence hay que crear un
+**usuario del sistema**: una cuenta técnica dentro del portafolio comercial, sin
+teléfono ni WhatsApp propio — solo existe para emitir el token. **No hace falta ningún
+número nuevo para esto.**
+
+1. <https://business.facebook.com> → elegí el **mismo portafolio** conectado a la app
+   (el del paso 4 de §1) → **Configuración** (⚙️, abajo a la izquierda).
+2. **Usuarios → Usuarios del sistema → Añadir**. Nombre (ej. `nexo-bot`), rol
+   **Administrador**.
+3. Con el usuario seleccionado, **Asignar activos** — antes de generar el token, si no
+   el token sale sin acceso a nada útil:
+   - **Aplicaciones** → la app → **Administrar la aplicación** (acceso total).
+   - **Cuentas de WhatsApp** → la cuenta (la de prueba aparece como "Test WhatsApp
+     Business Account") → **Acceso total**, que incluye **Mensajes** (lo que usa el bot
+     para responder).
+
+   Los dos se pueden elegir en el mismo diálogo; el botón "Asignar activos" queda gris
+   mientras a alguno le falte su toggle.
+4. **Generar identificador**:
+   - App: la tuya.
+   - **Caducidad: Nunca** — es el punto de todo esto.
+   - Permisos: `whatsapp_business_messaging` y `whatsapp_business_management`. Los
+     demás que ofrece (`manage_app_solution`, `whatsapp_business_manage_events`) no
+     hacen falta.
+5. **Copiá el token en ese momento**: Meta lo muestra una sola vez. Si se pierde, se
+   genera otro (y conviene revocar el anterior con "Revocar identificadores").
+6. Reemplazá `WHATSAPP_ACCESS_TOKEN` en `.env.local` y reiniciá `pnpm dev`.
+
+No hace falta repetir el `subscribed_apps` del §8: la suscripción es de la cuenta de
+WhatsApp a la app, no del token, y sigue valiendo.
+
+⚠️ Como no vence, tratalo como una contraseña: nunca en el código, en capturas ni en
+chats. Si se filtra, **Revocar identificadores** y generar uno nuevo.
+
+## Próximos pasos
+
+Lo que falta para pasar de "probé con el número de prueba de Meta" a "un negocio real
+usando esto":
+
+- [ ] **Verificación de negocio en Meta** — no hace falta empresa constituida: un
+      trabajador independiente puede verificarse con su RUT de persona natural (o el
+      registro tributario equivalente en otros países). Se puede seguir probando sin
+      esto (con el límite de ~250 conversaciones iniciadas por el negocio cada 24h, que
+      alcanza de sobra para 1-2 negocios de prueba).
+- [ ] **Número dedicado por negocio real** — el número del negocio no puede tener
+      WhatsApp normal instalado; el número de la dueña que recibe los avisos de
+      aprobación **tiene que ser un número distinto** al del negocio (si no, el webhook
+      no puede distinguir cliente de dueña — ver `notifyPhoneNumber` en
+      `src/core/handle.ts`).
+- [x] **Token de acceso permanente** — hecho con un usuario del sistema (§9).
+- [ ] **Publicar la app** — Meta pide, antes de publicarla: ícono (1024×1024), URL de
+      política de privacidad y categoría. No es necesario mientras se prueba solo con
+      números agregados a mano a la lista de destinatarios.
+- [ ] **Plantilla `aviso_pedido_aprobacion` aprobada** (§7) — sin esto, el aviso a la
+      dueña sigue funcionando solo dentro de la ventana de 24h.
+- [ ] **Wompi contra su sandbox real** — el módulo de pagos (T-24.5) está armado y
+      testeado con fixtures, pero nunca se probó contra una cuenta de comercio real de
+      Wompi.
+
 ## Checklist
 
 - [ ] `.env.local` con las 4 variables
 - [ ] Webhook verificado en el panel de Meta
+- [ ] App suscrita al WABA (`subscribed_apps` — ver §8, no pasa sola)
+- [ ] `WHATSAPP_ACCESS_TOKEN` es el token permanente del usuario del sistema (§9), no
+      el temporal de 24h
 - [ ] Firma `X-Hub-Signature-256` validada
 - [ ] Mensaje de prueba crea lead y recibe respuesta
+- [ ] Plantilla `aviso_pedido_aprobacion` aprobada en Meta y su nombre en
+      `WHATSAPP_TEMPLATE_APROBACION` (§7)

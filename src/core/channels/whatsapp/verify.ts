@@ -20,6 +20,11 @@ export interface ChallengeParams {
 /**
  * Devuelve el `challenge` si la verificación es correcta, o `null` si no.
  * El handler debe responder el challenge en texto plano cuando no es null.
+ *
+ * Sin `expectedToken` configurado no hay nada contra qué verificar, así que se
+ * rechaza siempre. El handler pasa `process.env.WHATSAPP_VERIFY_TOKEN ?? ""`:
+ * sin esa guarda, un despliegue al que le faltara la variable aceptaba
+ * cualquier handshake que mandara el `hub.verify_token` vacío.
  */
 export function verifyChallenge({
   mode,
@@ -27,6 +32,7 @@ export function verifyChallenge({
   challenge,
   expectedToken,
 }: ChallengeParams): string | null {
+  if (!expectedToken) return null;
   if (mode === "subscribe" && token === expectedToken) {
     return challenge;
   }

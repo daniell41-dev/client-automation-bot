@@ -4,8 +4,10 @@
  * (Groq, OpenAI…) lo inyecta la capa de aplicación.
  */
 
-import type { BusinessHours, ConversationTurn, PersonaConfig, QuickRule } from "@/core/types";
+import type { ConversationTurn, DiaAtencion, ModoItem, PersonaConfig, QuickRule } from "@/core/types";
 import type { AgentResponse } from "@/core/ai/agent-schema";
+import type { ImageDescription } from "@/core/ai/image-schema";
+import type { PaymentReceiptDescription } from "@/core/ai/payment-receipt-schema";
 
 export interface LLMContext {
   businessName: string;
@@ -52,8 +54,16 @@ export interface AgentServiceSummary {
   name: string;
   description: string;
   price: number;
-  durationMinutes: number;
+  /** Opcional desde T-21: los ítems que se venden no tienen duración. */
+  durationMinutes?: number;
   categoria?: string;
+  /**
+   * T-21: qué persigue el bot con este ítem (ya resuelto con `modoDelItem` —
+   * la IA no tiene que adivinarlo). "cita" pide fecha; "pedido" pide
+   * cantidad y no fecha. Opcional (default "cita", igual que `modoDelItem`)
+   * para no romper fixtures/tests de antes de T-21 que arman este objeto a mano.
+   */
+  modo?: ModoItem;
 }
 
 /** Lo que el motor ya sabe del cliente antes de este turno. */
@@ -62,14 +72,29 @@ export interface AgentLeadState {
   serviceId?: string;
   tentativeDate?: string;
   entrega?: string;
+  /** T-36: dirección de entrega, si ya la dio (solo pedidos a domicilio). */
+  direccion?: string;
   /**
    * `true` si la cita/pedido de este cliente YA quedó confirmada. Sin esto,
    * la IA no tiene forma de saberlo y vuelve a pedir datos o a confirmar
    * algo que ya estaba cerrado.
    */
   yaConfirmado: boolean;
+  /**
+   * T-21/PR5: el cliente ya confirmó el pedido y se está esperando el sí/no
+   * de la dueña por WhatsApp. Distinto de `yaConfirmado` — todavía no hay
+   * nada resuelto. Opcional (default `false`) para no romper fixtures/tests
+   * de antes del PR5 que arman este objeto a mano.
+   */
+  esperandoAprobacion?: boolean;
   /** Cuántas veces seguidas se salió del tema en esta conversación. */
   offTopicCount: number;
+  /**
+   * T-21: carrito de un pedido en curso — ya resuelto a nombre + cantidad
+   * (la IA no tiene que cruzar `servicioId` contra el catálogo ella misma).
+   * Vacío/ausente si no hay ítems de pedido cargados todavía.
+   */
+  items?: { servicioId: string; nombre: string; cantidad: number }[];
 }
 
 /** Contexto completo que necesita la IA para decidir un turno en modo agente. */
@@ -91,14 +116,38 @@ export interface AgentTurnInput {
   reglas?: QuickRule[];
   /** SOLO los servicios disponibles — la IA no debe ofrecer los que no. */
   services: AgentServiceSummary[];
-  horarios?: BusinessHours[];
+  horarios?: DiaAtencion[];
+  /**
+   * ISO 8601 del momento actual (T-20) — sin esto la IA no tiene forma de
+   * saber si "mañana" o "el viernes" ya pasó, o de razonar sobre fechas en
+   * general. Se pasa explícito (no `new Date()` adentro del prompt) para que
+   * sea inyectable y testeable, igual criterio que el `now` de `respond()`.
+   */
+  nowISO: string;
+  /** Zona horaria IANA del negocio, para mostrar la fecha de hoy en su hora local. */
+  timezone: string;
   /** Presente solo si el negocio activó la modalidad de entrega/pedidos. */
-  pedidos?: { pregunta: string; opciones: string[] };
+  /** T-52: `costoDomicilio` para que la IA pueda contestar cuánto sale el domicilio. */
+  pedidos?: { pregunta: string; opciones: string[]; costoDomicilio?: number };
   lead: AgentLeadState;
   /** Historial reciente de la conversación. */
   history: ConversationTurn[];
   /** Mensaje actual del cliente. */
   message: string;
+}
+
+/** Entrada de `describeImage`: una foto del cliente ya descargada (T-23.2). */
+export interface ImageInput {
+  base64: string;
+  mimeType: string;
+  /** Texto que el cliente mandó junto con la foto, si hay. */
+  caption?: string;
+}
+
+/** T-46: una nota de voz del cliente ya descargada. `mimeType` sin parámetros ("audio/ogg"). */
+export interface AudioInput {
+  base64: string;
+  mimeType: string;
 }
 
 export interface ILLMProvider {
@@ -107,6 +156,13 @@ export interface ILLMProvider {
    * ai:doctor`). Opcional: no todos los proveedores lo necesitan.
    */
   readonly model?: string;
+
+  /**
+   * `true` si el modelo activo puede leer imágenes (T-23.3). Ausente/`false`
+   * equivalen a lo mismo: `ResilientProvider` salta este proveedor cuando la
+   * entrada trae una imagen, en vez de intentar y fallar.
+   */
+  readonly supportsVision?: boolean;
 
   /**
    * Recibe el borrador de respuesta del motor y lo reformula con
@@ -137,4 +193,29 @@ export interface ILLMProvider {
    * antes validarla contra el catálogo/estado real.
    */
   runAgent(input: AgentTurnInput): Promise<AgentResponse | null>;
+
+  /**
+   * Lee una imagen del cliente y devuelve lo que se VE, sin interpretar ni
+   * afirmar qué producto del catálogo es — ese cruce lo hace el motor
+   * (`buscar-producto.ts`, T-23.4). `null` si el modelo no ve imágenes o la
+   * respuesta no valida contra el contrato. Optativo: un proveedor sin
+   * `supportsVision` no necesita implementarlo.
+   */
+  describeImage?(input: ImageInput): Promise<ImageDescription | null>;
+
+  /**
+   * Lee un comprobante de pago y TRANSCRIBE lo que dice — banco, referencia,
+   * monto, fecha — sin opinar sobre si el pago es válido (T-24.2, §1.6 del
+   * plan: una captura nunca verifica un pago, esto es solo digitación).
+   * `null` si el modelo no ve imágenes o la respuesta no valida contra el
+   * contrato. Optativo, hermano de `describeImage`.
+   */
+  describePaymentReceipt?(input: ImageInput): Promise<PaymentReceiptDescription | null>;
+
+  /**
+   * T-46: pasa a texto una nota de voz del cliente, tal cual la dijo, para
+   * que el resto del bot la trate como un mensaje escrito. `null` si el
+   * proveedor no transcribe audio o no se entendió. Optativo.
+   */
+  transcribeAudio?(input: AudioInput): Promise<string | null>;
 }

@@ -7,6 +7,7 @@
 import { notFound } from "next/navigation";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
+import { modoDelItem } from "@/core/engine/modo-item";
 import { PortalShell, type ShellNegocio } from "@/components/portal-shell";
 import { toggleBotActivo } from "@/app/portal/actions";
 import { signOut } from "@/app/login/actions";
@@ -34,7 +35,9 @@ export default async function NegocioLayout({
       nombre: config?.name ?? n.slug,
       rubro:
         (n.rubros as unknown as { nombre: string } | null)?.nombre ?? "Negocio",
+      catalogo: config?.catalogo,
       botActivo: config?.botActivo !== false,
+      vendePedidos: config?.services.some((s) => modoDelItem(s, config.catalogo) === "pedido") ?? false,
     };
   });
 

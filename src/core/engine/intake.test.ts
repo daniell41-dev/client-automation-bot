@@ -4,14 +4,17 @@ import {
   isAffirmative,
   isGreeting,
   isMenuRequest,
+  isNegative,
   isResetRequest,
   looksLikeDate,
+  looksLikeDone,
   matchEntrega,
   matchRule,
   matchService,
   normalize,
   normalizeDateText,
   normalizeMessage,
+  parseCantidad,
 } from "@/core/engine/intake";
 import type { Service } from "@/core/types";
 
@@ -84,6 +87,36 @@ describe("isAffirmative", () => {
     expect(isAffirmative("sale")).toBe(true);
     expect(isAffirmative("hecho")).toBe(true);
   });
+
+  it("acepta la variante regional con cortesía o puntuación alrededor", () => {
+    expect(isAffirmative("vale!")).toBe(true);
+    expect(isAffirmative("vale, gracias")).toBe(true);
+    expect(isAffirmative("sale pues")).toBe(true);
+    expect(isAffirmative("va, por favor")).toBe(true);
+  });
+
+  // Regresión: "sale"/"vale" son la forma normal de preguntar el precio en
+  // media Latinoamérica, y "va" el verbo ir. Tomarlos como un "sí" hacía que
+  // una pregunta de precio confirmara la cita, con evento de calendario y
+  // aviso a la dueña incluidos.
+  it("NO confirma cuando la palabra ambigua es parte de una pregunta", () => {
+    expect(isAffirmative("¿cuánto sale?")).toBe(false);
+    expect(isAffirmative("cuanto sale la limpieza")).toBe(false);
+    expect(isAffirmative("¿cuánto vale?")).toBe(false);
+    expect(isAffirmative("vale la pena?")).toBe(false);
+    expect(isAffirmative("¿a qué hora sale?")).toBe(false);
+    expect(isAffirmative("¿va a estar disponible el sábado?")).toBe(false);
+    expect(isAffirmative("cuánto va a costar")).toBe(false);
+    expect(isAffirmative("hecho un lío, no entiendo")).toBe(false);
+  });
+
+  // Al doblar el texto se pierde la tilde: el "sí" de confirmar y la
+  // conjunción condicional quedan idénticos.
+  it("NO confirma un 'si' condicional acompañado de duda o negación", () => {
+    expect(isAffirmative("no sé si me sale bien")).toBe(false);
+    expect(isAffirmative("si no puedo, te aviso")).toBe(false);
+    expect(isAffirmative("quizás si consigo quien me cuide")).toBe(false);
+  });
 });
 
 describe("normalizeMessage", () => {
@@ -121,6 +154,28 @@ describe("matchService", () => {
 
   it("devuelve undefined si no hay coincidencia", () => {
     expect(matchService("hola que tal", services)).toBeUndefined();
+  });
+
+  it("acepta la selección con palabras de selección y cortesía alrededor", () => {
+    expect(matchService("la 2", services)?.id).toBe("unas");
+    expect(matchService("opción 1", services)?.id).toBe("limpieza-facial");
+    expect(matchService("quiero el 2", services)?.id).toBe("unas");
+    expect(matchService("la 2 por favor", services)?.id).toBe("unas");
+    expect(matchService("¿2?", services)?.id).toBe("unas");
+  });
+
+  // Regresión: el match por número buscaba CUALQUIER cifra de 1-2 dígitos en
+  // cualquier parte del mensaje, así que una frase normal que mencionaba un
+  // número elegía servicio y arrancaba el funnel sola. "gracias, nos vemos el
+  // 2" era el peor caso: sobre una cita ya confirmada, la trataba como reserva
+  // nueva y le borraba la fecha (ver el bloque `datos_completos` de responder).
+  it("NO elige servicio por un número suelto dentro de una frase", () => {
+    expect(matchService("somos 2 personas, se puede?", services)).toBeUndefined();
+    expect(matchService("tengo 3 preguntas", services)).toBeUndefined();
+    expect(matchService("puede ser a las 2", services)).toBeUndefined();
+    expect(matchService("mi hija tiene 1 año", services)).toBeUndefined();
+    expect(matchService("gracias, nos vemos el 2", services)).toBeUndefined();
+    expect(matchService("el 2 de octubre puedo", services)).toBeUndefined();
   });
 });
 
@@ -194,6 +249,12 @@ describe("matchEntrega", () => {
     expect(matchEntrega("no sé", opciones)).toBeUndefined();
     expect(matchEntrega("5", opciones)).toBeUndefined();
   });
+
+  // Comparte `menuSelectionIndex` con matchService: mismo bug, misma guarda.
+  it("NO elige modalidad por un número suelto dentro de una frase", () => {
+    expect(matchEntrega("somos 2 personas", opciones)).toBeUndefined();
+    expect(matchEntrega("llego 2 horas antes", opciones)).toBeUndefined();
+  });
 });
 
 describe("normalizeDateText", () => {
@@ -215,6 +276,14 @@ describe("normalizeDateText", () => {
 
   it("no toca un texto que ya es una fecha natural", () => {
     expect(normalizeDateText("el viernes")).toBe("el viernes");
+  });
+
+  // Esta fecha se le muestra de vuelta al cliente en la plantilla de
+  // confirmación: reescribir "sale" como "si" la dejaba ilegible.
+  it("no reescribe 'sale' dentro de la fecha que se le repite al cliente", () => {
+    expect(normalizeDateText("el sábado que sale mejor")).toBe(
+      "el sábado que sale mejor",
+    );
   });
 
   it("quita el filler 'para' para no duplicarlo con la plantilla", () => {
@@ -288,5 +357,60 @@ describe("isResetRequest", () => {
   it("no confunde una respuesta normal con un pedido de reinicio", () => {
     expect(isResetRequest("Carlos")).toBe(false);
     expect(isResetRequest("el viernes")).toBe(false);
+  });
+});
+
+describe("parseCantidad (T-21)", () => {
+  it("reconoce un dígito suelto o acompañado", () => {
+    expect(parseCantidad("2")).toBe(2);
+    expect(parseCantidad("dame 3")).toBe(3);
+    expect(parseCantidad("quiero 12 unidades")).toBe(12);
+  });
+
+  it("reconoce las palabras número de uso común", () => {
+    expect(parseCantidad("una")).toBe(1);
+    expect(parseCantidad("quiero dos")).toBe(2);
+    expect(parseCantidad("cinco por favor")).toBe(5);
+  });
+
+  it("prioriza el dígito sobre la palabra si aparecen los dos", () => {
+    expect(parseCantidad("quiero 2 o tres")).toBe(2);
+  });
+
+  it("devuelve undefined si no hay ninguna cantidad reconocible", () => {
+    expect(parseCantidad("no sé cuántas")).toBeUndefined();
+    expect(parseCantidad("¿me repites las opciones?")).toBeUndefined();
+    expect(parseCantidad("")).toBeUndefined();
+  });
+
+  it("no acepta cero ni negativos", () => {
+    expect(parseCantidad("0")).toBeUndefined();
+  });
+});
+
+describe("looksLikeDone (T-21)", () => {
+  it("reconoce que el cliente ya terminó de agregar productos", () => {
+    expect(looksLikeDone("no")).toBe(true);
+    expect(looksLikeDone("nada más, gracias")).toBe(true);
+    expect(looksLikeDone("eso es todo")).toBe(true);
+    expect(looksLikeDone("ya está")).toBe(true);
+  });
+
+  it("no confunde el nombre de un producto o una respuesta normal con 'terminé'", () => {
+    expect(looksLikeDone("una harina más")).toBe(false);
+    expect(looksLikeDone("Carlos")).toBe(false);
+  });
+});
+
+describe("isNegative (T-21/PR5)", () => {
+  it("reconoce un rechazo explícito", () => {
+    expect(isNegative("no")).toBe(true);
+    expect(isNegative("rechazo")).toBe(true);
+    expect(isNegative("cancelalo")).toBe(true);
+  });
+
+  it("no confunde una respuesta normal con un rechazo", () => {
+    expect(isNegative("Carlos")).toBe(false);
+    expect(isNegative("sí")).toBe(false);
   });
 });

@@ -21,18 +21,36 @@ import {
   MessagesSquare,
   ShoppingBag,
   SlidersHorizontal,
+  ClipboardList,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { RubroTile, catalogLabel } from "@/components/rubro-visual";
 import { Pill } from "@/components/ui";
 import { seccionVisible, type PortalSeccion } from "@/config/portal-scope";
+import type { CatalogoConfig } from "@/core/types";
 
 export interface ShellNegocio {
   slug: string;
   nombre: string;
   rubro: string;
+  /** T-21: forma del catálogo de este negocio — ver `CatalogoConfig`. */
+  catalogo?: CatalogoConfig;
   botActivo: boolean;
+  /** T-38: si vende algo (ítems de modo "pedido"); solo entonces se muestra el panel de pedidos. */
+  vendePedidos?: boolean;
 }
+
+/**
+ * T-73: en la barra de abajo del celular entran hasta 6 accesos en 320 px.
+ * Con los nombres largos, "Citas y reservas" se partía en dos líneas y
+ * "Configuración" tocaba el borde.
+ */
+const ETIQUETA_CORTA: Record<string, string> = {
+  "Citas y reservas": "Citas",
+  "Respuestas y flujos": "Respuestas",
+  Conversaciones: "Chats",
+  "Configuración": "Ajustes",
+};
 
 export function PortalShell({
   negocio,
@@ -66,11 +84,22 @@ export function PortalShell({
     { href: base, label: "Resumen", Icon: LayoutGrid, group: "GESTIÓN DEL BOT", seccion: "resumen" },
     {
       href: `${base}/catalogo`,
-      label: catalogLabel(negocio.rubro),
+      label: catalogLabel(negocio.rubro, negocio.catalogo),
       Icon: ShoppingBag,
       group: "GESTIÓN DEL BOT",
       seccion: "catalogo",
     },
+    ...(negocio.vendePedidos
+      ? [
+          {
+            href: `${base}/pedidos`,
+            label: "Pedidos",
+            Icon: ClipboardList,
+            group: "ATENCIÓN" as const,
+            seccion: "pedidos" as const,
+          },
+        ]
+      : []),
     {
       href: `${base}/citas`,
       label: "Citas y reservas",
@@ -111,7 +140,7 @@ export function PortalShell({
 
   const subtitles: Record<string, string> = {
     Resumen: `Panorama del bot en ${negocio.nombre}`,
-    [catalogLabel(negocio.rubro)]: "Lo que el bot puede ofrecer y vender por WhatsApp",
+    [catalogLabel(negocio.rubro, negocio.catalogo)]: "Lo que el bot puede ofrecer y vender por WhatsApp",
     "Citas y reservas": "Turnos y reservas que el bot agenda automáticamente",
     "Respuestas y flujos": "Cómo responde el bot: IA entrenada + reglas de respaldo",
     Conversaciones: "Chats de tus clientes en tiempo real",
@@ -120,9 +149,9 @@ export function PortalShell({
 
   // Tab bar móvil (T-16): antes tenía 4 accesos fijos del handoff (2 a
   // secciones que ahora están ocultas). Reusa `nav` ya filtrado en vez de
-  // mantener una segunda lista — con el alcance v1 son las mismas 3
-  // secciones, y así Configuración (que el handoff no incluía en mobile)
-  // queda alcanzable ahí también.
+  // mantener una segunda lista — así Configuración (que el handoff no
+  // incluía en mobile) queda alcanzable ahí también, y no hay que tocar dos
+  // listas cada vez que se oculta/reactiva una sección (T-20 reactivó Citas).
   const mobileTabs = nav;
 
   return (
@@ -285,12 +314,12 @@ export function PortalShell({
           <Link
             key={href}
             href={href}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10.5px] font-semibold ${
+            className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 py-2 text-[10.5px] font-semibold ${
               isActive(href) ? "text-primary" : "text-ink-soft"
             }`}
           >
             <Icon className="h-5 w-5" />
-            {label}
+            <span className="max-w-full truncate px-0.5">{ETIQUETA_CORTA[label] ?? label}</span>
           </Link>
         ))}
       </nav>

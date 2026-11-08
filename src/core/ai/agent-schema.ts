@@ -20,7 +20,21 @@ const agentActionSchema = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("guardar_fecha"), fecha: z.string().min(1) }),
   /** El cliente eligió una modalidad de entrega (retirar / comer en el local, etc.). */
   z.object({ tipo: z.literal("guardar_modalidad"), modalidad: z.string().min(1) }),
-  /** Ya hay nombre + servicio + fecha (+ modalidad si aplica): confirmar la cita/pedido. */
+  /** T-36: la dirección de entrega de un pedido a domicilio. */
+  z.object({ tipo: z.literal("guardar_direccion"), direccion: z.string().min(1) }),
+  /**
+   * T-21: el cliente dio la cantidad de UN producto del pedido (no una cita).
+   * `servicioId` debe ser un ítem de modo "pedido" del catálogo real —
+   * `agent.ts` lo valida igual que `elegir_servicio`.
+   */
+  z.object({
+    tipo: z.literal("guardar_cantidad"),
+    servicioId: z.string().min(1),
+    cantidad: z.number().positive(),
+  }),
+  /** T-57: el cliente ya no quiere un producto del carrito ("sacá la bandeja"). */
+  z.object({ tipo: z.literal("quitar_producto"), servicioId: z.string().min(1) }),
+  /** Ya hay nombre + servicio + fecha (+ modalidad si aplica), o nombre + carrito con algo: confirmar la cita/pedido. */
   z.object({ tipo: z.literal("confirmar") }),
   /** El mensaje no tiene nada que ver con el negocio (charla ajena al contexto de venta). */
   z.object({ tipo: z.literal("fuera_de_contexto") }),
@@ -43,7 +57,54 @@ const agentActionSchema = z.discriminatedUnion("tipo", [
  */
 function descartarAccionesInvalidas(val: unknown): unknown {
   if (!Array.isArray(val)) return val;
-  return val.filter((item) => agentActionSchema.safeParse(item).success);
+  return val.map(normalizarAccion).filter((item) => {
+    const ok = agentActionSchema.safeParse(item).success;
+    // T-54: antes se descartaban en silencio — así se perdían el nombre y el
+    // carrito en las pruebas reales sin ningún rastro en la terminal.
+    if (!ok) console.warn("[Agent] acción descartada por no cumplir el contrato:", JSON.stringify(item));
+    return ok;
+  });
+}
+
+/** T-54: nombres alternativos que usan los modelos para cada campo del contrato. */
+const ALIAS_CAMPOS: Record<string, string[]> = {
+  servicioId: ["servicio_id", "servicio", "serviceId", "service_id", "productoId", "producto_id", "producto", "itemId", "id"],
+  nombre: ["name", "valor", "value", "cliente"],
+  fecha: ["date", "valor", "value"],
+  modalidad: ["entrega", "opcion", "valor", "value"],
+  direccion: ["address", "valor", "value"],
+  cantidad: ["qty", "quantity", "unidades", "valor", "value"],
+};
+
+const CAMPOS_POR_TIPO: Record<string, string[]> = {
+  elegir_servicio: ["servicioId"],
+  guardar_nombre: ["nombre"],
+  guardar_fecha: ["fecha"],
+  guardar_modalidad: ["modalidad"],
+  guardar_direccion: ["direccion"],
+  guardar_cantidad: ["servicioId", "cantidad"],
+  quitar_producto: ["servicioId"],
+};
+
+/**
+ * T-54: completa el campo que espera el contrato cuando el modelo lo mandó
+ * con otro nombre (`{"tipo":"guardar_nombre","valor":"Valero"}`) y pasa a
+ * número una cantidad escrita como texto ("2"). Solo renombra: el valor se
+ * sigue validando contra el catálogo y el estado real en `agent.ts`.
+ */
+function normalizarAccion(item: unknown): unknown {
+  if (!item || typeof item !== "object") return item;
+  const accion = { ...(item as Record<string, unknown>) };
+  for (const campo of CAMPOS_POR_TIPO[String(accion.tipo)] ?? []) {
+    if (accion[campo] === undefined) {
+      const alias = ALIAS_CAMPOS[campo]?.find((a) => accion[a] !== undefined);
+      if (alias) accion[campo] = accion[alias];
+    }
+  }
+  if (typeof accion.cantidad === "string" && /^\d+$/.test(accion.cantidad.trim())) {
+    accion.cantidad = Number(accion.cantidad);
+  }
+  return accion;
 }
 
 export const agentResponseSchema = z.object({

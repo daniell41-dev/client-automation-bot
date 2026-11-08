@@ -48,3 +48,8 @@ next-env.d.ts
 # herramientas locales de agentes (se regeneran, no son código del proyecto)
 /graphify-out/
 /.atl/
+/.codebase-memory/
+
+# T-61: secretos del VPS
+deploy/.env.production
+!deploy/.env.production.example

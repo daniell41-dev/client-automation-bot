@@ -15,7 +15,12 @@ import type {
 import type { LeadRepository } from "@/core/storage/repository";
 import type { LeadRow, SupabaseDb } from "@/core/storage/adapters/supabase/api";
 
-function toRow(lead: Lead, negocioId: string | undefined): LeadRow {
+/**
+ * Exportadas (T-20): el portal las reutiliza en `marcarAtendido`
+ * (`app/portal/actions.ts`) para el cierre manual — un solo lugar con el
+ * mapeo `Lead` ↔ fila de `leads`, en vez de duplicar la lista de columnas.
+ */
+export function toRow(lead: Lead, negocioId: string | undefined): LeadRow {
   return {
     id: lead.id,
     business_slug: lead.businessSlug,
@@ -31,11 +36,21 @@ function toRow(lead: Lead, negocioId: string | undefined): LeadRow {
     last_inbound_at: lead.lastInboundAt,
     follow_ups_sent: lead.followUpsSent ?? [],
     notes: lead.notes ?? null,
+    appointment_at: lead.appointmentAt ?? null,
+    confirmed_at: lead.confirmedAt ?? null,
+    // T-21: sin mapear acá, un pedido armado en varios turnos ("2 harinas",
+    // después "1 aceite") se perdería entre un webhook y el siguiente al
+    // recargar el lead desde la base.
+    items: lead.items ?? null,
+    // T-36: la modalidad y la dirección también se arman en varios turnos
+    // ("Domicilio", después la dirección, después "sí").
+    entrega: lead.entrega ?? null,
+    direccion: lead.direccion ?? null,
     negocio_id: negocioId ?? null,
   };
 }
 
-function fromRow(row: LeadRow): Lead {
+export function fromRow(row: LeadRow): Lead {
   return {
     id: row.id,
     businessSlug: row.business_slug,
@@ -51,6 +66,11 @@ function fromRow(row: LeadRow): Lead {
     lastInboundAt: row.last_inbound_at,
     followUpsSent: (row.follow_ups_sent ?? []) as FollowUpThreshold[],
     notes: row.notes ?? undefined,
+    appointmentAt: row.appointment_at ?? undefined,
+    confirmedAt: row.confirmed_at ?? undefined,
+    items: row.items ?? undefined,
+    entrega: row.entrega ?? undefined,
+    direccion: row.direccion ?? undefined,
   };
 }
 

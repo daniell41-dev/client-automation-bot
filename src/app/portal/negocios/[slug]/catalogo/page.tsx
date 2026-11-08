@@ -33,6 +33,7 @@ export default async function CatalogoPage({
     <CatalogoEditor
       slug={slug}
       rubro={rubro}
+      catalogo={config.catalogo}
       initialServices={config.services}
       currency={config.currency}
       locale={config.locale ?? "es-CO"}
@@ -41,3 +42,6 @@ export default async function CatalogoPage({
     />
   );
 }
+
+// T-71: el nombre de la pestaña ("Catálogo · Nexo"); la plantilla vive en el layout raíz.
+export const metadata = { title: "Catálogo" };

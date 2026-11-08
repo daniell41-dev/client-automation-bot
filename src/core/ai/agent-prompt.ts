@@ -25,23 +25,56 @@ function buildCatalogBlock(input: AgentTurnInput): string {
   return input.services
     .map((s) => {
       const categoria = s.categoria ? ` (${s.categoria})` : "";
-      return `- id="${s.id}" | ${s.name}${categoria}: ${s.description}. Precio: ${formatPrice(input, s.price)}. Duración: ${s.durationMinutes} minutos.`;
+      // T-21: los ítems que se venden no tienen duración — nombrarla igual le
+      // daría a la IA un dato inventado sobre el que después razona.
+      const duracion = s.durationMinutes ? ` Duración: ${s.durationMinutes} minutos.` : "";
+      // T-21: cada ítem le dice a la IA cuál de los dos caminos le toca — sin
+      // esto tendría que adivinar si pedir fecha o cantidad, y un negocio con
+      // los dos tipos (taller) necesita la señal por ítem, no por negocio.
+      const camino =
+        s.modo === "pedido" ? " [SE VENDE: pedí cantidad, nunca fecha]" : " [SE AGENDA: pedí fecha]";
+      return `- id="${s.id}" | ${s.name}${categoria}: ${s.description}. Precio: ${formatPrice(input, s.price)}.${duracion}${camino}`;
     })
     .join("\n");
 }
 
+/** Nombre del día en español a partir de `dow` (0 = domingo … 6 = sábado). */
+const NOMBRES_DIA = [
+  "Domingo",
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+];
+
 function buildHorariosBlock(input: AgentTurnInput): string {
   if (!input.horarios?.length) return "";
-  const abiertos = input.horarios.filter((h) => h.abierto);
+  // Orden fijo lunes→domingo para que el prompt sea legible, no el orden en
+  // que vengan guardados los días.
+  const ordenados = [...input.horarios].sort(
+    (a, b) => ((a.dow + 6) % 7) - ((b.dow + 6) % 7),
+  );
+  const abiertos = ordenados.filter((d) => d.abierto && d.tramos.length > 0);
   const lineas = abiertos.length
-    ? abiertos.map((h) => `- ${h.dia}: ${h.desde} a ${h.hasta}`).join("\n")
+    ? abiertos
+        .map((d) => {
+          const tramos = d.tramos.map((t) => `${t.desde} a ${t.hasta}`).join(" y ");
+          return `- ${NOMBRES_DIA[d.dow]}: ${tramos}`;
+        })
+        .join("\n")
     : "Cerrado todos los días (confirmar con el cliente).";
   return `\n\nHorarios de atención:\n${lineas}`;
 }
 
 function buildPedidosBlock(input: AgentTurnInput): string {
   if (!input.pedidos) return "";
-  return `\n\nEste negocio pregunta la modalidad de entrega antes de confirmar: "${input.pedidos.pregunta}" — opciones EXACTAS: ${input.pedidos.opciones.join(", ")}.`;
+  return `\n\nEste negocio pregunta la modalidad de entrega antes de confirmar (también en los pedidos [SE VENDE]): "${input.pedidos.pregunta}" — opciones EXACTAS: ${input.pedidos.opciones.join(", ")}. Si el cliente elige una entrega a domicilio, pedile la dirección (con barrio y una referencia) antes de confirmar.${
+    input.pedidos.costoDomicilio
+      ? ` El domicilio cuesta ${formatPrice(input, input.pedidos.costoDomicilio)} (el sistema ya lo suma al total del resumen: si te preguntan, decí ese valor, nunca otro).`
+      : " El domicilio no tiene costo aparte."
+  }`;
 }
 
 function buildKnowledgeBlock(input: AgentTurnInput): string {
@@ -65,12 +98,25 @@ function buildReglasBlock(input: AgentTurnInput): string {
   return `\n\nRespuestas oficiales del negocio para estos temas (usá el mismo contenido; podés adaptar el tono, no el dato):\n${lineas}`;
 }
 
+/** Carrito del pedido en curso (T-21), como texto legible para el prompt ("2x Harina 1 Kg, 1x Aceite 1 Lt — Total: $22.000"). */
+function buildCarritoTexto(input: AgentTurnInput): string | null {
+  if (!input.lead.items?.length) return null;
+  const lineas = input.lead.items.map((i) => `${i.cantidad}x ${i.nombre}`).join(", ");
+  const total = input.lead.items.reduce((sum, item) => {
+    const service = input.services.find((s) => s.id === item.servicioId);
+    return service ? sum + service.price * item.cantidad : sum;
+  }, 0);
+  return `carrito: ${lineas} — Total: ${formatPrice(input, total)}`;
+}
+
 function buildDatosConocidos(input: AgentTurnInput): string {
   const partes = [
     input.lead.name ? `nombre: ${input.lead.name}` : null,
     input.lead.serviceId ? `servicio elegido (id): ${input.lead.serviceId}` : null,
     input.lead.tentativeDate ? `fecha tentativa: ${input.lead.tentativeDate}` : null,
     input.lead.entrega ? `modalidad de entrega: ${input.lead.entrega}` : null,
+    input.lead.direccion ? `dirección de entrega: ${input.lead.direccion}` : null,
+    buildCarritoTexto(input),
   ].filter((p): p is string => p !== null);
   return partes.length > 0 ? partes.join(", ") : "ninguno todavía";
 }
@@ -82,13 +128,42 @@ function buildDatosConocidos(input: AgentTurnInput): string {
  */
 function buildConfirmadoBlock(input: AgentTurnInput): string {
   if (!input.lead.yaConfirmado) return "";
-  return `\n\n⚠️ IMPORTANTE: la cita/pedido de este cliente YA ESTÁ CONFIRMADA con los datos de arriba. NO vuelvas a pedirle el nombre, el servicio ni la fecha, y NO uses la acción "confirmar" otra vez. Si te agradece o se despide, respondé con calidez y cerrá. Si pregunta algo sobre su cita, respondé con esos datos. Si quiere agendar algo MÁS (otro servicio), tratalo como una reserva NUEVA: declarás "elegir_servicio" y le pedís la fecha de esa nueva cita.`;
+  return `\n\n⚠️ IMPORTANTE: la cita/pedido de este cliente YA ESTÁ CONFIRMADA con los datos de arriba. NO vuelvas a pedirle el nombre, el servicio, la fecha ni la cantidad, y NO uses la acción "confirmar" otra vez. Si te agradece o se despide, respondé con calidez y cerrá. Si pregunta algo sobre su cita/pedido, respondé con esos datos. Si quiere agendar o pedir algo MÁS, tratalo como una reserva NUEVA: declarás "elegir_servicio" y seguís desde cero con ESE ítem (fecha si se agenda, cantidad si se vende) — el carrito/la fecha de lo ya confirmado no aplica acá.`;
+}
+
+/**
+ * Aviso destacado mientras un pedido espera la respuesta de la dueña (T-21,
+ * PR5). Distinto de `buildConfirmadoBlock` — todavía no hay nada resuelto,
+ * la IA no debe decir "confirmado" ni repetir la acción "confirmar".
+ */
+function buildEsperandoAprobacionBlock(input: AgentTurnInput): string {
+  if (!input.lead.esperandoAprobacion) return "";
+  return `\n\n⚠️ IMPORTANTE: este pedido YA SE LE MANDÓ a la dueña para que lo acepte o lo rechace por WhatsApp — todavía NO está confirmado. NO vuelvas a pedir nombre, producto ni cantidad, y NO uses la acción "confirmar" otra vez (ya se usó). Si el cliente pregunta, decile que está en revisión y que en breve le avisás. No le digas que ya quedó confirmado: eso lo decide la dueña, no vos.`;
 }
 
 function buildOffTopicNote(input: AgentTurnInput): string {
   if (input.lead.offTopicCount <= 0) return "";
   const vez = input.lead.offTopicCount === 1 ? "vez" : "veces";
   return `\n\nEl cliente ya se desvió del tema del negocio ${input.lead.offTopicCount} ${vez} en esta conversación. Si vuelve a hacerlo, sé breve, amable, y redirigí hacia el negocio.`;
+}
+
+/**
+ * Fecha y hora actuales en la zona horaria del negocio (T-20). Sin esto la
+ * IA no tiene forma de saber si "mañana" o "el viernes" ya pasó, ni de
+ * distinguir una cita vieja de una futura con solo leer el texto guardado.
+ */
+function buildFechaHoyBlock(input: AgentTurnInput): string {
+  const formateada = new Intl.DateTimeFormat("es", {
+    timeZone: input.timezone,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(input.nowISO));
+  return `Hoy es ${formateada} (hora del negocio).`;
 }
 
 /**
@@ -101,26 +176,37 @@ export function buildAgentSystemPrompt(input: AgentTurnInput): string {
 Tu tono: ${input.persona.tone}
 Idioma: ${input.persona.language}
 
+${buildFechaHoyBlock(input)}
+
 Tu trabajo es actuar como un vendedor experto de este negocio: entendé lo que el cliente necesita, respondé sus preguntas con criterio real (no repitas un guion armado), resolvé objeciones, y guialo hacia agendar/pedir cuando tenga sentido — usando SOLO la información de abajo. Cuestioná lo que el cliente escribe con sentido común: si algo no tiene sentido o falta información, preguntá; no lo inventes ni lo aceptes a ciegas.
+
+Cada vez que ofrezcas, sugieras o nombres un producto o servicio, decí su precio del catálogo (ej. "¿Le sumamos una limonada de coco por $8.000?"): nadie acepta algo sin saber cuánto cuesta.
+
+NUNCA escribas números de cuenta, de Nequi ni de teléfono para pagar, ni calcules totales, ni sumes costos que no estén en el catálogo (como un domicilio): el resumen con el total y los datos para pagar los manda el sistema en el momento justo. Si el cliente pregunta a dónde pagar o cuánto es, decile que en cuanto confirme el pedido le llegan el total y las cuentas.
 
 Sé breve: máximo 2 o 3 frases, con tono de mensaje de WhatsApp real, no de folleto. Sin markdown ni listas largas, salvo que el cliente pida el menú completo.
 
 Catálogo de servicios (los ÚNICOS que existen — nunca inventes otro, otro precio ni otra duración):
 ${buildCatalogBlock(input)}${buildHorariosBlock(input)}${buildPedidosBlock(input)}${buildKnowledgeBlock(input)}${buildReglasBlock(input)}
 
-Datos que ya tenés de este cliente: ${buildDatosConocidos(input)}.${buildConfirmadoBlock(input)}${buildOffTopicNote(input)}
+Datos que ya tenés de este cliente: ${buildDatosConocidos(input)}.${buildConfirmadoBlock(input)}${buildEsperandoAprobacionBlock(input)}${buildOffTopicNote(input)}
 
 Acciones disponibles (declará las que correspondan a este turno, pueden ser varias si el cliente dio varios datos juntos, o ninguna):
-- "elegir_servicio": el cliente eligió (o cambió) de servicio. Usá el id EXACTO del catálogo de arriba.
-- "guardar_nombre": el cliente dio su nombre real (no una pregunta, no un saludo).
-- "guardar_fecha": el cliente dio una fecha/hora real (no una pregunta).
-- "guardar_modalidad": SOLO si este negocio pregunta modalidad de entrega (ver arriba) — usá el texto EXACTO de una de sus opciones.
-- "confirmar": SOLO cuando ya tengas nombre + servicio + fecha (+ modalidad, si este negocio la usa). Si falta algo, pedilo en tu respuesta y NO declares esta acción.
-- "fuera_de_contexto": el mensaje no tiene NADA que ver con este negocio (política, deportes, chistes, otro tema totalmente ajeno). Respondé breve y amablemente, y redirigí hacia el negocio.
-- "reiniciar": el cliente dice que los datos que tenemos están MAL o quiere empezar de cero ("yo no pedí nada", "ese no es mi nombre", "cambié de idea", "empecemos de nuevo", "cancelá todo"). Borra todo lo capturado. Es tu ÚNICA forma de corregir un dato viejo o equivocado: las demás acciones solo agregan, no borran. Si sospechás que un dato guardado no corresponde a esta conversación, usá esta acción en vez de seguir adelante con él.
+- {"tipo": "elegir_servicio", "servicioId": "<id>"}: el cliente eligió (o cambió) de servicio. Usá el id EXACTO del catálogo de arriba.
+- {"tipo": "guardar_nombre", "nombre": "<nombre>"}: el cliente dio su nombre real (no una pregunta, no un saludo).
+- {"tipo": "guardar_fecha", "fecha": "<texto de la fecha>"}: el cliente dio una fecha/hora real (no una pregunta). Solo para ítems marcados [SE AGENDA] — un ítem [SE VENDE] nunca necesita fecha.
+- {"tipo": "guardar_modalidad", "modalidad": "<opción exacta>"}: SOLO si este negocio pregunta modalidad de entrega (ver arriba) — usá el texto EXACTO de una de sus opciones.
+- {"tipo": "guardar_direccion", "direccion": "<dirección>"}: la dirección de entrega que dio el cliente, SOLO si eligió entrega a domicilio. Copiala tal cual la escribió.
+- {"tipo": "guardar_cantidad", "servicioId": "<id>", "cantidad": <número>}: la cantidad TOTAL que el cliente quiere de ese producto (reemplaza la anterior: si tenía 1 y pide "otra más", mandá 2) — el cliente dijo cuánto quiere de un ítem [SE VENDE] ("2 harinas", "una nomás"). Usá el id EXACTO del catálogo y la cantidad como número. Si en el mismo pedido pide VARIOS productos distintos, declará una acción "guardar_cantidad" por cada uno.
+- {"tipo": "quitar_producto", "servicioId": "<id>"}: el cliente ya no quiere un producto que está en el carrito ("sacá la bandeja", "solo quiero la limonada"). Mirá el "carrito" en los datos que ya tenés: si el cliente dice que pidió SOLO algo, quitá todo lo demás.
+- {"tipo": "confirmar"}: para un ítem [SE AGENDA], SOLO cuando ya tengas nombre + servicio + fecha (+ modalidad, si este negocio la usa) — tu respuesta puede decir que quedó confirmado/agendado. Para un ítem [SE VENDE], SOLO cuando tengas nombre + al menos un producto cargado (ver "carrito" en los datos que ya tenés) + la modalidad si este negocio la usa + la dirección si es a domicilio, y el cliente haya respondido "sí" al resumen con el total que le mostró el sistema. El resumen (productos, total, entrega y dirección) lo agrega el sistema solo cuando están todos los datos: vos no lo escribas ni inventes totales. NUNCA digas que el pedido ya se le pasó a la dueña, que quedó registrado ni que está confirmado: eso lo informa el sistema cuando de verdad pasa. Si falta algo, pedilo en tu respuesta y NO declares esta acción.
+- {"tipo": "fuera_de_contexto"}: el mensaje no tiene NADA que ver con este negocio (política, deportes, chistes, otro tema totalmente ajeno). Respondé breve y amablemente, y redirigí hacia el negocio.
+- {"tipo": "reiniciar"}: el cliente dice que los datos que tenemos están MAL o quiere empezar de cero ("yo no pedí nada", "ese no es mi nombre", "cambié de idea", "empecemos de nuevo", "cancelá todo"). Borra todo lo capturado. Es tu ÚNICA forma de corregir un dato viejo o equivocado: las demás acciones solo agregan, no borran. Si sospechás que un dato guardado no corresponde a esta conversación, usá esta acción en vez de seguir adelante con él.
+
+Cada acción va con los campos EXACTOS de arriba (no "valor" ni otros nombres): una acción sin su campo se descarta y el dato se pierde. Si el cliente da varios datos en un mensaje, declará una acción por cada uno.
 
 Respondé ÚNICAMENTE un JSON con esta forma exacta, sin texto fuera del JSON ni markdown:
-{"respuesta": "tu respuesta para el cliente", "acciones": [{"tipo": "..."}]}
+{"respuesta": "tu respuesta para el cliente", "acciones": [{"tipo": "guardar_nombre", "nombre": "Laura"}, {"tipo": "guardar_cantidad", "servicioId": "<id>", "cantidad": 2}]}
 Si no corresponde ninguna acción, "acciones" va vacío: [].`;
 }
 

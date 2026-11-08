@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { interpretableOptions, respond } from "@/core/engine/responder";
-import type { BusinessConfig, IncomingMessage } from "@/core/types";
+import type { BusinessConfig, IncomingMessage, Lead } from "@/core/types";
 
 const config: BusinessConfig = {
   slug: "test",
@@ -461,6 +461,135 @@ describe("respond — el bot no debe secuestrar mensajes que no son la respuesta
     r = respond(r.lead, msg("Cambiar fecha"), config, now);
     expect(r.lead.stage).toBe("esperando_fecha");
   });
+
+  // Regresión de punta a punta: "¿cuánto sale?" daba por confirmada la cita,
+  // lo que además dispara el evento de calendario y el aviso a la dueña en
+  // `handleIncoming`. El cliente preguntaba el precio y salía agendado.
+  it("en esperando_confirmacion, una pregunta de precio NO confirma la cita", () => {
+    for (const pregunta of ["¿cuánto sale?", "¿cuánto vale?", "¿a qué hora sale?"]) {
+      let r = respond(null, msg("uñas"), config, now);
+      r = respond(r.lead, msg("Carlos"), config, now);
+      r = respond(r.lead, msg("hoy"), config, now);
+      expect(r.lead.stage).toBe("esperando_confirmacion");
+
+      r = respond(r.lead, msg(pregunta), config, now);
+      expect(r.lead.stage).not.toBe("datos_completos");
+      expect(r.lead.state).not.toBe("agendado");
+    }
+  });
+});
+
+describe("respond — cita vigente tras confirmar (T-20)", () => {
+  function leadConfirmado() {
+    let r = respond(null, msg("limpieza facial"), config, now);
+    r = respond(r.lead, msg("Laura"), config, now);
+    r = respond(r.lead, msg("el viernes"), config, now);
+    r = respond(r.lead, msg("sí"), config, now);
+    expect(r.lead.stage).toBe("datos_completos");
+    return r.lead;
+  }
+
+  it("un saludo NO baja el stage ni re-manda el menú: recuerda la cita vigente", () => {
+    const confirmado = leadConfirmado();
+    const { lead, messages } = respond(confirmado, msg("Hola"), config, now);
+
+    expect(lead.stage).toBe("datos_completos"); // antes del fix, caía a "menu_enviado"
+    expect(lead.serviceId).toBe("limpieza-facial");
+    expect(lead.tentativeDate).toBe("el viernes");
+    expect(messages[0].options).toBeUndefined(); // no se re-manda el menú
+    expect(messages[0].text).toContain("Limpieza facial");
+    expect(messages[0].text).toContain("el viernes");
+  });
+
+  it("un mensaje cualquiera que no matchea nada usa el default de citaVigente", () => {
+    const confirmado = leadConfirmado();
+    const { lead, messages } = respond(confirmado, msg("gracias!"), config, now);
+
+    expect(lead.stage).toBe("datos_completos");
+    expect(messages[0].text).toContain("Laura");
+  });
+
+  // Regresión: un número suelto en una despedida se tomaba como "elegir el
+  // servicio 2", y este bloque limpia fecha y modalidad para la reserva nueva
+  // — o sea, la cita confirmada perdía la fecha por un "nos vemos el 2".
+  it("una despedida con un número NO se toma como una reserva nueva", () => {
+    const confirmado = leadConfirmado();
+    const { lead } = respond(confirmado, msg("gracias, nos vemos el 2"), config, now);
+
+    expect(lead.stage).toBe("datos_completos");
+    expect(lead.serviceId).toBe("limpieza-facial");
+    expect(lead.tentativeDate).toBe("el viernes");
+  });
+
+  it("con messages.citaVigente configurado, usa ESE texto en vez del default", () => {
+    const configConCitaVigente: BusinessConfig = {
+      ...config,
+      messages: { ...config.messages, citaVigente: "Tu turno de {{servicio}} sigue en pie." },
+    };
+    let r = respond(null, msg("limpieza facial"), configConCitaVigente, now);
+    r = respond(r.lead, msg("Laura"), configConCitaVigente, now);
+    r = respond(r.lead, msg("el viernes"), configConCitaVigente, now);
+    r = respond(r.lead, msg("sí"), configConCitaVigente, now);
+
+    const { messages } = respond(r.lead, msg("Hola"), configConCitaVigente, now);
+    expect(messages[0].text).toBe("Tu turno de Limpieza facial sigue en pie.");
+  });
+
+  it("una regla rápida responde igual que siempre, sin tocar la cita", () => {
+    const configConReglas: BusinessConfig = {
+      ...config,
+      ai: { enabled: true, reglas: [{ keywords: ["horario"], respuesta: "Atendemos 9 a 20 h." }] },
+    };
+    let r = respond(null, msg("limpieza facial"), configConReglas, now);
+    r = respond(r.lead, msg("Laura"), configConReglas, now);
+    r = respond(r.lead, msg("el viernes"), configConReglas, now);
+    r = respond(r.lead, msg("sí"), configConReglas, now);
+
+    const { lead, messages } = respond(r.lead, msg("¿a qué horario abren?"), configConReglas, now);
+    expect(messages[0].text).toBe("Atendemos 9 a 20 h.");
+    expect(lead.stage).toBe("datos_completos");
+    expect(lead.serviceId).toBe("limpieza-facial");
+  });
+
+  it("elegir OTRO servicio arranca una reserva nueva: limpia la fecha vieja y pide fecha de nuevo", () => {
+    const confirmado = leadConfirmado();
+    const { lead, messages } = respond(confirmado, msg("uñas"), config, now);
+
+    expect(lead.serviceId).toBe("unas");
+    expect(lead.tentativeDate).toBeUndefined(); // la fecha del viernes ya no aplica
+    expect(lead.name).toBe("Laura"); // el nombre SÍ se conserva
+    expect(lead.stage).toBe("esperando_fecha");
+    expect(messages[0].text).toContain("Uñas");
+    expect(messages[0].text).toContain("¿Qué día");
+
+    // Y el flujo se puede completar de nuevo con normalidad.
+    const final = respond(respond(lead, msg("mañana"), config, now).lead, msg("sí"), config, now).lead;
+    expect(final.stage).toBe("datos_completos");
+    expect(final.serviceId).toBe("unas");
+    expect(final.tentativeDate).toBe("mañana");
+  });
+
+  it("elegir otro servicio con pedidos habilitado vuelve a preguntar la modalidad (no reusa la vieja)", () => {
+    const configConPedidos: BusinessConfig = {
+      ...config,
+      pedidos: {
+        enabled: true,
+        pregunta: "¿Retirás en el local o comés acá?",
+        opciones: ["Retirar en el local", "Comer aquí"],
+      },
+    };
+    let r = respond(null, msg("limpieza facial"), configConPedidos, now);
+    r = respond(r.lead, msg("Laura"), configConPedidos, now);
+    r = respond(r.lead, msg("retiro en el local"), configConPedidos, now);
+    r = respond(r.lead, msg("el viernes"), configConPedidos, now);
+    r = respond(r.lead, msg("sí"), configConPedidos, now);
+    expect(r.lead.stage).toBe("datos_completos");
+
+    const { lead, messages } = respond(r.lead, msg("uñas"), configConPedidos, now);
+    expect(lead.entrega).toBeUndefined();
+    expect(lead.stage).toBe("esperando_entrega");
+    expect(messages[0].options).toEqual(["Retirar en el local", "Comer aquí"]);
+  });
 });
 
 describe("respond — comando de reinicio", () => {
@@ -499,5 +628,281 @@ describe("respond — comando de reinicio", () => {
     const r = respond(null, msg("cancelar"), config, now);
     expect(r.lead.stage).toBe("menu_enviado");
     expect(r.messages[0].options).toEqual(["Limpieza facial", "Uñas"]);
+  });
+});
+
+describe("respond — ítem sin duración (T-21)", () => {
+  const tienda: BusinessConfig = {
+    ...config,
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Producto", plural: "Productos" } },
+    services: [
+      {
+        id: "harina-pan",
+        name: "Harina 1 Kg",
+        description: "Harina pan tradicional",
+        price: 5000,
+        keywords: ["harina"],
+      },
+    ],
+  };
+
+  it("la variable {{duracion}} queda vacía en vez de decir 'undefined minutos'", () => {
+    const { messages } = respond(null, msg("harina"), tienda, now);
+    expect(messages[0].text).toContain("Harina 1 Kg");
+    expect(messages[0].text).not.toContain("undefined");
+    expect(messages[0].text).not.toContain("NaN");
+  });
+
+  it("un servicio CON duración la sigue mostrando igual que siempre", () => {
+    const { messages } = respond(null, msg("limpieza facial"), config, now);
+    expect(messages[0].text).toContain("60 minutos");
+  });
+});
+
+describe("respond — flujo de pedido (T-21)", () => {
+  const tienda: BusinessConfig = {
+    ...config,
+    slug: "tienda",
+    name: "Tienda Test",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Producto", plural: "Productos" } },
+    services: [
+      {
+        id: "harina",
+        name: "Harina 1 Kg",
+        description: "Harina pan tradicional",
+        price: 5000,
+        keywords: ["harina"],
+      },
+      {
+        id: "aceite",
+        name: "Aceite 1 Lt",
+        description: "Aceite vegetal",
+        price: 12000,
+        keywords: ["aceite"],
+      },
+    ],
+  };
+
+  it("recorrido completo: dos productos distintos, total correcto, y queda en revisión al confirmar", () => {
+    let r = respond(null, msg("harina"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_nombre");
+    expect(r.messages[0].text).toContain("Harina 1 Kg");
+
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    // No pregunta fecha ni modalidad de entrega: pasa directo a la cantidad.
+    expect(r.lead.stage).toBe("esperando_cantidad");
+    expect(r.lead.tentativeDate).toBeUndefined();
+    expect(r.messages[0].text).not.toMatch(/fecha|agend/i);
+
+    r = respond(r.lead, msg("2"), tienda, now);
+    expect(r.lead.stage).toBe("carrito_abierto");
+    expect(r.lead.items).toEqual([{ serviceId: "harina", cantidad: 2 }]);
+    expect(r.messages[0].text).toContain("2x Harina 1 Kg");
+    expect(r.messages[0].options).toContain("Aceite 1 Lt");
+    expect(r.messages[0].options).toContain("No, eso es todo");
+
+    r = respond(r.lead, msg("aceite"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_cantidad");
+    expect(r.lead.serviceId).toBe("aceite");
+
+    r = respond(r.lead, msg("una"), tienda, now);
+    expect(r.lead.stage).toBe("carrito_abierto");
+    expect(r.lead.items).toEqual([
+      { serviceId: "harina", cantidad: 2 },
+      { serviceId: "aceite", cantidad: 1 },
+    ]);
+    expect(r.messages[0].text).toContain("2x Harina 1 Kg");
+    expect(r.messages[0].text).toContain("1x Aceite 1 Lt");
+
+    r = respond(r.lead, msg("no, eso es todo"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+    expect(r.messages[0].text).toContain("Total");
+    expect(r.messages[0].options).toEqual(["Sí, confirmar", "Agregar más"]);
+
+    // T-21/PR5: confirmar el pedido NO lo cierra directo — queda en revisión
+    // hasta que la dueña responda por WhatsApp (eso es `handleOwnerApproval`
+    // en `handle.ts`, fuera del motor puro).
+    r = respond(r.lead, msg("sí"), tienda, now);
+    expect(r.lead.state).toBe("interesado"); // todavía NO "pagado"
+    expect(r.lead.stage).toBe("esperando_aprobacion");
+    expect(r.messages[0].text).toContain("Total");
+    expect(r.messages[0].text).toContain("Laura");
+    expect(r.messages[0].text).toContain("revisión");
+  });
+
+  it("mientras espera la aprobación de la dueña, cualquier mensaje repite que sigue en revisión", () => {
+    let r = respond(null, msg("harina"), tienda, now);
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    r = respond(r.lead, msg("2"), tienda, now);
+    r = respond(r.lead, msg("no, eso es todo"), tienda, now);
+    r = respond(r.lead, msg("sí"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_aprobacion");
+
+    const { lead, messages } = respond(r.lead, msg("hola, ¿cómo va?"), tienda, now);
+    expect(lead.stage).toBe("esperando_aprobacion"); // no se mueve
+    expect(messages[0].text).toContain("revisión");
+  });
+
+  it("no confirmar el pedido vuelve al carrito en vez de pedir una fecha", () => {
+    let r = respond(null, msg("harina"), tienda, now);
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    r = respond(r.lead, msg("2"), tienda, now);
+    r = respond(r.lead, msg("no, eso es todo"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+
+    r = respond(r.lead, msg("mejor no"), tienda, now);
+    expect(r.lead.stage).toBe("carrito_abierto");
+    expect(r.lead.items).toEqual([{ serviceId: "harina", cantidad: 2 }]); // no se perdió lo cargado
+    expect(r.lead.state).not.toBe("pagado");
+  });
+
+  it("una cantidad no reconocible re-pregunta en vez de guardar cualquier cosa", () => {
+    let r = respond(null, msg("harina"), tienda, now);
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    r = respond(r.lead, msg("no sé cuántas"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_cantidad");
+    expect(r.lead.items).toBeUndefined();
+    expect(r.unrecognized).toBe(true);
+  });
+
+  /**
+   * T-21/PR5: `respond()` (motor puro) ya NO es quien confirma un pedido —
+   * eso lo hace `handleOwnerApproval` en `handle.ts` cuando la dueña acepta.
+   * Estos dos tests siguen viviendo acá porque el bloque `datos_completos`
+   * de `respond()` sigue siendo la RED de seguridad si por algún motivo un
+   * pedido llega a `datos_completos`/"pagado" sin pasar por `handle.ts`
+   * (`cerrarPedidoFinalizado` debería interceptarlo antes, pero el motor no
+   * depende de eso) — por eso el lead post-aprobación se arma a mano, no
+   * recorriendo `respond()` de punta a punta.
+   */
+  function leadPedidoConfirmado(): Lead {
+    let r = respond(null, msg("harina"), tienda, now);
+    r = respond(r.lead, msg("Laura"), tienda, now);
+    r = respond(r.lead, msg("2"), tienda, now);
+    r = respond(r.lead, msg("no"), tienda, now);
+    r = respond(r.lead, msg("sí"), tienda, now);
+    expect(r.lead.stage).toBe("esperando_aprobacion");
+    return { ...r.lead, state: "pagado", stage: "datos_completos", confirmedAt: now.toISOString() };
+  }
+
+  it("recordatorio de pedido vigente tras confirmar: usa pedidoVigente, no citaVigente", () => {
+    const confirmado = leadPedidoConfirmado();
+
+    const { lead, messages } = respond(confirmado, msg("gracias!"), tienda, now);
+    expect(lead.stage).toBe("datos_completos");
+    expect(messages[0].text).toContain("pedido confirmado");
+    expect(messages[0].text).not.toMatch(/agendado|turno|cita/i);
+  });
+
+  it("pedir de nuevo tras un pedido confirmado arranca un pedido NUEVO (limpia el carrito viejo)", () => {
+    const confirmado = leadPedidoConfirmado();
+
+    const { lead } = respond(confirmado, msg("aceite"), tienda, now);
+    expect(lead.serviceId).toBe("aceite");
+    expect(lead.items).toBeUndefined(); // el carrito viejo (2 harinas, ya pagado) no se arrastra
+    expect(lead.stage).toBe("esperando_cantidad");
+  });
+
+  const taller: BusinessConfig = {
+    ...config,
+    slug: "taller",
+    name: "Taller Mecánico Test",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Ítem", plural: "Ítems" } },
+    services: [
+      {
+        id: "cambio-aceite",
+        name: "Cambio de aceite",
+        description: "Cambio de aceite y filtro",
+        price: 80000,
+        durationMinutes: 30,
+        reservable: true,
+        keywords: ["cambio de aceite"],
+      },
+      {
+        id: "filtro-aceite",
+        name: "Filtro de aceite",
+        description: "Repuesto filtro de aceite",
+        price: 25000,
+        keywords: ["filtro"],
+      },
+    ],
+  };
+
+  it("taller mecánico: el service reservable agenda fecha, el repuesto pide cantidad — mismo negocio", () => {
+    let cita = respond(null, msg("cambio de aceite"), taller, now);
+    cita = respond(cita.lead, msg("Carlos"), taller, now);
+    expect(cita.lead.stage).toBe("esperando_fecha");
+
+    let pedido = respond(null, msg("filtro de aceite"), taller, now);
+    pedido = respond(pedido.lead, msg("Carlos"), taller, now);
+    expect(pedido.lead.stage).toBe("esperando_cantidad");
+  });
+});
+
+describe("respond — domicilio o recoger en un pedido (T-36)", () => {
+  const restaurante: BusinessConfig = {
+    ...config,
+    slug: "sabores",
+    name: "Sabores del Sur",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+    pedidos: {
+      enabled: true,
+      pregunta: "¿Te lo mandamos a domicilio o lo recogés?",
+      opciones: ["Domicilio", "Recoger en el local"],
+    },
+    services: [
+      { id: "bandeja", name: "Bandeja paisa", description: "Completa", price: 28000, keywords: ["bandeja"] },
+    ],
+  };
+
+  function hastaCarritoCerrado() {
+    let r = respond(null, msg("bandeja"), restaurante, now);
+    r = respond(r.lead, msg("Laura"), restaurante, now);
+    r = respond(r.lead, msg("2"), restaurante, now);
+    return respond(r.lead, msg("no, eso es todo"), restaurante, now);
+  }
+
+  it("al cerrar el carrito pregunta la modalidad (antes iba directo a confirmar)", () => {
+    const r = hastaCarritoCerrado();
+    expect(r.lead.stage).toBe("esperando_entrega");
+    expect(r.messages[0].text).toContain("domicilio");
+    expect(r.messages[0].options).toEqual(["Domicilio", "Recoger en el local"]);
+  });
+
+  it("a domicilio pide la dirección, no acepta un 'ok' como dirección, y la muestra al confirmar", () => {
+    let r = hastaCarritoCerrado();
+    r = respond(r.lead, msg("domicilio"), restaurante, now);
+    expect(r.lead.entrega).toBe("Domicilio");
+    expect(r.lead.stage).toBe("esperando_direccion");
+
+    r = respond(r.lead, msg("ok"), restaurante, now);
+    expect(r.lead.stage).toBe("esperando_direccion");
+    expect(r.lead.direccion).toBeUndefined();
+
+    r = respond(r.lead, msg("Calle 10 # 5-20, barrio Centro"), restaurante, now);
+    expect(r.lead.direccion).toBe("Calle 10 # 5-20, barrio Centro");
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+    expect(r.messages[0].text).toContain("Entrega: Domicilio");
+    expect(r.messages[0].text).toContain("Dirección: Calle 10 # 5-20, barrio Centro");
+
+    r = respond(r.lead, msg("sí"), restaurante, now);
+    expect(r.lead.stage).toBe("esperando_aprobacion");
+  });
+
+  it("recoger en el local no pide dirección", () => {
+    let r = hastaCarritoCerrado();
+    r = respond(r.lead, msg("lo recojo en el local"), restaurante, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
+    expect(r.lead.direccion).toBeUndefined();
+    expect(r.messages[0].text).toContain("Entrega: Recoger en el local");
+  });
+
+  it("un negocio sin modalidad sigue yendo directo a confirmar", () => {
+    const sinModalidad: BusinessConfig = { ...restaurante, pedidos: undefined };
+    let r = respond(null, msg("bandeja"), sinModalidad, now);
+    r = respond(r.lead, msg("Laura"), sinModalidad, now);
+    r = respond(r.lead, msg("2"), sinModalidad, now);
+    r = respond(r.lead, msg("no, eso es todo"), sinModalidad, now);
+    expect(r.lead.stage).toBe("esperando_confirmacion");
   });
 });

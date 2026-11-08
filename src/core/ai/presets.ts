@@ -8,7 +8,14 @@
  * hechas desde el servidor, no desde Venezuela).
  */
 
-export type ReasoningEffort = "none" | "low" | "medium" | "high";
+/**
+ * Valores reales del enum de `reasoning_effort` — confirmado con keys reales
+ * (`pnpm ai:doctor`, sept-2026) que `"none"` NO es válido: Groq y Gemini
+ * devuelven HTTP 400 (Groq, textual: "must be one of low, medium, or high").
+ * Ver el comentario largo de `reasoningEffort` en
+ * `openai-compatible.ts#OpenAICompatibleOptions` para la historia completa.
+ */
+export type ReasoningEffort = "low" | "medium" | "high";
 
 export interface AIPreset {
   /** URL base SIN `/chat/completions` (formato OpenAI-compatible). */
@@ -22,6 +29,14 @@ export interface AIPreset {
    * `max_tokens` pensando y devolver contenido vacío (ver `runAgent`).
    */
   reasoningEffort?: ReasoningEffort;
+  /** `true` si el modelo del preset puede leer imágenes (T-23.3). Default `false`. */
+  supportsVision?: boolean;
+  /**
+   * T-46: cómo transcribe notas de voz este proveedor, si puede. "gemini":
+   * la API nativa de Gemini (la capa OpenAI-compatible no acepta el ogg de
+   * WhatsApp). "whisper": el endpoint `/audio/transcriptions` de Groq.
+   */
+  transcripcion?: "gemini" | "whisper";
 }
 
 export const AI_PRESETS = {
@@ -32,6 +47,8 @@ export const AI_PRESETS = {
     // (sep-2026); Google indica migrar a este modelo.
     defaultModel: "gemini-3.5-flash-lite",
     reasoningEffort: "low",
+    supportsVision: true,
+    transcripcion: "gemini",
   },
   /** Groq. Key gratis en https://console.groq.com/keys */
   groq: {
@@ -41,6 +58,19 @@ export const AI_PRESETS = {
     // ahora imprime el listado real de modelos disponibles para tu key.
     defaultModel: "openai/gpt-oss-20b",
     reasoningEffort: "low",
+    transcripcion: "whisper",
+  },
+  /**
+   * Groq con un modelo CON visión (T-23.3) — mismo baseURL/cuenta que `groq`,
+   * pero el modelo de texto (`gpt-oss-20b`) no lee imágenes. Se configura
+   * como preset aparte (con su propia `GROQ_VISION_API_KEY`, ver
+   * `factory.ts`) para no forzar a `groq` a usar Scout en TODAS las
+   * respuestas de texto solo para poder describir fotos alguna vez.
+   */
+  "groq-vision": {
+    baseURL: "https://api.groq.com/openai/v1",
+    defaultModel: "meta-llama/llama-4-scout-17b-16e-instruct",
+    supportsVision: true,
   },
   /** Cerebras. Key gratis en https://cloud.cerebras.ai */
   cerebras: {

@@ -7,6 +7,7 @@
  * aunque una action tenga un bug, RLS limita lo que puede tocar).
  */
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 
@@ -35,27 +36,37 @@ export async function createUserClient() {
   );
 }
 
-/** Rol del usuario autenticado, o `null` si no hay sesión. */
-export async function getUserRole(): Promise<{
+/**
+ * Rol del usuario autenticado, o `null` si no hay sesión.
+ *
+ * T-69: cada pantalla del portal lo pedía tres veces (layout del portal,
+ * layout del negocio y la página o la acción), y cada vez eran dos viajes a
+ * Supabase. Con `cache` se calcula una sola vez por request.
+ *
+ * `getClaims` en vez de `getUser`: verifica el token con la clave pública
+ * del proyecto sin ir al servidor de Auth (si el proyecto usa claves de
+ * firma asimétricas; si no, hace lo mismo que `getUser`). Es lo que
+ * recomienda Supabase para el servidor, y la identidad sigue verificada.
+ */
+export const getUserRole = cache(async (): Promise<{
   userId: string;
   email: string;
   role: "admin" | "cliente" | "invitado";
-} | null> {
+} | null> => {
   const supabase = await createUserClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims.sub;
+  if (!userId) return null;
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("role, email")
-    .eq("id", user.id)
+    .eq("id", userId)
     .maybeSingle();
 
   return {
-    userId: user.id,
-    email: profile?.email ?? user.email ?? "",
+    userId,
+    email: profile?.email ?? (data.claims.email as string | undefined) ?? "",
     role: (profile?.role as "admin" | "cliente" | "invitado") ?? "cliente",
   };
-}
+});

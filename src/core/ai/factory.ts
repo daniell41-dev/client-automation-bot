@@ -15,7 +15,7 @@ import { ResilientProvider, type UsageContext } from "@/core/ai/resilient";
 
 type ProviderName = PresetName | "custom";
 
-const DEFAULT_ORDER: ProviderName[] = ["gemini", "groq", "cerebras", "custom"];
+const DEFAULT_ORDER: ProviderName[] = ["gemini", "groq", "groq-vision", "cerebras", "custom"];
 
 /**
  * `reasoning_effort` a usar: `AI_REASONING_EFFORT` manda sobre el default del
@@ -29,7 +29,7 @@ export function resolveReasoningEffort(presetDefault: string | undefined): strin
   return override === "" ? undefined : override;
 }
 
-/** Timeout de `runAgent` en ms: `AI_AGENT_TIMEOUT_MS` o el default del provider (20000). */
+/** Timeout de `runAgent` en ms: `AI_AGENT_TIMEOUT_MS` o el default del provider (8000, T-65). */
 export function resolveAgentTimeoutMs(): number | undefined {
   const raw = process.env.AI_AGENT_TIMEOUT_MS;
   if (!raw) return undefined;
@@ -53,9 +53,11 @@ function buildCustomProvider(): ILLMProvider | null {
   });
 }
 
-/** Construye el provider de un preset conocido (gemini/groq/cerebras) desde <NOMBRE>_*. */
+/** Construye el provider de un preset conocido (gemini/groq/cerebras/...) desde <NOMBRE>_*. */
 function buildPresetProvider(name: PresetName): ILLMProvider | null {
-  const envPrefix = name.toUpperCase();
+  // "groq-vision" -> "GROQ_VISION" (los nombres de variables de entorno no
+  // llevan guiones).
+  const envPrefix = name.toUpperCase().replace(/-/g, "_");
   const apiKey = process.env[`${envPrefix}_API_KEY`];
   if (!apiKey) return null;
   const preset: AIPreset = AI_PRESETS[name];
@@ -67,6 +69,8 @@ function buildPresetProvider(name: PresetName): ILLMProvider | null {
     model,
     reasoningEffort: resolveReasoningEffort(preset.reasoningEffort),
     agentTimeoutMs: resolveAgentTimeoutMs(),
+    supportsVision: preset.supportsVision,
+    transcripcion: preset.transcripcion,
   });
 }
 

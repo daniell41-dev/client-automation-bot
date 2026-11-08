@@ -204,16 +204,19 @@ describe("OpenAICompatibleProvider.enhance — respuesta vacía", () => {
   });
 });
 
-describe("reasoning_effort — solo runAgent() lo manda", () => {
-  // Regresión real: con reasoningEffort configurado (como en producción para
-  // Groq/Gemini), enhance() con Groq (openai/gpt-oss-20b) devolvía el
-  // borrador SIN NINGÚN cambio — el modelo, con el esfuerzo de razonamiento
-  // bajo, optaba por la respuesta "más segura" frente a las reglas de no
-  // inventar/conservar datos: copiar el texto de entrada tal cual. enhance()/
-  // interpret()/extractDateTime() no tienen el problema que reasoning_effort
-  // resuelve (prompt largo + JSON estricto), así que no deben mandarlo nunca,
-  // aunque el provider tenga uno configurado.
-  it("enhance() NO manda reasoning_effort aunque el provider tenga uno configurado", async () => {
+describe("reasoning_effort en enhance()/interpret()/extractDateTime()", () => {
+  // Historia real, tres intentos probados con keys reales (sept-2026, ver el
+  // comentario largo de `reasoningEffort` en `OpenAICompatibleOptions`):
+  // (1) mandar "low" en todos lados → Groq devolvía el borrador sin cambios;
+  // (2) no mandar nada en estos tres métodos → PEOR: Gemini hacía timeout y
+  // Groq devolvía vacío, porque omitir el campo no apaga el razonamiento;
+  // (3) mandar "none" explícito para apagarlo → HTTP 400 real de AMBOS
+  // proveedores, "none" no es un valor válido del enum (Groq lo dice
+  // textual: "must be one of low, medium, or high"). Con (2) y (3)
+  // descartados por evidencia real, se manda el mismo valor configurado en
+  // todos los métodos (opción 1) — el caso de Groq en enhance() queda como
+  // límite conocido del modelo, no un bug de este código.
+  it("enhance() manda el mismo reasoning_effort configurado que runAgent()", async () => {
     let bodyVisto: Record<string, unknown> | null = null;
     const provider = new OpenAICompatibleProvider({
       name: "groq",
@@ -230,10 +233,10 @@ describe("reasoning_effort — solo runAgent() lo manda", () => {
       }) as unknown as typeof fetch,
     });
     await provider.enhance(ctx);
-    expect(bodyVisto!.reasoning_effort).toBeUndefined();
+    expect(bodyVisto!.reasoning_effort).toBe("low");
   });
 
-  it("interpret() y extractDateTime() tampoco lo mandan", async () => {
+  it("interpret() y extractDateTime() también mandan el valor configurado", async () => {
     const bodies: Record<string, unknown>[] = [];
     const fetchImpl = vi.fn(async (_url, init) => {
       bodies.push(JSON.parse((init as RequestInit).body as string));
@@ -260,8 +263,28 @@ describe("reasoning_effort — solo runAgent() lo manda", () => {
 
     expect(bodies).toHaveLength(2);
     for (const body of bodies) {
-      expect(body.reasoning_effort).toBeUndefined();
+      expect(body.reasoning_effort).toBe("low");
     }
+  });
+
+  it("no manda reasoning_effort si el provider no tiene uno configurado (Cerebras/custom)", async () => {
+    let bodyVisto: Record<string, unknown> | null = null;
+    const provider = new OpenAICompatibleProvider({
+      name: "cerebras",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      // sin reasoningEffort — Cerebras no lo necesita
+      fetchImpl: vi.fn(async (_url, init) => {
+        bodyVisto = JSON.parse((init as RequestInit).body as string);
+        return new Response(
+          JSON.stringify({ choices: [{ message: { content: "reformulado" } }] }),
+          { status: 200 },
+        );
+      }) as unknown as typeof fetch,
+    });
+    await provider.enhance(ctx);
+    expect(bodyVisto!.reasoning_effort).toBeUndefined();
   });
 });
 
@@ -281,6 +304,8 @@ const agentInput: AgentTurnInput = {
   lead: { yaConfirmado: false, offTopicCount: 0 },
   history: [],
   message: "Hola",
+  nowISO: "2026-06-29T10:00:00.000Z",
+  timezone: "America/Bogota",
 };
 
 describe("OpenAICompatibleProvider.runAgent", () => {
@@ -346,5 +371,272 @@ describe("OpenAICompatibleProvider.runAgent", () => {
     expect(result?.respuesta).toBe("¡Sí, tenemos disponibilidad para maña");
     expect(result?.acciones).toEqual([]);
     expect(spy).toHaveBeenCalledWith(expect.stringContaining("rescató"));
+  });
+});
+
+describe("OpenAICompatibleProvider.describeImage (T-23.3)", () => {
+  const imageInput = { base64: "QUJD", mimeType: "image/jpeg", caption: "esto tienen?" };
+
+  it("devuelve null sin llamar a la red si supportsVision es false", async () => {
+    const fetchImpl = vi.fn();
+    const provider = new OpenAICompatibleProvider({
+      name: "groq",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: false,
+      fetchImpl,
+    });
+    await expect(provider.describeImage(imageInput)).resolves.toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("manda la imagen como data URI en un mensaje multimodal", async () => {
+    let bodyVisto: Record<string, unknown> | null = null;
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: vi.fn(async (_url, init) => {
+        bodyVisto = JSON.parse((init as RequestInit).body as string);
+        return new Response(
+          JSON.stringify({
+            choices: [
+              {
+                message: {
+                  content: JSON.stringify({
+                    tipoProducto: "aceite",
+                    textoVisible: [],
+                    esRecipeMedico: false,
+                    confianza: "alta",
+                  }),
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
+      }) as unknown as typeof fetch,
+    });
+
+    const result = await provider.describeImage(imageInput);
+
+    expect(result?.tipoProducto).toBe("aceite");
+    const userMessage = (bodyVisto!.messages as { role: string; content: unknown }[]).find(
+      (m) => m.role === "user",
+    );
+    const content = userMessage!.content as { type: string; image_url?: { url: string } }[];
+    expect(content.some((p) => p.type === "image_url" && p.image_url?.url === "data:image/jpeg;base64,QUJD")).toBe(
+      true,
+    );
+  });
+
+  it("lanza si la respuesta HTTP no es ok (para que la cadena de respaldo lo capture)", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchHttpError(500),
+    });
+    await expect(provider.describeImage(imageInput)).rejects.toThrow(/500/);
+  });
+
+  it("devuelve null cuando el modelo no responde JSON válido", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchOk("esto no es json"),
+    });
+    await expect(provider.describeImage(imageInput)).resolves.toBeNull();
+  });
+});
+
+describe("OpenAICompatibleProvider.describePaymentReceipt (T-24.2)", () => {
+  const imageInput = { base64: "UkVDSUJP", mimeType: "image/jpeg" };
+
+  function fakeFetchReceipt(receipt: Record<string, unknown>): typeof fetch {
+    return fakeFetchOk(JSON.stringify(receipt));
+  }
+
+  it("devuelve null sin llamar a la red si supportsVision es false", async () => {
+    const fetchImpl = vi.fn();
+    const provider = new OpenAICompatibleProvider({
+      name: "groq",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: false,
+      fetchImpl,
+    });
+    await expect(provider.describePaymentReceipt(imageInput)).resolves.toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("transcribe una captura de Nequi completa", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchReceipt({
+        banco: "nequi",
+        referencia: "M12345678",
+        monto: 45000,
+        moneda: "COP",
+        legible: "completo",
+      }),
+    });
+    const result = await provider.describePaymentReceipt(imageInput);
+    expect(result).toEqual({
+      banco: "nequi",
+      referencia: "M12345678",
+      monto: 45000,
+      moneda: "COP",
+      legible: "completo",
+    });
+  });
+
+  it("transcribe una captura de Bancolombia parcial", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchReceipt({ banco: "bancolombia", monto: 12000, legible: "parcial" }),
+    });
+    expect((await provider.describePaymentReceipt(imageInput))?.legible).toBe("parcial");
+  });
+
+  it("transcribe una captura de Pago Móvil (Venezuela) en VES", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchReceipt({ banco: "mercantil", moneda: "VES", legible: "completo" }),
+    });
+    expect((await provider.describePaymentReceipt(imageInput))?.moneda).toBe("VES");
+  });
+
+  it("una captura ilegible no trae datos, pero no lanza", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchReceipt({ legible: "ilegible" }),
+    });
+    expect(await provider.describePaymentReceipt(imageInput)).toEqual({ legible: "ilegible" });
+  });
+
+  it("lanza si la respuesta HTTP no es ok (para que la cadena de respaldo lo capture)", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchHttpError(500),
+    });
+    await expect(provider.describePaymentReceipt(imageInput)).rejects.toThrow(/500/);
+  });
+
+  it("devuelve null cuando el modelo no responde JSON válido (nunca inventa datos)", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://api.example.com/v1",
+      apiKey: "k",
+      model: "m",
+      supportsVision: true,
+      fetchImpl: fakeFetchOk("esto no es json"),
+    });
+    await expect(provider.describePaymentReceipt(imageInput)).resolves.toBeNull();
+  });
+});
+
+describe("OpenAICompatibleProvider.transcribeAudio (T-46)", () => {
+  const audio = { base64: "T2dnUw==", mimeType: "audio/ogg" };
+
+  it("sin transcripción configurada devuelve null sin llamar a la red", async () => {
+    const fetchImpl = vi.fn();
+    const provider = new OpenAICompatibleProvider({ name: "cerebras", baseURL: "https://x/v1", apiKey: "k", model: "m", fetchImpl });
+    await expect(provider.transcribeAudio(audio)).resolves.toBeNull();
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("Gemini: usa la API nativa con el audio inline y devuelve el texto", async () => {
+    const fetchImpl = vi.fn<(url: string | URL | Request, init?: RequestInit) => Promise<Response>>(async () =>
+      new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: " Quiero dos bandejas paisas " }] } }] })),
+    );
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+      apiKey: "KEY",
+      model: "gemini-x",
+      transcripcion: "gemini",
+      fetchImpl,
+    });
+    await expect(provider.transcribeAudio(audio)).resolves.toBe("Quiero dos bandejas paisas");
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("https://generativelanguage.googleapis.com/v1beta/models/gemini-x:generateContent");
+    expect((init!.headers as Record<string, string>)["x-goog-api-key"]).toBe("KEY");
+    const body = JSON.parse(init!.body as string);
+    expect(body.contents[0].parts[1]).toEqual({ inline_data: { mime_type: "audio/ogg", data: "T2dnUw==" } });
+  });
+
+  it("Gemini: si no se entiende el audio devuelve null", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "gemini",
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+      apiKey: "k",
+      model: "m",
+      transcripcion: "gemini",
+      fetchImpl: vi.fn(async () => new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "[inaudible]" }] } }] }))),
+    });
+    await expect(provider.transcribeAudio(audio)).resolves.toBeNull();
+  });
+
+  it("Whisper (Groq): manda el archivo por multipart a /audio/transcriptions", async () => {
+    const fetchImpl = vi.fn<(url: string | URL | Request, init?: RequestInit) => Promise<Response>>(async () =>
+      new Response(JSON.stringify({ text: "hola, ¿tienen domicilio?" })),
+    );
+    const provider = new OpenAICompatibleProvider({
+      name: "groq",
+      baseURL: "https://api.groq.com/openai/v1",
+      apiKey: "k",
+      model: "m",
+      transcripcion: "whisper",
+      fetchImpl,
+    });
+    await expect(provider.transcribeAudio(audio)).resolves.toBe("hola, ¿tienen domicilio?");
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe("https://api.groq.com/openai/v1/audio/transcriptions");
+    const form = init!.body as FormData;
+    expect(form.get("model")).toBe("whisper-large-v3-turbo");
+    expect(form.get("language")).toBe("es");
+    expect(form.get("file")).toBeInstanceOf(Blob);
+  });
+
+  it("un error HTTP lanza (lo atrapa ResilientProvider)", async () => {
+    const provider = new OpenAICompatibleProvider({
+      name: "groq",
+      baseURL: "https://api.groq.com/openai/v1",
+      apiKey: "k",
+      model: "m",
+      transcripcion: "whisper",
+      fetchImpl: vi.fn(async () => new Response("nope", { status: 500 })),
+    });
+    await expect(provider.transcribeAudio(audio)).rejects.toThrow("HTTP 500");
   });
 });

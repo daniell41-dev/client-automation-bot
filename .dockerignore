@@ -1,0 +1,13 @@
+# T-61: nada de esto entra a la imagen. Los secretos (.env*) llegan al
+# contenedor por env_file en el servidor, nunca horneados en la imagen.
+.git
+node_modules
+.next
+coverage
+data
+.env*
+!.env.example
+deploy/.env*
+docs
+supabase/tests
+*.log

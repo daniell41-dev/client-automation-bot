@@ -11,11 +11,15 @@
 import { useActionState, useState } from "react";
 import type { FormEvent } from "react";
 import { Sparkles } from "lucide-react";
-import type { BotAIConfig, BusinessConfig, PersonaConfig } from "@/core/types";
+import type { BotAIConfig, BusinessConfig, CuentaPago, PersonaConfig, TipoCuentaPago } from "@/core/types";
+import { cuentasDeConfig } from "@/core/engine/datos-pago";
 import { personaSchema } from "@/core/config-schema";
 import {
   actualizarWhatsapp,
+  actualizarWompi,
   guardarConfigParcial,
+  quitarQrPago,
+  subirQrPago,
   type ActionState,
 } from "@/app/portal/actions";
 import { ActionForm } from "@/components/action-form";
@@ -36,10 +40,60 @@ const TONOS: Record<Tono, string> = {
     "Formal y respetuoso. Trata al cliente de usted, lenguaje cuidado y sin emojis.",
 };
 
+/** T-45: sugerencias para el campo "Banco o billetera"; igual se puede escribir cualquier otro. */
+const ENTIDADES = [
+  "Nequi",
+  "Daviplata",
+  "Bancolombia",
+  "Davivienda",
+  "Banco de Bogotá",
+  "BBVA",
+  "Banco de Occidente",
+  "Banco Popular",
+  "Banco Caja Social",
+  "AV Villas",
+  "Nu",
+  "Lulo Bank",
+  "Bre-B",
+];
+
+const TIPOS_CUENTA: { value: TipoCuentaPago; label: string }[] = [
+  { value: "billetera", label: "Celular (Nequi, Daviplata)" },
+  { value: "ahorros", label: "Cuenta de ahorros" },
+  { value: "corriente", label: "Cuenta corriente" },
+  { value: "llave", label: "Llave Bre-B" },
+];
+
+const CUENTA_VACIA: CuentaPago = { entidad: "", tipo: "billetera", numero: "", titular: "" };
+const MAX_CUENTAS = 6; // mismo tope que el schema
+
 function tonoActual(tone: string): Tono {
   if (/formal|usted/i.test(tone)) return "formal";
   if (/claro y profesional|neutral|conciso/i.test(tone)) return "neutral";
   return "cercano";
+}
+
+/**
+ * T-73: el <input type="file"> nativo sale con el idioma del navegador
+ * ("Choose File · No file chosen") y en un celular angosto se salía de la
+ * tarjeta. Se esconde y se reemplaza por un botón en español con el nombre
+ * del archivo elegido.
+ */
+function SelectorImagen({ name }: { name: string }) {
+  const [archivo, setArchivo] = useState<string | null>(null);
+  return (
+    <label className="flex min-w-0 cursor-pointer items-center gap-3 rounded-[10px] border border-dashed border-line-input px-3 py-2.5 text-sm transition-colors hover:bg-surface-3">
+      <input
+        type="file"
+        name={name}
+        accept="image/png,image/jpeg,image/webp"
+        className="sr-only"
+        onChange={(e) => setArchivo(e.target.files?.[0]?.name ?? null)}
+      />
+      <span className="shrink-0 font-semibold text-primary">Elegir imagen</span>
+      <span className="min-w-0 truncate text-ink-soft">{archivo ?? "Ninguna elegida"}</span>
+    </label>
+  );
 }
 
 export function ConfiguracionEditor({
@@ -52,6 +106,8 @@ export function ConfiguracionEditor({
   persona,
   personas,
   initialAi,
+  initialPagos,
+  initialAvisos,
 }: {
   slug: string;
   nombre: string;
@@ -62,9 +118,34 @@ export function ConfiguracionEditor({
   persona: PersonaConfig;
   personas: BusinessConfig["personas"];
   initialAi: BotAIConfig;
+  initialPagos: BusinessConfig["pagos"];
+  initialAvisos: BusinessConfig["avisos"];
 }) {
   const [direccion, setDireccion] = useState(direccionInicial);
   const [notifyPhoneNumber, setNotifyPhoneNumber] = useState(notifyPhoneNumberInicial);
+  const [wompiEnabled, setWompiEnabled] = useState(initialPagos?.wompi?.enabled ?? false);
+  // T-39: cuánto le llega por WhatsApp en un día de muchos pedidos.
+  const [modoAviso, setModoAviso] = useState<"cada_pedido" | "resumen">(
+    initialAvisos?.modo ?? "cada_pedido",
+  );
+  const [minutosResumen, setMinutosResumen] = useState(initialAvisos?.cadaMinutos ?? 10);
+  // T-33: cobro con comprobante (Nequi / Bre-B). El número de Nequi también
+  // alimenta la señal "destino no coincide" si no hay `telefonoDestino`
+  // cargado aparte (los negocios anteriores a T-33 pueden tenerlo).
+  const [requiereComprobante, setRequiereComprobante] = useState(
+    initialPagos?.requiereComprobante ?? false,
+  );
+  // T-45: varias cuentas (antes un solo Nequi). Los negocios viejos llegan
+  // con `datosPago` y se muestran ya convertidos a cuentas.
+  const [cuentas, setCuentas] = useState<CuentaPago[]>(() => {
+    const iniciales = cuentasDeConfig(initialPagos);
+    return iniciales.length ? iniciales : [CUENTA_VACIA];
+  });
+  const cambiarCuenta = (i: number, campo: keyof CuentaPago, valor: string) =>
+    setCuentas((cs) => cs.map((c, j) => (j === i ? { ...c, [campo]: valor } : c)));
+  const [wompiRedirectUrl, setWompiRedirectUrl] = useState(
+    initialPagos?.wompi?.redirectUrl ?? "",
+  );
   const [botName, setBotName] = useState(persona.name);
   const [tono, setTono] = useState<Tono>(tonoActual(persona.tone));
   const [botNameError, setBotNameError] = useState<string>();
@@ -82,8 +163,26 @@ export function ConfiguracionEditor({
   const patch = {
     direccion: direccion || undefined,
     notifyPhoneNumber: notifyPhoneNumber.trim() || undefined,
+    avisos: { modo: modoAviso, cadaMinutos: minutosResumen },
     personas: { ...personas, whatsapp: nuevaPersona },
     ai,
+    pagos: {
+      ...initialPagos,
+      requiereComprobante,
+      // `datosPago` y `telefonoDestino` quedan reemplazados por `cuentas`.
+      telefonoDestino: undefined,
+      datosPago: undefined,
+      cuentas: cuentas
+        .filter((c) => c.entidad.trim() && c.numero.trim())
+        .map((c) => ({
+          entidad: c.entidad.trim(),
+          tipo: c.tipo,
+          numero: c.numero.trim(),
+          titular: c.titular?.trim() || undefined,
+          documento: c.documento?.trim() || undefined,
+        })),
+      wompi: { enabled: wompiEnabled, redirectUrl: wompiRedirectUrl.trim() || undefined },
+    },
   };
 
   /**
@@ -171,6 +270,262 @@ export function ConfiguracionEditor({
             Formato internacional sin espacios ni + (ej. 573001234567). Dejalo
             vacío para no recibir avisos.
           </p>
+        </div>
+        <fieldset className="mt-5 space-y-2">
+          <legend className={labelCls}>Avisos de pedidos</legend>
+          <label className="flex items-start gap-2 text-sm text-ink">
+            <input
+              type="radio"
+              name="modo-aviso"
+              checked={modoAviso === "cada_pedido"}
+              onChange={() => setModoAviso("cada_pedido")}
+              className="mt-1"
+            />
+            <span>
+              <b>Uno por pedido</b>, con botones para aprobar. Para pocos pedidos al día.
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm text-ink">
+            <input
+              type="radio"
+              name="modo-aviso"
+              checked={modoAviso === "resumen"}
+              onChange={() => setModoAviso("resumen")}
+              className="mt-1"
+            />
+            <span>
+              <b>Solo un resumen</b> cada{" "}
+              <select
+                aria-label="Minutos entre resúmenes"
+                value={minutosResumen}
+                onChange={(e) => setMinutosResumen(Number(e.target.value))}
+                className="input-nexo px-2 py-1 text-sm"
+              >
+                {[5, 10, 15, 30, 60].map((m) => (
+                  <option key={m} value={m}>
+                    {m} min
+                  </option>
+                ))}
+              </select>{" "}
+              y los pedidos en el panel. Para días de muchos pedidos. Un comprobante
+              sospechoso igual te avisa al instante.
+            </span>
+          </label>
+        </fieldset>
+      </Card>
+
+      {/* Cobro con comprobante (T-33): el camino que funciona en cualquier
+          país y sin cuenta de comercio. El bot le da estos datos al cliente y
+          le pide la foto; la plata la verifica la dueña en su app del banco. */}
+      <Card
+        title="Cobro con comprobante"
+        subtitle="El cliente paga a cualquiera de tus cuentas y manda la foto; vos aprobás el pedido después de ver la plata en tu app."
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-ink">Pedir comprobante antes de aprobar</span>
+            <Toggle
+              checked={requiereComprobante}
+              onChange={setRequiereComprobante}
+              label="Pedir comprobante"
+            />
+          </div>
+          <div className="space-y-3">
+            {cuentas.map((cuenta, i) => (
+              <div key={i} className="rounded-xl border border-line p-3.5">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className={labelCls} htmlFor={`cuenta-entidad-${i}`}>Banco o billetera</label>
+                    <input
+                      id={`cuenta-entidad-${i}`}
+                      list="entidades-pago"
+                      className={inputCls}
+                      value={cuenta.entidad}
+                      onChange={(e) => cambiarCuenta(i, "entidad", e.target.value)}
+                      placeholder="Nequi, Bancolombia…"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls} htmlFor={`cuenta-tipo-${i}`}>Tipo</label>
+                    <select
+                      id={`cuenta-tipo-${i}`}
+                      className={inputCls}
+                      value={cuenta.tipo}
+                      onChange={(e) => cambiarCuenta(i, "tipo", e.target.value)}
+                    >
+                      {TIPOS_CUENTA.map((t) => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelCls} htmlFor={`cuenta-numero-${i}`}>
+                      {cuenta.tipo === "llave" ? "Llave" : cuenta.tipo === "billetera" ? "Número de celular" : "Número de cuenta"}
+                    </label>
+                    <input
+                      id={`cuenta-numero-${i}`}
+                      className={inputCls}
+                      value={cuenta.numero}
+                      onChange={(e) => cambiarCuenta(i, "numero", e.target.value)}
+                      placeholder={cuenta.tipo === "llave" ? "@minegocio" : cuenta.tipo === "billetera" ? "300 123 4567" : "123-456789-01"}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls} htmlFor={`cuenta-titular-${i}`}>A nombre de</label>
+                    <input
+                      id={`cuenta-titular-${i}`}
+                      className={inputCls}
+                      value={cuenta.titular ?? ""}
+                      onChange={(e) => cambiarCuenta(i, "titular", e.target.value)}
+                      placeholder="Nombre que ve el cliente al transferir"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls} htmlFor={`cuenta-doc-${i}`}>Cédula o NIT (opcional)</label>
+                    <input
+                      id={`cuenta-doc-${i}`}
+                      className={inputCls}
+                      value={cuenta.documento ?? ""}
+                      onChange={(e) => cambiarCuenta(i, "documento", e.target.value)}
+                      placeholder="CC 1.090.000.000"
+                    />
+                  </div>
+                  <div className="flex items-end justify-end">
+                    {cuentas.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setCuentas((cs) => cs.filter((_, j) => j !== i))}
+                        className="rounded-[10px] px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
+                      >
+                        Quitar cuenta
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            <datalist id="entidades-pago">
+              {ENTIDADES.map((e) => (
+                <option key={e} value={e} />
+              ))}
+            </datalist>
+            {cuentas.length < MAX_CUENTAS && (
+              <button
+                type="button"
+                onClick={() => setCuentas((cs) => [...cs, CUENTA_VACIA])}
+                className="rounded-[10px] bg-primary-tint px-3.5 py-2 text-sm font-bold text-primary hover:bg-primary hover:text-white"
+              >
+                + Agregar otra cuenta
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-ink-soft">
+            El bot le manda todas estas cuentas al cliente al confirmar el pedido, con el número,
+            el tipo y a nombre de quién está. Si el comprobante dice que se pagó a otra cuenta,
+            te avisa. Se guarda con el botón &quot;Guardar cambios&quot; de más abajo.
+          </p>
+
+          {/* El QR se guarda aparte (sube un archivo), igual que las llaves de Wompi. */}
+          <div className="border-t border-line pt-4">
+            <p className="text-sm font-semibold text-ink">Código QR de pago (opcional)</p>
+            <p className="mt-0.5 text-xs text-ink-soft">
+              La captura del QR de tu Nequi, Bancolombia o Bre-B. El bot la manda como imagen
+              después de las cuentas. PNG, JPG o WEBP, hasta 2 MB.
+            </p>
+            {initialPagos?.qrUrl && (
+              <div className="mt-3 flex items-center gap-4">
+                {/* eslint-disable-next-line @next/next/no-img-element -- imagen de Storage, sin optimizar a propósito */}
+                <img src={initialPagos.qrUrl} alt="QR de pago actual" className="h-28 w-28 rounded-lg border border-line object-contain" />
+                <ActionForm action={quitarQrPago} submitLabel="Quitar QR">
+                  <input type="hidden" name="slug" value={slug} />
+                </ActionForm>
+              </div>
+            )}
+            <ActionForm action={subirQrPago} submitLabel={initialPagos?.qrUrl ? "Cambiar QR" : "Subir QR"} className="mt-3 space-y-3">
+              <input type="hidden" name="slug" value={slug} />
+              <SelectorImagen name="qr" />
+            </ActionForm>
+          </div>
+        </div>
+      </Card>
+
+      {/* Pagos con Wompi (T-24.6): Wompi solo cubre Colombia — para otros
+          países (ej. Venezuela) queda el camino de comprobante manual, que no
+          depende de esta pantalla. */}
+      <Card
+        title="Pagos con Wompi"
+        subtitle="Tarjeta y PSE en Colombia, verificado automáticamente al pagar."
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-ink">Activar pagos con Wompi</span>
+            <Toggle checked={wompiEnabled} onChange={setWompiEnabled} label="Wompi activado" />
+          </div>
+          <div className="max-w-sm">
+            <label className={labelCls}>URL de redirección (opcional)</label>
+            <input
+              className={inputCls}
+              value={wompiRedirectUrl}
+              onChange={(e) => setWompiRedirectUrl(e.target.value)}
+              placeholder="https://tusitio.com/gracias"
+            />
+            <p className="mt-1.5 text-xs text-ink-soft">
+              A dónde vuelve el cliente después de pagar. Este cambio se guarda con el
+              botón &quot;Guardar cambios&quot; de más abajo.
+            </p>
+          </div>
+
+          <div className="border-t border-line pt-4">
+            <ActionForm action={actualizarWompi} submitLabel="Guardar credenciales">
+              <input type="hidden" name="slug" value={slug} />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className={labelCls}>Llave pública</label>
+                  <input
+                    name="public_key"
+                    className={inputCls}
+                    placeholder="pub_prod_..."
+                    autoComplete="off"
+                    data-1p-ignore
+                    data-lpignore="true"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Secreto de integridad</label>
+                  <input
+                    name="integrity_secret"
+                    type="password"
+                    className={inputCls}
+                    placeholder="•••••••••••"
+                    // T-49: Chrome ignora "off" en campos de contraseña y metía
+                    // la clave de la dueña; "new-password" sí lo frena.
+                    autoComplete="new-password"
+                    data-1p-ignore
+                    data-lpignore="true"
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Secreto de eventos</label>
+                  <input
+                    name="events_secret"
+                    type="password"
+                    className={inputCls}
+                    placeholder="•••••••••••"
+                    // T-49: Chrome ignora "off" en campos de contraseña y metía
+                    // la clave de la dueña; "new-password" sí lo frena.
+                    autoComplete="new-password"
+                    data-1p-ignore
+                    data-lpignore="true"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-ink-soft">
+                Las tres llaves están en tu panel de Wompi (Configuración → Llaves de la
+                API). Por seguridad nunca se muestran acá una vez guardadas — dejá en
+                blanco la que no quieras cambiar.
+              </p>
+            </ActionForm>
+          </div>
         </div>
       </Card>
 

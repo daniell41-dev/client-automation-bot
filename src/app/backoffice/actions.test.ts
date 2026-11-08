@@ -28,6 +28,7 @@ vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 import {
   actualizarNegocio,
   crearNegocio,
+  crearRubro,
   eliminarNegocio,
   eliminarRubro,
   quitarAsignacion,
@@ -120,6 +121,50 @@ describe("crearNegocio — rechaza datos inválidos sin tocar Supabase", () => {
         plan: "free",
       }),
     );
+    expect(result.error).toBe("No autorizado.");
+    expect(createUserClientMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("crearRubro — rechaza datos inválidos sin tocar Supabase", () => {
+  it("nombre vacío", async () => {
+    const result = await crearRubro({}, formData({ slug: "barberia", nombre: "" }));
+    expect(result.error).toBe("El nombre es obligatorio.");
+    expect(createUserClientMock).not.toHaveBeenCalled();
+  });
+
+  // Regresión: sin plantilla explícita la action armaba
+  // `{ ...plantilla, slug, name }` y lo insertaba SIN pasar por Zod, así que un
+  // slug con espacios/mayúsculas entraba a la base dentro del template. El
+  // rubro quedaba creado y roto: recién fallaba al crear un negocio, con
+  // "La plantilla de ese rubro es inválida" — apuntando al lugar equivocado.
+  it("slug que no es kebab-case, incluso sin plantilla explícita", async () => {
+    const result = await crearRubro({}, formData({ slug: "Barbería Don Juan", nombre: "Barbería" }));
+    expect(result.error).toContain("kebab-case");
+    expect(createUserClientMock).not.toHaveBeenCalled();
+  });
+
+  it("plantilla explícita que no es JSON válido", async () => {
+    const result = await crearRubro(
+      {},
+      formData({ slug: "barberia", nombre: "Barbería", template: "{no json" }),
+    );
+    expect(result.error).toBe("La plantilla no es JSON válido.");
+    expect(createUserClientMock).not.toHaveBeenCalled();
+  });
+
+  it("plantilla explícita que no cumple BusinessConfig", async () => {
+    const result = await crearRubro(
+      {},
+      formData({ slug: "barberia", nombre: "Barbería", template: '{"slug":"barberia"}' }),
+    );
+    expect(result.error).toBe("La plantilla no cumple la forma de BusinessConfig.");
+    expect(createUserClientMock).not.toHaveBeenCalled();
+  });
+
+  it("no autenticado como admin: ni siquiera llega a validar Zod", async () => {
+    getUserRoleMock.mockResolvedValueOnce({ userId: "u1", email: "c@c.com", role: "cliente" });
+    const result = await crearRubro({}, formData({ slug: "", nombre: "" }));
     expect(result.error).toBe("No autorizado.");
     expect(createUserClientMock).not.toHaveBeenCalled();
   });

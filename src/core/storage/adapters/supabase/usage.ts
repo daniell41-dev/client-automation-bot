@@ -17,6 +17,7 @@ export class SupabaseAiUsageRepository implements AiUsageRepository {
       tokensIn: entry.tokensIn,
       tokensOut: entry.tokensOut,
       fallbacks: entry.fallbacks,
+      imagenes: entry.imagenes,
     });
   }
 }

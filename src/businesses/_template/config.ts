@@ -36,9 +36,22 @@ export const plantilla: BusinessConfig = {
       categoria: "General", // categoría visible en el catálogo del portal
       disponible: true, // en false, el bot no lo ofrece (toggle del portal)
       reservable: true, // aparece en "Servicios reservables" (citas)
+      // modo: "cita",  // T-21: fuerza el camino de ESTE ítem ("cita" | "pedido").
+      //                // Sin declararlo se deduce de `reservable` y del rubro.
+      // stock: 12,     // solo para ítems que se venden (modo "pedido")
     },
     // Agrega más servicios aquí…
   ],
+
+  // T-21 — Forma del catálogo de este rubro. Todo opcional: sin este bloque,
+  // el negocio se comporta como siempre (todo se agenda como una cita).
+  // Descomentar y ajustar en un rubro que VENDE en vez de agendar:
+  //
+  // catalogo: {
+  //   etiqueta: { singular: "Producto", plural: "Productos" },
+  //   modoPorDefecto: "pedido",  // camino de los ítems que no lo declaran
+  //   campos: { duracion: false, stock: true, categoria: true },
+  // },
 
   messages: {
     welcome: "¡Hola! ¿Qué servicio te interesa?",
@@ -62,11 +75,17 @@ export const plantilla: BusinessConfig = {
   // direccion: "Calle 1 #2-34, Ciudad", // visible en Configuración del portal
   // botActivo: true, // en false el bot queda en pausa (toggle de la topbar)
 
-  // Horarios de atención (sección "Citas y reservas" del portal).
+  // Horarios de atención (sección "Citas y reservas" del portal) — T-20:
+  // `dow` 0=domingo … 6=sábado (igual que Date.getDay()). Sin este campo, el
+  // bot no valida citas contra ningún horario (se comporta como hoy).
   // horarios: [
-  //   { dia: "Lunes a viernes", desde: "09:00", hasta: "20:00", abierto: true },
-  //   { dia: "Sábado", desde: "09:00", hasta: "13:00", abierto: true },
-  //   { dia: "Domingo", desde: "00:00", hasta: "00:00", abierto: false },
+  //   { dow: 0, abierto: false, tramos: [] },
+  //   { dow: 1, abierto: true, tramos: [{ desde: "09:00", hasta: "18:00" }] },
+  //   { dow: 2, abierto: true, tramos: [{ desde: "09:00", hasta: "18:00" }] },
+  //   { dow: 3, abierto: true, tramos: [{ desde: "09:00", hasta: "18:00" }] },
+  //   { dow: 4, abierto: true, tramos: [{ desde: "09:00", hasta: "18:00" }] },
+  //   { dow: 5, abierto: true, tramos: [{ desde: "09:00", hasta: "18:00" }] },
+  //   { dow: 6, abierto: false, tramos: [] },
   // ],
 
   // Cerebro del bot (sección "Respuestas y flujos" del portal).

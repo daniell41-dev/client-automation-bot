@@ -14,16 +14,60 @@ import type { BusinessConfig } from "@/core/types";
  * Zod en el cliente, antes de enviar, que el que corre en el servidor dentro
  * de `businessConfigSchema` — nunca dos definiciones que puedan desalinearse.
  */
-export const serviceSchema = z.object({
-  id: z.string().min(1),
-  name: z.string().min(1, "El nombre es obligatorio."),
-  description: z.string(),
-  price: z.number().nonnegative("El precio no puede ser negativo."),
-  durationMinutes: z.number().positive(),
-  keywords: z.array(z.string()).optional(),
-  categoria: z.string().optional(),
-  disponible: z.boolean().optional(),
-  reservable: z.boolean().optional(),
+export const serviceSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1, "El nombre es obligatorio."),
+    description: z.string(),
+    price: z.number().nonnegative("El precio no puede ser negativo."),
+    // T-21: opcional — una harina no dura nada. La regla de "cuándo SÍ es
+    // obligatoria" está en el superRefine de abajo.
+    durationMinutes: z.number().positive().optional(),
+    keywords: z.array(z.string()).optional(),
+    categoria: z.string().optional(),
+    disponible: z.boolean().optional(),
+    reservable: z.boolean().optional(),
+    modo: z.enum(["cita", "pedido"]).optional(),
+    stock: z.number().int().nonnegative("El stock no puede ser negativo.").optional(),
+  })
+  .superRefine((item, ctx) => {
+    // Un ítem que se agenda SÍ necesita duración: `buildCalendarEvent` calcula
+    // el fin del evento con ella y `validarCita` la usa para saber si entra
+    // antes del cierre. Sin ella, el evento duraría cero.
+    //
+    // Solo se exige cuando el ítem declara por sí mismo que es una cita
+    // (`modo` explícito o el `reservable` de siempre). Cuando el camino sale
+    // del rubro (`catalogo.modoPorDefecto`), este schema no tiene ese dato a
+    // la vista — el motor tolera la ausencia y el editor del portal es quien
+    // pide el campo cuando el rubro lo muestra.
+    const esCitaPorSiMismo = item.modo === "cita" || (!item.modo && item.reservable === true);
+    if (esCitaPorSiMismo && item.durationMinutes === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["durationMinutes"],
+        message: "Un servicio que se agenda necesita una duración.",
+      });
+    }
+  });
+
+/** Forma del catálogo del rubro (T-21). Ver `CatalogoConfig` en `core/types.ts`. */
+const catalogoSchema = z.object({
+  etiqueta: z
+    .object({
+      singular: z.string().min(1),
+      plural: z.string().min(1),
+    })
+    .optional(),
+  modoPorDefecto: z.enum(["cita", "pedido"]).optional(),
+  campos: z
+    .object({
+      duracion: z.boolean().optional(),
+      stock: z.boolean().optional(),
+      categoria: z.boolean().optional(),
+    })
+    .optional(),
+  // T-22.2: entero no negativo — 0 es válido (avisar recién cuando se agota).
+  stockMinimo: z.number().int().nonnegative().optional(),
 });
 
 /** El catálogo completo: al menos un producto/servicio (igual regla que `businessConfigSchema`). */
@@ -45,17 +89,25 @@ const aiSchema = z.object({
   derivarHumano: z.boolean().optional(),
 });
 
-const hoursSchema = z.object({
-  dia: z.string().min(1),
-  desde: z.string(),
-  hasta: z.string(),
+const HORA_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+const tramoSchema = z.object({
+  desde: z.string().regex(HORA_RE, "hora HH:MM"),
+  hasta: z.string().regex(HORA_RE, "hora HH:MM"),
+});
+
+const diaAtencionSchema = z.object({
+  /** 0 = domingo … 6 = sábado, igual que `Date.getDay()`. */
+  dow: z.number().int().min(0).max(6),
   abierto: z.boolean(),
+  tramos: z.array(tramoSchema),
 });
 
 const pedidosSchema = z.object({
   enabled: z.boolean(),
   pregunta: z.string().min(1),
   opciones: z.array(z.string().min(1)).min(2).max(4),
+  costoDomicilio: z.number().min(0).optional(),
 });
 
 const messagesSchema = z.object({
@@ -66,6 +118,53 @@ const messagesSchema = z.object({
   serviceInfo: z.string(),
   captured: z.string(),
   fallback: z.string(),
+  citaVigente: z.string().optional(),
+  askCantidad: z.string().optional(),
+  askConfirmPedido: z.string().optional(),
+  esperandoAprobacion: z.string().optional(),
+  pedidoConfirmado: z.string().optional(),
+  pedidoRechazado: z.string().optional(),
+  pedidoVigente: z.string().optional(),
+  pedirComprobante: z.string().optional(),
+});
+
+/**
+ * T-24.4/T-24.5 — sin esto (default), el flujo de aprobación de pedidos no
+ * cambia. `wompi` acá es SOLO la bandera de comportamiento — las llaves
+ * viven en columnas propias de `negocios` (migración 0014), nunca en este
+ * JSONB (ver el comentario largo en `types.ts#PagosConfig.wompi`).
+ */
+const pagosSchema = z.object({
+  requiereComprobante: z.boolean().optional(),
+  telefonoDestino: z.string().max(40).optional(),
+  datosPago: z
+    .object({
+      nequi: z.string().max(40).optional(),
+      llaveBreB: z.string().max(80).optional(),
+      titular: z.string().max(80).optional(),
+    })
+    .optional(),
+  // T-45: tope de 6 para que el mensaje al cliente no se vuelva una lista
+  // eterna; en la práctica un negocio usa 1 a 3 cuentas.
+  cuentas: z
+    .array(
+      z.object({
+        entidad: z.string().trim().min(1).max(40),
+        tipo: z.enum(["ahorros", "corriente", "billetera", "llave"]),
+        numero: z.string().trim().min(1).max(60),
+        titular: z.string().max(80).optional(),
+        documento: z.string().max(30).optional(),
+      }),
+    )
+    .max(6)
+    .optional(),
+  qrUrl: z.string().url().max(500).optional(),
+  wompi: z
+    .object({
+      enabled: z.boolean().optional(),
+      redirectUrl: z.string().optional(),
+    })
+    .optional(),
 });
 
 const followUpSchema = z.object({
@@ -81,13 +180,26 @@ export const personaSchema = z.object({
   language: z.string(),
 });
 
+/**
+ * Forma de un slug válido. Exportado porque es la definición canónica: lo que
+ * `businessConfigSchema` exige acá es lo que después hace fallar (o no) a un
+ * negocio o a una plantilla de rubro, así que los formularios del back office
+ * validan contra ESTE regex en vez de llevar su propia copia.
+ */
+export const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
 export const businessConfigSchema = z.object({
-  slug: z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "slug en kebab-case"),
+  slug: z.string().regex(SLUG_RE, "slug en kebab-case"),
   name: z.string().min(1),
   rubro: z.string().optional(),
   currency: z.string().min(1),
   locale: z.string().optional(),
   services: servicesSchema,
+  // T-21: tiene que estar declarado acá o Zod lo descarta EN SILENCIO al
+  // parsear (el repo no usa `.strict()` ni `.passthrough()`), y el bloque se
+  // perdería entre la plantilla del rubro y el config del negocio sin que
+  // nadie se entere. Es la trampa que ya anotaba la sección 2.4 del plan.
+  catalogo: catalogoSchema.optional(),
   messages: messagesSchema,
   followUps: z.array(followUpSchema),
   bookingUrl: z.string().optional(),
@@ -95,10 +207,22 @@ export const businessConfigSchema = z.object({
   direccion: z.string().optional(),
   botActivo: z.boolean().optional(),
   plan: z.enum(["free", "pro"]).optional(),
-  horarios: z.array(hoursSchema).optional(),
+  // T-20: `.catch(undefined)` en vez de invalidar el config entero — un
+  // horario mal formado (o en el formato viejo de texto libre, pre-T-20)
+  // nunca debe tumbar al negocio al registry estático. Sin horarios
+  // válidos, el bot simplemente no valida citas contra ellos (como si no
+  // los tuviera cargados).
+  horarios: z.array(diaAtencionSchema).optional().catch(undefined),
   ai: aiSchema.optional(),
   pedidos: pedidosSchema.optional(),
   notifyPhoneNumber: z.string().optional(),
+  avisos: z
+    .object({
+      modo: z.enum(["cada_pedido", "resumen"]),
+      cadaMinutos: z.number().int().min(1).max(240).optional(),
+    })
+    .optional(),
+  pagos: pagosSchema.optional(),
   personas: z
     .object({
       whatsapp: personaSchema.optional(),
@@ -119,6 +243,20 @@ export const businessConfigSchema = z.object({
  * Parsea un JSON desconocido a `BusinessConfig`, o `null` si es inválido
  * (se registra el motivo; el llamador decide el fallback).
  */
+/**
+ * T-47: el primer motivo por el que la config no valida, en palabras para la
+ * dueña, o `null` si es válida. Sin esto el portal solo decía "los cambios no
+ * cumplen la forma esperada" y no había forma de saber qué corregir.
+ */
+export function motivoConfigInvalida(json: unknown): string | null {
+  const result = businessConfigSchema.safeParse(json);
+  if (result.success) return null;
+  const issue = result.error.issues[0];
+  // Los mensajes propios (los de `superRefine`) ya están escritos para la
+  // dueña; los genéricos de Zod no, así que se dice dónde está el problema.
+  return issue?.code === "custom" ? issue.message : `Hay un dato inválido en ${issue?.path.join(" → ") || "la configuración"}.`;
+}
+
 export function parseBusinessConfig(json: unknown): BusinessConfig | null {
   const result = businessConfigSchema.safeParse(json);
   if (!result.success) {

@@ -46,6 +46,19 @@ describe("expandChatSpanish", () => {
     expect(expandChatSpanish("listo!")).toBe("listo !");
   });
 
+  // Regresión: "sale"/"simon"/"sisas" vivían acá como sinónimos de "sí". Este
+  // diccionario reescribe el texto entero, y `normalizeDateText` lo usa para
+  // la fecha que el bot le REPITE al cliente — con "sale" adentro, "el sábado
+  // que sale mejor" volvía como "el sábado que si mejor".
+  it("no reescribe sinónimos de confirmación que también son verbos", () => {
+    expect(expandChatSpanish("cuanto sale")).toBe("cuanto sale");
+    expect(expandChatSpanish("el sábado que sale mejor")).toBe(
+      "el sábado que sale mejor",
+    );
+    expect(expandChatSpanish("simon")).toBe("simon");
+    expect(expandChatSpanish("sisas")).toBe("sisas");
+  });
+
   it("el diccionario está compuesto solo por claves 'dobladas' (sin tildes)", () => {
     for (const key of Object.keys(ABBREVIATIONS)) {
       expect(key).toBe(key.toLowerCase());

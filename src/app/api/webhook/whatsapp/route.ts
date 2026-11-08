@@ -17,18 +17,26 @@ import {
   verifyChallenge,
   verifySignature,
 } from "@/core/channels/whatsapp/verify";
-import { parseInbound } from "@/core/channels/whatsapp/parse";
+import { esVentanaCerradaEnEstado, parseEnviosFallidos, parseInbound } from "@/core/channels/whatsapp/parse";
 import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
+import { downloadWhatsAppMedia } from "@/core/channels/whatsapp/media";
 import { resolveBusinessByPhoneNumberId } from "@/businesses/resolve";
 import {
   createAiUsageRepository,
   createCalendar,
+  createComprobanteRepository,
+  createPedidoRepository,
+  createInventoryRepository,
   createLeadRepository,
   createMessageDedupeRepository,
+  createPaymentGateway,
   createSessionRepository,
+  createVentanaDuenaRepository,
+  createWhatsAppUsageRepository,
 } from "@/core/storage/factory";
+import { ventanaAbierta } from "@/core/storage/ventana-duena-repository";
 import { createLLMProvider } from "@/core/ai/factory";
-import { handleIncoming } from "@/core/handle";
+import { handleIncoming, handleOwnerApproval } from "@/core/handle";
 import type { IncomingMessage } from "@/core/types";
 
 // Necesitamos el runtime de Node (módulo crypto para la firma HMAC).
@@ -56,6 +64,30 @@ export async function GET(request: Request): Promise<Response> {
 /** POST: valida y responde 200 de inmediato; el procesamiento corre en `after()`. */
 export async function POST(request: Request): Promise<Response> {
   const appSecret = process.env.WHATSAPP_APP_SECRET;
+
+  // Falla CERRADO: sin App Secret no hay forma de saber si el evento lo mandó
+  // Meta, y la URL del webhook es pública por definición. Antes la validación
+  // vivía dentro de un `if (appSecret)`, así que un despliegue al que le
+  // faltara la variable procesaba cualquier POST: bastaba con un
+  // `phone_number_id` registrado para crear leads falsos, agotar la cuota de
+  // IA del negocio y hacer que el bot le mandara WhatsApps a números
+  // arbitrarios desde la cuenta del cliente.
+  //
+  // Para probar sin Meta está `/api/dev/simulate` (y `pnpm sim`);
+  // `WHATSAPP_ALLOW_UNSIGNED=true` queda como salida explícita para quien
+  // necesite postear al webhook real a mano en desarrollo.
+  if (!appSecret) {
+    if (process.env.WHATSAPP_ALLOW_UNSIGNED !== "true") {
+      console.error(
+        "[Webhook] WHATSAPP_APP_SECRET no está configurado: no se puede validar la firma " +
+          "del evento, se rechaza. En desarrollo, WHATSAPP_ALLOW_UNSIGNED=true lo permite.",
+      );
+      return new Response("Webhook not configured", { status: 503 });
+    }
+    console.warn(
+      "[Webhook] WHATSAPP_ALLOW_UNSIGNED=true: procesando un evento SIN validar la firma.",
+    );
+  }
 
   // El raw body es necesario para validar la firma antes de parsear. Esto es
   // síncrono/local (sin I/O de red) — corre antes del ACK sin costo real.
@@ -92,6 +124,30 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   const dedupe = createMessageDedupeRepository();
 
+  // T-25: plantilla aprobada en Meta para el aviso a la dueña cuando la
+  // ventana de 24h está cerrada. Es config de la cuenta de Meta (una sola para
+  // todos los negocios), no del negocio — por eso va por env y no por
+  // `BusinessConfig`. Sin ella, el aviso sigue siendo solo texto libre.
+  const plantillaAviso = process.env.WHATSAPP_TEMPLATE_APROBACION
+    ? {
+        nombre: process.env.WHATSAPP_TEMPLATE_APROBACION,
+        idioma: process.env.WHATSAPP_TEMPLATE_IDIOMA ?? "es",
+        conBotones: process.env.WHATSAPP_TEMPLATE_BOTONES === "true",
+      }
+    : undefined;
+
+  // T-58: Meta avisa DESPUÉS, por este mismo webhook, cuando no pudo
+  // entregar algo que el bot mandó. Sin este log, un aviso a la dueña
+  // perdido por la ventana de 24h no dejaba ningún rastro.
+  for (const fallido of parseEnviosFallidos(payload)) {
+    console.error(
+      `[WhatsApp] Meta NO entregó un mensaje a ${fallido.destinatario} (código ${fallido.codigo ?? "?"}): ${fallido.detalle}` +
+        (esVentanaCerradaEnEstado(fallido.codigo)
+          ? " → esa persona no le escribió al número del negocio en las últimas 24h. Hace falta que escriba primero, o la plantilla aprobada (docs/05 §7)."
+          : ""),
+    );
+  }
+
   try {
     for (const parsed of parseInbound(payload)) {
       // Idempotencia: un reintento de Meta trae el MISMO message.id. Si ya
@@ -107,6 +163,16 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
       const business = resolved.config;
       if (business.botActivo === false) continue; // bot en pausa → no responder
 
+      // T-43: se cuenta lo que entra además de lo que sale — cada mensaje
+      // del cliente abre (o renueva) la ventana de 24h en la que responder
+      // es gratis, así que la relación entre ambos es lo que explica la
+      // factura de Meta. Nunca rompe el mensaje si la medición falla.
+      const negocioUso = resolved.negocioId ?? business.slug;
+      const usoWhatsapp = createWhatsAppUsageRepository();
+      await usoWhatsapp.registrar({ negocio: negocioUso, recibidos: 1 }).catch((err) => {
+        console.error("[WhatsApp] no se pudo registrar el uso en uso_whatsapp:", err);
+      });
+
       // Un payload puede traer mensajes de negocios distintos (batch de
       // Meta) — el provider se arma POR MENSAJE para que T-07 atribuya el
       // consumo al negocio correcto en `uso_ia`. `negocioId` (UUID real) si
@@ -121,12 +187,69 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
         ? createSessionRepository(business, resolved.negocioId)
         : undefined;
       const calendar = createCalendar(business) ?? undefined;
+      const inventory = createInventoryRepository();
+      const comprobantes = createComprobanteRepository();
+      const pedidos = createPedidoRepository();
+      const paymentGateway = (await createPaymentGateway(resolved.negocioId)) ?? undefined;
 
       // Mismo canal para responderle al cliente y para avisarle a la dueña
       // (es el número de WhatsApp Business del negocio en ambos casos).
       const channel = accessToken
-        ? new WhatsAppChannel({ phoneNumberId: parsed.phoneNumberId, accessToken })
+        ? new WhatsAppChannel({
+            phoneNumberId: parsed.phoneNumberId,
+            accessToken,
+            plantilla: plantillaAviso,
+            medidor: { negocio: negocioUso, repo: usoWhatsapp },
+          })
         : undefined;
+
+      // T-21/PR5: si quien escribe es la dueña (el número que carga en
+      // "Configuración → Aviso por WhatsApp"), el mensaje NUNCA entra al
+      // funnel de cliente — es su sí/no a un pedido pendiente.
+      // T-59: dónde se anota cuándo escribió la dueña (para saber si su
+      // ventana de 24h está abierta al avisarle de un pedido).
+      const ventanaDuena = createVentanaDuenaRepository();
+      const negocioVentana = resolved.negocioId ?? business.slug;
+
+      if (business.notifyPhoneNumber && parsed.from === business.notifyPhoneNumber) {
+        // Cualquier mensaje suyo (texto, botón o audio) reabre la ventana.
+        await ventanaDuena.registrarMensaje(negocioVentana, new Date()).catch((err) => {
+          console.error("[WhatsApp] no se pudo anotar el mensaje de la dueña:", err);
+        });
+        // T-46: un audio de la dueña NO se transcribe para aprobar: un "sí"
+        // mal escuchado liberaría un pedido sin pagar. Se le pide el botón o
+        // el texto, que no tienen ambigüedad.
+        if (parsed.audio) {
+          await channel?.send({
+            to: parsed.from,
+            text: "Para aprobar o rechazar un pedido tocá los botones del aviso, o escribí SÍ 12 / NO 12 con el número del pedido.",
+          });
+          continue;
+        }
+        const ownerMessage: IncomingMessage = {
+          channel: "whatsapp",
+          businessSlug: business.slug,
+          from: parsed.from,
+          text: parsed.text,
+          timestamp: parsed.timestamp,
+          botonId: parsed.botonId,
+        };
+        const { ownerReply, customerReply } = await handleOwnerApproval(
+          ownerMessage,
+          business,
+          repo,
+          new Date(),
+          pedidos,
+          resolved.negocioId ?? business.slug,
+          comprobantes,
+          inventory,
+        );
+        if (channel) {
+          await channel.send(ownerReply);
+          if (customerReply) await channel.send(customerReply);
+        }
+        continue;
+      }
 
       const message: IncomingMessage = {
         channel: "whatsapp",
@@ -135,7 +258,34 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
         text: parsed.text,
         timestamp: parsed.timestamp,
         contactName: parsed.contactName,
+        image: parsed.image
+          ? { mediaId: parsed.image.mediaId, mimeType: parsed.image.mimeType }
+          : undefined,
+        audio: parsed.audio,
       };
+
+      // T-23.5: mismo token/versión de Graph API que usa `channel` para
+      // enviar — `handle.ts` no sabe nada de WhatsApp, solo recibe esta
+      // función ya armada.
+      const mediaDownloader = accessToken
+        ? (mediaId: string, tipo?: "imagen" | "audio") =>
+            downloadWhatsAppMedia(mediaId, { accessToken, tipo })
+        : undefined;
+
+      // T-59: el aviso a la dueña sale con plantilla si su ventana de 24h
+      // está cerrada (o nunca escribió). Si está abierta, va el aviso
+      // completo en texto libre, que además no tiene costo.
+      const ultimoDuena = await ventanaDuena.ultimoMensaje(negocioVentana).catch(() => undefined);
+      const notificadorDuena =
+        accessToken && plantillaAviso && !ventanaAbierta(ultimoDuena, new Date())
+          ? new WhatsAppChannel({
+              phoneNumberId: parsed.phoneNumberId,
+              accessToken,
+              plantilla: plantillaAviso,
+              forzarPlantilla: true,
+              medidor: { negocio: negocioUso, repo: usoWhatsapp },
+            })
+          : channel;
 
       const { messages: replies } = await handleIncoming(
         message,
@@ -145,7 +295,13 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
         llm ?? undefined,
         sessionRepo,
         calendar,
-        channel,
+        notificadorDuena,
+        inventory,
+        resolved.negocioId ?? business.slug,
+        mediaDownloader,
+        comprobantes,
+        paymentGateway,
+        pedidos,
       );
 
       if (channel) {

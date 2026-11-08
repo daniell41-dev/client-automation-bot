@@ -29,6 +29,14 @@ export interface ResolvedBusiness {
    * id real que atribuir en `uso_ia` (T-07).
    */
   negocioId?: string;
+  /**
+   * `phone_number_id` de WhatsApp del negocio (T-24.5): lo necesita el
+   * webhook de Wompi para mandar el WhatsApp de confirmación/rechazo sin
+   * depender de que el evento llegue dentro de una request de WhatsApp.
+   * `undefined` en el registry estático — ahí no hay una fila con ese dato
+   * resuelta por slug (solo el mapeo inverso phone->slug).
+   */
+  whatsappPhoneNumberId?: string;
 }
 
 /** Busca por slug: Supabase primero, registry estático como fallback. */
@@ -51,7 +59,14 @@ async function fetchBySlug(slug: string): Promise<ResolvedBusiness | null> {
     const row = await db.selectNegocioBySlug(slug);
     if (row) {
       const config = parseBusinessConfig(row.config);
-      if (config) return { config, esDemo: row.es_demo, negocioId: row.id };
+      if (config) {
+        return {
+          config,
+          esDemo: row.es_demo,
+          negocioId: row.id,
+          whatsappPhoneNumberId: row.whatsapp_phone_number_id ?? undefined,
+        };
+      }
       console.warn(`[resolve] config inválida en DB para negocio "${slug}"`);
     }
   }

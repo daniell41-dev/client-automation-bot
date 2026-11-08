@@ -49,8 +49,12 @@ export function isGreeting(text: string): boolean {
   return GREETING_WORDS.some((w) => n.includes(w));
 }
 
-/** Palabras que cuentan como un "sí" para confirmar (normalizadas, sin tildes). */
-const AFFIRMATIVE_WORDS = [
+/**
+ * Afirmaciones inequívocas: en español no significan otra cosa, así que
+ * alcanza con que aparezcan como palabra completa en cualquier parte del
+ * mensaje ("dale, el viernes entonces").
+ */
+const AFFIRMATIVE_STRONG = [
   "si",
   "sip",
   "claro",
@@ -66,14 +70,50 @@ const AFFIRMATIVE_WORDS = [
   "de una",
   "correcto",
   "obvio",
-  // Variantes regionales (Venezuela y alrededores).
-  "vale",
-  "va",
-  "hecho",
-  "sale",
+  // Variantes regionales sin otro significado (Venezuela, Colombia, México).
   "simon",
   "sisas",
 ];
+
+/**
+ * Afirmaciones que TAMBIÉN son palabras de uso diario, y por eso solo cuentan
+ * cuando son todo lo que dijo el cliente:
+ *   - "sale" y "vale" son la forma normal de preguntar el precio en media
+ *     Latinoamérica ("¿cuánto sale?", "¿cuánto vale?");
+ *   - "va" es el verbo ir ("¿va a estar disponible el sábado?");
+ *   - "hecho" es un participio ("hecho un lío, no entiendo").
+ *
+ * Tomarlas como un "sí" en cualquier posición hacía que una pregunta de precio
+ * confirmara la cita. El costo de equivocarse es asimétrico: confirmar escribe
+ * `confirmedAt`, crea el evento de calendario y le manda el aviso a la dueña
+ * (ver `handleIncoming`), mientras que no reconocer un "sí" solo cuesta un
+ * turno más de conversación. Ante la duda, no se confirma.
+ */
+const AFFIRMATIVE_WEAK = ["vale", "va", "sale", "hecho"];
+
+/**
+ * Cortesía que puede acompañar a una afirmación pelada sin cambiarle el
+ * sentido ("vale, gracias"). Se descarta antes de decidir si la palabra
+ * ambigua era TODO lo que dijo el cliente.
+ */
+const AFFIRMATIVE_FILLER = ["por favor", "gracias", "pues", "entonces"];
+
+/**
+ * Marcas de duda o negación que desactivan el "si": al doblar el texto se
+ * pierde la tilde, así que el "sí" de confirmar y la conjunción condicional
+ * quedan idénticos ("no sé si me sale bien"). Se prefiere perder alguna
+ * confirmación legítima ocasional ("sí, no hay problema" → se re-pregunta)
+ * antes que agendar una cita que el cliente nunca pidió.
+ */
+const DOUBT_WORDS = ["no", "quizas", "tal vez", "capaz", "depende"];
+
+/** Puntuación que `expandChatSpanish` deja como token suelto ("hola?" → "hola ?"). */
+const PUNCTUATION_TOKENS = ["¿", "?", "¡", "!", ".", ",", ";", ":"];
+
+/** ¿Alguna de `needles` está en el mensaje (frase completa o palabra suelta)? */
+function hasAny(needles: string[], texto: string, words: string[]): boolean {
+  return needles.some((w) => (w.includes(" ") ? texto.includes(w) : words.includes(w)));
+}
 
 /**
  * ¿El mensaje es una afirmación/confirmación?
@@ -84,15 +124,95 @@ const AFFIRMATIVE_WORDS = [
  */
 export function isAffirmative(text: string): boolean {
   const n = normalizeMessage(text);
-  const words = n.split(/\s+/);
-  return AFFIRMATIVE_WORDS.some((w) =>
-    w.includes(" ") ? n.includes(w) : words.includes(w),
-  );
+  if (!n) return false;
+  const words = n.split(/\s+/).filter(Boolean);
+
+  const hayDuda = hasAny(DOUBT_WORDS, n, words);
+  const fuertes = hayDuda ? AFFIRMATIVE_STRONG.filter((w) => w !== "si") : AFFIRMATIVE_STRONG;
+  if (hasAny(fuertes, n, words)) return true;
+
+  // Las ambiguas solo valen si son TODO lo que dijo el cliente: se quitan
+  // ellas, la puntuación y la cortesía, y no puede quedar nada más. "vale"
+  // confirma; "¿cuánto vale?" deja "cuanto" y por lo tanto no confirma.
+  if (!words.some((w) => AFFIRMATIVE_WEAK.includes(w))) return false;
+  const resto = words
+    .filter((w) => !AFFIRMATIVE_WEAK.includes(w) && !PUNCTUATION_TOKENS.includes(w))
+    .join(" ");
+  return stripFiller(resto) === "";
+}
+
+/** Quita la cortesía de `AFFIRMATIVE_FILLER` comparando por palabra completa. */
+function stripFiller(texto: string): string {
+  let resto = ` ${texto} `;
+  for (const filler of AFFIRMATIVE_FILLER) {
+    resto = resto.split(` ${filler} `).join(" ");
+  }
+  return resto.trim();
 }
 
 /** Servicios que el bot puede ofrecer (excluye los marcados `disponible: false`). */
 export function availableServices(services: Service[]): Service[] {
   return services.filter((s) => s.disponible !== false);
+}
+
+/**
+ * Palabras que pueden acompañar a un número cuando el cliente está ELIGIENDO
+ * de una lista ("la 2", "opción 3", "quiero el 1"). Cualquier otra palabra
+ * alrededor del número indica que el número es parte de una frase normal, no
+ * una selección.
+ */
+const SELECTOR_WORDS = [
+  "opcion",
+  "opciones",
+  "numero",
+  "nro",
+  "n",
+  "la",
+  "el",
+  "me",
+  "interesa",
+  "quiero",
+  "dame",
+  "deme",
+  "elijo",
+  "escojo",
+  "prefiero",
+];
+
+/** Cortesía que puede cerrar una selección ("la 2 por favor"). */
+const SELECTION_TRAILING = ["por", "favor", "gracias"];
+
+/**
+ * Índice (0-based) que eligió el cliente por número de lista, o `null` si el
+ * mensaje no es una selección.
+ *
+ * Antes alcanzaba con que apareciera CUALQUIER número de una o dos cifras en
+ * cualquier parte del mensaje. Eso hacía que "somos 2 personas, se puede?"
+ * eligiera el servicio 2 y arrancara el funnel con algo que el cliente nunca
+ * pidió, y que un "gracias, nos vemos el 2" después de agendar se tomara como
+ * una reserva nueva, borrándole la fecha a la cita ya confirmada (ver el
+ * bloque `datos_completos` de `responder.ts`).
+ *
+ * Ahora el número tiene que ser el mensaje entero, o venir acompañado solo de
+ * palabras de selección. El sesgo es a NO reconocer de más: perder una
+ * selección válida cuesta que el bot repita el menú y el cliente reintente;
+ * reconocer de más le cambia el servicio sin que se entere.
+ */
+function menuSelectionIndex(normalizedText: string, count: number): number | null {
+  const tokens = normalizedText
+    .split(/\s+/)
+    .filter((t) => t && !PUNCTUATION_TOKENS.includes(t));
+
+  while (tokens.length > 0 && SELECTION_TRAILING.includes(tokens[tokens.length - 1])) {
+    tokens.pop();
+  }
+
+  const numero = tokens.pop();
+  if (!numero || !/^\d{1,2}$/.test(numero)) return null;
+  if (!tokens.every((t) => SELECTOR_WORDS.includes(t))) return null;
+
+  const index = Number.parseInt(numero, 10) - 1;
+  return index >= 0 && index < count ? index : null;
 }
 
 /**
@@ -117,14 +237,10 @@ export function matchService(
     }
   }
 
-  // 2) Por número de menú (1-based).
-  const numberMatch = n.match(/\b(\d{1,2})\b/);
-  if (numberMatch) {
-    const index = Number.parseInt(numberMatch[1], 10) - 1;
-    if (index >= 0 && index < offered.length) return offered[index];
-  }
-
-  return undefined;
+  // 2) Por número de menú (1-based), solo si el mensaje ES una selección y no
+  // una frase que casualmente trae un número (ver `menuSelectionIndex`).
+  const index = menuSelectionIndex(n, offered.length);
+  return index === null ? undefined : offered[index];
 }
 
 /**
@@ -154,14 +270,10 @@ export function matchEntrega(
     if (opcionWords.some((w) => words.includes(w))) return opcion;
   }
 
-  // 3) Por número de la lista (1-based).
-  const numberMatch = n.match(/\b(\d{1,2})\b/);
-  if (numberMatch) {
-    const index = Number.parseInt(numberMatch[1], 10) - 1;
-    if (index >= 0 && index < opciones.length) return opciones[index];
-  }
-
-  return undefined;
+  // 3) Por número de la lista (1-based). Mismo criterio que `matchService`:
+  // el número tiene que ser una selección, no una cifra suelta en una frase.
+  const index = menuSelectionIndex(n, opciones.length);
+  return index === null ? undefined : opciones[index];
 }
 
 /**
@@ -286,6 +398,103 @@ const RESET_KEYWORDS = [
 export function isResetRequest(text: string): boolean {
   const n = normalizeMessage(text);
   return RESET_KEYWORDS.some((k) => n.includes(k));
+}
+
+/**
+ * Palabras número de uso común al pedir pocas unidades (T-21): "dos harinas",
+ * "una", "quiero cinco". A partir de un dígito suelto ("15") ya alcanza con
+ * el regex de abajo, así que la lista solo cubre lo chico.
+ */
+const NUMBER_WORDS: Record<string, number> = {
+  un: 1,
+  uno: 1,
+  una: 1,
+  dos: 2,
+  tres: 3,
+  cuatro: 4,
+  cinco: 5,
+  seis: 6,
+  siete: 7,
+  ocho: 8,
+  nueve: 9,
+  diez: 10,
+};
+
+/**
+ * Cantidad que pide el cliente para UN producto del carrito (T-21): "2",
+ * "dame 3", "una", "quiero cinco". `undefined` si el mensaje no trae ninguna
+ * — el llamador vuelve a preguntar en vez de guardar cualquier cosa como si
+ * fuera la cantidad (mismo criterio que `looksLikeDate`).
+ *
+ * Prioriza el dígito sobre la palabra: si el cliente escribe "quiero 2 o 3",
+ * mejor quedarse con el primer número explícito que con adivinar cuál de las
+ * dos palabras cuenta.
+ */
+export function parseCantidad(text: string): number | undefined {
+  const n = normalizeMessage(text);
+  if (!n) return undefined;
+  const digitos = n.match(/\b\d{1,3}\b/);
+  if (digitos) {
+    const value = Number.parseInt(digitos[0], 10);
+    return value > 0 ? value : undefined;
+  }
+  const words = n.split(/\s+/).filter(Boolean);
+  for (const word of words) {
+    if (word in NUMBER_WORDS) return NUMBER_WORDS[word];
+  }
+  return undefined;
+}
+
+/**
+ * Señales de que el cliente terminó de agregar productos al pedido ("no",
+ * "nada más", "eso es todo") en respuesta a "¿algo más?". Es la inversa de
+ * `isAffirmative`: acá un "no" cierra el carrito, no lo confirma.
+ */
+const DONE_KEYWORDS = [
+  "no",
+  "nada mas",
+  "nada por ahora",
+  "eso es todo",
+  "eso seria todo",
+  "solo eso",
+  "solamente eso",
+  "ya esta",
+  "ya no",
+  "asi esta bien",
+  "es todo",
+];
+
+export function looksLikeDone(text: string): boolean {
+  const n = normalizeMessage(text);
+  if (!n) return false;
+  const words = n.split(/\s+/).filter(Boolean);
+  return hasAny(DONE_KEYWORDS, n, words);
+}
+
+/**
+ * ¿Es un rechazo explícito? Se usa para que la DUEÑA responda "no"/"rechazo"
+ * a un aviso de pedido pendiente (T-21/PR5) — a diferencia de `isAffirmative`
+ * (que interpreta cualquier cosa que no sea un "sí" como negativa dentro del
+ * funnel de CLIENTE), acá el "no reconocido" tiene que quedar como `null`
+ * explícito (ver `interpretarRespuestaDueña`): un mensaje ambiguo de la
+ * dueña no debe rechazar un pedido por accidente.
+ */
+const NEGATIVE_WORDS = [
+  "no",
+  "nel",
+  "rechazo",
+  "rechazar",
+  "rechazado",
+  "no acepto",
+  "cancelalo",
+  "cancelar ese",
+];
+
+export function isNegative(text: string): boolean {
+  const n = normalizeMessage(text);
+  if (!n) return false;
+  const words = n.split(/\s+/).filter(Boolean);
+  return hasAny(NEGATIVE_WORDS, n, words);
 }
 
 /**

@@ -10,6 +10,7 @@
  */
 
 import { revalidatePath } from "next/cache";
+import { linkDefinirContrasena } from "@/lib/sitio";
 import { redirect } from "next/navigation";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -17,6 +18,8 @@ import { parseBusinessConfig } from "@/core/config-schema";
 import { plantilla } from "@/businesses/_template/config";
 import { invalidateBusinessCache } from "@/businesses/business-cache";
 import { actualizarNegocioSchema, crearNegocioSchema } from "@/app/backoffice/negocio-schema";
+import { crearRubroSchema } from "@/app/backoffice/rubro-schema";
+import { createInventoryRepository } from "@/core/storage/factory";
 import type { BusinessConfig } from "@/core/types";
 
 export interface ActionState {
@@ -116,6 +119,17 @@ export async function crearNegocio(
 
   const asignacionError = await asegurarAsignacion(supabase, ownerId, rubroId);
   if (asignacionError) return { error: asignacionError };
+
+  // T-21: si el rubro trae ítems con stock precargado (ej. un rubro de
+  // tienda), el negocio nuevo arranca protegido de una — sin esto, el dueño
+  // tendría que abrir y volver a guardar el catálogo una vez antes de que el
+  // stock empezara a controlarse (ver `sincronizarStock` en portal/actions.ts).
+  const inventory = createInventoryRepository();
+  await Promise.all(
+    config.services
+      .filter((s) => s.stock !== undefined)
+      .map((s) => inventory.setStock(negocio.id, s.id, s.stock!)),
+  ).catch((err) => console.error("[inventario] no se pudo precargar el stock inicial:", err));
 
   invalidateBusinessCache();
   revalidatePath("/backoffice/negocios");
@@ -272,6 +286,47 @@ export async function crearUsuario(
   return { ok: `Usuario ${email} creado.` };
 }
 
+/**
+ * T-41: invita a una dueña por correo. Supabase le manda un link; al
+ * tocarlo define su propia contraseña (`/cuenta/contrasena`) — el admin ya
+ * no inventa ni pasa contraseñas por WhatsApp. Los rubros marcados quedan
+ * asignados: son los tipos de negocio entre los que ella va a poder elegir
+ * en su primer ingreso (T-42).
+ */
+export async function invitarDuena(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const denied = await requireAdmin();
+  if (denied) return { error: denied };
+
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const rubroIds = formData.getAll("rubroIds").map(String).filter(Boolean);
+  if (!email.includes("@")) return { error: "Escribí un correo válido." };
+  if (rubroIds.length === 0) return { error: "Marcá al menos un tipo de negocio." };
+
+  const admin = createAdminClient();
+  if (!admin) return { error: "Supabase no está configurado." };
+
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: await linkDefinirContrasena(),
+  });
+  if (error || !data.user) {
+    return { error: `No se pudo invitar: ${error?.message ?? "sin usuario"}. ¿Está configurado el correo (SMTP) en Supabase?` };
+  }
+
+  const { error: asignError } = await admin
+    .from("asignaciones")
+    .upsert(
+      rubroIds.map((rubroId) => ({ user_id: data.user!.id, rubro_id: rubroId })),
+      { onConflict: "user_id,rubro_id", ignoreDuplicates: true },
+    );
+  if (asignError) return { error: `Invitación enviada, pero sin tipos de negocio: ${asignError.message}` };
+
+  revalidatePath("/backoffice/usuarios");
+  return { ok: `Invitación enviada a ${email}. Le llega un correo para definir su contraseña.` };
+}
+
 // ── Rubros ───────────────────────────────────────────────────────────────────
 
 export async function crearRubro(
@@ -281,15 +336,23 @@ export async function crearRubro(
   const denied = await requireAdmin();
   if (denied) return { error: denied };
 
-  const slug = String(formData.get("slug") ?? "").trim();
-  const nombre = String(formData.get("nombre") ?? "").trim();
-  const descripcion = String(formData.get("descripcion") ?? "").trim();
+  const parsed = crearRubroSchema.safeParse({
+    slug: String(formData.get("slug") ?? "").trim().toLowerCase(),
+    nombre: String(formData.get("nombre") ?? "").trim(),
+    descripcion: String(formData.get("descripcion") ?? "").trim(),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+  }
+  const { slug, nombre, descripcion } = parsed.data;
   const templateJson = String(formData.get("template") ?? "");
 
-  if (!slug || !nombre) return { error: "Slug y nombre son obligatorios." };
-
   // Sin plantilla explícita, el rubro nace con la plantilla base del código
-  // (el admin la personaliza después en el editor del rubro).
+  // (el admin la personaliza después en el editor del rubro). Las DOS ramas
+  // pasan por Zod: antes esta segunda insertaba `{ ...plantilla, slug, name }`
+  // directo, así que un slug que no fuera kebab-case entraba a la base dentro
+  // del template y recién explotaba al crear un negocio, con un error que
+  // apuntaba al lugar equivocado ("La plantilla de ese rubro es inválida").
   let template: unknown;
   if (templateJson) {
     try {
@@ -297,11 +360,11 @@ export async function crearRubro(
     } catch {
       return { error: "La plantilla no es JSON válido." };
     }
-    if (!parseBusinessConfig(template)) {
-      return { error: "La plantilla no cumple la forma de BusinessConfig." };
-    }
   } else {
     template = { ...plantilla, slug, name: nombre };
+  }
+  if (!parseBusinessConfig(template)) {
+    return { error: "La plantilla no cumple la forma de BusinessConfig." };
   }
 
   const supabase = await createUserClient();

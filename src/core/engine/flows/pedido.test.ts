@@ -1,0 +1,124 @@
+import { describe, expect, it } from "vitest";
+import {
+  agregarAlCarrito,
+  esDomicilio,
+  pareceDireccion,
+  resumenCarrito,
+  totalCarrito,
+  totalPedido,
+} from "@/core/engine/flows/pedido";
+import type { BusinessConfig, CartItem, Service } from "@/core/types";
+
+const config: BusinessConfig = {
+  slug: "tienda-test",
+  name: "Tienda Test",
+  currency: "COP",
+  locale: "es-CO",
+  services: [],
+  messages: {
+    welcome: "",
+    askName: "",
+    askDate: "",
+    askConfirm: "",
+    serviceInfo: "",
+    captured: "",
+    fallback: "",
+  },
+  followUps: [],
+};
+
+const services: Service[] = [
+  { id: "harina", name: "Harina 1 Kg", description: "Harina pan", price: 5000 },
+  { id: "aceite", name: "Aceite 1 Lt", description: "Aceite vegetal", price: 12000 },
+];
+
+describe("agregarAlCarrito", () => {
+  it("agrega un producto nuevo al carrito vacío", () => {
+    const items = agregarAlCarrito(undefined, "harina", 2);
+    expect(items).toEqual<CartItem[]>([{ serviceId: "harina", cantidad: 2 }]);
+  });
+
+  it("agrega un segundo producto distinto sin tocar el primero", () => {
+    const items = agregarAlCarrito([{ serviceId: "harina", cantidad: 2 }], "aceite", 1);
+    expect(items).toEqual<CartItem[]>([
+      { serviceId: "harina", cantidad: 2 },
+      { serviceId: "aceite", cantidad: 1 },
+    ]);
+  });
+
+  it("suma la cantidad en la MISMA línea si el producto ya estaba (no duplica la fila)", () => {
+    const items = agregarAlCarrito([{ serviceId: "harina", cantidad: 2 }], "harina", 1);
+    expect(items).toEqual<CartItem[]>([{ serviceId: "harina", cantidad: 3 }]);
+  });
+});
+
+describe("totalCarrito", () => {
+  it("suma precio × cantidad de cada línea", () => {
+    const items: CartItem[] = [
+      { serviceId: "harina", cantidad: 2 },
+      { serviceId: "aceite", cantidad: 1 },
+    ];
+    expect(totalCarrito(items, services)).toBe(2 * 5000 + 1 * 12000);
+  });
+
+  it("ignora una línea cuyo Service ya no existe en el catálogo", () => {
+    const items: CartItem[] = [{ serviceId: "no-existe", cantidad: 5 }];
+    expect(totalCarrito(items, services)).toBe(0);
+  });
+});
+
+describe("resumenCarrito", () => {
+  it("arma una línea por producto y el total al final", () => {
+    const items: CartItem[] = [
+      { serviceId: "harina", cantidad: 2 },
+      { serviceId: "aceite", cantidad: 1 },
+    ];
+    const resumen = resumenCarrito(items, services, config);
+    expect(resumen).toContain("2x Harina 1 Kg");
+    expect(resumen).toContain("1x Aceite 1 Lt");
+    expect(resumen.split("\n").at(-1)).toContain("Total");
+  });
+});
+
+describe("esDomicilio / pareceDireccion (T-36)", () => {
+  it("reconoce las formas comunes de pedir a domicilio", () => {
+    expect(esDomicilio("Domicilio")).toBe(true);
+    expect(esDomicilio("Envío a casa")).toBe(true);
+    expect(esDomicilio("Delivery")).toBe(true);
+    expect(esDomicilio("Recoger en el local")).toBe(false);
+    expect(esDomicilio(undefined)).toBe(false);
+  });
+
+  it("una dirección necesita algún número o palabra de calle", () => {
+    expect(pareceDireccion("Calle 10 # 5-20")).toBe(true);
+    expect(pareceDireccion("Barrio La Riviera, casa azul")).toBe(true);
+    expect(pareceDireccion("ok")).toBe(false);
+    expect(pareceDireccion("ya te digo")).toBe(false);
+  });
+});
+
+describe("costo de domicilio (T-52)", () => {
+  const conCosto: BusinessConfig = {
+    ...config,
+    pedidos: { enabled: true, pregunta: "¿?", opciones: ["Domicilio", "Recoger en el local"], costoDomicilio: 5000 },
+  };
+  const items: CartItem[] = [{ serviceId: "harina", cantidad: 2 }];
+
+  it("se suma al total solo si la entrega es a domicilio", () => {
+    expect(totalPedido(items, services, conCosto, "Domicilio")).toBe(15000);
+    expect(totalPedido(items, services, conCosto, "Recoger en el local")).toBe(10000);
+    expect(totalPedido(items, services, conCosto, undefined)).toBe(10000);
+    expect(totalPedido(items, services, config, "Domicilio")).toBe(10000);
+  });
+
+  it("el resumen muestra la línea del domicilio y el total con el costo", () => {
+    const resumen = resumenCarrito(items, services, conCosto, "Domicilio");
+    expect(resumen).toContain("Domicilio — $");
+    expect(resumen).toContain("5.000");
+    expect(resumen).toMatch(/Total: \$\s?15\.000/);
+  });
+
+  it("sin entrega a domicilio, el resumen queda como antes", () => {
+    expect(resumenCarrito(items, services, conCosto, "Recoger en el local")).toBe(resumenCarrito(items, services, config));
+  });
+});

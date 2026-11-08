@@ -1,0 +1,325 @@
+# 17 - Prueba local de punta a punta (antes de vender)
+
+> Recorrido completo, con datos de ejemplo, para correr en local **antes de mostrarle Nexo
+> a cualquier cliente**: desde que se agrega un número nuevo hasta que un cliente agenda
+> una cita o hace un pedido y la dueña lo aprueba.
+>
+> **Estado de esta guía:** versión 1 (oct-2026). Describe lo que funciona **hoy**.
+> Los pasos marcados 🔧 dependen de una tarea del backlog (T-30 a T-43, ver
+> `docs/14-plan-de-trabajo.md`). Cada PR de esas tareas actualiza su paso acá: la meta
+> es recorrer el diagrama entero sin tocar código ni la base a mano.
+
+Leyenda: ✅ funciona hoy · 🔧 requiere la tarea indicada · ⚙️ hoy se puede, pero a mano.
+
+---
+
+## Diagrama del recorrido
+
+```mermaid
+flowchart TD
+  subgraph E["0 · Entorno (una sola vez)"]
+    E1["✅ .env.local: Supabase, IA y WhatsApp<br/>(token permanente)"] --> E2["✅ Supabase: migraciones 0001→0023<br/>+ pnpm seed:supabase --admin"]
+    E2 --> E3["✅ pnpm dev + ngrok"]
+    E3 --> E4["✅ Webhook cargado en Meta<br/>+ subscribed_apps del WABA"]
+  end
+
+  subgraph T["1 · Número nuevo del negocio"]
+    T1["✅ WhatsApp Manager → Agregar número<br/>(o usar el número de prueba)"] --> T2["✅ Código por SMS/llamada<br/>+ nombre visible"]
+    T2 --> T3["✅ Registrar con PIN de 6 dígitos"]
+    T3 --> T4["✅ Copiar el phone_number_id"]
+  end
+
+  subgraph U["2 · Cuenta de la dueña"]
+    U1["✅ Back office → Invitar dueña<br/>(correo + tipos de negocio)"]
+    U2["✅ Le llega un correo →<br/>define su contraseña"]
+    U1 --> U2
+  end
+
+  subgraph N["3 · Negocio"]
+    N0["✅ Back office → Rubros<br/>(Estética ya existe; Restaurante se crea)"] --> N1["✅ Back office → Negocios → Nuevo<br/>(rubro, dueña, phone_number_id)"]
+    N1 --> N2["✅ La dueña entra al portal:<br/>catálogo, horarios, tono, su WhatsApp"]
+    N2 --> N3["✅ Cobro con comprobante:<br/>cuentas (Nequi, bancos, Bre-B) + QR"]
+    N3 --> N5["✅ Back office: encender el bot"]
+    N4["✅ T-42: o la dueña lo arma en su primer ingreso<br/>(elige el tipo entre los asignados)"]
+    N1 -.-> N4
+  end
+
+  subgraph B["4a · Prueba belleza"]
+    B1["✅ Hola → servicio → nombre →<br/>fecha en horario → sí"] --> B2["✅ Aviso de cita a la dueña"]
+    B2 --> B3["✅ Fecha fuera de horario →<br/>el bot pide otra"]
+    B3 --> B4["✅ T-46: pedir por nota de voz →<br/>responde igual que escrito"]
+  end
+
+  subgraph R["4b · Prueba restaurante"]
+    R1["✅ Pide 2 bandejas + 1 limonada<br/>→ total → confirma"] --> R2["✅ ¿Domicilio o recoger?<br/>+ dirección"]
+    R2 --> R3["✅ Bot da las cuentas + el QR →<br/>foto del comprobante →<br/>IA lo lee + señales"]
+    R3 --> R4["✅ La dueña toca 'Aprobar #1'<br/>(o responde SÍ 1)"]
+    R4 --> R5["✅ El cliente recibe<br/>número + código de retiro"]
+    R5 --> R6["✅ Portal → Pedidos:<br/>Listo → Entregar con el código"]
+  end
+
+  subgraph F["5 · Fraude y día pico"]
+    F1["✅ Mismo comprobante dos veces →<br/>⚠️ referencia repetida"]
+    F2["✅ Comprobante por menos plata →<br/>⚠️ monto distinto"]
+    F3["✅ Dos pedidos pendientes →<br/>se aprueba el correcto"]
+    F4["✅ 10 pedidos en modo resumen →<br/>un solo aviso + panel"]
+    F5["✅ T-43: Back office → Negocios<br/>muestra los WhatsApp del mes"]
+  end
+
+  E --> T --> U --> N
+  N --> B
+  N --> R
+  R --> F
+```
+
+---
+
+## Datos de ejemplo
+
+| | Belleza | Restaurante |
+|---|---|---|
+| Rubro | Belleza / Estética (sembrado) | Restaurante (sembrado) |
+| Negocio | Estética Bella Cúcuta | Sabores del Sur |
+| Dueña (login) | `duena.belleza@prueba.co` | `duena.sabores@prueba.co` |
+| Catálogo | Limpieza facial $80.000 · 60 min · Manicure $25.000 · 45 min | Bandeja paisa $28.000 · stock 20 · Limonada de coco $8.000 · stock 30 |
+| Horario | Lun-Sáb 9:00-18:00 | Todos los días 11:00-22:00 |
+| Pago | — | Nequi 300 000 0000 y Bancolombia ahorros 123-456789-01, a nombre de la dueña (ejemplo) + una imagen de QR · pedir comprobante |
+
+**Los tres celulares de la prueba:**
+
+| Rol | Qué es | Regla |
+|---|---|---|
+| Negocio | El número de prueba de Meta o una SIM nueva | Es el que atiende el bot |
+| Cliente | Tu celular | Le escribe al número del negocio |
+| Dueña | Otro celular (un familiar) | **Distinto** del número del negocio: ahí le llegan los avisos para aprobar |
+
+Con el número de prueba de Meta, el cliente y la dueña tienen que estar agregados como
+**destinatarios** en la consola de la app (WhatsApp → Configuración de la API → "Para").
+
+Con un solo número se prueba **un negocio a la vez**: se mueve el `phone_number_id` de un
+negocio al otro desde el back office. La variante que no tiene número se puede probar
+igual con el simulador: `pnpm sim --business <slug>`.
+
+---
+
+## Paso 0 · Entorno (una sola vez)
+
+1. **`.env.local`** con las variables de `.env.example`:
+   - WhatsApp: `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_ACCESS_TOKEN` (el **permanente**, ver
+     §9 de `05-whatsapp-setup.md`) y `WHATSAPP_APP_SECRET`.
+   - IA: al menos `GEMINI_API_KEY`.
+   - Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y
+     `SUPABASE_SERVICE_ROLE_KEY`.
+2. **Supabase:** en el SQL Editor, correr **todas** las migraciones de
+   `supabase/migrations/` en orden (de `0001` a `0023`). Después:
+   ```bash
+   pnpm seed:supabase --admin tucorreo@dominio.com TuClave123
+   ```
+   - Debe crear el rubro "Estética", el negocio demo y tu usuario administrador.
+   - Si falla con `ENOTFOUND ...supabase.co`, la URL del proyecto está mal o el proyecto
+     está pausado. Ver §8 de `05-whatsapp-setup.md`.
+3. **Levantar:** `pnpm dev` en una terminal y `ngrok http 3000` en otra.
+4. **Webhook en Meta:** URL `https://<tu-dominio>.ngrok-free.dev/api/webhook/whatsapp`
+   y el mismo verify token del `.env.local`. Hacer **una vez por cuenta de WhatsApp**
+   el `subscribed_apps` (§8 de `05-whatsapp-setup.md`).
+
+**Qué tiene que pasar:** entrás a `http://localhost:3000/login` con tu correo de admin y
+caés en `/backoffice`.
+
+## Paso 1 · Número nuevo del negocio
+
+- **Con el número de prueba:** ya existe. Copiá su `phone_number_id` en WhatsApp →
+  Configuración de la API.
+- **Con una SIM nueva:**
+  1. WhatsApp Manager → Números de teléfono → **Agregar número**.
+  2. Cargar el nombre visible (el nombre del negocio) y verificar con el código por
+     SMS o llamada.
+  3. Registrar el número para la API con un PIN de 6 dígitos que elegís vos:
+     ```powershell
+     curl.exe -X POST "https://graph.facebook.com/v21.0/<PHONE_NUMBER_ID>/register" `
+       -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" `
+       -d '{\"messaging_product\":\"whatsapp\",\"pin\":\"123456\"}'
+     ```
+     Respuesta esperada: `{"success":true}`. Guardá el PIN, Meta lo vuelve a pedir si se
+     re-registra el número.
+  4. Copiar el `phone_number_id`.
+
+> Sin verificación del negocio en Meta, la cuenta admite **2 números**. Para el tercero
+> hace falta verificar Nexo (ver `docs/14-plan-de-trabajo.md`).
+
+## Paso 2 · Cuenta de la dueña
+
+Requiere tener configurado el correo en Supabase (§3-bis de `docs/08-supabase-saas.md`).
+1. Back office → **Usuarios** → **Invitar dueña**.
+2. Cargar su correo (`duena.sabores@prueba.co`) y marcar los tipos de negocio entre los
+   que va a poder elegir.
+3. A la dueña le llega un correo. Al tocar el link, define su contraseña y entra al
+   portal.
+
+**Qué tiene que pasar:** el usuario aparece en la lista con rol cliente y con los rubros
+asignados. Si la dueña olvida la contraseña, en el login usa "¿Olvidaste tu contraseña?".
+
+Sin correo configurado sigue estando "Crear usuario con contraseña", y la contraseña se
+le pasa a mano.
+
+## Paso 3 · Negocio
+
+### 3.1 Rubros
+
+`pnpm seed:supabase` deja sembrados los cuatro rubros base, ya configurados:
+- **Belleza / Estética**, **Peluquería / Barbería** y **Masajes / Spa**: agendan citas.
+- **Restaurante**: vende, pregunta domicilio o recoger y pide comprobante.
+
+No hace falta crearlos a mano. Si se cambia una plantilla en el código, volver a correr
+el seed actualiza el rubro, pero no los negocios que ya se crearon con él.
+
+### 3.2 Crear el negocio
+
+1. Back office → **Negocios** → Nuevo.
+2. Cargar nombre, rubro, la dueña del paso 2 y el `phone_number_id` del paso 1.
+3. El negocio nace con el bot **apagado**.
+
+**Qué tiene que pasar:** el negocio aparece con la etiqueta "Pausado".
+
+✅ **T-42 (alternativa):** si en el paso 2 se le asignaron rubros a la dueña y no se
+crea el negocio a mano, ella lo arma sola:
+1. Entra al portal → ve "Armá tu negocio" con los tipos que se le asignaron.
+2. Elige el tipo (por ejemplo Restaurante), escribe el nombre y toca **Crear mi negocio**.
+3. Cae en el Resumen del negocio, que nace de la plantilla del rubro con el bot apagado.
+
+**Qué tiene que pasar:** el checklist "Completá tu bot" incluye "Tu WhatsApp para
+avisos" y, en el restaurante, "Cuentas para cobrar". Abajo aparece la nota de
+que el bot sigue apagado hasta que el admin conecte el número. Después el admin carga el
+`phone_number_id` desde Back office → Negocios y lo enciende.
+
+### 3.3 La dueña configura (desde el portal)
+
+Cerrar sesión, entrar con el usuario de la dueña y abrir el negocio:
+- **Catálogo:** los servicios o platos de la tabla de ejemplo, con precio (y stock en el
+  restaurante).
+- **Modalidad (restaurante):** en la sección de citas, activar la pregunta de modalidad
+  con las opciones "Domicilio" y "Recoger en el local". Si el cliente elige domicilio,
+  el bot le pide la dirección.
+- **Costo del domicilio (✅ T-52):** en la misma tarjeta, "Costo del domicilio" (por
+  ejemplo `5000`). El bot lo suma al resumen ("Domicilio — $5.000") y al total que se
+  cobra, solo si el cliente elige domicilio. Vacío o 0: no se cobra aparte.
+- **Citas/Horarios:** días y horas de atención. En belleza, cada servicio marcado como
+  reservable.
+- **Configuración:**
+  - su WhatsApp personal (formato `573001234567`): ahí le llegan los avisos;
+  - el tono del bot (Cercano, Neutral o Formal);
+  - lo que el bot debe saber (dirección, medios de pago, políticas).
+
+**Cobro con comprobante (restaurante):** en Configuración → **Cobro con comprobante**:
+- activar "Pedir comprobante antes de aprobar";
+- cargar una o más cuentas (✅ T-45): banco o billetera (Nequi, Daviplata, Bancolombia,
+  Davivienda, Bre-B…), tipo (celular, ahorros, corriente o llave), número, a nombre de
+  quién está y, si se quiere, la cédula o NIT. "+ Agregar otra cuenta" suma hasta 6;
+- tocar **Guardar cambios**;
+- opcional: en "Código QR de pago" elegir la captura del QR y tocar **Subir QR**.
+
+El bot le manda todas las cuentas al cliente al confirmar el pedido y, si hay QR, la
+imagen en un mensaje aparte. Si el comprobante dice que se pagó a un número que no es
+ninguna de las cuentas, la dueña recibe el aviso ⚠️.
+
+### 3.4 Encender el bot
+
+Volver como admin → Negocios → el negocio → **Activar bot**.
+
+**Qué tiene que pasar:** la etiqueta pasa a "Activo".
+
+## Paso 4a · Prueba belleza
+
+Desde el celular "cliente", escribirle al número del negocio:
+
+| Cliente escribe | El bot debería |
+|---|---|
+| `Hola` | Saludar y mostrar los servicios |
+| `limpieza facial` | Mostrar precio y duración y pedir el nombre |
+| `Laura` | Pedir día y hora |
+| `el sábado a las 11` | Pedir confirmación con la fecha real |
+| `sí` | Confirmar la cita |
+
+**La dueña** recibe en su WhatsApp el aviso de la cita nueva.
+
+**Variante:** pedir `el domingo a las 8`. El bot avisa que está cerrado y pide otra fecha.
+
+## Paso 4b · Prueba restaurante
+
+| Cliente escribe | El bot debería |
+|---|---|
+| `Hola, ¿qué tienen?` | Mostrar el menú con precios |
+| `bandeja paisa` | Pedir el nombre |
+| `Laura` | Preguntar cuántas |
+| `2` | "¿Querés agregar algo más a tu pedido?" |
+| `limonada de coco` | Preguntar cuántas |
+| `1` | Volver a preguntar si quiere algo más |
+| `no, eso es todo` | Preguntar "¿domicilio o recoger?" (con la modalidad activada en Citas → Pedidos) |
+| `domicilio` | Pedir la dirección |
+| `Calle 10 # 5-20, barrio Centro` | Mostrar el resumen con total $64.000, "Entrega: Domicilio" y la dirección, y pedir confirmación |
+| `sí` | Descontar stock, darle las cuentas (número, tipo y titular), mandar el QR si hay, y pedir la foto del comprobante |
+| *(foto de un comprobante de Nequi por $64.000)* | "Recibí tu comprobante…" |
+
+Con la IA en modo agente el bot puede juntar pasos: si el cliente escribe
+`2 bandejas paisas y una limonada`, debería armar el carrito de una. Lo que importa es el
+resultado (el resumen con el total correcto), no la cantidad de mensajes.
+
+**Nota de voz (✅ T-46):** en cualquier paso, en vez de escribir, mandar un audio (por
+ejemplo "quiero dos bandejas paisas y una limonada"). El bot tiene que responder igual que
+si se hubiera escrito. Si el audio no se entiende (ruido, silencio), contesta "No pude
+escuchar bien tu audio… ¿me lo escribís?". Si **la dueña** manda un audio, el bot no lo
+usa para aprobar: le recuerda usar los botones o escribir `SÍ 12`.
+
+**La dueña** recibe "pedido #1 nuevo, esperando tu aprobación" con:
+- el resumen;
+- los datos del comprobante y las ⚠️ señales, si las hay;
+- el recordatorio de revisar su app del banco;
+- los botones **Aprobar #1** / **Rechazar #1**.
+
+Toca **Aprobar #1** (o escribe `SÍ 1`) y el cliente recibe la confirmación.
+
+**En Supabase**, la tabla `pedidos` tiene el #1 con sus ítems y su estado:
+`esperando_pago` → `por_verificar` (llegó el comprobante) → `aprobado`. El comprobante
+queda vinculado (`comprobante_id`) y también pasa a `aprobado`.
+
+Lo que todavía no pasa:
+- ✅ Al aprobar, el cliente recibe "Tu pedido #1 · código de retiro: 4821" y la dueña ve el
+  mismo código en su confirmación. **La comida se entrega solo contra ese código.**
+- **Panel (portal → Pedidos):** la dueña ve el pedido en "Por verificar" y lo aprueba
+  desde ahí o desde WhatsApp. Después pasa a "En preparación"; "Marcar listo" le avisa al
+  cliente ("listo para recoger" o "va en camino"). Para entregar, escribe el código que
+  muestra el cliente: con un código equivocado, el panel no deja entregar.
+- Cada pedido con comprobante tiene el link "🧾 Ver foto del comprobante" (bucket privado,
+  URL que vence en una hora).
+- El panel se actualiza solo: un pedido nuevo aparece sin recargar la página.
+- Si la dueña rechaza (`NO 1`), las unidades vuelven al stock. Un pedido que espera el
+  pago más de 24h vence solo y también devuelve su stock; uno con comprobante nunca
+  vence solo.
+
+## Paso 5 · Fraude y día pico
+
+| Prueba | Cómo | Qué tiene que pasar |
+|---|---|---|
+| Referencia repetida ✅ | Hacer dos pedidos y mandar **la misma** foto de comprobante | El segundo aviso a la dueña trae ⚠️ "La referencia … ya se usó antes" |
+| Monto distinto ✅ | Pedido de $64.000 y comprobante de $30.000 | ⚠️ con los dos montos |
+| Comprobante viejo ✅ | Comprobante de hace dos días | ⚠️ fecha vieja |
+| Dos pedidos a la vez ✅ | Pedido #1 desde un celular y #2 desde otro; la dueña toca "Aprobar #2" | Se aprueba solo el #2; el #1 sigue esperando |
+| "SÍ" suelto con dos pendientes ✅ | La dueña escribe solo `sí` | El bot no aprueba nada y le lista "#1 … · #2 …" pidiendo el número |
+| Día pico ✅ | Configuración → Avisos de pedidos → "Solo un resumen"; hacer 10 pedidos seguidos | Un solo mensaje "tenés N pedidos por verificar"; los 10 aparecen en el panel. Un comprobante sospechoso igual avisa al instante |
+| Medidor de WhatsApp ✅ | Después de las pruebas, entrar como admin a Back office → Negocios | La columna "WhatsApp (mes)" muestra cuántos mensajes salieron este mes (y cuántos fueron plantilla, que Meta cobra siempre) y cuántos entraron. Debe coincidir, a ojo, con lo que se ve en WhatsApp Manager → Analíticas |
+
+---
+
+## Dónde mirar si algo no pasa
+
+| Síntoma | Dónde mirar |
+|---|---|
+| El bot no contesta | Terminal de `pnpm dev`, después el inspector de ngrok (`http://127.0.0.1:4040`): ¿llegó el POST de Meta? |
+| No llega nada a ngrok | `subscribed_apps` del WABA (§8 de `05-whatsapp-setup.md`) |
+| Error 401 / código 190 | Token vencido: usar el permanente (§9) |
+| "No hay negocio para el phone_number_id" | El `phone_number_id` del negocio en el back office no coincide con el del número |
+| La dueña no recibe avisos | Su WhatsApp en Configuración, en formato `57…`, y distinto del número del negocio. Si en la terminal aparece `[WhatsApp] Meta NO entregó un mensaje … (código 131047)`, es la ventana de 24h: la dueña tiene que escribirle primero al número del negocio, o hace falta la plantilla aprobada (`docs/05` §7) |
+| Datos raros | Tablas `negocios`, `leads` y `comprobantes` en Supabase |
+| "WhatsApp (mes)" muestra "—" | Falta aplicar la migración `0021_uso_whatsapp.sql` |
+| "Subir QR" da error de bucket | Falta aplicar la migración `0022_pagos_qr.sql` |
+| A todos los audios responde "No pude escuchar bien tu audio" | La transcripción necesita `GEMINI_API_KEY` (o `GROQ_API_KEY`, que usa Whisper). En la terminal de `pnpm dev` aparece el error de `transcribeAudio` con el motivo |

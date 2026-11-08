@@ -90,6 +90,39 @@ de `pnpm install` ni de la CI de arriba.
 
 ---
 
+## 🏷️ Versiones y releases
+
+`main` es lo que corre en producción, y cada pase de `develop → main` es una versión con
+número y etiqueta. El VPS despliega **etiquetas** (`v1.2.0`), nunca la punta de una
+rama: así siempre se sabe qué versión está corriendo y volver atrás es desplegar la
+etiqueta anterior.
+
+Número `MAYOR.MENOR.PARCHE` ([versionado semántico](https://semver.org/lang/es/)):
+
+| Cambia | Cuándo | Ejemplo |
+| --- | --- | --- |
+| PARCHE (`1.0.1`) | Solo arreglos, nada nuevo para la dueña | El bot sumaba mal el domicilio |
+| MENOR (`1.1.0`) | Algo nuevo que no rompe lo que ya hay | Recordatorio de citas |
+| MAYOR (`2.0.0`) | Algo que obliga a los negocios a cambiar cómo usan Nexo, o una migración que no se puede deshacer | Cambio del plan de precios en la app |
+
+Pasos de un release:
+
+1. En una rama desde `develop`: subir `version` en `package.json` y agregar la sección
+   de la versión en `CHANGELOG.md`. PR a `develop`.
+2. PR `develop → main` con el título `release: vX.Y.Z`. Lo aprueba el dueño del repo.
+3. Etiquetar el merge en `main` y subir la etiqueta:
+   ```bash
+   git checkout main && git pull origin main
+   git tag -a vX.Y.Z -m "Nexo vX.Y.Z"
+   git push origin vX.Y.Z
+   ```
+4. En GitHub → Releases → "Draft a new release" con esa etiqueta, pegando la sección
+   del changelog.
+5. Si la versión trae migraciones nuevas, correrlas en Supabase **antes** de desplegar.
+6. Desplegar la etiqueta en el VPS (`docs/19-vps.md`).
+
+---
+
 ## 🔄 Flujo de trabajo por fase
 
 ```

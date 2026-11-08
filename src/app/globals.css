@@ -102,6 +102,44 @@ body {
   animation: pop 0.14s ease both;
 }
 
+/* T-68: login — las burbujas del chat de muestra entran en orden, y las
+   tarjetas flotan apenas. Con movimiento reducido, todo queda quieto. */
+@keyframes loginBurbuja {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.login-burbuja {
+  animation: loginBurbuja 0.4s ease both;
+}
+
+@keyframes loginFlota {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.login-flota {
+  animation: loginFlota 5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-burbuja,
+  .login-flota {
+    animation: none;
+  }
+}
+
 /* Foco de inputs: borde primario + ring azul suave. */
 .input-nexo {
   border: 1px solid var(--color-line-input);
@@ -114,3 +152,21 @@ body {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 4px rgba(42, 111, 219, 0.12);
 }
+
+/* T-70: páginas legales — texto largo, cómodo de leer en el celular. */
+.prosa-legal { color: var(--color-ink); font-size: 15px; line-height: 1.7; }
+.prosa-legal > * { max-width: 68ch; }
+.prosa-legal h1 { font-family: var(--font-display); font-size: 30px; font-weight: 800; line-height: 1.15; }
+.prosa-legal .actualizado { margin-top: 6px; font-size: 13px; color: var(--color-ink-soft); }
+.prosa-legal h2 { margin-top: 40px; font-family: var(--font-display); font-size: 20px; font-weight: 700; line-height: 1.3; scroll-margin-top: 24px; }
+.prosa-legal h3 { margin-top: 24px; font-size: 16px; font-weight: 700; }
+.prosa-legal p { margin-top: 12px; }
+.prosa-legal ul, .prosa-legal ol { margin-top: 12px; padding-left: 22px; display: grid; gap: 6px; }
+.prosa-legal ul { list-style: disc; }
+.prosa-legal ol { list-style: decimal; }
+.prosa-legal a { color: var(--color-primary); font-weight: 600; }
+.prosa-legal a:hover { text-decoration: underline; }
+.prosa-legal .recuadro { margin-top: 16px; border: 1px solid var(--color-line); background: #fff; border-radius: 12px; padding: 16px 18px; }
+.prosa-legal table { margin-top: 12px; width: 100%; border-collapse: collapse; font-size: 14px; }
+.prosa-legal th, .prosa-legal td { border-bottom: 1px solid var(--color-line); padding: 8px 10px 8px 0; text-align: left; vertical-align: top; }
+.prosa-legal th { font-weight: 700; }

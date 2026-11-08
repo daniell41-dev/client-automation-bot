@@ -17,6 +17,7 @@ import { resolveBusinessBySlug } from "@/businesses/resolve";
 import {
   createAiUsageRepository,
   createCalendar,
+  createInventoryRepository,
   createLeadRepository,
   createSessionRepository,
 } from "@/core/storage/factory";
@@ -81,6 +82,7 @@ export async function POST(request: Request): Promise<Response> {
     ? createSessionRepository(business, resolved.negocioId)
     : undefined;
   const calendar = createCalendar(business) ?? undefined;
+  const inventory = createInventoryRepository();
 
   const message: IncomingMessage = {
     channel: body.channel ?? "whatsapp",
@@ -98,6 +100,9 @@ export async function POST(request: Request): Promise<Response> {
     llm ?? undefined,
     sessionRepo,
     calendar,
+    undefined,
+    inventory,
+    resolved.negocioId ?? business.slug,
   );
   const lead = await repo.findByContact(slug, from);
 

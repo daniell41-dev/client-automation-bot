@@ -31,7 +31,25 @@ const baseInput: AgentTurnInput = {
   lead: { yaConfirmado: false, offTopicCount: 0 },
   history: [],
   message: "Hola",
+  nowISO: "2026-09-12T15:00:00.000Z", // sábado 12 de septiembre de 2026, 10:00 en Bogotá
+  timezone: "America/Bogota",
 };
+
+describe("buildAgentSystemPrompt — fecha de hoy (T-20)", () => {
+  it("incluye la fecha de hoy en la zona horaria del negocio", () => {
+    const prompt = buildAgentSystemPrompt(baseInput);
+    expect(prompt).toContain("Hoy es");
+    expect(prompt).toContain("sábado");
+    expect(prompt).toContain("12 de septiembre de 2026");
+  });
+
+  it("usa la hora local del negocio, no la de UTC crudo", () => {
+    // 15:00 UTC son las 10:00 en Bogotá (UTC-5) — si se leyera en UTC diría 15:00.
+    const prompt = buildAgentSystemPrompt(baseInput);
+    expect(prompt).toContain("10:");
+    expect(prompt).not.toContain("15:00 (hora del negocio)");
+  });
+});
 
 describe("buildAgentSystemPrompt", () => {
   it("incluye el nombre, tono y catálogo con precios formateados", () => {
@@ -60,10 +78,32 @@ describe("buildAgentSystemPrompt", () => {
 
     const conHorarios = buildAgentSystemPrompt({
       ...baseInput,
-      horarios: [{ dia: "Lunes a viernes", desde: "09:00", hasta: "19:00", abierto: true }],
+      horarios: [{ dow: 1, abierto: true, tramos: [{ desde: "09:00", hasta: "19:00" }] }],
     });
     expect(conHorarios).toContain("Horarios de atención");
-    expect(conHorarios).toContain("Lunes a viernes: 09:00 a 19:00");
+    expect(conHorarios).toContain("Lunes: 09:00 a 19:00");
+  });
+
+  it("ordena los días lunes→domingo y junta varios tramos con \"y\"", () => {
+    const prompt = buildAgentSystemPrompt({
+      ...baseInput,
+      horarios: [
+        { dow: 0, abierto: false, tramos: [] }, // domingo, va último
+        {
+          dow: 1, // lunes, va primero
+          abierto: true,
+          tramos: [
+            { desde: "09:00", hasta: "13:00" },
+            { desde: "15:00", hasta: "19:00" },
+          ],
+        },
+      ],
+    });
+    const idxLunes = prompt.indexOf("- Lunes:");
+    const idxDomingo = prompt.indexOf("- Domingo:");
+    expect(idxLunes).toBeGreaterThan(-1);
+    expect(idxDomingo).toBe(-1); // domingo cerrado no aparece en la lista de abiertos
+    expect(prompt).toContain("Lunes: 09:00 a 13:00 y 15:00 a 19:00");
   });
 
   it("incluye la modalidad de pedidos con sus opciones EXACTAS, solo si el negocio la usa", () => {
@@ -314,5 +354,97 @@ describe("parseAgentResponse — rescates cuando el JSON no es válido a la prim
     const result = parseAgentResponse(raw);
     expect(result.ok).toBe(false);
     expect(!result.ok && result.motivo).toBe("no-json");
+  });
+});
+
+describe("buildAgentSystemPrompt — pedido (T-21)", () => {
+  const tiendaInput: AgentTurnInput = {
+    ...baseInput,
+    services: [
+      { id: "harina", name: "Harina 1 Kg", description: "Harina pan", price: 5000, modo: "pedido" },
+      { id: "corte", name: "Corte de cabello", description: "Corte clásico", price: 20000, durationMinutes: 30, modo: "cita" },
+    ],
+  };
+
+  it("marca cada ítem con su camino ([SE VENDE] o [SE AGENDA])", () => {
+    const prompt = buildAgentSystemPrompt(tiendaInput);
+    expect(prompt).toMatch(/Harina 1 Kg.*\[SE VENDE/);
+    expect(prompt).toMatch(/Corte de cabello.*\[SE AGENDA/);
+  });
+
+  it("un ítem sin `modo` declarado se marca [SE AGENDA] (default = cita)", () => {
+    const prompt = buildAgentSystemPrompt(baseInput); // servicios de baseInput no traen `modo`
+    const lineaCatalogo = prompt.split("\n").find((l) => l.includes('id="limpieza-facial"'));
+    expect(lineaCatalogo).toContain("[SE AGENDA");
+    expect(lineaCatalogo).not.toContain("[SE VENDE");
+  });
+
+  it("explica la acción guardar_cantidad y el criterio de confirmar para un pedido", () => {
+    const prompt = buildAgentSystemPrompt(tiendaInput);
+    expect(prompt).toContain('"guardar_cantidad"');
+    expect(prompt).toMatch(/al menos un producto cargado/i);
+  });
+
+  it("incluye el carrito y el total en los datos que ya tiene del cliente", () => {
+    const prompt = buildAgentSystemPrompt({
+      ...tiendaInput,
+      lead: {
+        ...tiendaInput.lead,
+        items: [{ servicioId: "harina", nombre: "Harina 1 Kg", cantidad: 2 }],
+      },
+    });
+    expect(prompt).toContain("carrito: 2x Harina 1 Kg");
+    expect(prompt).toContain("Total");
+  });
+
+  it("sin carrito, no menciona 'carrito:' en los datos conocidos", () => {
+    const prompt = buildAgentSystemPrompt(tiendaInput);
+    expect(prompt).not.toContain("carrito:");
+  });
+});
+
+describe("buildAgentSystemPrompt — esperando aprobación de la dueña (T-21/PR5)", () => {
+  const tiendaInput: AgentTurnInput = {
+    ...baseInput,
+    services: [{ id: "harina", name: "Harina 1 Kg", description: "Harina pan", price: 5000, modo: "pedido" }],
+  };
+
+  it("avisa de forma destacada que el pedido ya se mandó a la dueña", () => {
+    const prompt = buildAgentSystemPrompt({
+      ...tiendaInput,
+      lead: { ...tiendaInput.lead, esperandoAprobacion: true },
+    });
+    expect(prompt).toMatch(/ya se le mandó a la dueña/i);
+    expect(prompt).toMatch(/no vuelvas a pedir/i);
+  });
+
+  it("no dice nada de eso si no está esperando aprobación", () => {
+    const prompt = buildAgentSystemPrompt(tiendaInput);
+    expect(prompt).not.toMatch(/ya se le mandó a la dueña/i);
+  });
+});
+
+describe("parseAgentResponse — campos con otro nombre (T-54)", () => {
+  it("recupera el nombre y el producto aunque el modelo use 'valor' o 'producto'", () => {
+    const raw = JSON.stringify({
+      respuesta: "¡Gracias, Valero!",
+      acciones: [
+        { tipo: "guardar_nombre", valor: "Valero" },
+        { tipo: "elegir_servicio", producto: "bandeja" },
+        { tipo: "guardar_cantidad", id: "bandeja", cantidad: "2" },
+      ],
+    });
+    const result = parseAgentResponse(raw);
+    expect(result.ok && result.value.acciones).toEqual([
+      { tipo: "guardar_nombre", nombre: "Valero" },
+      { tipo: "elegir_servicio", servicioId: "bandeja" },
+      { tipo: "guardar_cantidad", servicioId: "bandeja", cantidad: 2 },
+    ]);
+  });
+
+  it("una acción sin ningún campo reconocible se sigue descartando", () => {
+    const raw = JSON.stringify({ respuesta: "ok", acciones: [{ tipo: "guardar_nombre" }] });
+    const result = parseAgentResponse(raw);
+    expect(result.ok && result.value.acciones).toEqual([]);
   });
 });

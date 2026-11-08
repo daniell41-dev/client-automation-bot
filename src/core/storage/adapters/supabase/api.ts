@@ -27,6 +27,15 @@ export interface LeadRow {
   last_inbound_at: string;
   follow_ups_sent: string[];
   notes: string | null;
+  /** ISO de la cita/pedido resuelta a fecha exacta (T-20). Ver `Lead.appointmentAt`. */
+  appointment_at?: string | null;
+  /** ISO de cuándo se confirmó la cita/pedido (T-20). Ver `Lead.confirmedAt`. */
+  confirmed_at?: string | null;
+  /** Carrito de un pedido en curso (T-21, migración 0009). Ver `Lead.items`. */
+  items?: { serviceId: string; cantidad: number }[] | null;
+  /** T-36 (migración 0017): modalidad elegida y dirección de entrega. */
+  entrega?: string | null;
+  direccion?: string | null;
   /**
    * FK de conveniencia a `negocios.id` (T-08): `business_slug` sigue siendo
    * lo que usan el motor y las políticas de RLS. `null`/ausente cuando el
@@ -61,6 +70,58 @@ export interface NegocioRow {
   es_demo: boolean;
 }
 
+/** Fila de la tabla `comprobantes` (T-24.1, migración 0013). */
+export interface ComprobanteRow {
+  id: string;
+  negocio_id: string;
+  lead_id?: string | null;
+  referencia?: string | null;
+  monto?: number | null;
+  moneda?: string | null;
+  banco?: string | null;
+  fecha_comprobante?: string | null;
+  estado: "pendiente" | "aprobado" | "rechazado";
+  señales?: unknown;
+  /** T-38b (migración 0018): ruta de la foto en el bucket privado `comprobantes`. */
+  imagen_path?: string | null;
+  created_at: string;
+}
+
+/** T-67: columnas de la devolución que se cambian juntas. */
+export interface CambiosDevolucion {
+  devolucion_estado: "pidiendo_cuenta" | "pendiente" | "devuelta";
+  devolucion_cuenta?: string;
+  devuelta_at?: string;
+}
+
+/** Fila de la tabla `pedidos` (T-30, migración 0015). */
+export interface PedidoRow {
+  id: string;
+  negocio_id: string;
+  numero: number;
+  lead_id: string | null;
+  contacto: string;
+  cliente: string | null;
+  items: unknown;
+  total: number;
+  moneda: string;
+  modalidad: string | null;
+  direccion: string | null;
+  estado: string;
+  codigo_retiro: string | null;
+  comprobante_id: string | null;
+  /** T-32: si este pedido descontó stock (migración 0016). */
+  stock_reservado?: boolean;
+  /** T-66: suma de lo que dicen los comprobantes (migración 0024). */
+  monto_pagado?: number | null;
+  /** T-67 (migración 0025) */
+  devolucion_estado?: string | null;
+  devolucion_cuenta?: string | null;
+  devuelta_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Operaciones mínimas sobre la base que necesitan los adaptadores del bot. */
 export interface SupabaseDb {
   selectLeadByContact(businessSlug: string, contact: string): Promise<LeadRow | null>;
@@ -92,7 +153,121 @@ export interface SupabaseDb {
     tokensIn?: number;
     tokensOut?: number;
     fallbacks?: number;
+    /** T-23.5: cuántas de esas llamadas fueron `describeImage` (migración 0012). */
+    imagenes?: number;
   }): Promise<void>;
+  /**
+   * T-43: suma un delta a los contadores de WhatsApp del mes del negocio
+   * (migración 0021). Atómico en la base por el mismo motivo que
+   * `recordAiUsage`: dos mensajes simultáneos no se pisan el contador.
+   */
+  recordWhatsAppUsage(entry: {
+    negocioId: string;
+    recibidos?: number;
+    enviados?: number;
+    plantillas?: number;
+  }): Promise<void>;
+  /**
+   * Fija (reemplaza) el stock de un producto — ver migración 0010. Lo llama
+   * el portal al guardar el catálogo, para cada ítem con `stock` declarado.
+   */
+  setStock(negocioId: string, serviceId: string, stock: number): Promise<void>;
+  /**
+   * Descuenta atómicamente TODO un carrito, o nada si algún producto no
+   * alcanza — vía `descontar_stock_carrito` (bloquea las filas involucradas
+   * por el resto de la transacción, ver el comentario de la migración 0010).
+   */
+  decrementStockCarrito(
+    negocioId: string,
+    items: { serviceId: string; cantidad: number }[],
+  ): Promise<{
+    ok: boolean;
+    faltantes?: string[];
+    restante?: { serviceId: string; stock: number }[];
+  }>;
+  /**
+   * Marca la alerta de stock bajo de HOY para (negocio, producto) — ver
+   * migración 0011. `true` la primera vez del día, `false` si ya se había
+   * marcado.
+   */
+  markLowStockAlert(negocioId: string, serviceId: string): Promise<boolean>;
+  /** T-32: devuelve unidades vía `devolver_stock_carrito` (migración 0016). */
+  returnStockCarrito(negocioId: string, items: { serviceId: string; cantidad: number }[]): Promise<void>;
+  /**
+   * Inserta un comprobante nuevo (T-24.1, migración 0013). Lanza — nunca
+   * devuelve un booleano de "ok/no ok" — si `referencia` ya se usó en este
+   * negocio (`comprobantes_ref_unica`), para que quien llama decida
+   * explícitamente qué decirle al cliente/dueña ante el rechazo.
+   */
+  insertComprobante(row: {
+    negocioId: string;
+    leadId?: string;
+    referencia?: string;
+    monto?: number;
+    moneda?: string;
+    banco?: string;
+    fechaComprobante?: string;
+    señales?: unknown;
+  }): Promise<ComprobanteRow>;
+  /** Todos los comprobantes de un negocio (T-24.4), para el motor de señales. */
+  listComprobantes(negocioId: string): Promise<ComprobanteRow[]>;
+  /**
+   * Llaves de Wompi del negocio (T-24.5). Consulta ANGOSTA a propósito —
+   * nunca se pide junto con el resto de columnas de `negocios`, para que
+   * quede claro en el propio código que estos tres valores no viajan por
+   * ningún lado que el portal pueda leer. `null` si el negocio no tiene
+   * Wompi configurado.
+   */
+  selectWompiCredentials(negocioId: string): Promise<{
+    publicKey: string;
+    integritySecret: string;
+    eventsSecret: string;
+  } | null>;
+  /**
+   * Crea un pedido con el siguiente número del negocio (T-30). Va por la
+   * función `crear_pedido` (0015) y no por un insert directo: el número se
+   * asigna en la misma transacción, así dos pedidos simultáneos nunca
+   * reciben el mismo.
+   */
+  insertPedido(row: {
+    negocioId: string;
+    leadId: string;
+    contacto: string;
+    cliente?: string;
+    items: unknown;
+    total: number;
+    moneda: string;
+    modalidad?: string;
+    direccion?: string;
+    estado: string;
+    stockReservado?: boolean;
+  }): Promise<PedidoRow>;
+  updatePedidoEstado(id: string, estado: string): Promise<void>;
+  /** Pedidos del lead que no están en `estados_cerrados`, el más reciente primero. */
+  selectPedidosAbiertosDeLead(leadId: string, estadosCerrados: string[]): Promise<PedidoRow[]>;
+  /** T-31 */
+  selectPedidoById(id: string): Promise<PedidoRow | null>;
+  selectPedidoPorNumero(negocioId: string, numero: number): Promise<PedidoRow | null>;
+  /** Pedidos del negocio en alguno de `estados`, por número ascendente. */
+  selectPedidosPorEstado(negocioId: string, estados: string[]): Promise<PedidoRow[]>;
+  updatePedidoComprobante(id: string, comprobanteId: string): Promise<void>;
+  /** T-37 */
+  updatePedidoCodigoRetiro(id: string, codigo: string): Promise<void>;
+  /** T-66 (migración 0024) */
+  updatePedidoMontoPagado(id: string, montoPagado: number): Promise<void>;
+  /** T-67 (migración 0025) */
+  updatePedidoDevolucion(id: string, cambios: CambiosDevolucion): Promise<void>;
+  /** T-67: el pedido más nuevo del lead que espera la cuenta de devolución, o `null`. */
+  selectPedidoEsperandoCuenta(leadId: string): Promise<PedidoRow | null>;
+  /** T-59: anota cuándo escribió la dueña (migración 0023). */
+  updateDuenaEscribio(negocioId: string, cuandoISO: string): Promise<void>;
+  /** T-59: última vez que escribió la dueña, o `null`. */
+  selectDuenaEscribio(negocioId: string): Promise<string | null>;
+  /** T-39: vía `reclamar_aviso_resumen` (migración 0020). */
+  claimAvisoResumen(negocioId: string, minutos: number): Promise<boolean>;
+  updateComprobanteEstado(id: string, estado: string): Promise<void>;
+  /** T-38b: sube la foto al bucket privado `comprobantes` y guarda su ruta. */
+  uploadComprobanteImagen(id: string, path: string, bytes: Uint8Array, mimeType: string): Promise<void>;
 }
 
 /** Implementación real sobre supabase-js. */
@@ -195,6 +370,7 @@ class RealSupabaseDb implements SupabaseDb {
     tokensIn?: number;
     tokensOut?: number;
     fallbacks?: number;
+    imagenes?: number;
   }): Promise<void> {
     const { error } = await this.client.rpc("registrar_uso_ia", {
       p_negocio_id: entry.negocioId,
@@ -203,8 +379,300 @@ class RealSupabaseDb implements SupabaseDb {
       p_tokens_in: entry.tokensIn ?? 0,
       p_tokens_out: entry.tokensOut ?? 0,
       p_fallbacks: entry.fallbacks ?? 0,
+      p_imagenes: entry.imagenes ?? 0,
     });
     if (error) throw error;
+  }
+
+  async recordWhatsAppUsage(entry: {
+    negocioId: string;
+    recibidos?: number;
+    enviados?: number;
+    plantillas?: number;
+  }): Promise<void> {
+    const { error } = await this.client.rpc("registrar_uso_whatsapp", {
+      p_negocio_id: entry.negocioId,
+      p_recibidos: entry.recibidos ?? 0,
+      p_enviados: entry.enviados ?? 0,
+      p_plantillas: entry.plantillas ?? 0,
+    });
+    if (error) throw error;
+  }
+
+  async setStock(negocioId: string, serviceId: string, stock: number): Promise<void> {
+    const { error } = await this.client.rpc("fijar_stock", {
+      p_negocio_id: negocioId,
+      p_service_id: serviceId,
+      p_stock: stock,
+    });
+    if (error) throw error;
+  }
+
+  async returnStockCarrito(
+    negocioId: string,
+    items: { serviceId: string; cantidad: number }[],
+  ): Promise<void> {
+    const { error } = await this.client.rpc("devolver_stock_carrito", {
+      p_negocio_id: negocioId,
+      p_items: items.map((i) => ({ service_id: i.serviceId, cantidad: i.cantidad })),
+    });
+    if (error) throw error;
+  }
+
+  async decrementStockCarrito(
+    negocioId: string,
+    items: { serviceId: string; cantidad: number }[],
+  ): Promise<{
+    ok: boolean;
+    faltantes?: string[];
+    restante?: { serviceId: string; stock: number }[];
+  }> {
+    const { data, error } = await this.client.rpc("descontar_stock_carrito", {
+      p_negocio_id: negocioId,
+      p_items: items.map((i) => ({ service_id: i.serviceId, cantidad: i.cantidad })),
+    });
+    if (error) throw error;
+    const result = data as {
+      ok: boolean;
+      faltantes?: string[];
+      restante?: { service_id: string; stock: number }[];
+    };
+    return {
+      ok: result.ok,
+      faltantes: result.faltantes,
+      restante: result.restante?.map((r) => ({ serviceId: r.service_id, stock: r.stock })),
+    };
+  }
+
+  async markLowStockAlert(negocioId: string, serviceId: string): Promise<boolean> {
+    const { data, error } = await this.client.rpc("marcar_alerta_stock_bajo", {
+      p_negocio_id: negocioId,
+      p_service_id: serviceId,
+    });
+    if (error) throw error;
+    return data === true;
+  }
+
+  async insertComprobante(row: {
+    negocioId: string;
+    leadId?: string;
+    referencia?: string;
+    monto?: number;
+    moneda?: string;
+    banco?: string;
+    fechaComprobante?: string;
+    señales?: unknown;
+  }): Promise<ComprobanteRow> {
+    const { data, error } = await this.client
+      .from("comprobantes")
+      .insert({
+        negocio_id: row.negocioId,
+        lead_id: row.leadId ?? null,
+        referencia: row.referencia ?? null,
+        monto: row.monto ?? null,
+        moneda: row.moneda ?? null,
+        banco: row.banco ?? null,
+        fecha_comprobante: row.fechaComprobante ?? null,
+        señales: row.señales ?? null,
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return data as ComprobanteRow;
+  }
+
+  async listComprobantes(negocioId: string): Promise<ComprobanteRow[]> {
+    const { data, error } = await this.client
+      .from("comprobantes")
+      .select("*")
+      .eq("negocio_id", negocioId);
+    if (error) throw error;
+    return (data as ComprobanteRow[] | null) ?? [];
+  }
+
+  async insertPedido(row: {
+    negocioId: string;
+    leadId: string;
+    contacto: string;
+    cliente?: string;
+    items: unknown;
+    total: number;
+    moneda: string;
+    modalidad?: string;
+    direccion?: string;
+    estado: string;
+    stockReservado?: boolean;
+  }): Promise<PedidoRow> {
+    const { data, error } = await this.client.rpc("crear_pedido", {
+      p_negocio_id: row.negocioId,
+      p_lead_id: row.leadId,
+      p_contacto: row.contacto,
+      p_cliente: row.cliente ?? null,
+      p_items: row.items,
+      p_total: row.total,
+      p_moneda: row.moneda,
+      p_modalidad: row.modalidad ?? null,
+      p_direccion: row.direccion ?? null,
+      p_estado: row.estado,
+      p_stock_reservado: row.stockReservado ?? false,
+    });
+    if (error) throw error;
+    return data as PedidoRow;
+  }
+
+  async updatePedidoEstado(id: string, estado: string): Promise<void> {
+    const { error } = await this.client
+      .from("pedidos")
+      .update({ estado, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  async selectPedidosAbiertosDeLead(leadId: string, estadosCerrados: string[]): Promise<PedidoRow[]> {
+    const { data, error } = await this.client
+      .from("pedidos")
+      .select("*")
+      .eq("lead_id", leadId)
+      .not("estado", "in", `(${estadosCerrados.join(",")})`)
+      .order("created_at", { ascending: false })
+      // Desempate por número: dos pedidos del mismo cliente con la misma
+      // marca de tiempo (pasa en los tests, y puede pasar con reintentos)
+      // tienen que devolver siempre el más nuevo primero.
+      .order("numero", { ascending: false });
+    if (error) throw error;
+    return (data as PedidoRow[] | null) ?? [];
+  }
+
+  async selectPedidoById(id: string): Promise<PedidoRow | null> {
+    const { data, error } = await this.client.from("pedidos").select("*").eq("id", id).maybeSingle();
+    if (error) throw error;
+    return (data as PedidoRow | null) ?? null;
+  }
+
+  async selectPedidoPorNumero(negocioId: string, numero: number): Promise<PedidoRow | null> {
+    const { data, error } = await this.client
+      .from("pedidos")
+      .select("*")
+      .eq("negocio_id", negocioId)
+      .eq("numero", numero)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as PedidoRow | null) ?? null;
+  }
+
+  async selectPedidosPorEstado(negocioId: string, estados: string[]): Promise<PedidoRow[]> {
+    const { data, error } = await this.client
+      .from("pedidos")
+      .select("*")
+      .eq("negocio_id", negocioId)
+      .in("estado", estados)
+      .order("numero", { ascending: true });
+    if (error) throw error;
+    return (data as PedidoRow[] | null) ?? [];
+  }
+
+  async updatePedidoComprobante(id: string, comprobanteId: string): Promise<void> {
+    const { error } = await this.client
+      .from("pedidos")
+      .update({ comprobante_id: comprobanteId, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  async claimAvisoResumen(negocioId: string, minutos: number): Promise<boolean> {
+    const { data, error } = await this.client.rpc("reclamar_aviso_resumen", {
+      p_negocio_id: negocioId,
+      p_minutos: minutos,
+    });
+    if (error) throw error;
+    return data === true;
+  }
+
+  async updateDuenaEscribio(negocioId: string, cuandoISO: string): Promise<void> {
+    const { error } = await this.client.from("negocios").update({ duena_escribio_at: cuandoISO }).eq("id", negocioId);
+    if (error) throw error;
+  }
+
+  async selectDuenaEscribio(negocioId: string): Promise<string | null> {
+    const { data, error } = await this.client
+      .from("negocios")
+      .select("duena_escribio_at")
+      .eq("id", negocioId)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as { duena_escribio_at: string | null } | null)?.duena_escribio_at ?? null;
+  }
+
+  async updatePedidoCodigoRetiro(id: string, codigo: string): Promise<void> {
+    const { error } = await this.client
+      .from("pedidos")
+      .update({ codigo_retiro: codigo, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  async updatePedidoMontoPagado(id: string, montoPagado: number): Promise<void> {
+    const { error } = await this.client
+      .from("pedidos")
+      .update({ monto_pagado: montoPagado, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  async updatePedidoDevolucion(id: string, cambios: CambiosDevolucion): Promise<void> {
+    const { error } = await this.client
+      .from("pedidos")
+      .update({ ...cambios, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) throw error;
+  }
+
+  async selectPedidoEsperandoCuenta(leadId: string): Promise<PedidoRow | null> {
+    const { data, error } = await this.client
+      .from("pedidos")
+      .select("*")
+      .eq("lead_id", leadId)
+      .eq("devolucion_estado", "pidiendo_cuenta")
+      .order("numero", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return (data as PedidoRow | null) ?? null;
+  }
+
+  async uploadComprobanteImagen(id: string, path: string, bytes: Uint8Array, mimeType: string): Promise<void> {
+    const { error: uploadError } = await this.client.storage
+      .from("comprobantes")
+      .upload(path, bytes, { contentType: mimeType, upsert: true });
+    if (uploadError) throw uploadError;
+    const { error } = await this.client.from("comprobantes").update({ imagen_path: path }).eq("id", id);
+    if (error) throw error;
+  }
+
+  async updateComprobanteEstado(id: string, estado: string): Promise<void> {
+    const { error } = await this.client.from("comprobantes").update({ estado }).eq("id", id);
+    if (error) throw error;
+  }
+
+  async selectWompiCredentials(negocioId: string): Promise<{
+    publicKey: string;
+    integritySecret: string;
+    eventsSecret: string;
+  } | null> {
+    const { data, error } = await this.client
+      .from("negocios")
+      .select("wompi_public_key, wompi_integrity_secret, wompi_events_secret")
+      .eq("id", negocioId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data?.wompi_public_key || !data.wompi_integrity_secret || !data.wompi_events_secret) {
+      return null;
+    }
+    return {
+      publicKey: data.wompi_public_key,
+      integritySecret: data.wompi_integrity_secret,
+      eventsSecret: data.wompi_events_secret,
+    };
   }
 }
 

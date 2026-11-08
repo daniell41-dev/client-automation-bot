@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runAgentTurn } from "@/core/ai/agent";
+import { cantidadPegadaAlProducto, inventaDatosDePago, pideCorregirOEmpezar, runAgentTurn } from "@/core/ai/agent";
 import type { AgentResponse } from "@/core/ai/agent-schema";
 import type { ILLMProvider } from "@/core/ai/provider";
 import type { BusinessConfig, IncomingMessage, Lead, PersonaConfig } from "@/core/types";
@@ -595,6 +595,275 @@ describe("runAgentTurn — la IA sabe si la cita ya está confirmada", () => {
   });
 });
 
+describe("runAgentTurn — flujo de pedido en modo agente (T-21)", () => {
+  const tienda: BusinessConfig = {
+    ...config,
+    slug: "tienda",
+    name: "Tienda Test",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Producto", plural: "Productos" } },
+    services: [
+      { id: "harina", name: "Harina 1 Kg", description: "Harina pan", price: 5000 },
+      { id: "aceite", name: "Aceite 1 Lt", description: "Aceite vegetal", price: 12000 },
+      {
+        id: "asesoria",
+        name: "Asesoría personalizada",
+        description: "Visita en el local",
+        price: 0,
+        durationMinutes: 20,
+        reservable: true,
+      },
+    ],
+  };
+
+  it("guardar_cantidad + confirmar con nombre y carrito deja el pedido 'esperando_aprobacion' (no lo cierra directo)", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "¡Gracias Laura! Tu pedido quedó en revisión.",
+      acciones: [
+        { tipo: "elegir_servicio", servicioId: "harina" },
+        { tipo: "guardar_nombre", nombre: "Laura" },
+        { tipo: "guardar_cantidad", servicioId: "harina", cantidad: 2 },
+        { tipo: "confirmar" },
+      ],
+    });
+    const result = await runAgentTurn(
+      null,
+      msg("quiero 2 harinas, soy Laura"),
+      tienda,
+      llm,
+      persona,
+      [],
+      now,
+    );
+
+    expect(result!.lead.items).toEqual([{ serviceId: "harina", cantidad: 2 }]);
+    // T-48: el primer "confirmar" muestra el resumen con el total — el
+    // cliente todavía no lo vio — y reemplaza el texto de la IA, que decía
+    // algo que no pasó ("quedó en revisión").
+    expect(result!.lead.stage).toBe("esperando_confirmacion");
+    expect(result!.messages[0].text).toContain("2x Harina 1 Kg");
+    expect(result!.messages[0].text).toContain("Total:");
+    expect(result!.messages[0].text).not.toContain("en revisión");
+
+    // Con el "sí" al resumen recién pasa a la dueña. T-21/PR5: NO pasa a
+    // "pagado"/"datos_completos" directo — el estado sigue "interesado" hasta
+    // que la dueña acepte o rechace (eso lo maneja `handle.ts`).
+    const llmSi = fakeAgentLLM({ respuesta: "¡Listo! Quedó en revisión.", acciones: [] });
+    const confirmado = await runAgentTurn(result!.lead, msg("sí"), tienda, llmSi, persona, [], now);
+    expect(confirmado!.lead.stage).toBe("esperando_aprobacion");
+    expect(confirmado!.lead.state).toBe("interesado");
+    expect(confirmado!.lead.tentativeDate).toBeUndefined();
+  });
+
+  it("una vez esperando_aprobacion, un mensaje nuevo NO re-deriva el stage (sticky)", async () => {
+    const leadEsperandoAprobacion: Lead = {
+      id: "lead-1",
+      businessSlug: "tienda",
+      channel: "mock",
+      contact: "57300000000",
+      name: "Laura",
+      serviceId: "harina",
+      items: [{ serviceId: "harina", cantidad: 2 }],
+      state: "interesado",
+      stage: "esperando_aprobacion",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      lastInboundAt: now.toISOString(),
+      followUpsSent: [],
+    };
+    const llm = fakeAgentLLM({ respuesta: "Sigue en revisión, en un momento te aviso 🙏", acciones: [] });
+    const result = await runAgentTurn(leadEsperandoAprobacion, msg("¿ya está?"), tienda, llm, persona, [], now);
+
+    expect(result!.lead.stage).toBe("esperando_aprobacion");
+    expect(result!.lead.items).toEqual([{ serviceId: "harina", cantidad: 2 }]); // el carrito no se toca
+  });
+
+  it("acepta varios guardar_cantidad en el mismo turno (carrito con más de un producto)", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "Anotado: 2 harinas y 1 aceite.",
+      acciones: [
+        { tipo: "elegir_servicio", servicioId: "harina" },
+        { tipo: "guardar_nombre", nombre: "Laura" },
+        { tipo: "guardar_cantidad", servicioId: "harina", cantidad: 2 },
+        { tipo: "guardar_cantidad", servicioId: "aceite", cantidad: 1 },
+      ],
+    });
+    const result = await runAgentTurn(
+      null,
+      msg("quiero 2 harinas y 1 aceite, soy Laura"),
+      tienda,
+      llm,
+      persona,
+      [],
+      now,
+    );
+
+    expect(result!.lead.items).toEqual([
+      { serviceId: "harina", cantidad: 2 },
+      { serviceId: "aceite", cantidad: 1 },
+    ]);
+    // T-48: con nombre y carrito ya está listo para cerrar: el motor suma el
+    // resumen con el total y pregunta, aunque la IA no lo haya hecho.
+    expect(result!.lead.stage).toBe("esperando_confirmacion");
+    expect(result!.messages[0].text).toContain("Anotado: 2 harinas y 1 aceite.");
+    expect(result!.messages[0].text).toContain("Total:");
+  });
+
+  it("sin fecha (un pedido nunca la necesita), 'confirmar' NO se bloquea por falta de tentativeDate", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "¡Gracias!",
+      acciones: [
+        { tipo: "elegir_servicio", servicioId: "harina" },
+        { tipo: "guardar_nombre", nombre: "Laura" },
+        { tipo: "guardar_cantidad", servicioId: "harina", cantidad: 1 },
+        { tipo: "confirmar" },
+      ],
+    });
+    const result = await runAgentTurn(null, msg("una harina, soy Laura"), tienda, llm, persona, [], now);
+    // Sin `tentativeDate` igual llega al resumen y, con el sí, a
+    // "esperando_aprobacion" — `confirmar` no se bloquea por falta de fecha.
+    expect(result!.lead.stage).toBe("esperando_confirmacion");
+    const confirmado = await runAgentTurn(result!.lead, msg("sí"), tienda, fakeAgentLLM({ respuesta: "ok", acciones: [{ tipo: "confirmar" }] }), persona, [], now);
+    expect(confirmado!.lead.stage).toBe("esperando_aprobacion");
+  });
+
+  it("T-48: si la IA quiere cerrar un pedido al que le falta algo, el bot pregunta lo que falta (no promete nada)", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "¡Ya le pasamos tu pedido a la dueña!",
+      acciones: [{ tipo: "elegir_servicio", servicioId: "harina" }, { tipo: "guardar_nombre", nombre: "Laura" }, { tipo: "confirmar" }],
+    });
+    // T-51: la harina entra al carrito con cantidad 1; lo que falta es la modalidad.
+    const conModalidad: BusinessConfig = {
+      ...tienda,
+      pedidos: { enabled: true, pregunta: "¿Domicilio o recoger?", opciones: ["Domicilio", "Recoger en el local"] },
+    };
+    const result = await runAgentTurn(null, msg("harina, soy Laura"), conModalidad, llm, persona, [], now);
+    expect(result!.lead.stage).not.toBe("esperando_aprobacion");
+    expect(result!.messages[0].text).toBe("¿Domicilio o recoger?");
+  });
+
+  it("T-48: si el pedido cambia después del resumen, el sí no confirma: se muestra el resumen nuevo", async () => {
+    const llm1 = fakeAgentLLM({
+      respuesta: "Anotado.",
+      acciones: [
+        { tipo: "elegir_servicio", servicioId: "harina" },
+        { tipo: "guardar_nombre", nombre: "Laura" },
+        { tipo: "guardar_cantidad", servicioId: "harina", cantidad: 1 },
+      ],
+    });
+    const r1 = await runAgentTurn(null, msg("una harina, soy Laura"), tienda, llm1, persona, [], now);
+    expect(r1!.lead.stage).toBe("esperando_confirmacion");
+
+    const llm2 = fakeAgentLLM({
+      respuesta: "Listo, agregado.",
+      acciones: [{ tipo: "guardar_cantidad", servicioId: "aceite", cantidad: 1 }, { tipo: "confirmar" }],
+    });
+    const r2 = await runAgentTurn(r1!.lead, msg("sí, y agregá un aceite"), tienda, llm2, persona, [], now);
+    expect(r2!.lead.stage).toBe("esperando_confirmacion");
+    expect(r2!.messages[0].text).toContain("1x Aceite 1 Lt");
+  });
+
+  it("ignora guardar_cantidad contra un ítem que no existe en el catálogo", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "hola",
+      acciones: [{ tipo: "guardar_cantidad", servicioId: "no-existe", cantidad: 3 }],
+    });
+    const result = await runAgentTurn(null, msg("quiero 3"), tienda, llm, persona, [], now);
+    expect(result!.lead.items).toBeUndefined();
+  });
+
+  it("ignora guardar_cantidad contra un ítem de modo cita (no se vende, se agenda)", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "hola",
+      acciones: [{ tipo: "guardar_cantidad", servicioId: "asesoria", cantidad: 2 }],
+    });
+    const result = await runAgentTurn(null, msg("2 asesorías"), tienda, llm, persona, [], now);
+    expect(result!.lead.items).toBeUndefined();
+  });
+
+  it("sin carrito, 'confirmar' NO cierra el pedido aunque la IA lo declare", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "¿Cuánto querés?",
+      acciones: [
+        { tipo: "elegir_servicio", servicioId: "harina" },
+        { tipo: "guardar_nombre", nombre: "Laura" },
+        { tipo: "confirmar" },
+      ],
+    });
+    const result = await runAgentTurn(null, msg("quiero harina, soy Laura"), tienda, llm, persona, [], now);
+    expect(result!.lead.stage).not.toBe("datos_completos");
+    expect(result!.lead.state).not.toBe("pagado");
+  });
+
+  it("pedir de nuevo tras un pedido confirmado limpia el carrito viejo (pedido nuevo, no un agregado)", async () => {
+    const leadConfirmado: Lead = {
+      id: "lead-1",
+      businessSlug: "tienda",
+      channel: "mock",
+      contact: "57300000000",
+      name: "Laura",
+      serviceId: "harina",
+      items: [{ serviceId: "harina", cantidad: 2 }],
+      state: "pagado",
+      stage: "datos_completos",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      lastInboundAt: now.toISOString(),
+      followUpsSent: [],
+    };
+    const llm = fakeAgentLLM({
+      respuesta: "¡Dale! ¿Cuánto aceite querés?",
+      acciones: [{ tipo: "elegir_servicio", servicioId: "aceite" }],
+    });
+    const result = await runAgentTurn(leadConfirmado, msg("también quiero aceite"), tienda, llm, persona, [], now);
+
+    expect(result!.lead.serviceId).toBe("aceite");
+    expect(result!.lead.items).toBeUndefined(); // el carrito viejo (ya pagado) no se arrastra
+    expect(result!.lead.stage).toBe("esperando_cantidad");
+  });
+
+  it("le pasa a la IA el catálogo con el modo resuelto y el carrito ya cargado", async () => {
+    let serviciosVistos: { id: string; modo?: string }[] = [];
+    let itemsVistos: unknown;
+    const llm: ILLMProvider = {
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent(input) {
+        serviciosVistos = input.services;
+        itemsVistos = input.lead.items;
+        return { respuesta: "hola", acciones: [] };
+      },
+    };
+    const leadConCarrito: Lead = {
+      id: "lead-1",
+      businessSlug: "tienda",
+      channel: "mock",
+      contact: "57300000000",
+      name: "Laura",
+      serviceId: "harina",
+      items: [{ serviceId: "harina", cantidad: 2 }],
+      state: "interesado",
+      stage: "carrito_abierto",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      lastInboundAt: now.toISOString(),
+      followUpsSent: [],
+    };
+
+    await runAgentTurn(leadConCarrito, msg("también aceite"), tienda, llm, persona, [], now);
+
+    expect(serviciosVistos.find((s) => s.id === "harina")?.modo).toBe("pedido");
+    expect(serviciosVistos.find((s) => s.id === "asesoria")?.modo).toBe("cita");
+    expect(itemsVistos).toEqual([{ servicioId: "harina", nombre: "Harina 1 Kg", cantidad: 2 }]);
+  });
+});
+
 describe("runAgentTurn — le pasa a la IA las reglas rápidas del negocio", () => {
   it("propaga config.ai.reglas en el input del agente", async () => {
     let reglasVistas: unknown = "sin-tocar";
@@ -645,5 +914,388 @@ describe("runAgentTurn — le pasa a la IA las reglas rápidas del negocio", () 
 
     await runAgentTurn(null, msg("Hola"), config, llm, persona, [], now);
     expect(reglasVistas).toBeUndefined();
+  });
+});
+
+describe("runAgentTurn — modalidad y dirección (T-50)", () => {
+  const restaurante: BusinessConfig = {
+    ...config,
+    slug: "sabores",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+    services: [
+      { id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000 },
+      { id: "limonada", name: "Limonada de coco", description: "x", price: 8000 },
+    ],
+    pedidos: { enabled: true, pregunta: "¿Domicilio o recoger?", opciones: ["Domicilio", "Recoger en el local"] },
+  };
+  const base = [
+    { tipo: "elegir_servicio" as const, servicioId: "bandeja" },
+    { tipo: "guardar_nombre" as const, nombre: "Oriana" },
+    { tipo: "guardar_cantidad" as const, servicioId: "bandeja", cantidad: 1 },
+  ];
+
+  it("la dirección antes que la modalidad en el mismo turno no se pierde", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "Anotado.",
+      acciones: [
+        ...base,
+        { tipo: "guardar_direccion", direccion: "Avenida 7 # 5-68" },
+        { tipo: "guardar_modalidad", modalidad: "Domicilio" },
+      ],
+    });
+    const r = await runAgentTurn(null, msg("una bandeja a domicilio, Avenida 7 # 5-68, soy Oriana"), restaurante, llm, persona, [], now);
+    expect(r!.lead.entrega).toBe("Domicilio");
+    expect(r!.lead.direccion).toBe("Avenida 7 # 5-68");
+    expect(r!.lead.stage).toBe("esperando_confirmacion");
+    expect(r!.messages[0].text).toContain("Total: $");
+  });
+
+  it("una dirección sin modalidad declarada implica domicilio", async () => {
+    const llm = fakeAgentLLM({
+      respuesta: "Anotado.",
+      acciones: [...base, { tipo: "guardar_direccion", direccion: "Calle 10 # 5-20, San Luis" }],
+    });
+    const r = await runAgentTurn(null, msg("mandala a la Calle 10 # 5-20"), restaurante, llm, persona, [], now);
+    expect(r!.lead.entrega).toBe("Domicilio");
+    expect(r!.lead.direccion).toBe("Calle 10 # 5-20, San Luis");
+  });
+
+  it("si el cliente nombra la modalidad y la IA no la declara, se toma del mensaje", async () => {
+    const llm = fakeAgentLLM({ respuesta: "¿A qué dirección?", acciones: base });
+    const r = await runAgentTurn(null, msg("Domicilio por favor"), restaurante, llm, persona, [], now);
+    expect(r!.lead.entrega).toBe("Domicilio");
+  });
+});
+
+describe("runAgentTurn — cantidad por defecto y cuentas inventadas (T-51)", () => {
+  const restaurante: BusinessConfig = {
+    ...config,
+    slug: "sabores",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+    services: [{ id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000 }],
+    pagos: {
+      requiereComprobante: true,
+      cuentas: [{ entidad: "Bancolombia", tipo: "ahorros", numero: "123-456789-01", titular: "Laura" }],
+    },
+  };
+
+  it("elegir un plato sin cantidad lo pone en el carrito con la del mensaje (o 1)", async () => {
+    const una = await runAgentTurn(
+      null,
+      msg("Dame una bandeja paisa por favor"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "¡Excelente elección!", acciones: [{ tipo: "elegir_servicio", servicioId: "bandeja" }] }),
+      persona,
+      [],
+      now,
+    );
+    expect(una!.lead.items).toEqual([{ serviceId: "bandeja", cantidad: 1 }]);
+
+    const dos = await runAgentTurn(
+      null,
+      msg("quiero dos bandejas"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "¡Dale!", acciones: [{ tipo: "elegir_servicio", servicioId: "bandeja" }] }),
+      persona,
+      [],
+      now,
+    );
+    expect(dos!.lead.items).toEqual([{ serviceId: "bandeja", cantidad: 2 }]);
+  });
+
+  it("si la IA escribe un número de cuenta que no está configurado, su respuesta no sale", async () => {
+    const r = await runAgentTurn(
+      null,
+      msg("¿a dónde pago?"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "Transferí a Nequi al 312 345 6789 y mandame el comprobante", acciones: [] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.messages[0].text).not.toContain("312");
+  });
+});
+
+describe("inventaDatosDePago (T-51)", () => {
+  const conCuenta: BusinessConfig = {
+    ...config,
+    pagos: { cuentas: [{ entidad: "Nequi", tipo: "billetera", numero: "300 000 0000" }] },
+  };
+
+  it("un número cargado en la configuración está permitido, con o sin espacios", () => {
+    expect(inventaDatosDePago("Nequi 3000000000", conCuenta)).toBe(false);
+    expect(inventaDatosDePago("Nequi 300-000-0000", conCuenta)).toBe(false);
+  });
+
+  it("un número que no está cargado se detecta", () => {
+    expect(inventaDatosDePago("Bancolombia al 3123456789", conCuenta)).toBe(true);
+  });
+
+  it("los precios, las direcciones y las cantidades no cuentan", () => {
+    expect(inventaDatosDePago("Total: $1.250.000, Av 7 # 5-68, 2 bandejas", conCuenta)).toBe(false);
+  });
+});
+
+describe("runAgentTurn — costo de domicilio (T-52)", () => {
+  it("el resumen suma el domicilio al total cuando la entrega es a domicilio", async () => {
+    const restaurante: BusinessConfig = {
+      ...config,
+      slug: "sabores",
+      catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+      services: [{ id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000 }],
+      pedidos: {
+        enabled: true,
+        pregunta: "¿Domicilio o recoger?",
+        opciones: ["Domicilio", "Recoger en el local"],
+        costoDomicilio: 5000,
+      },
+    };
+    const r = await runAgentTurn(
+      null,
+      msg("una bandeja a la Av 7 # 5-68, soy Valero"),
+      restaurante,
+      fakeAgentLLM({
+        respuesta: "¡Anotado!",
+        acciones: [
+          { tipo: "elegir_servicio", servicioId: "bandeja" },
+          { tipo: "guardar_nombre", nombre: "Valero" },
+          { tipo: "guardar_direccion", direccion: "Av 7 # 5-68" },
+        ],
+      }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.messages[0].text).toContain("Domicilio — $");
+    expect(r!.messages[0].text).toMatch(/Total: \$\s?33\.000/);
+  });
+});
+
+describe("cantidadPegadaAlProducto (T-52)", () => {
+  it("toma el número pegado al producto, no el de la dirección", () => {
+    expect(cantidadPegadaAlProducto("una bandeja a la Av 7 # 5-68", "Bandeja paisa")).toBe(1);
+    expect(cantidadPegadaAlProducto("quiero dos bandejas paisas", "Bandeja paisa")).toBe(2);
+    expect(cantidadPegadaAlProducto("mandame 3 de bandeja", "Bandeja paisa")).toBe(3);
+    expect(cantidadPegadaAlProducto("bandeja paisa a la calle 10", "Bandeja paisa")).toBeUndefined();
+  });
+});
+
+describe("runAgentTurn — pedido sin elegir_servicio (T-53)", () => {
+  it("con carrito, nombre, domicilio y dirección muestra el resumen aunque la IA solo haya mandado guardar_cantidad", async () => {
+    const restaurante: BusinessConfig = {
+      ...config,
+      slug: "sabores",
+      catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+      services: [{ id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000 }],
+      pedidos: { enabled: true, pregunta: "¿Domicilio o recoger?", opciones: ["Domicilio", "Recoger en el local"], costoDomicilio: 8500 },
+    };
+    const r = await runAgentTurn(
+      null,
+      msg("una bandeja, domicilio a la Av 7 #5-68 San Luis, soy Valero"),
+      restaurante,
+      fakeAgentLLM({
+        respuesta: "¡Mucho gusto, Valero! Ya tenemos todo listo.",
+        acciones: [
+          { tipo: "guardar_cantidad", servicioId: "bandeja", cantidad: 1 },
+          { tipo: "guardar_modalidad", modalidad: "Domicilio" },
+          { tipo: "guardar_direccion", direccion: "Av 7 #5-68 San Luis" },
+          { tipo: "guardar_nombre", nombre: "Valero" },
+        ],
+      }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.lead.stage).toBe("esperando_confirmacion");
+    expect(r!.messages[0].text).toMatch(/Total: \$\s?36\.500/);
+    expect(r!.messages[0].text).toContain("¿Confirmás tu pedido?");
+  });
+});
+
+describe("runAgentTurn — producto nombrado sin acciones (T-54)", () => {
+  const restaurante: BusinessConfig = {
+    ...config,
+    slug: "sabores",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+    services: [{ id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000, keywords: ["bandeja", "paisa"] }],
+  };
+
+  it("si la IA no anota el plato que el cliente pidió, lo anota el sistema", async () => {
+    const r = await runAgentTurn(
+      null,
+      msg("Dame una bandeja paisa"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "¡Anotamos una bandeja paisa por $28.000!", acciones: [] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.lead.items).toEqual([{ serviceId: "bandeja", cantidad: 1 }]);
+  });
+
+  it("una pregunta sobre el plato no lo agrega", async () => {
+    const r = await runAgentTurn(
+      null,
+      msg("¿la bandeja trae aguacate?"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "Sí, trae aguacate.", acciones: [] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.lead.items).toBeUndefined();
+  });
+});
+
+describe("runAgentTurn — la cantidad se fija, no se suma (T-55)", () => {
+  it("'dame una bandeja' y después 'ya te dije que 1' deja 1, no 2", async () => {
+    const restaurante: BusinessConfig = {
+      ...config,
+      slug: "sabores",
+      catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+      services: [{ id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000, keywords: ["bandeja"] }],
+    };
+    const r1 = await runAgentTurn(
+      null,
+      msg("Dame una bandeja"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "¿Cuántas?", acciones: [] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r1!.lead.items).toEqual([{ serviceId: "bandeja", cantidad: 1 }]);
+    const r2 = await runAgentTurn(
+      r1!.lead,
+      msg("Ya te dije que 1"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "Perfecto", acciones: [{ tipo: "guardar_cantidad", servicioId: "bandeja", cantidad: 1 }] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r2!.lead.items).toEqual([{ serviceId: "bandeja", cantidad: 1 }]);
+  });
+});
+
+describe("runAgentTurn — empezar de nuevo y quitar productos (T-57)", () => {
+  const restaurante: BusinessConfig = {
+    ...config,
+    slug: "sabores",
+    catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+    services: [
+      { id: "bandeja", name: "Bandeja paisa", description: "x", price: 28000, keywords: ["bandeja"] },
+      { id: "prueba", name: "Plato de prueba", description: "x", price: 400, keywords: ["prueba"] },
+    ],
+  };
+  const conBandeja: Lead = {
+    id: "lead-1",
+    businessSlug: "sabores",
+    channel: "mock",
+    contact: "57300000000",
+    name: "Valero",
+    serviceId: "bandeja",
+    items: [{ serviceId: "bandeja", cantidad: 1 }],
+    state: "interesado",
+    stage: "carrito_abierto",
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+    lastInboundAt: now.toISOString(),
+    followUpsSent: [],
+  };
+
+  it("'empezar de nuevo' vacía también el carrito", async () => {
+    const r = await runAgentTurn(conBandeja, msg("empezar de nuevo"), restaurante, fakeAgentLLM({ respuesta: "¡Arrancamos de cero!", acciones: [] }), persona, [], now);
+    expect(r!.lead.items).toBeUndefined();
+    expect(r!.lead.name).toBeUndefined();
+  });
+
+  it("la acción reiniciar de la IA también vacía el carrito, y lo nuevo del mismo turno queda", async () => {
+    const r = await runAgentTurn(
+      conBandeja,
+      msg("no, solo pedí la prueba"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "Listo", acciones: [{ tipo: "reiniciar" }, { tipo: "elegir_servicio", servicioId: "prueba" }] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.lead.items).toEqual([{ serviceId: "prueba", cantidad: 1 }]);
+  });
+
+  it("quitar_producto saca ese producto y deja el resto", async () => {
+    const r = await runAgentTurn(
+      { ...conBandeja, items: [{ serviceId: "bandeja", cantidad: 1 }, { serviceId: "prueba", cantidad: 1 }] },
+      msg("sacá la bandeja"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "Listo", acciones: [{ tipo: "quitar_producto", servicioId: "bandeja" }] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.lead.items).toEqual([{ serviceId: "prueba", cantidad: 1 }]);
+    expect(r!.lead.serviceId).toBe("prueba");
+  });
+});
+
+describe("reiniciar solo si el cliente lo pide (T-62)", () => {
+  it("reconoce pedidos de corregir o empezar de cero", () => {
+    for (const t of ["empezar de nuevo", "no, yo no pedí eso", "cambié de idea", "cancelá todo", "me equivoqué", "borrá lo anterior"]) {
+      expect(pideCorregirOEmpezar(t)).toBe(true);
+    }
+  });
+
+  it("un pedido normal no es un pedido de reinicio", () => {
+    for (const t of ["Dame un plato de prueba", "Recoger en el local", "Valero", "sí", "quiero una bandeja paisa"]) {
+      expect(pideCorregirOEmpezar(t)).toBe(false);
+    }
+  });
+
+  it("un 'reiniciar' de la IA sin que el cliente lo pida no borra el pedido", async () => {
+    const restaurante: BusinessConfig = {
+      ...config,
+      slug: "sabores",
+      catalogo: { modoPorDefecto: "pedido", etiqueta: { singular: "Plato", plural: "Menú" } },
+      services: [{ id: "prueba", name: "Plato de prueba", description: "x", price: 400, keywords: ["prueba"] }],
+    };
+    const conPedido: Lead = {
+      id: "lead-1",
+      businessSlug: "sabores",
+      channel: "mock",
+      contact: "57300000000",
+      name: "Valero",
+      serviceId: "prueba",
+      items: [{ serviceId: "prueba", cantidad: 1 }],
+      state: "interesado",
+      stage: "carrito_abierto",
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString(),
+      lastInboundAt: now.toISOString(),
+      followUpsSent: [],
+    };
+    const r = await runAgentTurn(
+      conPedido,
+      msg("Recoger en el local"),
+      restaurante,
+      fakeAgentLLM({ respuesta: "Listo", acciones: [{ tipo: "reiniciar" }] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.lead.name).toBe("Valero");
+    expect(r!.lead.items).toEqual([{ serviceId: "prueba", cantidad: 1 }]);
+  });
+});
+
+describe("pideCorregirOEmpezar — casos límite (T-62)", () => {
+  it("'pero yo no he pedido nada' y 'ese no es mi nombre' piden corregir", () => {
+    expect(pideCorregirOEmpezar("pero yo no he pedido nada")).toBe(true);
+    expect(pideCorregirOEmpezar("ese no es mi nombre")).toBe(true);
+  });
+
+  it("cerrar el carrito ('no, eso es todo') no es reiniciar", () => {
+    expect(pideCorregirOEmpezar("no, eso es todo")).toBe(false);
+    expect(pideCorregirOEmpezar("no quiero nada más")).toBe(false);
   });
 });

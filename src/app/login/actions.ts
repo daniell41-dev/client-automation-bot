@@ -7,6 +7,7 @@
 
 import { redirect } from "next/navigation";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
+import { destinoSeguro } from "@/app/login/destino";
 
 export interface LoginState {
   error?: string;
@@ -31,7 +32,8 @@ export async function signIn(
   }
 
   // Redirige según destino solicitado o rol.
-  if (next.startsWith("/")) redirect(next);
+  const destino = destinoSeguro(next);
+  if (destino) redirect(destino);
   const me = await getUserRole();
   redirect(me?.role === "admin" ? "/backoffice" : "/portal");
 }

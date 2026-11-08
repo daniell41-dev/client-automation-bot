@@ -19,6 +19,7 @@ interface StoredCounters {
   tokensIn: number;
   tokensOut: number;
   fallbacks: number;
+  imagenes: number;
 }
 
 /** Ruta por defecto del archivo (gitignorado, igual que `data/leads.json`). */
@@ -57,12 +58,14 @@ export class JsonAiUsageRepository implements AiUsageRepository {
       tokensIn: 0,
       tokensOut: 0,
       fallbacks: 0,
+      imagenes: 0,
     };
     map[key] = {
       llamadas: actual.llamadas + (entry.llamadas ?? 0),
       tokensIn: actual.tokensIn + (entry.tokensIn ?? 0),
       tokensOut: actual.tokensOut + (entry.tokensOut ?? 0),
       fallbacks: actual.fallbacks + (entry.fallbacks ?? 0),
+      imagenes: actual.imagenes + (entry.imagenes ?? 0),
     };
     await this.writeAll(map);
   }

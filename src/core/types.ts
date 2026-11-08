@@ -27,7 +27,11 @@ export type ConversationStage =
   | "esperando_fecha" // se le pidió la fecha tentativa
   | "esperando_confirmacion" // se le pidió confirmar la cita (Sí/cambiar fecha)
   | "esperando_entrega" // se le preguntó la modalidad (retirar / comer en el local)
-  | "datos_completos"; // ya tenemos nombre + servicio + fecha y la cita está agendada
+  | "esperando_direccion" // T-36: eligió domicilio, se le pidió la dirección
+  | "esperando_cantidad" // T-21: se le preguntó cuánto quiere de UN producto del carrito
+  | "carrito_abierto" // T-21: tiene ≥1 producto cargado, se le preguntó si quiere algo más
+  | "esperando_aprobacion" // T-21/PR5: el cliente confirmó el pedido, se le avisó a la dueña por WhatsApp y se espera su sí/no
+  | "datos_completos"; // ya tenemos lo necesario (cita agendada, o pedido aceptado por la dueña)
 
 /** Plataforma por la que llega/sale un mensaje. */
 export type Channel = "whatsapp" | "instagram" | "mock";
@@ -45,6 +49,22 @@ export interface PersonaConfig {
 /** Umbrales de seguimiento soportados en el MVP. */
 export type FollowUpThreshold = "2h" | "1d" | "3d";
 
+/**
+ * Qué persigue el bot cuando el cliente elige este ítem (T-21).
+ *
+ * El camino es del ÍTEM, no del negocio: un taller mecánico agenda el service
+ * y vende el repuesto en la misma conversación, así que un enum por negocio
+ * no alcanzaría. Ver `core/engine/modo-item.ts`.
+ */
+export type ModoItem = "cita" | "pedido";
+
+/** Un ítem del carrito de un pedido (T-21): qué producto y cuántas unidades. */
+export interface CartItem {
+  /** `Service.id` del producto. */
+  serviceId: string;
+  cantidad: number;
+}
+
 /** Un servicio que ofrece el negocio (lo personaliza cada `BusinessConfig`). */
 export interface Service {
   /** Identificador estable (p. ej. "limpieza-facial"). */
@@ -55,8 +75,12 @@ export interface Service {
   description: string;
   /** Precio en la moneda de la config. */
   price: number;
-  /** Duración del servicio en minutos. */
-  durationMinutes: number;
+  /**
+   * Duración en minutos. Opcional desde T-21: una harina no dura nada. Solo
+   * tiene sentido (y es obligatoria) en los ítems de modo "cita", que son los
+   * únicos que ocupan un tramo de agenda y crean un evento de calendario.
+   */
+  durationMinutes?: number;
   /** Palabras clave para detectar el servicio en texto libre del cliente. */
   keywords?: string[];
   /** Categoría visible en el catálogo (p. ej. "Entradas", "Faciales"). */
@@ -65,6 +89,50 @@ export interface Service {
   disponible?: boolean;
   /** Si es `true`, aparece en "Servicios reservables" (citas/turnos). */
   reservable?: boolean;
+  /**
+   * Fuerza el camino de este ítem (T-21). Sin declarar, se deduce de
+   * `reservable` y del rubro — ver `modoDelItem`.
+   */
+  modo?: ModoItem;
+  /**
+   * Unidades disponibles, para los ítems que se venden. Es solo el valor que
+   * el dueño carga a mano en el portal; el descuento por venta vive aparte
+   * (ver el PR de inventario), porque este config se reescribe entero en cada
+   * guardado y dos ventas simultáneas se pisarían.
+   */
+  stock?: number;
+}
+
+/**
+ * Cómo es el catálogo de un rubro (T-21): con qué palabra se nombra un ítem,
+ * qué camino siguen los ítems que no lo declaran, y qué campos tiene sentido
+ * mostrarle al dueño.
+ *
+ * Vive en la plantilla del rubro y se copia al negocio al crearlo. Es lo que
+ * antes se adivinaba con una regex sobre el NOMBRE del rubro
+ * (`components/rubro-visual.tsx`): si el rubro se llamaba "Kiosco" en vez de
+ * "Tienda", el producto terminaba ofreciéndose como turno.
+ *
+ * Todo opcional a propósito: un negocio sin este bloque se comporta igual que
+ * antes de T-21.
+ */
+export interface CatalogoConfig {
+  /** Cómo se llama un ítem en este rubro: "Servicio", "Producto", "Plato", "Repuesto". */
+  etiqueta?: { singular: string; plural: string };
+  /** Camino de los ítems que no declaran `modo` ni `reservable`. Default "cita". */
+  modoPorDefecto?: ModoItem;
+  /** Qué campos del ítem tiene sentido editar en este rubro. */
+  campos?: {
+    duracion?: boolean;
+    stock?: boolean;
+    categoria?: boolean;
+  };
+  /**
+   * T-22.2: unidades o menos a partir de las cuales se le avisa al dueño que
+   * un producto se está por acabar. Opcional — sin declarar, el motor usa un
+   * default razonable (ver `DEFAULT_STOCK_MINIMO` en `handle.ts`).
+   */
+  stockMinimo?: number;
 }
 
 /** Una regla rápida del bot: si el mensaje contiene una keyword, responde exacto. */
@@ -110,18 +178,114 @@ export interface PedidosConfig {
   pregunta: string;
   /** Opciones de modalidad (2 a 4), p. ej. ["Retirar en el local", "Comer en el restaurante"]. */
   opciones: string[];
+  /**
+   * T-52: lo que cobra el negocio por llevar el pedido. Se suma al total
+   * (resumen, pedido, comprobante, Wompi) solo cuando el cliente eligió una
+   * opción a domicilio. Sin esto o en 0, el domicilio no se cobra aparte.
+   */
+  costoDomicilio?: number;
 }
 
-/** Horario de atención de un día (o rango de días). */
-export interface BusinessHours {
-  /** Etiqueta visible (p. ej. "Lunes a viernes", "Sábado"). */
-  dia: string;
+/** T-45: tipo de cuenta, para que el cliente sepa cómo transferir. */
+export type TipoCuentaPago = "ahorros" | "corriente" | "billetera" | "llave";
+
+/** T-45: una cuenta donde el negocio recibe pagos. */
+export interface CuentaPago {
+  /** Banco o billetera tal como lo conoce el cliente: "Nequi", "Bancolombia", "Davivienda"... */
+  entidad: string;
+  tipo: TipoCuentaPago;
+  /** Número de cuenta, celular de la billetera o la llave Bre-B. */
+  numero: string;
+  /** A nombre de quién está: lo que el cliente ve en su app antes de confirmar. */
+  titular?: string;
+  /** Cédula o NIT del titular; algunos bancos lo piden para inscribir la cuenta. */
+  documento?: string;
+}
+
+/**
+ * Confirmación de pago (T-24.4, Nivel 1 — triaje asistido, `docs/15-plan-vision-tienda.md` §1.6).
+ * Sin esto (default), el flujo sigue igual que antes de T-24: la dueña
+ * aprueba el pedido con un SÍ/NO plano, sin comprobante de por medio.
+ */
+export interface PagosConfig {
+  /**
+   * Si es `true`, al confirmar el pedido el bot NO le avisa a la dueña
+   * todavía — le pide al cliente que pague y mande la foto del comprobante.
+   * Recién cuando llega la foto se le avisa a la dueña (con los datos leídos
+   * + las señales de riesgo) para que apruebe o rechace.
+   */
+  requiereComprobante?: boolean;
+  /**
+   * Cuenta/teléfono real que el negocio usa para cobrar (Nequi, Bancolombia,
+   * Pago Móvil...) — para la señal "destino no coincide" de `señales-pago.ts`.
+   */
+  telefonoDestino?: string;
+  /**
+   * T-33: a dónde paga el cliente. El bot los incluye en el mensaje que pide
+   * el comprobante — antes decía "hacé el pago" sin dar ningún número. Si no
+   * hay `telefonoDestino`, el número de Nequi también sirve para la señal
+   * "destino no coincide".
+   */
+  datosPago?: {
+    nequi?: string;
+    llaveBreB?: string;
+    titular?: string;
+  };
+  /**
+   * T-45: todas las cuentas donde el negocio recibe plata (Nequi, Daviplata,
+   * Bancolombia, Davivienda, llave Bre-B...). Reemplaza a `datosPago`, que
+   * solo admitía un Nequi: muchos clientes pagan desde otro banco y el bot
+   * tiene que darles número, tipo de cuenta y titular para que se aseguren
+   * de que la plata le llega a la dueña. Si hay `cuentas`, `datosPago` se ignora.
+   */
+  cuentas?: CuentaPago[];
+  /**
+   * T-45: URL pública de la imagen del QR de cobro (bucket `pagos-qr`,
+   * migración 0022). El bot la manda como imagen junto con los datos.
+   */
+  qrUrl?: string;
+  /**
+   * Nivel 2 (T-24.5): link de pago con verificación real por webhook
+   * firmado. Deliberadamente NO tiene las llaves de Wompi acá — viven en
+   * columnas propias de `negocios` (migración 0014), nunca en este JSONB,
+   * porque el portal lee `config` entero con el cliente del dueño y se lo
+   * pasa tal cual al editor. Este objeto es solo la bandera de
+   * comportamiento; `createPaymentGateway(negocioId)` resuelve las llaves
+   * aparte, server-only.
+   */
+  wompi?: {
+    enabled?: boolean;
+    /** A dónde vuelve el cliente después de pagar (la confirmación real es siempre el webhook). */
+    redirectUrl?: string;
+  };
+}
+
+/** Un tramo horario dentro de un día, "HH:MM" 24hs. */
+export interface HourRange {
   /** Hora de apertura "HH:MM". */
   desde: string;
   /** Hora de cierre "HH:MM". */
   hasta: string;
-  /** Si es `false`, ese día está cerrado. */
+}
+
+/**
+ * Horario de atención de UN día de la semana (T-20).
+ *
+ * `dow` (day of week) numérico y no un nombre de día en texto libre — es lo
+ * que permite validar una cita por código (`core/engine/horarios.ts`) sin
+ * tener que normalizar tildes/mayúsculas/abreviaturas contra algo como
+ * "Lunes a viernes". Mismo criterio que `Date.getDay()`: 0 = domingo,
+ * 6 = sábado.
+ *
+ * `tramos` admite más de uno para el corte de mediodía (9-13 y 15-19): sin
+ * eso, un negocio así tendría que declarar un solo tramo 9-19 y el bot
+ * aceptaría citas a las 14. Vacío (o `abierto: false`) = cerrado ese día.
+ */
+export interface DiaAtencion {
+  /** 0 = domingo … 6 = sábado. */
+  dow: number;
   abierto: boolean;
+  tramos: HourRange[];
 }
 
 /** Configuración de un seguimiento (cuándo y con qué mensaje). */
@@ -149,6 +313,52 @@ export interface MessageTemplates {
   captured: string;
   /** Respuesta cuando no se entendió el mensaje. */
   fallback: string;
+  /**
+   * Recordatorio de la cita vigente (T-20): lo que responde el motor
+   * determinista cuando el lead ya confirmó (`datos_completos`) y escribe
+   * algo que no es ni elegir otro servicio ni una regla rápida (un saludo,
+   * un "gracias", etc.) — sin bajar el stage ni re-mandar el menú. Opcional:
+   * sin configurar, se usa un default razonable (ver `responder.ts`).
+   */
+  citaVigente?: string;
+  /** T-21: pedir cuánto quiere de un producto. Variables: {{nombre}} {{servicio}}. */
+  askCantidad?: string;
+  /**
+   * T-21: pedir confirmación de un pedido (varios ítems, no una fecha). El
+   * motor le antepone el detalle del carrito y el total — este texto es solo
+   * el cierre ("¿confirmás tu pedido?"), no necesita variables.
+   */
+  askConfirmPedido?: string;
+  /**
+   * T-21/PR5: lo que se le dice al cliente justo después de confirmar el
+   * pedido, mientras se espera que la dueña lo acepte o lo rechace por
+   * WhatsApp — el motor le antepone el detalle del carrito y el total, este
+   * texto es solo el cierre ("quedó en revisión").
+   */
+  esperandoAprobacion?: string;
+  /**
+   * T-21/PR5: cierre cuando la DUEÑA acepta el pedido (análogo a `captured`,
+   * pero sin fecha/agenda). Antes del PR5 este texto se usaba apenas el
+   * cliente decía "sí" — ahora se envía recién cuando la dueña aprueba.
+   */
+  pedidoConfirmado?: string;
+  /** T-21/PR5: lo que se le dice al cliente cuando la dueña RECHAZA el pedido. Variables: {{nombre}}. */
+  pedidoRechazado?: string;
+  /**
+   * T-21: recordatorio del pedido vigente, análogo a `citaVigente` pero para
+   * un pedido ya confirmado (sin fecha que mencionar). Desde el PR5 es en la
+   * práctica inalcanzable en el camino normal (un pedido "pagado" muere de
+   * una, ver `pedido-lifecycle.ts`) — queda como red de seguridad.
+   */
+  pedidoVigente?: string;
+  /**
+   * T-24.4: se le dice al cliente en vez de `esperandoAprobacion` cuando el
+   * negocio tiene `pagos.requiereComprobante` — acá todavía no se avisó a la
+   * dueña, se espera que el cliente pague y mande la foto del comprobante.
+   * Nunca debe sonar a confirmación (§1.6): el motor le antepone el detalle
+   * del carrito y el total, este texto es solo el pedido de la foto.
+   */
+  pedirComprobante?: string;
 }
 
 /**
@@ -173,6 +383,11 @@ export interface BusinessConfig {
   locale?: string;
   /** Catálogo de servicios. */
   services: Service[];
+  /**
+   * Forma del catálogo de este rubro (T-21): etiquetas, camino por defecto de
+   * los ítems y qué campos mostrar. Sin esto, todo se comporta como antes.
+   */
+  catalogo?: CatalogoConfig;
   /** Plantillas de mensajes. */
   messages: MessageTemplates;
   /** Configuración de seguimientos (2h / 1d / 3d). */
@@ -188,7 +403,7 @@ export interface BusinessConfig {
   /** Plan comercial (pill del back office). Default "free". */
   plan?: "free" | "pro";
   /** Horarios de atención (los usa el bot y la sección Citas del portal). */
-  horarios?: BusinessHours[];
+  horarios?: DiaAtencion[];
   /** Cerebro del bot: IA (knowledge) + reglas rápidas + fallback/derivación. */
   ai?: BotAIConfig;
   /** Modalidad de entrega opcional (retirar / comer en el local, etc.). */
@@ -199,6 +414,18 @@ export interface BusinessConfig {
    * pedido (usa el mismo número de WhatsApp Business del negocio para enviar).
    */
   notifyPhoneNumber?: string;
+  /**
+   * T-39: cuánto le llega a la dueña por WhatsApp. "cada_pedido" (default):
+   * un aviso con botones por pedido. "resumen": a lo sumo un mensaje cada
+   * `cadaMinutos` con cuántos pedidos esperan, y el detalle en el panel —
+   * salvo un comprobante con señal de riesgo alta, que avisa en el acto.
+   */
+  avisos?: {
+    modo: "cada_pedido" | "resumen";
+    cadaMinutos?: number;
+  };
+  /** Confirmación de pago (T-24.4) — Nivel 1 del plan de pagos, ver `docs/15-plan-vision-tienda.md` §1.6. */
+  pagos?: PagosConfig;
   /** Persona del bot por canal. Si un canal no está, se omite la IA para ese canal. */
   personas?: Partial<Record<Channel, PersonaConfig>>;
   /** Almacenamiento propio del negocio (multi-tenant). Sin esto cae a JSON local. */
@@ -237,6 +464,24 @@ export interface IncomingMessage {
   timestamp: string;
   /** Nombre de perfil del contacto, si la plataforma lo provee. */
   contactName?: string;
+  /**
+   * Presente si el mensaje trae una foto (T-23.5). `text` ya trae el caption
+   * (o "" si no vino uno) — este campo es solo lo que hace falta para
+   * descargarla: nunca se guarda la imagen en sí, solo se procesa en memoria.
+   */
+  image?: { mediaId: string; mimeType: string };
+  /**
+   * T-46: presente si el mensaje es una nota de voz. Llega con `text` vacío;
+   * `handleIncoming` la transcribe y sigue como si el cliente la hubiera
+   * escrito. Igual que la imagen, el audio nunca se guarda.
+   */
+  audio?: { mediaId: string; mimeType: string };
+  /**
+   * T-31: id del botón que se tocó, si el mensaje es la respuesta a un botón
+   * (`text` trae el título visible). Es lo que permite que la dueña apruebe
+   * UN pedido concreto sin escribir su número.
+   */
+  botonId?: string;
 }
 
 /** Mensaje saliente normalizado que un canal debe entregar. */
@@ -247,6 +492,29 @@ export interface OutgoingMessage {
   text: string;
   /** Opciones de menú / respuestas rápidas, si aplica. */
   options?: string[];
+  /**
+   * T-25: valores para la plantilla de respaldo, en el orden de sus variables
+   * ({{1}}, {{2}}...). Solo se usan si el canal NO puede entregar `text` tal
+   * cual — en WhatsApp, cuando pasaron más de 24h desde el último mensaje del
+   * destinatario y Meta solo acepta plantillas aprobadas.
+   *
+   * El core llena los datos pero nunca nombra una plantilla concreta: qué
+   * plantilla existe y cómo se envía es cosa del adaptador de canal (ver
+   * `channels/whatsapp/send.ts`). Un canal sin esta limitación lo ignora.
+   */
+  plantillaParams?: string[];
+  /**
+   * T-31: botones de respuesta (WhatsApp admite hasta 3, con títulos de hasta
+   * 20 caracteres). El `id` vuelve en `IncomingMessage.botonId` cuando se
+   * toca. Un canal sin botones manda solo `text`, que siempre trae también la
+   * instrucción escrita equivalente.
+   */
+  botones?: { id: string; titulo: string }[];
+  /**
+   * T-45: URL pública de una imagen a mandar (el QR de pago). `text` va como
+   * pie de foto. Un canal sin imágenes manda solo `text`.
+   */
+  imagenUrl?: string;
 }
 
 /** Un interesado registrado por el sistema. */
@@ -263,6 +531,16 @@ export interface Lead {
   tentativeDate?: string;
   /** Modalidad elegida cuando `config.pedidos.enabled` (texto de la opción). */
   entrega?: string;
+  /** T-36: dirección de entrega, solo si la modalidad es a domicilio. */
+  direccion?: string;
+  /**
+   * Carrito de un pedido (T-21): ítems y cantidades. Solo lo usan los ítems
+   * de modo "pedido" — un ítem de cita nunca lo toca, sigue viviendo en
+   * `serviceId`/`tentativeDate`. Que este array tenga contenido es, en la
+   * práctica, la señal de "esta conversación es un pedido, no una cita" (ver
+   * `engine/flows/pedido.ts`).
+   */
+  items?: CartItem[];
   /**
    * Cuántos mensajes SEGUIDOS se fue del tema del negocio (modo agente). Se
    * resetea a 0 apenas vuelve a hablar del negocio; al llegar al límite, el
@@ -277,6 +555,21 @@ export interface Lead {
   updatedAt: string;
   /** ISO 8601 del último mensaje entrante del cliente (base para seguimientos). */
   lastInboundAt: string;
+  /**
+   * ISO 8601 de la cita/pedido resuelto por la IA a partir de `tentativeDate`
+   * (T-20). `undefined` si nunca se pudo resolver una fecha exacta (negocio
+   * sin IA, o fecha ambigua tipo "cuando puedas") — en ese caso el cierre
+   * automático de la cita usa `confirmedAt` en su lugar (ver
+   * `appointment-lifecycle.ts`).
+   */
+  appointmentAt?: string;
+  /**
+   * ISO 8601 de cuándo se confirmó la cita/pedido (T-20). Distinto de
+   * `updatedAt`, que se sobreescribe en cada mensaje: este es el que permite
+   * medir "hace cuánto se confirmó" para cerrar solas las citas sin fecha
+   * exacta.
+   */
+  confirmedAt?: string;
   /** Umbrales de seguimiento ya enviados (para no repetir). */
   followUpsSent: FollowUpThreshold[];
   notes?: string;
