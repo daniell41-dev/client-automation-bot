@@ -72,7 +72,10 @@ Si algo falla: captura del chat + las líneas `[Agent]` y `[WhatsApp]` de la ter
 - [ ] **Monitor con alertas al celular** sobre `/api/health`: `docs/19-vps.md` §9.
 
 - [ ] Verificación de la empresa en Meta (RUT de persona natural) — sin esto, 2 números.
-- [ ] Publicar la app de Meta (pide URL de política de privacidad: falta la página `/privacidad`).
+- [ ] Publicar la app de Meta. Las páginas ya existen (T-70): en Meta → Configuración de la app →
+      Básica, poner **Política de privacidad** = `https://<dominio>/privacidad`, **Condiciones del
+      servicio** = `https://<dominio>/terminos` y **Eliminación de datos de usuario** (instrucciones) =
+      `https://<dominio>/eliminar-datos`. Antes de vender, que un abogado revise los textos.
 - [ ] Subir Nexo a un VPS propio (que no dependa de la compu ni de ngrok): `docs/19-vps.md` (T-61).
 - [ ] Borrar el admin de ejemplo `tucorreo@dominio.com` (su clave quedó escrita en la conversación).
 - [ ] Capa paga de Gemini con tope de gasto (límites diarios y privacidad), ver T-56.
