@@ -50,3 +50,6 @@ export default async function ConfiguracionPage({
     />
   );
 }
+
+// T-71: el nombre de la pestaña ("Configuración · Nexo"); la plantilla vive en el layout raíz.
+export const metadata = { title: "Configuración" };

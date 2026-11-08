@@ -10,7 +10,7 @@ import { ActionForm } from "@/components/action-form";
 import { definirContrasena } from "./actions";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Definí tu contraseña — Nexo" };
+export const metadata = { title: "Definí tu contraseña" };
 
 const inputCls = "input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft";
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";

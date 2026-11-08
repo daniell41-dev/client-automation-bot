@@ -213,3 +213,6 @@ export default async function PortalHome() {
     </div>
   );
 }
+
+// T-71: el nombre de la pestaña ("Mis negocios · Nexo"); la plantilla vive en el layout raíz.
+export const metadata = { title: "Mis negocios" };

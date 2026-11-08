@@ -7,7 +7,7 @@
 import { redirect } from "next/navigation";
 import { getUserRole } from "@/lib/supabase/server";
 
-export const metadata = { title: "Portal — Nexo" };
+export const metadata = { title: "Portal" };
 
 export default async function PortalLayout({
   children,

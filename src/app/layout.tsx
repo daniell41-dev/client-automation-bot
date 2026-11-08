@@ -17,10 +17,31 @@ const sora = Sora({
   weight: ["600", "700"],
 });
 
+/**
+ * T-71: URL pública para armar links absolutos. WhatsApp y Facebook solo
+ * muestran la tarjeta del link (imagen Open Graph) si la URL de la imagen es
+ * absoluta; sin `NEXT_PUBLIC_SITE_URL` (desarrollo) queda localhost.
+ */
+const SITIO = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
+
+const DESCRIPCION =
+  "Nexo responde el WhatsApp de tu negocio, arma el pedido con el total, revisa el comprobante y te avisa para aprobar.";
+
 export const metadata: Metadata = {
-  title: "Nexo — Tu negocio respondiendo en WhatsApp",
-  description:
-    "Gestioná el catálogo, los turnos y las respuestas de tu bot de WhatsApp desde un solo lugar.",
+  metadataBase: new URL(SITIO),
+  // "Pedidos · Nexo": la dueña suele tener varias pestañas abiertas, y el
+  // nombre de la sección es lo que la ayuda a encontrar la que busca.
+  title: { default: "Nexo — Tu negocio vende por WhatsApp las 24 horas", template: "%s · Nexo" },
+  description: DESCRIPCION,
+  applicationName: "Nexo",
+  openGraph: {
+    type: "website",
+    locale: "es_CO",
+    siteName: "Nexo",
+    title: "Nexo — Tu negocio vende por WhatsApp las 24 horas",
+    description: DESCRIPCION,
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({

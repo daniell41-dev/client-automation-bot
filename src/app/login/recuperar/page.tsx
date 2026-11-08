@@ -5,7 +5,7 @@ import { Logo } from "@/components/logo";
 import { ActionForm } from "@/components/action-form";
 import { pedirRecuperacion } from "./actions";
 
-export const metadata = { title: "Recuperar contraseña — Nexo" };
+export const metadata = { title: "Recuperar contraseña" };
 
 export default function RecuperarPage() {
   return (

@@ -11,7 +11,7 @@ import { Logo } from "@/components/logo";
 import { LoginForm } from "./login-form";
 import { LoginHero } from "./hero";
 
-export const metadata = { title: "Iniciar sesión — Nexo" };
+export const metadata = { title: "Iniciar sesión" };
 
 export default function LoginPage() {
   return (

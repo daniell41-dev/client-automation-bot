@@ -142,3 +142,6 @@ export default async function RubrosPage() {
     </div>
   );
 }
+
+// T-71: el nombre de la pestaña ("Rubros · Nexo"); la plantilla vive en el layout raíz.
+export const metadata = { title: "Rubros" };

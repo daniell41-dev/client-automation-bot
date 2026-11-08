@@ -84,3 +84,6 @@ export default async function EditarRubroPage({
     </div>
   );
 }
+
+// T-71: el nombre de la pestaña ("Rubro · Nexo"); la plantilla vive en el layout raíz.
+export const metadata = { title: "Rubro" };
