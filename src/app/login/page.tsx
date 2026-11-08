@@ -6,6 +6,7 @@
  */
 
 import { Suspense } from "react";
+import Link from "next/link";
 import { Lock } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { LoginForm } from "./login-form";
@@ -58,7 +59,11 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="relative pb-6 text-center text-xs text-ink-faint">© {new Date().getFullYear()} Nexo · Cúcuta, Colombia</p>
+        <p className="relative pb-6 text-center text-xs text-ink-faint">
+          © {new Date().getFullYear()} Nexo · Cúcuta, Colombia ·{" "}
+          <Link href="/privacidad" className="hover:text-ink-mid">Privacidad</Link> ·{" "}
+          <Link href="/terminos" className="hover:text-ink-mid">Términos</Link>
+        </p>
       </section>
     </main>
   );
