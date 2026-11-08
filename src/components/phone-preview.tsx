@@ -45,7 +45,7 @@ export function PhonePreview({
 }) {
   return (
     <div
-      className={`flex w-[290px] shrink-0 flex-col overflow-hidden rounded-[34px] border-[6px] border-ink bg-wa-bg shadow-lift ${className ?? ""}`}
+      className={`flex w-full max-w-[290px] shrink-0 flex-col overflow-hidden rounded-[34px] border-[6px] border-ink bg-wa-bg shadow-lift ${className ?? ""}`}
     >
       {/* Header */}
       <div className="flex items-center gap-2.5 bg-wa-header px-3.5 py-2.5 text-white">

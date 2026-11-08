@@ -127,7 +127,7 @@ export function CitasEditor({
   return (
     <div className="flex flex-wrap items-start gap-5 fade-up">
       {/* ── Columna de trabajo ── */}
-      <div className="min-w-[300px] flex-[1_1_460px] space-y-4 sm:min-w-[420px]">
+      <div className="min-w-0 flex-[1_1_460px] space-y-4 sm:min-w-[420px]">
         {/* Servicios reservables */}
         <Card
           title="Servicios reservables"
