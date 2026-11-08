@@ -161,3 +161,6 @@ function UsoWhatsapp({
     </span>
   );
 }
+
+// T-71: el nombre de la pestaña ("Negocios · Nexo"); la plantilla vive en el layout raíz.
+export const metadata = { title: "Negocios" };

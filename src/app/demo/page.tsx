@@ -135,3 +135,6 @@ export default async function DemoPage() {
     </div>
   );
 }
+
+// T-71: el nombre de la pestaña ("Demo · Nexo"); la plantilla vive en el layout raíz.
+export const metadata = { title: "Demo" };
