@@ -4,6 +4,13 @@ Versiones de Nexo. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/
 números: [versionado semántico](https://semver.org/lang/es/) (ver
 `docs/01-git-flow.md` → "Versiones y releases").
 
+## [Sin publicar]
+
+### Operación
+- Despliegue automático (T-74): al publicar una release, GitHub Actions construye la
+  imagen, la manda al VPS y la levanta; también se puede desplegar a mano una versión
+  anterior. El servidor ya no compila (1 GB de RAM alcanza).
+
 ## [1.0.0] — 2026-11-08
 
 Primera versión de producción: el circuito completo de un pedido por WhatsApp, probado
