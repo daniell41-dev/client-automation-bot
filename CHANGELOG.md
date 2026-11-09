@@ -4,7 +4,7 @@ Versiones de Nexo. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/
 números: [versionado semántico](https://semver.org/lang/es/) (ver
 `docs/01-git-flow.md` → "Versiones y releases").
 
-## [Sin publicar]
+## [1.0.1] — 2026-11-09
 
 ### Operación
 - Despliegue automático (T-74): al publicar una release, GitHub Actions construye la
@@ -54,4 +54,5 @@ de punta a punta con un negocio real (Sabores del Sur, Cúcuta).
 - Imagen Docker y despliegue en VPS con Traefik y HTTPS automático (T-61).
 - `/api/health` para el monitor de caídas (T-65).
 
+[1.0.1]: https://github.com/daniell41-dev/client-automation-bot/releases/tag/v1.0.1
 [1.0.0]: https://github.com/daniell41-dev/client-automation-bot/releases/tag/v1.0.0
