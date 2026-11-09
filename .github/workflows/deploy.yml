@@ -1,0 +1,124 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# T-74: despliegue a producción (VPS en Lightsail, ver docs/19-vps.md).
+#
+# Se dispara al publicar una release en GitHub (etiqueta vX.Y.Z sobre main),
+# o a mano desde Actions → "Desplegar" con la versión a desplegar: así se
+# vuelve a una versión anterior si la nueva sale mal.
+#
+# Por qué se construye acá y no en el servidor: el VPS tiene 1 GB de RAM y
+# compilar Next pide 2-3 GB. Además, compilar en el servidor le quitaría
+# memoria al bot mientras atiende. GitHub construye, el servidor solo recibe
+# la imagen lista (docker save | ssh | docker load) y la levanta.
+#
+# Secretos del repo que usa (Settings → Secrets and variables → Actions):
+#   VPS_HOST, VPS_SSH_KEY: a dónde y con qué llave entrar.
+#   NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_SITE_URL:
+#     Next los incrusta al compilar. El resto de los secretos (tokens de
+#     WhatsApp, IA, service role) nunca pasan por acá: viven solo en el
+#     .env.production del servidor.
+# ═══════════════════════════════════════════════════════════════════════════
+name: Desplegar
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión a desplegar (etiqueta, ej. v1.0.0)"
+        required: true
+
+# Nunca dos despliegues a la vez: el segundo espera a que termine el primero.
+concurrency:
+  group: despliegue-produccion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  desplegar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ github.event.release.tag_name || inputs.version }}
+      VPS_USER: ubuntu
+      VPS_DIR: /opt/nexo
+    steps:
+      - name: Validar la versión
+        run: |
+          # Solo etiquetas de release: desplegar una rama o un nombre cualquiera
+          # haría imposible saber qué versión corre en producción.
+          if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$VERSION' no es una versión (se espera vX.Y.Z)"; exit 1
+          fi
+          for s in VPS_HOST VPS_SSH_KEY NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY NEXT_PUBLIC_SITE_URL; do
+            if [ -z "${!s}" ]; then echo "::error::Falta el secreto $s en el repo"; exit 1; fi
+          done
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+
+      - uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ env.VERSION }}
+
+      - name: Construir la imagen
+        run: |
+          docker build -t "nexo-app:$VERSION" \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+            --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+            --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL" \
+            .
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+
+      - name: Preparar SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -T 15 -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          echo "VPS=$VPS_USER@$VPS_HOST" >> "$GITHUB_ENV"
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Mandar la imagen y la composición al servidor
+        run: |
+          # El servidor necesita el .env.production antes del primer despliegue:
+          # si no está, se corta acá con un mensaje claro en vez de a medias.
+          ssh "$VPS" "test -f $VPS_DIR/.env.production" \
+            || { echo "::error::Falta $VPS_DIR/.env.production en el servidor (docs/19-vps.md)"; exit 1; }
+          scp deploy/docker-compose.yml "$VPS:$VPS_DIR/docker-compose.yml"
+          docker save "nexo-app:$VERSION" | gzip | ssh "$VPS" "gunzip | docker load"
+
+      - name: Levantar la versión nueva
+        run: |
+          ssh "$VPS" "VERSION=$VERSION DIR=$VPS_DIR bash -s" <<'REMOTO'
+          set -euo pipefail
+          cd "$DIR"
+          # La versión queda escrita en el .env: un reinicio del servidor o un
+          # `docker compose up` a mano levantan esta misma, no otra.
+          sed -i '/^NEXO_VERSION=/d' .env.production
+          echo "NEXO_VERSION=$VERSION" >> .env.production
+          docker compose --env-file .env.production up -d --remove-orphans
+          # Espera a que /api/health diga que la app y la base andan (hasta 2 min).
+          for i in $(seq 1 24); do
+            if docker compose --env-file .env.production exec -T app wget -qO- http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
+              echo "Nexo $VERSION en línea ✅"
+              # Imágenes sin etiqueta que quedan de despliegues viejos.
+              docker image prune -f >/dev/null
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "La app no respondió en 2 minutos. Últimos registros:"
+          docker compose --env-file .env.production logs --tail 80 app
+          exit 1
+          REMOTO

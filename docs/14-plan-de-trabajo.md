@@ -589,6 +589,9 @@ mirando. Se documenta como ADR-004.
   proyecto tiene claves asimétricas) y el WhatsApp al cliente sale después de
   responderle al panel (`after`). El resto de la espera es distancia a Supabase: en el
   VPS, misma región que la base (`docs/19-vps.md` §1).
+- **T-74** · Despliegue automático al VPS (Lightsail, Oregón): una release publicada en
+  GitHub construye la imagen en Actions, la manda al servidor y la levanta; el servidor
+  no compila. Guía en `docs/19-vps.md`.
 - **T-56** · Costo real de la IA por negocio y por mes: contar los tokens de cada
   llamada en `uso_ia` (hoy se guardan en 0) y mostrar en el back office el costo
   estimado en dólares según el modelo. Sirve para decidir cuándo pasar a la capa paga

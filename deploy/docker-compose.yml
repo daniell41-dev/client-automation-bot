@@ -1,8 +1,11 @@
 # ═══════════════════════════════════════════════════════════════════════════
 # T-61: Nexo en un VPS — Traefik (HTTPS automático con Let's Encrypt) + la app.
-# Guía completa: docs/19-vps.md. Se usa desde la carpeta deploy/:
+# Guía completa: docs/19-vps.md.
 #
-#   docker compose --env-file .env.production up -d --build
+# T-74: el servidor NO construye la imagen. La construye GitHub Actions al
+# publicar una release (.github/workflows/deploy.yml), la manda al VPS y
+# levanta esta composición en /opt/nexo con la versión en NEXO_VERSION. Con
+# 1 GB de RAM, compilar Next en el servidor no entra; recibirla hecha sí.
 #
 # La base de datos, el login y los archivos siguen en Supabase: el VPS solo
 # corre la app (así los backups y el mantenimiento de la base no son nuestros).
@@ -32,12 +35,10 @@ services:
       - letsencrypt:/letsencrypt
 
   app:
-    build:
-      context: ..
-      args:
-        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+    # La etiqueta de la release (v1.0.0, v1.1.0…). La escribe el despliegue en
+    # .env.production, así un reinicio o un `up` a mano levanta la misma
+    # versión que se desplegó, no otra.
+    image: nexo-app:${NEXO_VERSION:?falta NEXO_VERSION en .env.production}
     restart: unless-stopped
     env_file: .env.production
     # Margen para que termine de procesar los webhooks en curso al reiniciar.
