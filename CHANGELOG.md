@@ -7,6 +7,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Arreglos
+- Panel de pedidos (T-76): se refresca al volver a la pestaña, al reconectarse y cada
+  30 s mientras está a la vista; antes una devolución podía no aparecer hasta recargar.
 - Traefik pasa de v3.1 a v3.6 (T-75): con Docker 29 la v3.1 no veía la app y no sacaba
   el certificado HTTPS.
 
