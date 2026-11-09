@@ -13,7 +13,12 @@
 
 services:
   traefik:
-    image: traefik:v3.1
+    # T-75: v3.1 no funciona con Docker 29: Docker 29 dejó de aceptar
+    # clientes que piden una versión vieja de su API, y Traefik antes de
+    # v3.6.1 no podía leer los contenedores. Sin rutas no pide el
+    # certificado y sirve uno provisorio (ERR_CERT_AUTHORITY_INVALID en el
+    # navegador). La etiqueta v3.6 sigue los parches de la 3.6.
+    image: traefik:v3.6
     restart: unless-stopped
     command:
       - --providers.docker=true

@@ -4,6 +4,12 @@ Versiones de Nexo. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/
 números: [versionado semántico](https://semver.org/lang/es/) (ver
 `docs/01-git-flow.md` → "Versiones y releases").
 
+## [Sin publicar]
+
+### Arreglos
+- Traefik pasa de v3.1 a v3.6 (T-75): con Docker 29 la v3.1 no veía la app y no sacaba
+  el certificado HTTPS.
+
 ## [1.0.1] — 2026-11-09
 
 ### Operación
