@@ -30,13 +30,13 @@ const HORARIO_SALON: BusinessConfig["horarios"] = [
 /** Mensajes de cita: comunes a los tres rubros que agendan. */
 function mensajesCita(saludo: string): BusinessConfig["messages"] {
   return {
-    welcome: `¡Hola! Gracias por escribirnos ${saludo} ¿Qué servicio te interesa?`,
-    askName: "¡Perfecto! ¿Cuál es tu nombre? 😊",
-    askDate: "Genial {{nombre}} ¿Qué día y hora te queda bien?",
-    askConfirm: "¿Te confirmo tu cita de {{servicio}} para {{fecha}}, {{nombre}}?",
+    welcome: `¡Hola! Gracias por escribirnos ${saludo} ¿Qué servicio le interesa?`,
+    askName: "¡Perfecto! ¿Cuál es su nombre? 😊",
+    askDate: "Genial {{nombre}} ¿Qué día y hora le queda bien?",
+    askConfirm: "¿Le confirmo su cita de {{servicio}} para {{fecha}}, {{nombre}}?",
     serviceInfo: "{{servicio}}: {{descripcion}}\nDuración: {{duracion}}.\nPrecio: {{precio}}.",
-    captured: "¡Listo {{nombre}}! ✨ Tu cita de {{servicio}} para {{fecha}} quedó agendada. Te esperamos.",
-    fallback: "Disculpa, no te entendí 😅 ¿Qué servicio te interesa?",
+    captured: "¡Listo {{nombre}}! ✨ Su cita de {{servicio}} para {{fecha}} quedó agendada. Lo esperamos.",
+    fallback: "Disculpe, no le entendí 😅 ¿Qué servicio le interesa?",
   };
 }
 
@@ -105,17 +105,17 @@ const restaurante: BusinessConfig = {
     { id: "limonada-coco", name: "Limonada de coco", description: "Limonada natural con coco, 16 oz.", price: 8000, keywords: ["limonada", "coco", "bebida"], categoria: "Bebidas" },
   ],
   messages: {
-    welcome: "¡Hola! Bienvenido 🍽️ ¿Qué te gustaría pedir hoy?",
+    welcome: "¡Hola! Bienvenido 🍽️ ¿Qué le gustaría pedir hoy?",
     askName: "¡Con gusto! ¿A nombre de quién va el pedido?",
-    askDate: "¿Para qué hora lo querés?",
-    askConfirm: "¿Te confirmo el pedido, {{nombre}}?",
+    askDate: "¿Para qué hora lo quiere?",
+    askConfirm: "¿Le confirmo el pedido, {{nombre}}?",
     serviceInfo: "{{servicio}}: {{descripcion}} — {{precio}}.",
-    captured: "¡Listo {{nombre}}! Tu pedido quedó registrado.",
-    fallback: "Disculpa, no te entendí 😅 ¿Qué te gustaría pedir?",
+    captured: "¡Listo {{nombre}}! Su pedido quedó registrado.",
+    fallback: "Disculpe, no le entendí 😅 ¿Qué le gustaría pedir?",
   },
   pedidos: {
     enabled: true,
-    pregunta: "¿Te lo mandamos a domicilio o lo recogés en el local?",
+    pregunta: "¿Se lo enviamos a domicilio o lo recoge en el local?",
     opciones: ["Domicilio", "Recoger en el local"],
   },
   // El antifraude de pantallazos viene activado: es la razón por la que un

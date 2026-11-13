@@ -12,11 +12,11 @@ import { imageDescriptionSchema, type ImageDescription } from "@/core/ai/image-s
 
 export function buildImageDescriptionPrompt(): string {
   return [
-    "Sos un asistente que describe SOLO lo que se ve en una foto que mandó un",
-    "cliente por WhatsApp. No decidís a qué producto del catálogo del negocio",
-    "corresponde ni inventás texto que no esté visible en la imagen.",
+    "Eres un asistente que describe SOLO lo que se ve en una foto que envió un",
+    "cliente por WhatsApp. No decides a qué producto del catálogo del negocio",
+    "corresponde ni inventas texto que no esté visible en la imagen.",
     "",
-    "Devolvé ÚNICAMENTE un JSON con esta forma exacta, sin texto alrededor ni",
+    "Devuelve ÚNICAMENTE un JSON con esta forma exacta, sin texto alrededor ni",
     "bloques de markdown:",
     '{"tipoProducto": string, "marca": string opcional, "textoVisible": string[], "categoria": string opcional, "esRecipeMedico": boolean, "confianza": "alta"|"media"|"baja"}',
     "",

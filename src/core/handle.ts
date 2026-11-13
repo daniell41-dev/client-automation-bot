@@ -97,10 +97,10 @@ export type MediaDownloader = (
 ) => Promise<{ base64: string; mimeType: string } | null>;
 
 /** §1.5 del plan: nunca un error silencioso ni un mensaje vacío ante una imagen que no se pudo procesar. */
-const FALLBACK_VISION = "No pude ver bien la imagen, ¿me dices el nombre o la referencia?";
+const FALLBACK_VISION = "No pude ver bien la imagen, ¿me dice el nombre o la referencia?";
 
 /** T-46: mismo criterio que `FALLBACK_VISION`, para una nota de voz que no se pudo escuchar. */
-export const FALLBACK_AUDIO = "No pude escuchar bien tu audio 🙈 ¿Me lo escribís, porfa?";
+export const FALLBACK_AUDIO = "No pude escuchar bien su audio 🙈 ¿Me lo escribe, por favor?";
 
 /** §1.4 del plan: recetas/fórmulas médicas NUNCA se procesan en farmacias — regla dura, sin excepción. */
 function esRubroFarmaceutico(rubro?: string): boolean {
@@ -108,7 +108,7 @@ function esRubroFarmaceutico(rubro?: string): boolean {
 }
 
 const RECHAZO_RECIPE_MEDICO =
-  "Por políticas de salud, las recetas o fórmulas médicas no se procesan por acá — ese trámite se hace en persona con la farmacia 🙏";
+  "Por políticas de salud, las recetas o fórmulas médicas no se procesan por aquí — ese trámite se hace en persona con la farmacia 🙏";
 
 /** Precio formateado — duplicado a propósito (mismo criterio que responder.ts, agent-prompt.ts y flows/pedido.ts). */
 function formatPrice(config: BusinessConfig, price: number): string {
@@ -131,14 +131,14 @@ function formatPrice(config: BusinessConfig, price: number): string {
  */
 function responderBusquedaImagen(candidatos: Service[], config: BusinessConfig): string {
   if (candidatos.length === 0) {
-    return "No encontré ese producto en el catálogo — ¿me dices el nombre o la referencia?";
+    return "No encontré ese producto en el catálogo — ¿me dice el nombre o la referencia?";
   }
   if (candidatos.length === 1) {
     const [s] = candidatos;
-    return `Sí, tenemos ${s.name} a ${formatPrice(config, s.price)}. ¿Cuántos querés?`;
+    return `Sí, tenemos ${s.name} a ${formatPrice(config, s.price)}. ¿Cuántos quiere?`;
   }
   const opciones = candidatos.map((s) => `- ${s.name} (${formatPrice(config, s.price)})`).join("\n");
-  return `Encontré estas opciones parecidas:\n${opciones}\n¿Cuál es la que buscás?`;
+  return `Encontré estas opciones parecidas:\n${opciones}\n¿Cuál es la que busca?`;
 }
 
 /**
@@ -206,10 +206,10 @@ async function handleImageMessage(
 
 /** Default si el negocio no configuró `messages.pedirComprobante` (T-24.4). */
 const DEFAULT_PEDIR_COMPROBANTE =
-  "Para confirmar tu pedido, hacé el pago y mandanos la foto del comprobante 📸";
+  "Para confirmar su pedido, haga el pago y envíenos la foto del comprobante 📸";
 /** T-33: con datos de pago cargados, el cliente sabe A DÓNDE pagar sin tener que preguntar. */
 const DEFAULT_PEDIR_COMPROBANTE_CON_DATOS =
-  "Para confirmar tu pedido, pagá a:\n{{datosPago}}\n\nY mandanos la foto del comprobante 📸";
+  "Para confirmar su pedido, pague a:\n{{datosPago}}\n\nY envíenos la foto del comprobante 📸";
 
 /**
  * §1.6, no negociable: el cliente NUNCA se entera de "pago confirmado" acá —
@@ -334,11 +334,11 @@ function soltarPedidoDelLead(lead: Lead): Lead {
 }
 
 function respuestaComprobanteRecibido(config: BusinessConfig): string {
-  return `Recibí tu comprobante, se lo paso a ${config.name} para confirmar y te aviso 🙏`;
+  return `Recibí su comprobante, se lo paso a ${config.name} para confirmar y le aviso 🙏`;
 }
 
 const FALLBACK_COMPROBANTE_ILEGIBLE =
-  "No pude leer bien el comprobante — ¿me lo reenviás más claro, por favor?";
+  "No pude leer bien el comprobante — ¿me lo reenvía más claro, por favor?";
 
 /**
  * T-24.4: orquesta el turno de un comprobante de pago. Orden fijo:
@@ -756,7 +756,7 @@ export async function handleIncoming(
       messages = [
         {
           to: message.from,
-          text: `${resumenPedido}\n\nPagá acá para confirmar tu pedido: ${link}`,
+          text: `${resumenPedido}\n\nPague aquí para confirmar su pedido: ${link}`,
         },
       ];
     } else {
@@ -780,7 +780,7 @@ export async function handleIncoming(
           messages = [
             {
               to: message.from,
-              text: `Uy, justo se nos acabó el stock de: ${nombres}. Ajustá la cantidad o elegí otra cosa y seguimos 🙏`,
+              text: `Uy, justo se nos acabó el stock de: ${nombres}. Ajuste la cantidad o elija otra cosa y seguimos 🙏`,
             },
           ];
         } else {
@@ -817,7 +817,7 @@ export async function handleIncoming(
           // T-45: el QR va aparte y después del texto, para que el cliente
           // lea primero el total y las cuentas, y escanee si le queda más cómodo.
           if (config.pagos?.qrUrl) {
-            messages.push({ to: message.from, text: "O escaneá este QR para pagar 👆", imagenUrl: config.pagos.qrUrl });
+            messages.push({ to: message.from, text: "O escanee este QR para pagar 👆", imagenUrl: config.pagos.qrUrl });
           }
         } else if (notifier && config.notifyPhoneNumber) {
           const alertasStockBajo = inventory
@@ -1004,7 +1004,7 @@ async function notifyOwner(
     // T-21/PR5: un pedido todavía no está "confirmado" en este punto — recién
     // lo está cuando la dueña responde. El título no debe prometer de más.
     opciones.pidiendoAprobacion
-      ? `🔔 ${config.name}: pedido ${opciones.pedido ? `#${opciones.pedido.numero} ` : ""}nuevo, esperando tu aprobación`
+      ? `🔔 ${config.name}: pedido ${opciones.pedido ? `#${opciones.pedido.numero} ` : ""}nuevo, esperando su aprobación`
       : `🔔 ${config.name}: confirmación nueva`,
     `Cliente: ${lead.name ?? lead.contact}`,
     esPedido ? resumenCarrito(lead.items!, config.services, config, lead.entrega) : null,
@@ -1019,18 +1019,18 @@ async function notifyOwner(
     // T-31: un comprobante es una imagen, y una imagen se falsifica. Lo único
     // que verifica el pago es la app del banco de la dueña (§1.6 del plan).
     opciones.pidiendoAprobacion && opciones.comprobante
-      ? "👀 Antes de aprobar, revisá en tu app del banco que la plata llegó."
+      ? "👀 Antes de aprobar, revise en la app de su banco que la plata llegó."
       : null,
     pideResto
-      ? `💸 Faltan ${formatPrice(config, opciones.faltante!)}. Para pedírselos al cliente tocá Pedir resto o respondé RESTO ${opciones.pedido!.numero}.`
+      ? `💸 Faltan ${formatPrice(config, opciones.faltante!)}. Para pedírselos al cliente toque Pedir resto o responda RESTO ${opciones.pedido!.numero}.`
       : null,
     // Instrucción explícita — es lo que el webhook interpreta como la
     // respuesta de la dueña (ver `handleOwnerApproval`). Con número de
     // pedido, también funciona escrita si el teléfono no muestra botones.
     opciones.pidiendoAprobacion
       ? opciones.pedido
-        ? `Tocá Aprobar o Rechazar, o respondé SÍ ${opciones.pedido.numero} / NO ${opciones.pedido.numero}.`
-        : "Respondé SÍ para aceptarlo o NO para rechazarlo."
+        ? `Toque Aprobar o Rechazar, o responda SÍ ${opciones.pedido.numero} / NO ${opciones.pedido.numero}.`
+        : "Responda SÍ para aceptarlo o NO para rechazarlo."
       : null,
     // T-22.2: va en el MISMO mensaje que el aviso del pedido — un mensaje
     // aparte por cada venta que cruce el umbral sería el mismo ruido que la
@@ -1055,11 +1055,11 @@ async function notifyOwner(
   const alertasPlantilla = opciones.comprobante?.señales.length
     ? ` · ⚠️ REVISAR: ${opciones.comprobante.señales.map((s) => s.detalle).join(" · ")}`
     : opciones.comprobante
-      ? " · Revisá en tu app del banco que llegó la plata"
+      ? " · Revise en la app de su banco que llegó la plata"
       : "";
   // La plantilla aprobada solo tiene dos botones: pedir el resto va escrito.
   const restoPlantilla = pideResto
-    ? ` · Faltan ${formatPrice(config, opciones.faltante!)}: para pedírselos respondé RESTO ${opciones.pedido!.numero}`
+    ? ` · Faltan ${formatPrice(config, opciones.faltante!)}: para pedírselos responda RESTO ${opciones.pedido!.numero}`
     : "";
   const resumenPlantilla =
     (opciones.pedido ? `#${opciones.pedido.numero} · ${resumenCarritoTexto}` : resumenCarritoTexto) +
@@ -1117,11 +1117,11 @@ async function avisarPedidoNuevo(
     const toca = await pedidos.reclamarAvisoResumen(negocio, config.avisos.cadaMinutos ?? DEFAULT_MINUTOS_RESUMEN);
     if (!toca) return; // ya se le mandó un resumen hace poco: lo ve en el panel
     const pendientes = (await pedidos.pendientesDeDecision(negocio)).length || 1;
-    const texto = `🔔 ${config.name}: ${pendientes === 1 ? "tenés 1 pedido" : `tenés ${pendientes} pedidos`} por verificar. Revisalos en Nexo → Pedidos.`;
+    const texto = `🔔 ${config.name}: ${pendientes === 1 ? "tiene 1 pedido" : `tiene ${pendientes} pedidos`} por verificar. Revíselos en Nexo → Pedidos.`;
     await notifier.send({
       to: config.notifyPhoneNumber!,
       text: texto,
-      plantillaParams: [config.name, "varios clientes", `${pendientes} pedido(s) por verificar, revisalos en el panel`],
+      plantillaParams: [config.name, "varios clientes", `${pendientes} pedido(s) por verificar, revíselos en el panel`],
     });
   } catch (err) {
     // Si el resumen falla, mejor un aviso de más que uno de menos.
@@ -1197,7 +1197,7 @@ export async function handleOwnerApproval(
     return {
       ownerReply: {
         to: message.from,
-        text: "No te entendí — tocá Aprobar o Rechazar en el aviso, o respondé SÍ o NO con el número del pedido (ej: SÍ 12) 🙏",
+        text: "No le entendí — toque Aprobar o Rechazar en el aviso, o responda SÍ o NO con el número del pedido (ej: SÍ 12) 🙏",
       },
     };
   }
@@ -1232,7 +1232,7 @@ export async function handleOwnerApproval(
             .map((p) => `#${p.numero} ${p.cliente ?? p.contacto} · ${formatPrice(config, p.total)}`)
             .join("\n");
           return reply(
-            `Tenés ${pendientes.length} pedidos esperando:\n${lista}\n\nRespondé SÍ o NO con el número (ej: SÍ ${pendientes[0].numero}), así no apruebo el equivocado.`,
+            `Tiene ${pendientes.length} pedidos esperando:\n${lista}\n\nResponda SÍ o NO con el número (ej: SÍ ${pendientes[0].numero}), así no apruebo el equivocado.`,
           );
         }
         pedido = pendientes[0] ?? null;
@@ -1244,7 +1244,7 @@ export async function handleOwnerApproval(
 
   if (respuesta.pedidoId || respuesta.numero !== undefined) {
     if (!pedido || pedido.negocio !== negocioKey) {
-      return reply(`No encontré el pedido ${referencia}. Revisá el número en el aviso.`);
+      return reply(`No encontré el pedido ${referencia}. Revise el número en el aviso.`);
     }
     if (!pedidoPendienteDeDecision(pedido.estado)) {
       return reply(`El pedido #${pedido.numero} ya estaba ${pedido.estado === "rechazado" ? "rechazado" : "resuelto"}; no cambié nada.`);
@@ -1264,7 +1264,7 @@ export async function handleOwnerApproval(
     }
     if (pendientes.length > 1) {
       return reply(
-        `Hay ${pendientes.length} pedidos esperando y no puedo saber a cuál respondés. Respondé con el número del pedido que figura en el aviso (ej: SÍ 12).`,
+        `Hay ${pendientes.length} pedidos esperando y no puedo saber a cuál responde. Responda con el número del pedido que figura en el aviso (ej: SÍ 12).`,
       );
     }
     lead = pendientes[0] ?? null;
@@ -1307,7 +1307,7 @@ export async function handleOwnerApproval(
     return {
       ownerReply: {
         to: message.from,
-        text: `Listo, confirmado el ${etiqueta} ✅${codigo ? `\nCódigo de retiro: ${codigo} — entregalo solo contra este código.` : ""}`,
+        text: `Listo, confirmado el ${etiqueta} ✅${codigo ? `\nCódigo de retiro: ${codigo} — entréguelo solo contra este código.` : ""}`,
       },
       customerReply: {
         to: lead.contact,
@@ -1385,11 +1385,11 @@ async function respuestasRechazo(
       ? null
       : [
           pagado < pedido!.total
-            ? `El comprobante que mandaste es por ${montoTexto} y el pedido era de ${formatPrice(config, pedido!.total)}.`
+            ? `El comprobante que nos envió es por ${montoTexto} y el pedido era de ${formatPrice(config, pedido!.total)}.`
             : null,
           pidiendoCuenta
             ? mensajePedirCuenta(montoTexto)
-            : "Si ya transferiste, escribinos y coordinamos la devolución 🙏",
+            : "Si ya transfirió, escríbanos y coordinamos la devolución 🙏",
         ]
           .filter(Boolean)
           .join(" ");
@@ -1397,8 +1397,8 @@ async function respuestasRechazo(
     pagado <= 0
       ? null
       : pidiendoCuenta
-        ? `💸 Si te llegaron los ${montoTexto}, hay que devolvérselos. Le pedí la cuenta al cliente: la vas a ver en el panel → Pedidos → Devoluciones.`
-        : `💸 Si te llegaron los ${montoTexto}, acordate de devolvérselos.`;
+        ? `💸 Si le llegaron los ${montoTexto}, hay que devolvérselos. Le pedí la cuenta al cliente: la verá en el panel → Pedidos → Devoluciones.`
+        : `💸 Si le llegaron los ${montoTexto}, recuerde devolvérselos.`;
   return {
     ownerReply: {
       to: message.from,
@@ -1487,30 +1487,30 @@ async function pedirElResto(
   const faltante = pedido.total - pagado;
   if (pagado <= 0 || faltante <= 0) {
     return reply(
-      `En el pedido #${pedido.numero} no veo un pago parcial que completar. Revisá el comprobante y tocá Aprobar o Rechazar.`,
+      `En el pedido #${pedido.numero} no veo un pago parcial que completar. Revise el comprobante y toque Aprobar o Rechazar.`,
     );
   }
   const actual = lead ? await pedidos.abiertoDeLead(lead.id).catch(() => null) : null;
   if (!lead || lead.stage !== "esperando_aprobacion" || actual?.id !== pedido.id) {
     return reply(
-      `El cliente del pedido #${pedido.numero} ya está con otro pedido, así que no le puedo pedir el resto por acá. Aprobalo o rechazalo.`,
+      `El cliente del pedido #${pedido.numero} ya está con otro pedido, así que no le puedo pedir el resto por aquí. Apruébelo o recházelo.`,
     );
   }
   try {
     await pedidos.actualizarEstado(pedido.id, transicionarPedido(pedido.estado, "esperando_pago"));
   } catch (err) {
     console.error(`[Pedidos] no se pudo devolver el pedido #${pedido.numero} a esperar el pago:`, err);
-    return reply(`No pude actualizar el pedido #${pedido.numero}. Probá de nuevo en un momento.`);
+    return reply(`No pude actualizar el pedido #${pedido.numero}. Pruebe de nuevo en un momento.`);
   }
   const cliente = pedido.cliente ?? lead.name ?? pedido.contacto;
   return {
     ownerReply: {
       to: message.from,
-      text: `Listo, le pedí a ${cliente} los ${formatPrice(config, faltante)} que faltan del pedido #${pedido.numero}. Cuando mande el comprobante te aviso.`,
+      text: `Listo, le pedí a ${cliente} los ${formatPrice(config, faltante)} que faltan del pedido #${pedido.numero}. Cuando mande el comprobante le aviso.`,
     },
     customerReply: {
       to: lead.contact,
-      text: `Pedido #${pedido.numero}: recibimos ${formatPrice(config, pagado)} y el total es ${formatPrice(config, pedido.total)}. Te faltan ${formatPrice(config, faltante)} — mandanos el comprobante del resto y seguimos con tu pedido 🙏`,
+      text: `Pedido #${pedido.numero}: recibimos ${formatPrice(config, pagado)} y el total es ${formatPrice(config, pedido.total)}. Le faltan ${formatPrice(config, faltante)} — envíenos el comprobante del resto y seguimos con su pedido 🙏`,
     },
   };
 }
@@ -1552,7 +1552,7 @@ async function decidirSoloElPedido(
     return {
       ownerReply: {
         to: message.from,
-        text: `Listo, confirmado el ${etiqueta} ✅${codigo ? `\nCódigo de retiro: ${codigo} — entregalo solo contra este código.` : ""}`,
+        text: `Listo, confirmado el ${etiqueta} ✅${codigo ? `\nCódigo de retiro: ${codigo} — entréguelo solo contra este código.` : ""}`,
       },
       customerReply: {
         to: pedido.contacto,
@@ -1673,7 +1673,7 @@ export async function handleWompiWebhookEvent(
       return {
         ownerMessage: avisoDueña(
           `⚠️ ${config.name}: Wompi aprobó un pago del ${etiqueta}, que ya estaba ${pedido.estado}. ` +
-            "No lo reactivé: revisalo en tu panel de Wompi y devolvé la plata o contactá al cliente.",
+            "No lo reactivé: revíselo en su panel de Wompi y devuelva la plata o contacte al cliente.",
         ),
       };
     }
@@ -1698,7 +1698,7 @@ export async function handleWompiWebhookEvent(
     return {
       customerMessage: {
         to: lead.contact,
-        text: "Tu pago no se pudo procesar. Si querés, lo intentamos de nuevo o vemos otra forma de pago 🙏",
+        text: "Su pago no se pudo procesar. Si quiere, lo intentamos de nuevo o vemos otra forma de pago 🙏",
       },
     };
   }
@@ -1712,11 +1712,11 @@ export async function handleWompiWebhookEvent(
     return {
       customerMessage: {
         to: lead.contact,
-        text: "Recibimos un pago por un monto distinto al de tu pedido. Te contactamos para resolverlo 🙏",
+        text: "Recibimos un pago por un monto distinto al de su pedido. Lo contactamos para resolverlo 🙏",
       },
       ownerMessage: avisoDueña(
         `⚠️ ${config.name}: Wompi aprobó ${formatPrice(config, opciones.montoEnCentavos / 100)} por el ${etiqueta}, ` +
-          `que es de ${formatPrice(config, esperadoCentavos / 100)}. No lo confirmé: revisalo antes de prepararlo.`,
+          `que es de ${formatPrice(config, esperadoCentavos / 100)}. No lo confirmé: revíselo antes de prepararlo.`,
       ),
     };
   }
@@ -1736,11 +1736,11 @@ export async function handleWompiWebhookEvent(
       return {
         customerMessage: {
           to: lead.contact,
-          text: `Recibimos tu pago, pero justo se nos acabó el stock de: ${nombres}. Te contactamos para resolverlo 🙏`,
+          text: `Recibimos su pago, pero justo se nos acabó el stock de: ${nombres}. Lo contactamos para resolverlo 🙏`,
         },
         ownerMessage: avisoDueña(
           `⚠️ ${config.name}: el ${etiqueta} se pagó con Wompi, pero no hay stock de: ${nombres}. ` +
-            "Contactá al cliente para reponer o devolver la plata.",
+            "Contacte al cliente para reponer o devolver la plata.",
         ),
       };
     }
@@ -1756,7 +1756,7 @@ export async function handleWompiWebhookEvent(
   return {
     customerMessage: {
       to: lead.contact,
-      text: [resumen, "¡Listo! Tu pago quedó confirmado ✅", lineaCodigoRetiro(pedido, codigo)]
+      text: [resumen, "¡Listo! Su pago quedó confirmado ✅", lineaCodigoRetiro(pedido, codigo)]
         .filter(Boolean)
         .join("\n\n"),
     },
@@ -1764,8 +1764,8 @@ export async function handleWompiWebhookEvent(
       [
         `🔔 ${config.name}: ${etiqueta} pagado con Wompi ✅`,
         resumen,
-        codigo ? `Código de retiro: ${codigo} — entregalo solo contra este código.` : null,
-        "Ya podés prepararlo.",
+        codigo ? `Código de retiro: ${codigo} — entréguelo solo contra este código.` : null,
+        "Ya puede prepararlo.",
       ]
         .filter(Boolean)
         .join("\n"),

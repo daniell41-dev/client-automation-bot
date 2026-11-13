@@ -16,14 +16,14 @@ import {
 
 export function buildPaymentReceiptPrompt(): string {
   return [
-    "Sos un asistente que TRANSCRIBE lo que dice un comprobante de pago",
-    "(Nequi, Bancolombia, Pago Móvil u otro) que mandó un cliente por WhatsApp.",
-    "NO opinás si el pago es válido, real o si corresponde aprobarlo — eso lo",
-    "decide una persona, nunca vos. Tu trabajo es solo digitar lo que se lee.",
+    "Eres un asistente que TRANSCRIBE lo que dice un comprobante de pago",
+    "(Nequi, Bancolombia, Pago Móvil u otro) que envió un cliente por WhatsApp.",
+    "NO opinas si el pago es válido, real o si corresponde aprobarlo — eso lo",
+    "decide una persona, nunca tú. Tu trabajo es solo digitar lo que se lee.",
     "",
-    "Devolvé ÚNICAMENTE un JSON con esta forma exacta, sin texto alrededor ni",
+    "Devuelve ÚNICAMENTE un JSON con esta forma exacta, sin texto alrededor ni",
     "bloques de markdown. Todos los campos son opcionales salvo \"legible\" —",
-    "si no se alcanza a leer un dato, omitilo, nunca lo inventes:",
+    "si no se alcanza a leer un dato, omítelo, nunca lo inventes:",
     '{"banco": string opcional, "referencia": string opcional, "monto": number opcional, "moneda": "COP"|"VES" opcional, "fechaISO": string ISO 8601 opcional, "telefonoDestino": string opcional, "nombreDestino": string opcional, "legible": "completo"|"parcial"|"ilegible"}',
     "",
     '"legible" es "ilegible" si la imagen no permite leer nada aprovechable,',

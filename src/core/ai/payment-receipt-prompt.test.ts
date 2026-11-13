@@ -7,7 +7,7 @@ import {
 describe("buildPaymentReceiptPrompt", () => {
   it("prohíbe explícitamente opinar sobre la validez del pago (§1.6, no negociable)", () => {
     const prompt = buildPaymentReceiptPrompt().toLowerCase();
-    expect(prompt).toMatch(/no opinás|nunca verifica|no verificás/);
+    expect(prompt).toMatch(/no opinas|nunca verifica|no verificas/);
     expect(prompt).toContain("json");
   });
 });

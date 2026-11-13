@@ -74,7 +74,7 @@ export function validarEntrega(pedido: Pedido, codigo: string): ResultadoEntrega
     return { ok: false, error: `El pedido #${pedido.numero} no tiene código de retiro.` };
   }
   if (codigo.replace(/\D/g, "") !== pedido.codigoRetiro) {
-    return { ok: false, error: "El código no coincide. No entregues el pedido." };
+    return { ok: false, error: "El código no coincide. No entregue el pedido." };
   }
   return { ok: true };
 }
@@ -82,6 +82,6 @@ export function validarEntrega(pedido: Pedido, codigo: string): ResultadoEntrega
 /** Lo que recibe el cliente cuando la dueña marca el pedido como listo. */
 export function mensajePedidoListo(pedido: Pedido): string {
   return esDomicilio(pedido.modalidad)
-    ? `Tu pedido #${pedido.numero} ya va en camino 🛵 Tené a mano tu código de retiro.`
-    : `Tu pedido #${pedido.numero} está listo para recoger 🙌 Mostrá tu código de retiro al llegar.`;
+    ? `Su pedido #${pedido.numero} ya va en camino 🛵 Tenga a mano su código de retiro.`
+    : `Su pedido #${pedido.numero} está listo para recoger 🙌 Muestre su código de retiro al llegar.`;
 }

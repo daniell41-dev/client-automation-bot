@@ -16,6 +16,7 @@
     "ai:doctor:report-issue": "tsx scripts/ai-doctor-report-issue.ts",
     "seed:supabase": "tsx scripts/seed-supabase.ts",
     "migrar:horarios": "tsx scripts/migrar-horarios.ts",
+    "quitar:voseo": "tsx scripts/quitar-voseo-db.ts",
     "sheets:doctor": "tsx scripts/sheets-doctor.ts",
     "calendar:doctor": "tsx scripts/calendar-doctor.ts"
   },

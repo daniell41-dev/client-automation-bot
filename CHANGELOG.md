@@ -6,6 +6,11 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Cambios
+- El bot le habla de usted al cliente y a la dueña, en español de Colombia (T-78): sin voseo en
+  los mensajes, las plantillas de rubro ni los prompts de la IA. `pnpm quitar:voseo` corrige lo
+  que ya está guardado en la base.
+
 ## [1.0.2] — 2026-11-13
 
 ### Arreglos

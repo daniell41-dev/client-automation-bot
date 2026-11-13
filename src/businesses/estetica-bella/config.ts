@@ -63,21 +63,21 @@ export const esteticaBella: BusinessConfig = {
 
   messages: {
     welcome:
-      "¡Hola! Gracias por escribirnos 💜 ¿Qué servicio te interesa?\n" +
+      "¡Hola! Gracias por escribirnos 💜 ¿Qué servicio le interesa?\n" +
       "1. Limpieza facial\n2. Uñas\n3. Pestañas\n4. Depilación",
     askName:
-      "¡Perfecto! Para ayudarte mejor, ¿cuál es tu nombre? 😊",
-    askDate: "Genial {{nombre}} 💜 ¿Qué día te gustaría agendar?",
+      "¡Perfecto! Para ayudarle mejor, ¿cuál es su nombre? 😊",
+    askDate: "Genial {{nombre}} 💜 ¿Qué día le gustaría agendar?",
     askConfirm:
-      "¿Te confirmo tu cita de {{servicio}} para {{fecha}}, {{nombre}}? 💜",
+      "¿Le confirmo su cita de {{servicio}} para {{fecha}}, {{nombre}}? 💜",
     serviceInfo:
       "Nuestra {{servicio}} incluye: {{descripcion}}\n" +
       "Duración: {{duracion}}.\nPrecio: {{precio}}.",
     captured:
-      "¡Listo {{nombre}}! ✨ Tu cita de {{servicio}} para {{fecha}} quedó agendada.\n" +
-      "Te esperamos 💜 {{agenda}}",
+      "¡Listo {{nombre}}! ✨ Su cita de {{servicio}} para {{fecha}} quedó agendada.\n" +
+      "La esperamos 💜 {{agenda}}",
     fallback:
-      "Disculpa, no te entendí 😅. ¿Qué servicio te interesa?\n" +
+      "Disculpe, no le entendí 😅. ¿Qué servicio le interesa?\n" +
       "1. Limpieza facial\n2. Uñas\n3. Pestañas\n4. Depilación",
   },
 
@@ -86,21 +86,21 @@ export const esteticaBella: BusinessConfig = {
       threshold: "2h",
       afterMinutes: 120,
       message:
-        "Hola {{nombre}}, vi que estabas interesada en {{servicio}}. " +
-        "¿Quieres que te comparta horarios disponibles para esta semana?",
+        "Hola {{nombre}}, vi que estaba interesada en {{servicio}}. " +
+        "¿Quiere que le comparta horarios disponibles para esta semana?",
     },
     {
       threshold: "1d",
       afterMinutes: 1440,
       message:
         "Tenemos algunos cupos disponibles esta semana para {{servicio}}. " +
-        "También puedes separar tu cita con un anticipo 💜",
+        "También puede separar su cita con un anticipo 💜",
     },
     {
       threshold: "3d",
       afterMinutes: 4320,
       message:
-        "Último mensaje para no molestarte 😊 ¿Te gustaría que te avisemos " +
+        "Último mensaje para no molestarla 😊 ¿Le gustaría que le avisemos " +
         "cuando haya promoción de {{servicio}}?",
     },
   ],
@@ -135,7 +135,7 @@ export const esteticaBella: BusinessConfig = {
       },
       {
         keywords: ["direccion", "ubicacion", "donde quedan"],
-        respuesta: "Estamos en Calle 45 #12-30, Bogotá. ¡Te esperamos! 💜",
+        respuesta: "Estamos en Calle 45 #12-30, Bogotá. ¡La esperamos! 💜",
       },
     ],
     botonesMenu: ["Ver servicios", "Agendar cita", "Horarios"],
@@ -147,13 +147,13 @@ export const esteticaBella: BusinessConfig = {
       name: "Isabella",
       tone:
         "Warm, feminine and friendly. Use light emojis (💜✨😊) naturally but not excessively. Be concise. Always address the client by name when available.",
-      language: "español colombiano informal",
+      language: "español de Colombia, trato de usted",
     },
     instagram: {
       name: "Bella",
       tone:
         "Fun, trendy and energetic. Use emojis more freely (💅✨🌸💖). Short sentences. Use 'amiga' when addressing female clients. Keep it fresh and youthful.",
-      language: "español colombiano informal y juvenil",
+      language: "español de Colombia, cercano y juvenil",
     },
   },
 
