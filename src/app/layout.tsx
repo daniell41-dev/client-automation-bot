@@ -1,20 +1,28 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Sora } from "next/font/google";
+import localFont from "next/font/local";
 import { ToastProvider } from "@/components/toast";
 import "./globals.css";
 
 // Tipografía del design system "Nexo": Plus Jakarta Sans para UI,
 // Sora para números/KPIs (ver docs/design/README.md).
-const jakarta = Plus_Jakarta_Sans({
+//
+// T-77: las fuentes viven en el repo (`./fonts`, versión variable, subset
+// latín — cubre tildes y ñ) en vez de `next/font/google`. Con Google el build
+// descargaba la fuente en cada compilación y, si Google respondía raro, el
+// build se caía (pasó en el CI de la v1.0.2). Así CI y el despliegue no
+// dependen de una red externa. Licencia OFL: ver `fonts/LICENSE-*.txt`.
+const jakarta = localFont({
+  src: "./fonts/plus-jakarta-sans.woff2",
   variable: "--font-jakarta",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  weight: "200 800",
+  display: "swap",
 });
 
-const sora = Sora({
+const sora = localFont({
+  src: "./fonts/sora.woff2",
   variable: "--font-sora",
-  subsets: ["latin"],
-  weight: ["600", "700"],
+  weight: "100 800",
+  display: "swap",
 });
 
 /**
