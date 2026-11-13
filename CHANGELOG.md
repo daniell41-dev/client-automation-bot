@@ -4,6 +4,16 @@ Versiones de Nexo. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/
 números: [versionado semántico](https://semver.org/lang/es/) (ver
 `docs/01-git-flow.md` → "Versiones y releases").
 
+## [Sin publicar]
+
+## [1.0.2] — 2026-11-13
+
+### Arreglos
+- Panel de pedidos (T-76): se refresca al volver a la pestaña, al reconectarse y cada
+  30 s mientras está a la vista; antes una devolución podía no aparecer hasta recargar.
+- Traefik pasa de v3.1 a v3.6 (T-75): con Docker 29 la v3.1 no veía la app y no sacaba
+  el certificado HTTPS.
+
 ## [1.0.1] — 2026-11-09
 
 ### Operación
