@@ -34,13 +34,13 @@ describe("catalogCopy (T-18)", () => {
     expect(copy.previewCta).toBe("Agregar al pedido");
   });
 
-  it("Servicios: CTA es 'Reservar turno' (tiene sentido agendar una cita)", () => {
+  it("Servicios: CTA es 'Reservar cita' (tiene sentido agendar una cita)", () => {
     const copy = catalogCopy("Estética y belleza");
     expect(copy.categoriaPlaceholder).toBe("Faciales");
-    expect(copy.previewCta).toBe("Reservar turno");
+    expect(copy.previewCta).toBe("Reservar cita");
   });
 
-  it("Catálogo (rubro sin reconocer, ej. comercio): CTA es 'Agregar al pedido', no 'Reservar turno'", () => {
+  it("Catálogo (rubro sin reconocer, ej. comercio): CTA es 'Agregar al pedido', no 'Reservar cita'", () => {
     const copy = catalogCopy("Ferretería");
     expect(copy.categoriaPlaceholder).toBe("Categoría");
     expect(copy.previewCta).toBe("Agregar al pedido");
@@ -82,19 +82,19 @@ describe("catalogLabel/catalogCopy — con `catalogo` declarado (T-21)", () => {
     expect(catalogItemLabel("Ferretería")).toBe("Producto");
   });
 
-  it("catalogCopy con modoPorDefecto 'pedido' no ofrece 'Reservar turno'", () => {
+  it("catalogCopy con modoPorDefecto 'pedido' no ofrece 'Reservar cita'", () => {
     const copy = catalogCopy("Kiosco", catalogoTienda);
     expect(copy.previewCta).toBe("Agregar al pedido");
     expect(copy.previewSustantivo).toBe("nuestro producto");
   });
 
-  it("catalogCopy con modoPorDefecto 'cita' SÍ ofrece 'Reservar turno', aunque el rubro se llame distinto", () => {
+  it("catalogCopy con modoPorDefecto 'cita' SÍ ofrece 'Reservar cita', aunque el rubro se llame distinto", () => {
     const catalogoTaller: CatalogoConfig = {
       etiqueta: { singular: "Repuesto", plural: "Repuestos" },
       modoPorDefecto: "cita",
     };
     const copy = catalogCopy("Taller Don José", catalogoTaller);
-    expect(copy.previewCta).toBe("Reservar turno");
+    expect(copy.previewCta).toBe("Reservar cita");
     expect(copy.previewSaludo).toContain("repuestos");
   });
 

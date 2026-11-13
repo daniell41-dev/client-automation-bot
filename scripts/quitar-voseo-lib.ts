@@ -11,7 +11,7 @@
  * 2. Un texto que la dueña escribió a su manera solo se toca si tiene voseo:
  *    ahí se cambian los verbos de `VOSEO_A_USTED` y, en ese mismo texto, los
  *    pronombres (tu → su, te → le). Si el texto solo tutea se deja como
- *    está: tutear puede ser una decisión del negocio (preset "Cercano"), el
+ *    está: tutear puede ser una decisión del negocio (un texto que escribió), el
  *    voseo nunca lo es en Cúcuta.
  *
  * Nunca toca nombres de productos, palabras clave ni opciones de entrega:
@@ -21,6 +21,9 @@
 
 /** Default viejo exacto → default nuevo. Generado comparando los configs de antes y después de T-78. */
 export const TEXTOS_POR_DEFECTO: Record<string, string> = {
+  // T-79: preset "Cercano" del portal (`personas.*.tone`). Le pedía al bot tutear.
+  "Cálido y cercano. Usa emojis con moderación, tutea al cliente y responde con energía positiva.":
+    "Cálido y cercano. Usa emojis con moderación, trata al cliente de usted con calidez y responde con energía positiva.",
   "¡Hola! Gracias por escribirnos 💜 ¿Qué servicio te interesa?\n1. Limpieza facial\n2. Uñas\n3. Pestañas\n4. Depilación":
     "¡Hola! Gracias por escribirnos 💜 ¿Qué servicio le interesa?\n1. Limpieza facial\n2. Uñas\n3. Pestañas\n4. Depilación",
   "¡Perfecto! Para ayudarte mejor, ¿cuál es tu nombre? 😊":
@@ -304,7 +307,16 @@ export function quitarVoseoConfig(original: Json): { config: Json; cambios: Camb
   }
   if (esObjeto(config.personas)) {
     for (const [canal, persona] of Object.entries(config.personas)) {
-      if (esObjeto(persona)) cambiar(persona, "language", `personas.${canal}.language`);
+      if (!esObjeto(persona)) continue;
+      cambiar(persona, "language", `personas.${canal}.language`);
+      // El tono solo cambia si es EXACTAMENTE el preset viejo: un tono que
+      // escribió la dueña en inglés o a su manera no se reinterpreta.
+      const tono = persona.tone;
+      if (typeof tono === "string" && TEXTOS_POR_DEFECTO[tono] !== undefined && tono.startsWith("Cálido y cercano")) {
+        const nuevo = TEXTOS_POR_DEFECTO[tono];
+        persona.tone = nuevo;
+        cambios.push({ campo: `personas.${canal}.tone`, antes: tono, despues: nuevo });
+      }
     }
   }
   return { config, cambios };

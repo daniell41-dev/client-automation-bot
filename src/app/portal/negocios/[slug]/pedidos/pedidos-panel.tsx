@@ -37,7 +37,7 @@ function AccionesVerificar({ slug, pedido }: { slug: string; pedido: Pedido }) {
     <form action={action} className="mt-3">
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="pedidoId" value={pedido.id} />
-      <p className="mb-2 text-xs text-ink-soft">👀 Antes de aprobar, revisá en tu app del banco que la plata llegó.</p>
+      <p className="mb-2 text-xs text-ink-soft">👀 Antes de aprobar, revise en la app de su banco que la plata llegó.</p>
       <div className="flex gap-2">
         <button type="submit" name="decision" value="aprobar" disabled={pending} className={botonPrimario}>
           Aprobar #{pedido.numero}
@@ -117,7 +117,7 @@ function TarjetaDevolucion({ slug, pedido, moneda, locale }: { slug: string; ped
       ) : (
         <p className="mt-2 text-xs text-ink-soft">Esperando que el cliente mande su cuenta por WhatsApp.</p>
       )}
-      <p className="mt-2 text-xs text-ink-soft">👀 Devolvé solo si la plata te llegó: revisalo en tu app del banco.</p>
+      <p className="mt-2 text-xs text-ink-soft">👀 Devuelva el dinero solo si la plata le llegó: revíselo en la app de su banco.</p>
       <form action={action} className="mt-3">
         <input type="hidden" name="slug" value={slug} />
         <input type="hidden" name="pedidoId" value={pedido.id} />
@@ -228,7 +228,7 @@ export function PedidosPanel({
       <div className="mb-4">
         <h1 className="text-2xl font-extrabold text-ink">Pedidos</h1>
         <p className="text-sm text-ink-mid">
-          Aprobá, prepará y entregá. La comida se entrega solo contra el código de retiro del cliente.
+          Apruebe, prepare y entregue. La comida se entrega solo contra el código de retiro del cliente.
         </p>
       </div>
       {devoluciones.length > 0 && (
@@ -254,7 +254,7 @@ export function PedidosPanel({
             <div className="space-y-3">
               {panel[columna.id].length === 0 ? (
                 <p className="rounded-2xl border border-dashed border-line p-4 text-center text-xs text-ink-soft">
-                  Nada por acá.
+                  Nada por aquí.
                 </p>
               ) : (
                 panel[columna.id].map((pedido) => (

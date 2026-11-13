@@ -49,7 +49,7 @@ export default async function AsignacionesPage() {
               <label className={labelCls}>Usuario</label>
               <select name="user_id" required className={inputCls} defaultValue="">
                 <option value="" disabled>
-                  Elegí un usuario…
+                  Elija un usuario…
                 </option>
                 {clientes.map((u) => (
                   <option key={u.id} value={u.id}>
@@ -62,7 +62,7 @@ export default async function AsignacionesPage() {
               <label className={labelCls}>Rubro</label>
               <select name="rubro_id" required className={inputCls} defaultValue="">
                 <option value="" disabled>
-                  Elegí un rubro…
+                  Elija un rubro…
                 </option>
                 {(rubros ?? []).map((r) => (
                   <option key={r.id} value={r.id}>

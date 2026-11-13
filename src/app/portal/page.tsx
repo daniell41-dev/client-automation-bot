@@ -121,13 +121,13 @@ export default async function PortalHome() {
 
       <main className="mx-auto max-w-[900px] px-6 py-10 fade-up">
         <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">
-          Tus negocios
+          Sus negocios
         </p>
         <h1 className="mt-1 text-[32px] font-extrabold text-ink">
           Hola, {firstName(me!.email)}
         </h1>
         <p className="mt-1 text-[15px] text-ink-mid">
-          Elegí el negocio que querés gestionar. Cada uno tiene su propio bot de
+          Elija el negocio que quiere gestionar. Cada uno tiene su propio bot de
           WhatsApp.
         </p>
 
@@ -135,16 +135,16 @@ export default async function PortalHome() {
           <div className="mt-8">
             {(rubros ?? []).length === 0 ? (
               <EmptyState
-                title="Todavía no tenés ningún negocio."
-                subtitle="Pedile al administrador de la plataforma que te asigne un tipo de negocio."
+                title="Todavía no tiene ningún negocio."
+                subtitle="Pídale al administrador de la plataforma que le asigne un tipo de negocio."
               />
             ) : (
               <section className="rounded-2xl border border-line bg-surface p-6 shadow-card">
-                <h2 className="text-[17.5px] font-bold text-ink">Armá tu negocio</h2>
+                <h2 className="text-[17.5px] font-bold text-ink">Arme su negocio</h2>
                 <p className="mt-1 text-sm text-ink-mid">
-                  Elegí qué tipo de negocio es y cómo se llama. Arrancamos con una
-                  plantilla que después ajustás a tu gusto; el bot queda apagado
-                  hasta que conectemos tu número de WhatsApp.
+                  Elija qué tipo de negocio es y cómo se llama. Arrancamos con una
+                  plantilla que después ajusta a su gusto; el bot queda apagado
+                  hasta que conectemos su número de WhatsApp.
                 </p>
                 <ActionForm action={crearMiNegocio} submitLabel="Crear mi negocio" className="mt-5 space-y-4">
                   <fieldset className="grid gap-3 sm:grid-cols-2">

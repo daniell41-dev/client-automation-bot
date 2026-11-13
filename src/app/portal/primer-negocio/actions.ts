@@ -24,13 +24,13 @@ export async function crearMiNegocio(_prev: ActionState, formData: FormData): Pr
 
   const nombre = String(formData.get("nombre") ?? "").trim();
   const rubroId = String(formData.get("rubroId") ?? "");
-  if (nombre.length < 2) return { error: "Escribí el nombre de tu negocio." };
-  if (!rubroId) return { error: "Elegí qué tipo de negocio es." };
+  if (nombre.length < 2) return { error: "Escriba el nombre de su negocio." };
+  if (!rubroId) return { error: "Elija qué tipo de negocio es." };
 
   const supabase = await createUserClient();
   const { data: rubro } = await supabase.from("rubros").select("template").eq("id", rubroId).maybeSingle();
   const plantilla = parseBusinessConfig(rubro?.template);
-  if (!plantilla) return { error: "Ese tipo de negocio no está disponible. Escribile al administrador." };
+  if (!plantilla) return { error: "Ese tipo de negocio no está disponible. Escríbale al administrador." };
 
   const base = slugDesdeNombre(nombre) || "negocio";
   // Si el slug ya existe (otro negocio con el mismo nombre), se prueba con
@@ -48,5 +48,5 @@ export async function crearMiNegocio(_prev: ActionState, formData: FormData): Pr
     }
     if (error.code !== "23505") return { error: `No se pudo crear el negocio: ${error.message}` };
   }
-  return { error: "Ya existe un negocio con ese nombre. Probá con otro." };
+  return { error: "Ya existe un negocio con ese nombre. Pruebe con otro." };
 }

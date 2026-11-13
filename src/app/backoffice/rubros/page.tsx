@@ -47,7 +47,7 @@ export default async function RubrosPage() {
       </div>
 
       {/* Crear plantilla */}
-      <Card title="Nueva plantilla" subtitle="Nace con la plantilla base; después la personalizás.">
+      <Card title="Nueva plantilla" subtitle="Nace con la plantilla base; después la personaliza.">
         <ActionForm action={crearRubro} submitLabel="Crear plantilla">
           <div className="grid gap-3 sm:grid-cols-3">
             <div>

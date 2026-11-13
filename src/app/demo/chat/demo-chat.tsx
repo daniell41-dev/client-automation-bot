@@ -81,7 +81,7 @@ export function DemoChat({ businessSlug }: { businessSlug: string }) {
     } catch {
       setMessages((prev) => [
         ...prev,
-        { role: "out", text: "⚠️ No pude responder; intentá de nuevo." },
+        { role: "out", text: "⚠️ No pude responder; intente de nuevo." },
       ]);
     } finally {
       setSending(false);
@@ -95,7 +95,7 @@ export function DemoChat({ businessSlug }: { businessSlug: string }) {
       messages={
         messages.length > 0
           ? messages
-          : [{ role: "out", text: 'Escribí "Hola" para empezar 👋' }]
+          : [{ role: "out", text: 'Escriba "Hola" para empezar 👋' }]
       }
       className="min-h-[540px] w-[320px]"
       footer={
@@ -109,7 +109,7 @@ export function DemoChat({ businessSlug }: { businessSlug: string }) {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={sending ? "El bot está escribiendo…" : "Escribí un mensaje…"}
+            placeholder={sending ? "El bot está escribiendo…" : "Escriba un mensaje…"}
             className="flex-1 rounded-full bg-white px-3.5 py-2 text-[13px] text-ink outline-none placeholder:text-ink-soft"
           />
           <button
@@ -133,7 +133,7 @@ export function DemoChat({ businessSlug }: { businessSlug: string }) {
         Empezar una conversación nueva
       </button>
       <p className="max-w-[320px] text-center text-xs text-ink-soft">
-        El bot recuerda tu nombre y tu cita entre mensajes. Usá este botón para
+        El bot recuerda su nombre y su cita entre mensajes. Use este botón para
         probar desde cero, como un cliente que escribe por primera vez.
       </p>
     </div>

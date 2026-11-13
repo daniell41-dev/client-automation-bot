@@ -40,7 +40,7 @@ export default function LoginPage() {
           <div className="relative">
             <Logo variant="dark" />
             <p className="mt-4 font-display text-2xl font-extrabold leading-tight text-white">
-              Tu negocio vende por WhatsApp las 24 horas.
+              Su negocio vende por WhatsApp las 24 horas.
             </p>
           </div>
         </div>
@@ -48,13 +48,13 @@ export default function LoginPage() {
         <div className="relative flex flex-1 flex-col items-center justify-center px-6 py-10">
           <div className="w-full max-w-[364px] fade-up">
             <h2 className="font-display text-[28px] font-extrabold text-ink">Hola de nuevo 👋</h2>
-            <p className="mt-1 text-sm text-ink-mid">Ingresá para ver tus pedidos y gestionar tu negocio.</p>
+            <p className="mt-1 text-sm text-ink-mid">Ingrese para ver sus pedidos y gestionar su negocio.</p>
             <Suspense>
               <LoginForm />
             </Suspense>
             <p className="mt-8 text-center text-xs leading-relaxed text-ink-soft">
               <Lock className="mr-1 inline h-3.5 w-3.5 -translate-y-px" />
-              Conexión segura. Tus datos y los de tus clientes están protegidos.
+              Conexión segura. Sus datos y los de sus clientes están protegidos.
             </p>
           </div>
         </div>

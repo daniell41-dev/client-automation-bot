@@ -145,7 +145,7 @@ export function PhonePreview({
       {footer ?? (
         <div className="flex items-center gap-2 bg-surface-2 px-2.5 py-2">
           <span className="flex-1 rounded-full bg-white px-3 py-1.5 text-[12px] text-ink-soft">
-            Escribí un mensaje…
+            Escriba un mensaje…
           </span>
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-wa-header text-white">
             <Send className="h-3.5 w-3.5" />

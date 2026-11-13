@@ -19,7 +19,7 @@ export default function Error({ error, retry }: { error: Error & { digest?: stri
     <PantallaError
       codigo="Ups"
       titulo="Algo salió mal"
-      texto="No pudimos cargar esta pantalla. Suele ser algo pasajero: probá de nuevo en unos segundos. Tus pedidos y tus datos están bien."
+      texto="No pudimos cargar esta pantalla. Suele ser algo pasajero: pruebe de nuevo en unos segundos. Sus pedidos y sus datos están bien."
       detalle={error.digest ? `Código del error: ${error.digest}` : undefined}
     >
       <button type="button" onClick={() => retry()} className={botonPrincipal}>

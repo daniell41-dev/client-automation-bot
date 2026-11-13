@@ -10,9 +10,10 @@
  * modelo también arrastra el registro del historial, así que se le dice con
  * todas las letras.
  *
- * "Salvo que el tono del negocio indique otra cosa": el preset "Cercano" del
- * portal pide tutear, y esa es una decisión de la dueña. El voseo no lo pide
- * ningún negocio de Colombia, así que ese queda prohibido siempre.
+ * "Salvo que el tono del negocio indique otra cosa": si una dueña escribe en
+ * su tono que quiere tutear, es su decisión (los presets del portal ya no lo
+ * piden, ver T-79). El voseo no lo pide ningún negocio de Colombia, así que
+ * ese queda prohibido siempre.
  */
 export const TRATO_AL_CLIENTE =
   "Escríbele al cliente en español de Colombia y trátalo de usted, salvo que el tono del negocio indique otra cosa. Nunca uses voseo (vos, tenés, querés, confirmás).";

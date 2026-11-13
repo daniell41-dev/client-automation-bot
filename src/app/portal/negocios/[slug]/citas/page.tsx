@@ -60,7 +60,7 @@ export default async function CitasPage({
       initialPedidos={
         config.pedidos ?? {
           enabled: false,
-          pregunta: "¿Vas a retirar tu pedido o prefieres comer en el local?",
+          pregunta: "¿Va a recoger su pedido o prefiere comer en el local?",
           opciones: ["Retirar en el local", "Comer en el local"],
         }
       }

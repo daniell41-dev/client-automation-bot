@@ -33,20 +33,20 @@ const sora = localFont({
 const SITIO = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
 
 const DESCRIPCION =
-  "Nexo responde el WhatsApp de tu negocio, arma el pedido con el total, revisa el comprobante y te avisa para aprobar.";
+  "Nexo responde el WhatsApp de su negocio, arma el pedido con el total, revisa el comprobante y le avisa para aprobar.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITIO),
   // "Pedidos · Nexo": la dueña suele tener varias pestañas abiertas, y el
   // nombre de la sección es lo que la ayuda a encontrar la que busca.
-  title: { default: "Nexo — Tu negocio vende por WhatsApp las 24 horas", template: "%s · Nexo" },
+  title: { default: "Nexo — Su negocio vende por WhatsApp las 24 horas", template: "%s · Nexo" },
   description: DESCRIPCION,
   applicationName: "Nexo",
   openGraph: {
     type: "website",
     locale: "es_CO",
     siteName: "Nexo",
-    title: "Nexo — Tu negocio vende por WhatsApp las 24 horas",
+    title: "Nexo — Su negocio vende por WhatsApp las 24 horas",
     description: DESCRIPCION,
   },
   twitter: { card: "summary_large_image" },

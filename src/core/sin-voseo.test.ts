@@ -32,6 +32,7 @@ import { buildInterpretPrompt } from "@/core/ai/interpret";
 import { buildImageDescriptionPrompt } from "@/core/ai/image-prompt";
 import { buildPaymentReceiptPrompt } from "@/core/ai/payment-receipt-prompt";
 import { TRATO_AL_CLIENTE } from "@/core/ai/trato";
+import { buscarVoseo as voseoEn } from "@/core/formas-voseo";
 import type { AgentTurnInput, ILLMProvider } from "@/core/ai/provider";
 import { RUBROS_BASE } from "@/businesses/rubros";
 import { SupabasePedidoRepository } from "@/core/storage/adapters/supabase/pedidos";
@@ -39,24 +40,6 @@ import { makeFakeSupabaseDb } from "@/core/storage/adapters/supabase/fake-supaba
 import type { LeadRepository } from "@/core/storage/repository";
 import type { BusinessConfig, IncomingMessage, Lead, OutgoingMessage } from "@/core/types";
 import type { Pedido } from "@/core/storage/pedido-repository";
-
-/** Las formas que pidió el dueño del producto, más las que aparecían en el repo antes de T-78. */
-const FORMAS_PROHIBIDAS = [
-  "vos", "sos", "tenés", "querés", "podés", "confirmás", "tocá", "respondé", "revisá", "escribí",
-  "mandá", "elegí", "creá", "usá", "pedilo", "decinos", "contanos", "avisanos", "acá",
-  // encontradas en el repo antes de T-78
-  "necesitás", "buscás", "escribís", "reenviás", "recogés", "contame", "mandanos", "escribinos",
-  "acordate", "mostralo", "mostrá", "tené", "revisalo", "revisalos", "entregalo", "aprobalo",
-  "pagá", "hacé", "ajustá", "escaneá", "probá", "contactá", "disculpá", "reservá", "confirmá",
-  "agregá", "celu",
-];
-
-const PATRON = new RegExp(`(?<![\\p{L}])(${FORMAS_PROHIBIDAS.join("|")})(?![\\p{L}])`, "giu");
-
-/** Devuelve las formas de voseo encontradas en cada texto, para que el fallo diga dónde está. */
-function voseoEn(textos: string[]): string[] {
-  return textos.flatMap((t) => [...t.matchAll(PATRON)].map((m) => `"${m[0]}" en: ${t.slice(0, 120)}`));
-}
 
 function textosDe(salidas: (OutgoingMessage | undefined | null)[]): string[] {
   return salidas.flatMap((m) =>

@@ -11,11 +11,11 @@ import type { ActionState } from "@/components/action-form";
  */
 export async function pedirRecuperacion(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const email = String(formData.get("email") ?? "").trim();
-  if (!email) return { error: "Escribí tu correo." };
+  if (!email) return { error: "Escriba su correo." };
 
   const supabase = await createUserClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: await linkDefinirContrasena() });
   if (error) console.error("[Auth] resetPasswordForEmail falló:", error.message);
 
-  return { ok: "Si ese correo tiene cuenta en Nexo, te mandamos un link para definir una contraseña nueva." };
+  return { ok: "Si ese correo tiene cuenta en Nexo, le enviamos un link para definir una contraseña nueva." };
 }
