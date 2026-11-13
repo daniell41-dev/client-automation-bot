@@ -6,6 +6,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.0.2] — 2026-11-13
+
 ### Arreglos
 - Panel de pedidos (T-76): se refresca al volver a la pestaña, al reconectarse y cada
   30 s mientras está a la vista; antes una devolución podía no aparecer hasta recargar.
