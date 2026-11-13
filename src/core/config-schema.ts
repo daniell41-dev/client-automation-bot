@@ -73,7 +73,7 @@ const catalogoSchema = z.object({
 /** El catálogo completo: al menos un producto/servicio (igual regla que `businessConfigSchema`). */
 export const servicesSchema = z
   .array(serviceSchema)
-  .min(1, "Agregá al menos un producto o servicio.");
+  .min(1, "Agregue al menos un producto o servicio.");
 
 const quickRuleSchema = z.object({
   keywords: z.array(z.string().min(1)).min(1),

@@ -40,7 +40,7 @@ export default async function ConfiguracionPage({
         config.personas?.whatsapp ?? {
           name: "Asistente",
           tone: "",
-          language: "español informal",
+          language: "español de Colombia, trato de usted",
         }
       }
       personas={config.personas}

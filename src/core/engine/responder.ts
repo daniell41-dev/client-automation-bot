@@ -67,7 +67,7 @@ const CONFIRM_OPTIONS = ["Sí, confirmar", "Cambiar fecha"];
  * existentes por un mensaje que la mayoría de los negocios ni necesita editar.
  */
 const DEFAULT_CITA_VIGENTE =
-  "¡Hola {{nombre}}! Ya tenés agendado {{servicio}} para {{fecha}}. Si necesitás cambiar algo o tenés otra consulta, contame 🙂";
+  "¡Hola {{nombre}}! Ya tiene agendado {{servicio}} para {{fecha}}. Si necesita cambiar algo o tiene otra consulta, cuénteme 🙂";
 
 /**
  * Defaults de los mensajes del flujo de pedido (T-21), todos opcionales por
@@ -75,34 +75,34 @@ const DEFAULT_CITA_VIGENTE =
  * forzaría a tocar todos los configs existentes por un flujo que la mayoría
  * de los negocios (los que agendan) ni usa.
  */
-const DEFAULT_ASK_CANTIDAD = "¿Cuántas unidades de {{servicio}} querés, {{nombre}}?";
+const DEFAULT_ASK_CANTIDAD = "¿Cuántas unidades de {{servicio}} quiere, {{nombre}}?";
 /** Exportado (T-48): el modo agente cierra el pedido con la misma pregunta. */
-export const DEFAULT_ASK_CONFIRM_PEDIDO = "¿Confirmás tu pedido?";
+export const DEFAULT_ASK_CONFIRM_PEDIDO = "¿Confirma su pedido?";
 /**
  * T-21/PR5: entre que el cliente confirma y la dueña acepta/rechaza por
  * WhatsApp, el pedido queda "en revisión" — ya no se confirma directo, ver
  * el bloque `esperando_confirmacion`.
  */
 const DEFAULT_ESPERANDO_APROBACION =
-  "¡Gracias {{nombre}}! Tu pedido quedó en revisión, en un momento te confirmamos 🙏";
+  "¡Gracias {{nombre}}! Su pedido quedó en revisión, en un momento le confirmamos 🙏";
 /**
  * Exportado (T-21/PR5): `handle.ts` lo usa para el mensaje al cliente cuando
  * la DUEÑA acepta — ya no se envía desde acá (ver el bloque `esperando_confirmacion`).
  */
 export const DEFAULT_PEDIDO_CONFIRMADO =
-  "¡Gracias {{nombre}}! Tu pedido quedó confirmado. En breve te contactamos para coordinar la entrega.";
+  "¡Gracias {{nombre}}! Su pedido quedó confirmado. En breve lo contactamos para coordinar la entrega.";
 /** Exportado (T-21/PR5): `handle.ts` lo usa cuando la dueña rechaza el pedido. */
 export const DEFAULT_PEDIDO_RECHAZADO =
-  "Uy {{nombre}}, no pudimos confirmar tu pedido esta vez. Cualquier cosa contame y vemos qué opciones hay 🙏";
+  "Uy {{nombre}}, no pudimos confirmar su pedido esta vez. Cualquier cosa cuénteme y vemos qué opciones hay 🙏";
 const DEFAULT_PEDIDO_VIGENTE =
-  "¡Hola {{nombre}}! Ya tenés un pedido confirmado con nosotros. Si querés hacer un pedido nuevo o tenés otra consulta, contame 🙂";
+  "¡Hola {{nombre}}! Ya tiene un pedido confirmado con nosotros. Si quiere hacer un pedido nuevo o tiene otra consulta, cuénteme 🙂";
 
 /** Pregunta fija (no configurable, como el resto de la micro-copy de interrupción) tras agregar un producto. */
-const ASK_ALGO_MAS = "¿Querés agregar algo más a tu pedido?";
+const ASK_ALGO_MAS = "¿Quiere agregar algo más a su pedido?";
 const ALGO_MAS_DONE_OPTION = "No, eso es todo";
 export const PEDIDO_CONFIRM_OPTIONS = ["Sí, confirmar", "Agregar más"];
 /** T-36: se pide solo si el cliente eligió una modalidad a domicilio. */
-export const ASK_DIRECCION = "¿A qué dirección te lo mandamos? Incluí el barrio y alguna referencia 🏠";
+export const ASK_DIRECCION = "¿A qué dirección se lo enviamos? Incluya el barrio y alguna referencia 🏠";
 
 /** Crea un lead nuevo a partir del primer mensaje. Exportado: lo reutiliza `agent.ts`. */
 export function createLead(message: IncomingMessage, now: Date): Lead {

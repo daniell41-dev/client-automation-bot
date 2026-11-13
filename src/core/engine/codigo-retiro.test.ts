@@ -12,8 +12,8 @@ describe("generarCodigoRetiro", () => {
 describe("mensajeCodigoRetiro", () => {
   it("para recoger y para domicilio dice cuándo mostrarlo", () => {
     expect(mensajeCodigoRetiro(12, "4821", "Recoger en el local")).toBe(
-      "Tu pedido #12 · código de retiro: 4821. Mostralo al recoger tu pedido.",
+      "Su pedido #12 · código de retiro: 4821. Muéstrelo al recoger su pedido.",
     );
-    expect(mensajeCodigoRetiro(12, "4821", "Domicilio")).toContain("Dáselo a quien te lo entregue");
+    expect(mensajeCodigoRetiro(12, "4821", "Domicilio")).toContain("Déselo a quien se lo entregue");
   });
 });
