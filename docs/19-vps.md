@@ -85,9 +85,13 @@ GitHub → el repo → **Settings → Secrets and variables → Actions → New 
 | `NEXT_PUBLIC_SUPABASE_URL` | El mismo de `.env.local` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | El mismo de `.env.local` |
 | `NEXT_PUBLIC_SITE_URL` | `https://100-23-146-236.sslip.io` |
+| `NEXT_PUBLIC_WHATSAPP_VENTAS` | (Opcional, T-80) El WhatsApp de ventas para la landing, formato `57XXXXXXXXXX` |
+| `NEXT_PUBLIC_INSTAGRAM` | (Opcional, T-80) El Instagram de Nexo: usuario o URL |
 
-Las tres `NEXT_PUBLIC_*` van acá porque Next las incrusta al compilar, y la compilación
-es en GitHub. Los demás secretos (WhatsApp, IA, service role) **no** se cargan en
+Las `NEXT_PUBLIC_*` van acá porque Next las incrusta al compilar, y la compilación
+es en GitHub. Las dos de la landing son opcionales: si faltan, el despliegue no falla y
+los botones "Escríbanos por WhatsApp" llevan a `/demo`. Como quedan dentro del HTML, un
+cambio de número necesita publicar una release nueva para verse. Los demás secretos (WhatsApp, IA, service role) **no** se cargan en
 GitHub: solo viven en el `.env.production` del servidor.
 
 ## 6. Desplegar una versión

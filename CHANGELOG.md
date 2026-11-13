@@ -6,6 +6,11 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Nuevo
+- Landing de venta en la portada (T-80): qué hace Nexo, cómo funciona, para qué negocios,
+  instalación y preguntas frecuentes, con botones "Escríbanos por WhatsApp" (número en
+  `NEXT_PUBLIC_WHATSAPP_VENTAS`; sin él llevan a la demo).
+
 ### Cambios
 - El bot le habla de usted al cliente y a la dueña, en español de Colombia (T-78): sin voseo en
   los mensajes, las plantillas de rubro ni los prompts de la IA. `pnpm quitar:voseo` corrige lo
