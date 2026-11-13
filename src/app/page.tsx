@@ -1,62 +1,89 @@
 /**
- * Landing mínima: presenta la plataforma y deriva a la demo o al login.
+ * T-80: landing de venta. Un solo objetivo: que la dueña de un negocio de
+ * Cúcuta toque "Escríbanos por WhatsApp". Los textos los escribió el dueño del
+ * producto y van tal cual: nada de cifras ni promesas que no podamos cumplir.
+ *
+ * Estática a propósito (sin Supabase ni sesión): carga rápido en un celular
+ * con datos y no depende de que la base esté arriba para vender.
  */
 
-import Link from "next/link";
-import { Logo } from "@/components/logo";
-import { ArrowRight } from "lucide-react";
+import type { Metadata } from "next";
+import { INSTAGRAM, SITIO, WHATSAPP_VENTAS } from "@/app/landing-config";
+import { enlaceInstagram } from "@/lib/enlace-whatsapp";
+import { BarraMovil } from "@/components/landing/barra-movil";
+import { Cierre } from "@/components/landing/cierre";
+import { ComoFunciona } from "@/components/landing/como-funciona";
+import { Control } from "@/components/landing/control";
+import { Encabezado } from "@/components/landing/encabezado";
+import { Hero, SUBTITULO_HERO } from "@/components/landing/hero";
+import { Instalacion } from "@/components/landing/instalacion";
+import { Negocios } from "@/components/landing/negocios";
+import { Perdidas } from "@/components/landing/perdidas";
+import { Pie } from "@/components/landing/pie";
+import { Precio } from "@/components/landing/precio";
+import { Preguntas } from "@/components/landing/preguntas";
+import { Testimonios } from "@/components/landing/testimonios";
+
+const TITULO = "Nexo · Pedidos, citas y pagos por WhatsApp en Cúcuta";
+
+export const metadata: Metadata = {
+  // `absolute`: la plantilla del layout ("%s · Nexo") repetiría la marca.
+  title: { absolute: TITULO },
+  description: SUBTITULO_HERO,
+  // Relativa: `metadataBase` (layout) la completa con NEXT_PUBLIC_SITE_URL.
+  alternates: { canonical: "/" },
+  // La imagen sale de `opengraph-image.png` (convención de archivo), no se repite acá.
+  openGraph: { title: TITULO, description: SUBTITULO_HERO, url: "/" },
+};
+
+/** Datos estructurados para buscadores: quiénes somos y dónde atendemos. */
+function jsonLd(): string {
+  const instagram = enlaceInstagram(INSTAGRAM);
+  const telefono = (WHATSAPP_VENTAS ?? "").replace(/\D/g, "");
+  const organizacion = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Nexo",
+    url: SITIO,
+    logo: `${SITIO}/apple-icon.png`,
+    description: SUBTITULO_HERO,
+    areaServed: { "@type": "City", name: "Cúcuta", containedInPlace: { "@type": "Country", name: "Colombia" } },
+    ...(instagram ? { sameAs: [instagram] } : {}),
+    ...(/^57\d{10}$/.test(telefono)
+      ? { contactPoint: { "@type": "ContactPoint", telephone: `+${telefono}`, contactType: "sales", areaServed: "CO", availableLanguage: "es" } }
+      : {}),
+  };
+  // Next recomienda escapar "<" para que un texto no pueda cerrar el <script> (ver docs/guides/json-ld).
+  return JSON.stringify(organizacion).replace(/</g, "\\u003c");
+}
 
 export default function Home() {
   return (
-    <main
-      className="flex min-h-screen flex-col"
-      style={{
-        background:
-          "radial-gradient(80% 60% at 50% 0%, rgba(42,111,219,.28) 0%, rgba(14,32,51,0) 55%), #0E2033",
-      }}
-    >
-      <header className="mx-auto flex w-full max-w-4xl items-center justify-between px-6 py-5">
-        <Logo variant="dark" />
-        <Link
-          href="/login"
-          className="rounded-[10px] border border-white/20 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd() }} />
+      {/* pb-24: en el celular la barra fija de WhatsApp no tapa el pie. */}
+      <main className="bg-canvas pb-24 sm:pb-0">
+        <div
+          style={{
+            background:
+              "radial-gradient(80% 60% at 50% 0%, rgba(42,111,219,.28) 0%, rgba(14,32,51,0) 55%), #0E2033",
+          }}
         >
-          Iniciar sesión
-        </Link>
-      </header>
-
-      <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-6 pb-24 text-center fade-up">
-        <h1 className="text-4xl font-extrabold leading-tight text-white sm:text-[52px]">
-          Su negocio, respondiendo en WhatsApp las 24 horas.
-        </h1>
-        <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-white/70 sm:text-[17px]">
-          Gestione el catálogo, las citas y las respuestas de su bot desde un
-          solo lugar. Sin escribir una línea de código.
-        </p>
-        <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-          <Link
-            href="/demo"
-            className="inline-flex items-center justify-center gap-2 rounded-[10px] bg-primary px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-primary-hover"
-          >
-            Ver la demo
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center rounded-[10px] border border-white/25 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-          >
-            Entrar a mi portal
-          </Link>
+          <Encabezado />
+          <Hero />
         </div>
-      </section>
-
-      {/* T-70: Meta y la ley piden que la política esté a la vista desde la portada. */}
-      <footer className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-center gap-x-6 gap-y-2 px-6 pb-8 text-xs text-white/50">
-        <span>© {new Date().getFullYear()} Nexo · Cúcuta, Colombia</span>
-        <Link href="/privacidad" className="hover:text-white">Privacidad</Link>
-        <Link href="/terminos" className="hover:text-white">Términos</Link>
-        <Link href="/eliminar-datos" className="hover:text-white">Eliminar mis datos</Link>
-      </footer>
-    </main>
+        <Perdidas />
+        <ComoFunciona />
+        <Negocios />
+        <Control />
+        <Instalacion />
+        <Precio />
+        <Testimonios />
+        <Preguntas />
+        <Cierre />
+      </main>
+      <Pie />
+      <BarraMovil />
+    </>
   );
 }
