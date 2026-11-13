@@ -27,10 +27,10 @@ export default function Home() {
 
       <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-6 pb-24 text-center fade-up">
         <h1 className="text-4xl font-extrabold leading-tight text-white sm:text-[52px]">
-          Tu negocio, respondiendo en WhatsApp las 24 horas.
+          Su negocio, respondiendo en WhatsApp las 24 horas.
         </h1>
         <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-white/70 sm:text-[17px]">
-          Gestioná el catálogo, los turnos y las respuestas de tu bot desde un
+          Gestione el catálogo, las citas y las respuestas de su bot desde un
           solo lugar. Sin escribir una línea de código.
         </p>
         <div className="mt-9 flex flex-col gap-3 sm:flex-row">

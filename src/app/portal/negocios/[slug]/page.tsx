@@ -67,7 +67,7 @@ export default async function ResumenPage({
     // T-42: sin su número, la dueña nunca se entera de un pedido; y si cobra
     // con comprobante, sin datos de pago el bot le pide plata al cliente sin
     // decirle a dónde mandarla.
-    { label: "Tu WhatsApp para avisos", done: Boolean(config?.notifyPhoneNumber) },
+    { label: "Su WhatsApp para avisos", done: Boolean(config?.notifyPhoneNumber) },
     ...(config?.pagos?.requiereComprobante
       ? [{ label: "Cuentas para cobrar", done: cuentasDeConfig(config.pagos).length > 0 }]
       : []),
@@ -97,8 +97,8 @@ export default async function ResumenPage({
 
       {/* Completá tu bot */}
       <Card
-        title="Completá tu bot"
-        subtitle="Cuanto más completes, mejor responde a tus clientes."
+        title="Complete su bot"
+        subtitle="Cuanto más completes, mejor responde a sus clientes."
         action={
           <span className="font-display text-sm font-bold text-primary">
             {done}/{checklist.length}
@@ -127,8 +127,8 @@ export default async function ResumenPage({
         </ul>
         {!negocio.whatsapp_phone_number_id && (
           <p className="mt-3 text-[13px] text-ink-soft">
-            El bot queda apagado hasta que el administrador conecte tu número de
-            WhatsApp. Mientras tanto podés dejar todo listo.
+            El bot queda apagado hasta que el administrador conecte su número de
+            WhatsApp. Mientras tanto puede dejar todo listo.
           </p>
         )}
         {/* T-16: "Respuestas y flujos" está oculta — el conocimiento del bot
@@ -148,7 +148,7 @@ export default async function ResumenPage({
         {recientes.length === 0 ? (
           <EmptyState
             title="Aún no hay conversaciones."
-            subtitle="Cuando tus clientes escriban al bot, van a aparecer acá."
+            subtitle="Cuando sus clientes escriban al bot, van a aparecer aquí."
           />
         ) : (
           <ul className="divide-y divide-line">

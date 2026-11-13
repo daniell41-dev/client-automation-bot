@@ -17,7 +17,7 @@ export default function GlobalError({ error, retry }: { error: Error & { digest?
           <p style={{ fontSize: 15, fontWeight: 800, opacity: 0.9 }}>Nexo</p>
           <h1 style={{ fontSize: 32, margin: "16px 0 8px" }}>Algo salió mal</h1>
           <p style={{ opacity: 0.7, lineHeight: 1.6 }}>
-            No pudimos cargar Nexo. Probá de nuevo en unos segundos; tus pedidos y tus datos están bien.
+            No pudimos cargar Nexo. Pruebe de nuevo en unos segundos; sus pedidos y sus datos están bien.
           </p>
           <button
             type="button"

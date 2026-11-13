@@ -90,7 +90,7 @@ export default async function NegociosPage() {
 
       <Card
         title="Nuevo negocio"
-        subtitle="Elegí el cliente dueño y el rubro que le da su plantilla base. Nace en pausa."
+        subtitle="Elija el cliente dueño y el rubro que le da su plantilla base. Nace en pausa."
       >
         <NuevoNegocioForm rubros={rubroOptions} clientes={clienteOptions} />
       </Card>
@@ -132,7 +132,7 @@ export default async function NegociosPage() {
       />
 
       <p className="text-xs text-ink-soft">
-        Hacé clic en un negocio para editarlo, pausarlo/activarlo o eliminarlo.
+        Haga clic en un negocio para editarlo, pausarlo/activarlo o eliminarlo.
       </p>
     </div>
   );

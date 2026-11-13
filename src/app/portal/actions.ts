@@ -312,7 +312,7 @@ export async function actualizarWompi(
     patch[columna] = valor;
   }
   if (Object.keys(patch).length === 0) {
-    return { error: "Completá al menos un campo para guardar." };
+    return { error: "Complete al menos un campo para guardar." };
   }
 
   const supabase = await createUserClient();
@@ -379,7 +379,7 @@ async function guardarQr(
 
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}/configuracion`);
-  return { ok: qrUrl ? "QR guardado. El bot lo manda junto con tus cuentas." : "QR quitado." };
+  return { ok: qrUrl ? "QR guardado. El bot lo envía junto con sus cuentas." : "QR quitado." };
 }
 
 export async function subirQrPago(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -388,10 +388,10 @@ export async function subirQrPago(_prev: ActionState, formData: FormData): Promi
   const slug = String(formData.get("slug") ?? "");
   const archivo = formData.get("qr");
   if (!slug) return { error: "Falta el negocio." };
-  if (!(archivo instanceof File) || archivo.size === 0) return { error: "Elegí la imagen del QR." };
+  if (!(archivo instanceof File) || archivo.size === 0) return { error: "Elija la imagen del QR." };
   const ext = TIPOS_QR[archivo.type];
   if (!ext) return { error: "El QR tiene que ser una imagen PNG, JPG o WEBP." };
-  if (archivo.size > MAX_QR_BYTES) return { error: "La imagen pesa más de 2 MB. Probá con una captura más chica." };
+  if (archivo.size > MAX_QR_BYTES) return { error: "La imagen pesa más de 2 MB. Pruebe con una captura más pequeña." };
 
   return guardarQr(slug, async (negocioId) => {
     const admin = createAdminClient()!;

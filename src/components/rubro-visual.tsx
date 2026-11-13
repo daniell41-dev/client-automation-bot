@@ -112,7 +112,7 @@ export function catalogCopy(
         categoriaPlaceholder: "Categoría",
         previewSaludo: `¡Hola! ¿Qué ${plural} ofrecen?`,
         previewSustantivo: `nuestro ${singular}`,
-        previewCta: "Reservar turno",
+        previewCta: "Reservar cita",
       };
     }
     return {
@@ -137,7 +137,7 @@ export function catalogCopy(
       categoriaPlaceholder: "Faciales",
       previewSaludo: "¡Hola! ¿Qué servicios ofrecen?",
       previewSustantivo: "nuestro servicio",
-      previewCta: "Reservar turno",
+      previewCta: "Reservar cita",
     };
   }
   // Catálogo (comercio/retail genérico): antes de T-18 caía en la misma

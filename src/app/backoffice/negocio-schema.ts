@@ -14,8 +14,8 @@ import { SLUG_RE } from "@/core/config-schema";
 export const crearNegocioSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio."),
   slug: z.string().regex(SLUG_RE, "El slug debe ir en kebab-case (ej. mi-negocio)."),
-  owner_id: z.string().min(1, "Elegí un cliente dueño."),
-  rubro_id: z.string().min(1, "Elegí un rubro."),
+  owner_id: z.string().min(1, "Elija un cliente dueño."),
+  rubro_id: z.string().min(1, "Elija un rubro."),
   whatsapp_phone_number_id: z.string().optional(),
   plan: z.enum(["free", "pro"]),
 });
@@ -23,7 +23,7 @@ export const crearNegocioSchema = z.object({
 export const actualizarNegocioSchema = z.object({
   id: z.string().min(1),
   nombre: z.string().min(1, "El nombre es obligatorio."),
-  owner_id: z.string().min(1, "Elegí un cliente dueño."),
+  owner_id: z.string().min(1, "Elija un cliente dueño."),
   whatsapp_phone_number_id: z.string().optional(),
   plan: z.enum(["free", "pro"]),
 });

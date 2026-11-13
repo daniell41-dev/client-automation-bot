@@ -10,7 +10,7 @@ import { ActionForm } from "@/components/action-form";
 import { definirContrasena } from "./actions";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Definí tu contraseña" };
+export const metadata = { title: "Defina su contraseña" };
 
 const inputCls = "input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft";
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
@@ -23,7 +23,7 @@ export default async function DefinirContrasenaPage() {
     <main className="flex min-h-screen items-center justify-center bg-canvas px-6 py-10">
       <div className="w-full max-w-[364px] fade-up">
         <Logo />
-        <h1 className="mt-8 text-[25px] font-extrabold text-ink">Definí tu contraseña</h1>
+        <h1 className="mt-8 text-[25px] font-extrabold text-ink">Defina su contraseña</h1>
         <p className="mt-1 text-sm text-ink-mid">
           Es la que vas a usar para entrar a Nexo con {me.email}.
         </p>
@@ -33,7 +33,7 @@ export default async function DefinirContrasenaPage() {
             <input id="contrasena" name="contrasena" type="password" autoComplete="new-password" minLength={8} required className={inputCls} />
           </div>
           <div>
-            <label htmlFor="repetida" className={labelCls}>Repetila</label>
+            <label htmlFor="repetida" className={labelCls}>Repítala</label>
             <input id="repetida" name="repetida" type="password" autoComplete="new-password" minLength={8} required className={inputCls} />
           </div>
         </ActionForm>

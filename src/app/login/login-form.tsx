@@ -56,7 +56,7 @@ export function LoginForm() {
           type="email"
           required
           autoComplete="email"
-          placeholder="tu@correo.com"
+          placeholder="nombre@correo.com"
           className="input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft"
         />
       </div>
@@ -88,7 +88,7 @@ export function LoginForm() {
 
       {linkVencido && !state.error && (
         <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-sm text-warn-ink">
-          El link venció o ya se usó. Pedí uno nuevo con &quot;¿Olvidaste tu contraseña?&quot;.
+          El link venció o ya se usó. Pida uno nuevo con &quot;¿Olvidó su contraseña?&quot;.
         </p>
       )}
 
@@ -107,7 +107,7 @@ export function LoginForm() {
       </button>
 
       <Link href="/login/recuperar" className="block text-center text-sm font-semibold text-primary hover:underline">
-        ¿Olvidaste tu contraseña?
+        ¿Olvidó su contraseña?
       </Link>
     </form>
   );

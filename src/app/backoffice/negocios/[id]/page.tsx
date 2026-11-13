@@ -57,7 +57,7 @@ export default async function DetalleNegocioPage({
         <VolverLink />
         <Card title={negocio.slug} subtitle="La configuración guardada no es válida.">
           <p className="text-sm text-ink-mid">
-            Contactá a soporte técnico antes de reactivarlo, o eliminalo si fue una
+            Contacte a soporte técnico antes de reactivarlo, o elimínelo si fue una
             prueba.
           </p>
           <div className="mt-4">

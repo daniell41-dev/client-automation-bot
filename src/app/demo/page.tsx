@@ -49,8 +49,8 @@ export default async function DemoPage() {
             Así se ve un negocio en Nexo
           </h1>
           <p className="mt-2 max-w-xl text-[15px] text-ink-mid">
-            Este es un negocio de ejemplo configurado en la plataforma. Podés
-            probar el bot como si fueras un cliente escribiéndole por WhatsApp.
+            Este es un negocio de ejemplo configurado en la plataforma. Puede
+            probar el bot como si fuera un cliente escribiéndole por WhatsApp.
           </p>
         </div>
 
@@ -59,7 +59,7 @@ export default async function DemoPage() {
             title="Aún no hay negocio de demostración."
             subtitle={
               supabase
-                ? "Corré el seed: pnpm seed:supabase"
+                ? "Ejecute el seed: pnpm seed:supabase"
                 : "Supabase no está configurado en este entorno."
             }
           />

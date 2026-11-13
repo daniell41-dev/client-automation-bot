@@ -143,7 +143,7 @@ export function PortalShell({
     [catalogLabel(negocio.rubro, negocio.catalogo)]: "Lo que el bot puede ofrecer y vender por WhatsApp",
     "Citas y reservas": "Turnos y reservas que el bot agenda automáticamente",
     "Respuestas y flujos": "Cómo responde el bot: IA entrenada + reglas de respaldo",
-    Conversaciones: "Chats de tus clientes en tiempo real",
+    Conversaciones: "Chats de sus clientes en tiempo real",
     Configuración: "Datos del negocio, horarios y bot",
   };
 

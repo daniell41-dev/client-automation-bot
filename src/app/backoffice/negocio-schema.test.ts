@@ -36,8 +36,8 @@ describe("crearNegocioSchema", () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       const errors = result.error.flatten().fieldErrors;
-      expect(errors.owner_id?.[0]).toBe("Elegí un cliente dueño.");
-      expect(errors.rubro_id?.[0]).toBe("Elegí un rubro.");
+      expect(errors.owner_id?.[0]).toBe("Elija un cliente dueño.");
+      expect(errors.rubro_id?.[0]).toBe("Elija un rubro.");
     }
   });
 

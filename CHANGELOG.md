@@ -10,6 +10,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 - El bot le habla de usted al cliente y a la dueña, en español de Colombia (T-78): sin voseo en
   los mensajes, las plantillas de rubro ni los prompts de la IA. `pnpm quitar:voseo` corrige lo
   que ya está guardado en la base.
+- Las pantallas (portal, back office, login, demo y errores) también hablan de usted (T-79), y el
+  tono "Cercano" del bot ya no tutea al cliente.
 
 ## [1.0.2] — 2026-11-13
 

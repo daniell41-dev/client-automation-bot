@@ -69,6 +69,17 @@ describe("quitarVoseoConfig", () => {
     expect((config.pedidos as { opciones: string[] }).opciones).toEqual(["Comer acá"]);
   });
 
+  it("T-79: cambia el preset \"Cercano\" viejo (tuteaba) y deja un tono propio tal cual", () => {
+    const viejo = "Cálido y cercano. Usa emojis con moderación, tutea al cliente y responde con energía positiva.";
+    const { config, cambios } = quitarVoseoConfig({
+      personas: { whatsapp: { name: "Ana", tone: viejo, language: "x" }, instagram: { name: "B", tone: "Fun and trendy", language: "x" } },
+    });
+    const personas = config.personas as Record<string, { tone: string }>;
+    expect(personas.whatsapp.tone).toContain("trata al cliente de usted");
+    expect(personas.instagram.tone).toBe("Fun and trendy");
+    expect(cambios.map((c) => c.campo)).toEqual(["personas.whatsapp.tone"]);
+  });
+
   it("no modifica el objeto original", () => {
     quitarVoseoConfig(base);
     expect(base.messages.welcome).toBe("¡Hola! ¿Qué servicio te interesa?");
