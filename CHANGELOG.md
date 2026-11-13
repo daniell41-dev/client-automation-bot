@@ -9,6 +9,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [1.0.2] — 2026-11-13
 
 ### Arreglos
+- Las fuentes (Plus Jakarta Sans y Sora) quedan dentro del proyecto (T-77): el build ya no
+  las descarga de Google, que empezó a responder en un formato que tumbaba el build.
 - Panel de pedidos (T-76): se refresca al volver a la pestaña, al reconectarse y cada
   30 s mientras está a la vista; antes una devolución podía no aparecer hasta recargar.
 - Traefik pasa de v3.1 a v3.6 (T-75): con Docker 29 la v3.1 no veía la app y no sacaba
