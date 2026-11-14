@@ -7,6 +7,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Cambios
+- Landing (T-93): en "Así funciona" la línea se llena de azul al bajar, el número de cada paso
+  se enciende cuando la línea lo alcanza y su escena entra desde su lado.
 - Landing (T-92): una línea de escaneo baja por el comprobante de ejemplo al hacer scroll y
   cada dato recibe su marca cuando la línea pasa: tres revisados y la fecha en ámbar ("Hace 12 días").
 - Landing (T-91): el teléfono del hero se siente como un WhatsApp de verdad: la nota de voz
