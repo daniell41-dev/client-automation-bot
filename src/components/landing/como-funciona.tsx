@@ -6,7 +6,13 @@
  *
  * En escritorio los pasos alternan de lado alrededor de la línea central; en
  * celular, la línea va a la izquierda y la escena debajo de la frase.
- * Componente de servidor, sin animación propia.
+ * Componente de servidor, sin JavaScript.
+ *
+ * T-93: la línea se llena de azul a medida que se baja (la punta va siempre
+ * por la mitad de la pantalla), el número de cada paso se enciende cuando la
+ * punta lo alcanza y su escena entra desde su lado. CSS ligado al scroll
+ * (globals.css, "T-93"); sin soporte o con "reducir movimiento" se ve el
+ * final: la línea llena y los cuatro números encendidos.
  */
 
 import type { ReactNode } from "react";
@@ -58,9 +64,11 @@ const PASOS: { frase: string; escena: ReactNode }[] = [
 export function ComoFunciona() {
   return (
     <Seccion id="como-funciona" titulo="Así funciona" oscura>
-      <ol className="relative mt-10">
+      <ol className="pasos relative mt-10">
         {/* La línea: a la izquierda en celular, al centro en escritorio. */}
         <span aria-hidden className="absolute bottom-6 left-[23px] top-6 w-px bg-white/15 lg:left-1/2" />
+        {/* El relleno, encima, en el mismo lugar: crece desde arriba (scaleY). */}
+        <span aria-hidden className="paso-relleno absolute bottom-6 left-[22px] top-6 w-[3px] rounded-full bg-primary-light lg:left-[calc(50%-1px)]" />
 
         {PASOS.map((paso, i) => {
           const derecha = i % 2 === 1; // en escritorio, los pares van con la frase a la derecha
@@ -70,7 +78,9 @@ export function ComoFunciona() {
               <span
                 className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-[#0E2033] font-display text-[28px] font-bold text-white ring-1 ring-white/20 lg:col-start-2 lg:row-start-1 lg:mx-auto lg:h-16 lg:w-16 lg:text-[36px]`}
               >
-                {i + 1}
+                {/* La luz del número: un círculo azul encima del oscuro, que aparece cuando la línea llega. */}
+                <span aria-hidden className="paso-luz absolute inset-0 rounded-full bg-primary shadow-[0_0_24px_-2px_rgba(76,141,255,0.8)]" />
+                <span className="relative">{i + 1}</span>
               </span>
 
               <p
@@ -83,7 +93,7 @@ export function ComoFunciona() {
 
               <div
                 aria-hidden
-                className={`col-start-2 mt-4 lg:row-start-1 lg:mt-0 ${derecha ? "lg:col-start-1 lg:flex lg:justify-end lg:pr-10" : "lg:col-start-3 lg:pl-10"}`}
+                className={`col-start-2 mt-4 lg:row-start-1 lg:mt-0 ${derecha ? "paso-escena-izq lg:col-start-1 lg:flex lg:justify-end lg:pr-10" : "paso-escena-der lg:col-start-3 lg:pl-10"}`}
               >
                 <FondoChat className="w-full max-w-[320px] lg:max-w-[340px]">{paso.escena}</FondoChat>
               </div>

@@ -383,7 +383,8 @@ describe("landing (T-80)", () => {
 
     it("cuatro pasos numerados con su frase y su escena del chat", () => {
       expect(seccion.match(/<li /g)).toHaveLength(4);
-      for (const n of ["1", "2", "3", "4"]) expect(seccion).toMatch(new RegExp(`font-display[^"]*">${n}</span>`));
+      // T-93: entre el círculo (font-display) y el número va la capa de luz.
+      for (const n of ["1", "2", "3", "4"]) expect(seccion).toMatch(new RegExp(`font-display[^"]*">(?:<span[^>]*></span>)?<span class="relative">${n}</span>`));
       for (const frase of [
         "Su cliente escribe o manda una nota de voz.",
         "Nexo arma el pedido con sus precios y el cliente confirma el total.",
@@ -402,6 +403,38 @@ describe("landing (T-80)", () => {
     it("ya no son tarjetas: en escritorio los pasos alternan de lado", () => {
       expect(seccion.match(/lg:col-start-3 lg:pl-10/g)!.length).toBeGreaterThanOrEqual(4);
       expect(seccion).toContain("lg:col-start-1 lg:pr-10 lg:text-right");
+    });
+
+    describe("T-93: la línea se llena con el scroll", () => {
+      const seccion = html.match(/<section id="como-funciona"[\s\S]*?<\/section>/)![0];
+      const css = readFileSync(join(__dirname, "..", "..", "src/app/globals.css"), "utf8");
+      const bloque = css.slice(css.indexOf("/* T-93:"), css.indexOf("@keyframes pasoRelleno"));
+
+      it("relleno, cuatro luces y cuatro escenas que entran desde su lado", () => {
+        expect(seccion).toMatch(/<ol class="pasos /);
+        expect(seccion).toContain("paso-relleno");
+        expect(seccion.match(/paso-luz/g)).toHaveLength(4);
+        expect(seccion.match(/paso-escena-der/g)).toHaveLength(2);
+        expect(seccion.match(/paso-escena-izq/g)).toHaveLength(2);
+      });
+
+      it("el número sigue siendo texto legible encima de la luz", () => {
+        for (const n of [1, 2, 3, 4]) expect(seccion).toContain(`<span class="relative">${n}</span>`);
+      });
+
+      it("solo con soporte y sin «reducir movimiento»; la punta va por la mitad de la pantalla", () => {
+        expect(bloque).toMatch(/@supports \(animation-timeline: view\(\)\) \{\s*@media \(prefers-reduced-motion: no-preference\)/);
+        expect(bloque).toContain("view-timeline-name: --pasos;");
+        expect(bloque).toContain("animation-range: cover 50vh cover calc(100% - 50vh);");
+        // Fuera del bloque condicionado no hay nada oculto: sin soporte se ve el final.
+        expect(css.slice(css.indexOf("/* T-93:"), css.indexOf("@supports", css.indexOf("/* T-93:")))).not.toContain("opacity");
+      });
+
+      it("las animaciones nuevas solo mueven opacity y transform", () => {
+        const fotogramas = css.slice(css.indexOf("@keyframes pasoRelleno"), css.indexOf("/* Foco de inputs"));
+        const props = new Set([...fotogramas.matchAll(/([a-z-]+):/g)].map((m) => m[1]));
+        expect(props).toEqual(new Set(["opacity", "transform"]));
+      });
     });
 
     it("el único componente de cliente de la landing son las pestañas de negocios", () => {

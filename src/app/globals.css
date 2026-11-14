@@ -372,6 +372,61 @@ body {
   to { opacity: 1; transform: none; }
 }
 
+/* T-93: "Así funciona" se llena con el scroll. La lista da la línea de tiempo
+   (--pasos): el relleno va de "su borde de arriba en la mitad de la
+   pantalla" a "su borde de abajo en la mitad", así la punta azul va siempre
+   por el centro. Cada número usa su propia vista y se enciende al cruzar la
+   mitad de la pantalla, o sea cuando la punta lo alcanza. Las escenas entran
+   desde su lado (en celular, desde abajo). Sin soporte: el estilo normal ya
+   es el final (línea llena, números encendidos, escenas en su lugar). */
+.paso-relleno { transform-origin: top center; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .pasos { view-timeline-name: --pasos; }
+    .paso-relleno {
+      animation: pasoRelleno linear both;
+      animation-timeline: --pasos;
+      animation-range: cover 50vh cover calc(100% - 50vh);
+    }
+    .paso-luz {
+      animation: pasoLuz ease-out both;
+      animation-timeline: view();
+      animation-range: cover calc(50vh - 8px) cover calc(50vh + 24px);
+    }
+    .paso-escena-izq,
+    .paso-escena-der {
+      animation: pasoEscenaAbajo ease-out both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 35%;
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) and (min-width: 1024px) {
+    .paso-escena-izq { animation-name: pasoEscenaIzq; }
+    .paso-escena-der { animation-name: pasoEscenaDer; }
+  }
+}
+
+@keyframes pasoRelleno {
+  from { transform: scaleY(0); }
+  to { transform: none; }
+}
+@keyframes pasoLuz {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pasoEscenaAbajo {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pasoEscenaIzq {
+  from { opacity: 0; transform: translateX(-32px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pasoEscenaDer {
+  from { opacity: 0; transform: translateX(32px); }
+  to { opacity: 1; transform: none; }
+}
+
 /* Foco de inputs: borde primario + ring azul suave. */
 .input-nexo {
   border: 1px solid var(--color-line-input);
