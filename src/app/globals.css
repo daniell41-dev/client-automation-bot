@@ -427,6 +427,50 @@ body {
   to { opacity: 1; transform: none; }
 }
 
+/* T-94: el ticket de precio. El borde de papel cortado es una máscara de
+   semicírculos arriba y abajo (estática). Las líneas se "imprimen" al entrar
+   en pantalla, una tras otra; después se corta la línea punteada y por
+   último sale el total. Sin soporte o con "reducir movimiento": completo. */
+.ticket {
+  -webkit-mask:
+    radial-gradient(circle at 50% 0, #0000 5px, #000 5.5px) top / 16px 51% repeat-x,
+    radial-gradient(circle at 50% 100%, #0000 5px, #000 5.5px) bottom / 16px 51% repeat-x;
+  mask:
+    radial-gradient(circle at 50% 0, #0000 5px, #000 5.5px) top / 16px 51% repeat-x,
+    radial-gradient(circle at 50% 100%, #0000 5px, #000 5.5px) bottom / 16px 51% repeat-x;
+}
+.ticket-corte { transform-origin: left center; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .ticket-linea,
+    .ticket-corte,
+    .ticket-total {
+      animation-timing-function: ease-out;
+      animation-fill-mode: both;
+      animation-timeline: view();
+    }
+    .ticket-linea { animation-name: ticketImprime; }
+    .ticket-linea-1 { animation-range: entry 40% cover 25%; }
+    .ticket-linea-2 { animation-range: entry 70% cover 28%; }
+    .ticket-linea-3 { animation-range: entry 100% cover 31%; }
+    .ticket-corte { animation-name: ticketCorte; animation-range: cover 22% cover 34%; }
+    .ticket-total { animation-name: ticketTotal; animation-range: cover 20% cover 36%; }
+  }
+}
+
+@keyframes ticketImprime {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ticketCorte {
+  from { transform: scaleX(0); }
+  to { transform: none; }
+}
+@keyframes ticketTotal {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+
 /* Foco de inputs: borde primario + ring azul suave. */
 .input-nexo {
   border: 1px solid var(--color-line-input);

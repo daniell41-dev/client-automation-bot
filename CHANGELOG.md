@@ -7,6 +7,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Cambios
+- Landing (T-94): el precio se muestra como un ticket que se suma ("Su cuenta": instalación $0,
+  14 días $0, permanencia 0 meses, y abajo desde $79.900 al mes); las líneas se imprimen al bajar.
 - Landing (T-93): en "Así funciona" la línea se llena de azul al bajar, el número de cada paso
   se enciende cuando la línea lo alcanza y su escena entra desde su lado.
 - Landing (T-92): una línea de escaneo baja por el comprobante de ejemplo al hacer scroll y
