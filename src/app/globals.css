@@ -47,6 +47,8 @@
   --color-wa-out: #d9fdd3;
   --color-wa-reply: #0a94d6;
   --color-wa-today: #fff6d5;
+  /* T-91: los dos checks azules de "leído". */
+  --color-wa-visto: #53bdeb;
 
   /* Rubros (tinte de fondo / tinta del icono) */
   --color-rubro-gastro-bg: #fff1e6;
@@ -194,6 +196,81 @@ body {
 }
 .tel-paso-6 { animation-name: telPaso6; }
 
+/* T-91: lo que hace que el teléfono se sienta como un WhatsApp de verdad.
+   Mismo ciclo de 15 s que los pasos, para que todo vaya sincronizado. El
+   estilo sin animación es siempre el estado final (nota escuchada, checks
+   azules, subrayado hecho, "en línea"): eso es lo que se ve con "reducir
+   movimiento" o si el navegador no anima. */
+.tel-onda,
+.tel-onda-barras,
+.tel-en-linea,
+.tel-escribiendo,
+.tel-tecleo,
+.tel-visto,
+.tel-subraya {
+  animation-duration: 15s;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+.tel-escribiendo,
+.tel-tecleo { opacity: 0; }
+.tel-subraya { transform-origin: left center; }
+
+/* La nota "se escucha" de 1,0 a 2,2 s: la capa verde entra desde la
+   izquierda y sus barras se mueven al revés, así quedan quietas en su lugar
+   mientras se descubren. */
+@keyframes telOnda {
+  0%, 6.7% { transform: translateX(-100%); }
+  14.7%, 100% { transform: none; }
+}
+@keyframes telOndaBarras {
+  0%, 6.7% { transform: translateX(100%); }
+  14.7%, 100% { transform: none; }
+}
+.tel-onda { animation-name: telOnda; }
+.tel-onda-barras { animation-name: telOndaBarras; }
+
+/* "escribiendo…" arriba antes del resumen (1,3–2,5 s) y antes del aviso
+   ámbar (6,6–7,5 s); "en línea" se apaga en esos mismos ratos. */
+@keyframes telEscribiendo {
+  0%, 8%, 17%, 43.5%, 50.5%, 100% { opacity: 0; }
+  9%, 16.2%, 44.5%, 49.7% { opacity: 1; }
+}
+@keyframes telEnLinea {
+  0%, 8%, 17%, 43.5%, 50.5%, 100% { opacity: 1; }
+  9%, 16.2%, 44.5%, 49.7% { opacity: 0; }
+}
+.tel-escribiendo { animation-name: telEscribiendo; }
+.tel-en-linea { animation-name: telEnLinea; }
+
+/* Los tres puntos, donde va a salir el resumen, justo antes de que salga. */
+@keyframes telTecleo {
+  0%, 8.7%, 17.3%, 100% { opacity: 0; }
+  9.7%, 16.4% { opacity: 1; }
+}
+.tel-tecleo { animation-name: telTecleo; }
+
+.tecleo-punto { animation: tecleoPunto 1.2s ease-in-out infinite; }
+@keyframes tecleoPunto {
+  0%, 60%, 100% { transform: none; opacity: 0.5; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+
+/* Checks azules: el cliente leyó el resumen un poco antes de confirmar (4,2 s). */
+@keyframes telVisto {
+  0%, 27.3% { opacity: 0; }
+  28.7%, 100% { opacity: 1; }
+}
+.tel-visto { animation-name: telVisto; }
+
+/* El monto que no cuadra se subraya apenas sale el aviso (7,9–8,6 s). */
+@keyframes telSubraya {
+  0%, 52.7% { transform: scaleX(0); }
+  57.3%, 100% { transform: none; }
+}
+.tel-subraya { animation-name: telSubraya; }
+
 /* Con movimiento reducido: la conversación completa, quieta (estado final).
    `.fade-up` también: el texto del hero (y las pantallas del portal) aparecen
    ya en su lugar. */
@@ -203,6 +280,21 @@ body {
     animation: none;
     opacity: 1;
     transform: none;
+  }
+  /* T-91: nota escuchada, checks azules, subrayado hecho y "en línea". */
+  .tel-onda,
+  .tel-onda-barras,
+  .tel-en-linea,
+  .tel-visto,
+  .tel-subraya {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .tel-escribiendo,
+  .tel-tecleo,
+  .tecleo-punto {
+    animation: none;
   }
 }
 

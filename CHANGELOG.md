@@ -7,6 +7,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Cambios
+- Landing (T-91): el teléfono del hero se siente como un WhatsApp de verdad: la nota de voz
+  avanza mientras se escucha, arriba dice "escribiendo…" y salen los tres puntos antes de cada
+  respuesta, los checks del resumen se ponen azules y el monto que no cuadra se subraya.
 - SEO (T-89): título y descripción nuevos con el mensaje del hero; la imagen para redes
   (1200×630) ahora se genera con código desde el título y el precio, sin dominio fijo; los
   datos estructurados suman `SoftwareApplication` con oferta en COP solo si hay precio
