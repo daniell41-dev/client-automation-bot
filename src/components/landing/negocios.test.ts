@@ -57,10 +57,11 @@ const enLanding = (frase: string) => expect(html, frase).toContain(frase);
 describe("T-87: las conversaciones de la landing son las del bot", () => {
   it("barbería y estética: bienvenida con servicios y cita agendada (modo guiado)", async () => {
     const config: BusinessConfig = { ...plantilla("peluqueria"), slug: "peluqueria", botActivo: true };
-    const { textos, opciones } = await conversar(config, ["¿Tiene turno hoy a las 5?", "Tinte", "Andrés", "hoy a las 5 de la tarde", "Sí, confirmar"]);
+    // T-88: la hora del primer mensaje se recuerda: después del nombre pasa directo a confirmar.
+    const { textos, opciones } = await conversar(config, ["¿Tiene turno hoy a las 5?", "Corte caballero", "Andrés", "Sí, confirmar"]);
     for (const respuesta of [
       "¡Hola! Gracias por escribirnos ✂️ ¿Qué servicio le interesa?",
-      "¡Listo Andrés! ✨ Su cita de Tinte para hoy a las 5 de la tarde quedó agendada. Lo esperamos.",
+      "¡Listo Andrés! ✨ Su cita de Corte caballero para hoy a las 5 quedó agendada. Lo esperamos.",
     ]) {
       expect(textos, respuesta).toContain(respuesta);
       enLanding(respuesta);

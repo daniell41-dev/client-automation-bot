@@ -229,13 +229,24 @@ export function matchService(
   const offered = availableServices(services);
   const n = normalizeMessage(text);
 
-  // 1) Por nombre o palabra clave.
+  // 1) Por nombre o palabra clave, con puntaje (T-88). Antes ganaba el
+  // PRIMER servicio con alguna palabra clave en el texto: con "Corte dama" y
+  // "Corte caballero" (las dos con "corte"), escribir o tocar "Corte
+  // caballero" agendaba "Corte dama". Ahora:
+  // - el nombre completo gana siempre (es lo que manda el botón del menú);
+  // - si no, gana el que más palabras clave coinciden (y más largas);
+  // - en empate se queda el primero, como antes.
+  let mejor: { service: Service; puntaje: number } | undefined;
   for (const service of offered) {
-    if (n.includes(normalize(service.name))) return service;
+    const nombre = normalize(service.name);
+    let puntaje = nombre && n.includes(nombre) ? 1000 + nombre.length : 0;
     for (const keyword of service.keywords ?? []) {
-      if (n.includes(normalize(keyword))) return service;
+      const kw = normalize(keyword);
+      if (kw && n.includes(kw)) puntaje += 10 + kw.length;
     }
+    if (puntaje > 0 && (!mejor || puntaje > mejor.puntaje)) mejor = { service, puntaje };
   }
+  if (mejor) return mejor.service;
 
   // 2) Por número de menú (1-based), solo si el mensaje ES una selección y no
   // una frase que casualmente trae un número (ver `menuSelectionIndex`).
@@ -351,6 +362,42 @@ export function looksLikeDate(text: string): boolean {
   if (/\b\d{1,2}\/\d{1,2}\b/.test(n)) return true;
   if (/^\d{1,2}$/.test(n)) return true;
   return false;
+}
+
+/**
+ * Dónde empieza a hablar de fecha/hora una frase (ya doblada). Más estricto
+ * que `looksLikeDate` a propósito: "buenas tardes" no es una fecha, ni un
+ * número suelto ("1" es elegir del menú).
+ */
+const ANCLA_FECHA = new RegExp(
+  [
+    "\\bpasado manana\\b",
+    "\\b(?:el |este |esta |el proximo |la proxima )?(?:hoy|manana|lunes|martes|miercoles|jueves|viernes|sabado|domingo)\\b",
+    "\\bel \\d{1,2}\\b",
+    "\\ba las? \\d{1,2}\\b",
+    "\\b\\d{1,2}(?::\\d{2})?\\s*(?:am|pm)\\b",
+    "\\b\\d{1,2}:\\d{2}\\b",
+    "\\b\\d{1,2}/\\d{1,2}\\b",
+  ].join("|"),
+);
+
+/**
+ * T-88: la fecha/hora que viene DENTRO de otra frase ("Quiero un corte
+ * caballero hoy a las 5", "¿Tiene turno hoy a las 5?"), lista para guardar
+ * como `tentativeDate`: desde la primera señal de fecha hasta el final, con
+ * las abreviaturas expandidas ("mñn" → "mañana") y sin la puntuación de los
+ * bordes. `undefined` si la frase no trae fecha: nunca se guarda la frase
+ * entera como si fuera la fecha.
+ */
+export function extraerFechaDeFrase(text: string): string | undefined {
+  const limpio = normalizeDateText(text);
+  if (!limpio) return undefined;
+  // `foldAccents` conserva la longitud de un texto con tildes compuestas, así
+  // que el índice en la versión doblada sirve para cortar la original.
+  const indice = foldAccents(limpio).search(ANCLA_FECHA);
+  if (indice < 0) return undefined;
+  const fecha = limpio.slice(indice).replace(/[¿?¡!.,;:\s]+$/, "");
+  return fecha && looksLikeDate(fecha) ? fecha : undefined;
 }
 
 /**

@@ -67,9 +67,9 @@ const RUBROS: Rubro[] = [
         <Burbuja de="cliente">¿Tiene turno hoy a las 5?</Burbuja>
         <Burbuja de="negocio">¡Hola! Gracias por escribirnos ✂️ ¿Qué servicio le interesa?</Burbuja>
         <RespuestasRapidas opciones={["Corte dama", "Corte caballero", "Tinte"]} />
-        <Burbuja de="cliente">Tinte</Burbuja>
-        <TurnosOmitidos texto="pide el nombre y la hora, y confirma" />
-        <Burbuja de="negocio">¡Listo Andrés! ✨ Su cita de Tinte para hoy a las 5 de la tarde quedó agendada. Lo esperamos.</Burbuja>
+        <Burbuja de="cliente">Corte caballero</Burbuja>
+        <TurnosOmitidos texto="pide el nombre y confirma" />
+        <Burbuja de="negocio">¡Listo Andrés! ✨ Su cita de Corte caballero para hoy a las 5 quedó agendada. Lo esperamos.</Burbuja>
       </>
     ),
   },

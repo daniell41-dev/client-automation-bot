@@ -6,6 +6,11 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Arreglos
+- Citas (T-88): "Corte caballero" ya no agenda "Corte dama" cuando dos servicios comparten una
+  palabra clave; la hora que viene en el primer mensaje ("¿tiene turno hoy a las 5?") se
+  recuerda en vez de volver a pedirla; y "p. m." llega bien a la confirmación (antes "p . me").
+
 ### Nuevo
 - Landing de venta en la portada (T-80): qué hace Nexo, cómo funciona, para qué negocios,
   instalación y preguntas frecuentes, con botones "Escríbanos por WhatsApp" (número en
