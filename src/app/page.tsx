@@ -13,6 +13,7 @@ import { enlaceInstagram } from "@/lib/enlace-whatsapp";
 import { BarraMovil } from "@/components/landing/barra-movil";
 import { Cierre } from "@/components/landing/cierre";
 import { ComoFunciona } from "@/components/landing/como-funciona";
+import { Comprobante } from "@/components/landing/comprobante";
 import { Control } from "@/components/landing/control";
 import { Encabezado } from "@/components/landing/encabezado";
 import { FondoPuntos } from "@/components/landing/fondo-puntos";
@@ -78,6 +79,7 @@ export default function Home() {
           </div>
         </div>
         <Perdidas />
+        <Comprobante />
         <ComoFunciona />
         <Negocios />
         <Control />

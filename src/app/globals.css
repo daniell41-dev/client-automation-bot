@@ -206,6 +206,41 @@ body {
   }
 }
 
+/* T-83: anotaciones del comprobante. Entran a medida que cada una aparece en
+   pantalla (scroll-driven, sin JS). El rango se corre un poco por anotación
+   para que, aunque entren varias a la vez, se lean una tras otra. Sin soporte
+   de animation-timeline, o con "reducir movimiento", no hay animación y se
+   ven fijas (es el estilo por defecto). */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .anotacion {
+      animation: anotacionEntra linear both;
+      animation-timeline: view();
+    }
+    .anotacion-linea {
+      transform-origin: left center;
+      animation: anotacionLinea linear both;
+      animation-timeline: view();
+    }
+    /* Cada una termina de entrar cuando va por un tercio de la pantalla: si
+       la dueña deja de bajar con la sección a la vista, las cuatro se leen. */
+    .anotacion-1 { animation-range: entry 0% cover 20%; }
+    .anotacion-2 { animation-range: entry 20% cover 25%; }
+    .anotacion-3 { animation-range: entry 40% cover 30%; }
+    .anotacion-4 { animation-range: entry 60% cover 35%; }
+  }
+}
+
+@keyframes anotacionEntra {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes anotacionLinea {
+  from { opacity: 0; transform: scaleX(0); }
+  to { opacity: 1; transform: none; }
+}
+
 /* Foco de inputs: borde primario + ring azul suave. */
 .input-nexo {
   border: 1px solid var(--color-line-input);

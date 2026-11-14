@@ -15,6 +15,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 - Hero animado (T-82): el teléfono muestra en bucle una nota de voz, el resumen, un comprobante
   que no cuadra y el aviso para aprobar; solo CSS y quieto con "reducir movimiento". Chips de
   instalación gratis, 14 días de prueba y sin permanencia.
+- Landing (T-83): sección del comprobante anotado. Un comprobante de ejemplo con las cuatro
+  preguntas que Nexo revisa (monto, cuenta, referencia, fecha), que aparecen al bajar.
 
 ### Cambios
 - El bot le habla de usted al cliente y a la dueña, en español de Colombia (T-78): sin voseo en
