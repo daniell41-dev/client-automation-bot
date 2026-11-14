@@ -9,6 +9,8 @@
 
 import type { Metadata } from "next";
 import { jsonLd } from "@/components/landing/datos-estructurados";
+import { AvisoMedicion } from "@/components/landing/aviso-medicion";
+import { CLARITY_ID } from "@/app/landing-config";
 import { BarraMovil } from "@/components/landing/barra-movil";
 import { Cierre } from "@/components/landing/cierre";
 import { ComoFunciona } from "@/components/landing/como-funciona";
@@ -71,6 +73,8 @@ export default function Home() {
       </main>
       <Pie />
       <BarraMovil />
+      {/* T-90: solo aquí, en la landing; sin ID configurado no se monta nada. */}
+      {CLARITY_ID && <AvisoMedicion clarityId={CLARITY_ID} />}
     </>
   );
 }

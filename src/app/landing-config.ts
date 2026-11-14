@@ -7,11 +7,19 @@
  * secretos de GitHub (docs/19-vps.md, paso 5).
  */
 
+import { clarityIdValido } from "@/lib/medicion";
+
 /** Número de ventas, formato 57XXXXXXXXXX. Sin él, los botones de WhatsApp llevan a /demo. */
 export const WHATSAPP_VENTAS = process.env.NEXT_PUBLIC_WHATSAPP_VENTAS;
 
 /** Usuario de Instagram (con o sin @) o URL completa. Sin él, el pie no lo muestra. */
 export const INSTAGRAM = process.env.NEXT_PUBLIC_INSTAGRAM;
+
+/**
+ * T-90: proyecto de Microsoft Clarity. Sin él (o mal copiado) no hay aviso
+ * de medición ni script: la landing queda sin ninguna herramienta externa.
+ */
+export const CLARITY_ID = clarityIdValido(process.env.NEXT_PUBLIC_CLARITY_ID);
 
 /**
  * Mensualidad "desde". `null` = no se muestra precio y la sección invita a

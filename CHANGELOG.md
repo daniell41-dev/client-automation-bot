@@ -7,6 +7,10 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Cambios
+- Medición (T-90): con `NEXT_PUBLIC_CLARITY_ID`, la landing muestra un aviso pequeño y carga
+  Microsoft Clarity solo si el visitante acepta; los clics en los botones de WhatsApp llegan
+  como eventos `whatsapp_<origen>`. Nunca en el portal, el backoffice, el login ni la demo.
+  La política de privacidad nombra la herramienta y su finalidad.
 - SEO (T-89): título y descripción nuevos con el mensaje del hero; la imagen para redes
   (1200×630) ahora se genera con código desde el título y el precio, sin dominio fijo; los
   datos estructurados suman `SoftwareApplication` con oferta en COP solo si hay precio

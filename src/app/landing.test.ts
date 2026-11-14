@@ -321,12 +321,14 @@ describe("landing (T-80)", () => {
       expect(seccion).toContain("lg:col-start-1 lg:pr-10 lg:text-right");
     });
 
-    it("el único componente de cliente de la landing son las pestañas de negocios", () => {
+    // T-90 suma el aviso de medición, también autorizado en su tarea. Cualquier
+    // otro "use client" en la landing tiene que pasar por aquí a propósito.
+    it("los únicos componentes de cliente de la landing son las pestañas y el aviso de medición", () => {
       const dir = join(__dirname, "..", "components", "landing");
       const conCliente = readdirSync(dir)
         .filter((f) => f.endsWith(".tsx"))
         .filter((f) => /^["']use client["']/m.test(readFileSync(join(dir, f), "utf8")));
-      expect(conCliente).toEqual(["negocios-pestanas.tsx"]);
+      expect(conCliente).toEqual(["aviso-medicion.tsx", "negocios-pestanas.tsx"]);
     });
   });
 

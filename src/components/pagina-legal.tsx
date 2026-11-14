@@ -8,7 +8,19 @@ import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { ACTUALIZADO } from "@/lib/legal";
 
-export function PaginaLegal({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+/**
+ * `actualizado`: fecha propia de la página cuando solo cambió esa (T-90:
+ * privacidad), para no mover la de los términos sin haberlos tocado.
+ */
+export function PaginaLegal({
+  titulo,
+  actualizado = ACTUALIZADO,
+  children,
+}: {
+  titulo: string;
+  actualizado?: string;
+  children: React.ReactNode;
+}) {
   return (
     <main className="min-h-screen bg-canvas">
       <header className="border-b border-line bg-white">
@@ -24,7 +36,7 @@ export function PaginaLegal({ titulo, children }: { titulo: string; children: Re
       </header>
       <article className="prosa-legal mx-auto max-w-3xl px-6 py-10 sm:py-14">
         <h1>{titulo}</h1>
-        <p className="actualizado">Última actualización: {ACTUALIZADO}</p>
+        <p className="actualizado">Última actualización: {actualizado}</p>
         {children}
       </article>
     </main>

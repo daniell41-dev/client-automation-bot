@@ -21,7 +21,7 @@ export const metadata = {
 
 export default function PrivacidadPage() {
   return (
-    <PaginaLegal titulo="Política de privacidad y tratamiento de datos">
+    <PaginaLegal titulo="Política de privacidad y tratamiento de datos" actualizado="14 de noviembre de 2026">
       <p>
         Nexo es un servicio que atiende el WhatsApp de negocios: responde a sus clientes, arma pedidos y citas,
         revisa comprobantes de pago y le avisa al negocio para que apruebe. Esta política explica qué datos
@@ -101,6 +101,7 @@ export default function PrivacidadPage() {
           <tr><td>Google (Gemini) y Groq</td><td>Inteligencia artificial que entiende los mensajes, las notas de voz y los comprobantes para responder.</td></tr>
           <tr><td>Proveedor de servidores en la nube</td><td>Ejecutar la aplicación.</td></tr>
           <tr><td>Wompi (solo si el negocio lo activa)</td><td>Cobros en línea.</td></tr>
+          <tr><td>Microsoft (Clarity), solo si el visitante lo acepta</td><td>Medir cómo se usa la página de presentación de Nexo (ver la sección 12).</td></tr>
         </tbody>
       </table>
       <p>
@@ -155,10 +156,23 @@ export default function PrivacidadPage() {
         Para pedir que borremos sus datos, siga los pasos de <Link href="/eliminar-datos">eliminar mis datos</Link>.
       </p>
 
-      <h2 id="cookies">12. Cookies</h2>
+      <h2 id="cookies">12. Cookies y medición de la página</h2>
       <p>
         El portal usa solo las cookies necesarias para mantener la sesión iniciada. No usamos cookies de
-        publicidad ni de seguimiento.
+        publicidad.
+      </p>
+      {/* T-90: párrafo nuevo, pendiente de revisión del responsable. Describe lo
+          que hace `AvisoMedicion`: si cambia qué se mide o dónde, cambia aquí. */}
+      <p id="medicion">
+        En la página de presentación de Nexo, y solo si usted toca <strong>Aceptar</strong> en el aviso que
+        aparece al entrar, usamos <strong>Microsoft Clarity</strong>, una herramienta de Microsoft, para ver
+        cómo se usa la página y mejorarla: qué secciones se leen, hasta dónde se baja, dónde se toca y cuántas
+        veces se tocan los botones de WhatsApp. Clarity registra esa navegación sin su nombre ni su número de
+        teléfono y usa sus propias cookies para reconocer visitas repetidas. No la usamos en el portal, en la
+        demo ni en el inicio de sesión, y no la usamos para publicidad. Si elige <strong>No, gracias</strong>,
+        la herramienta no se carga. Su decisión queda guardada en su navegador; para cambiarla, borre los datos
+        de este sitio en el navegador y el aviso volverá a aparecer. Microsoft trata esos datos como encargado,
+        según su propia declaración de privacidad.
       </p>
 
       <h2 id="cambios">13. Cambios a esta política</h2>

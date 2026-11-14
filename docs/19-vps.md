@@ -87,10 +87,16 @@ GitHub → el repo → **Settings → Secrets and variables → Actions → New 
 | `NEXT_PUBLIC_SITE_URL` | `https://100-23-146-236.sslip.io` |
 | `NEXT_PUBLIC_WHATSAPP_VENTAS` | (Opcional, T-80) El WhatsApp de ventas para la landing, formato `57XXXXXXXXXX` |
 | `NEXT_PUBLIC_INSTAGRAM` | (Opcional, T-80) El Instagram de Nexo: usuario o URL |
+| `NEXT_PUBLIC_CLARITY_ID` | (Opcional, T-90) ID del proyecto de Microsoft Clarity (clarity.microsoft.com → Settings → Overview → Project ID) |
 
 Las `NEXT_PUBLIC_*` van acá porque Next las incrusta al compilar, y la compilación
-es en GitHub. Las dos de la landing son opcionales: si faltan, el despliegue no falla y
-los botones "Escríbanos por WhatsApp" llevan a `/demo`. Como quedan dentro del HTML, un
+es en GitHub. Las de la landing son opcionales: si faltan, el despliegue no falla y
+los botones "Escríbanos por WhatsApp" llevan a `/demo`. Sin `NEXT_PUBLIC_CLARITY_ID` la
+landing no muestra el aviso de medición ni carga Clarity; con él, Clarity se carga solo en
+`/` y solo después de que el visitante toque "Aceptar" (nunca en `/portal`, `/backoffice`,
+`/login` ni `/demo`). Los clics en los botones de WhatsApp llegan a Clarity como eventos
+`whatsapp_<origen>` (`whatsapp_hero`, `whatsapp_precios`, `whatsapp_barra-movil`,
+`whatsapp_cierre`, `whatsapp_comprobante`): en el panel, Filtros → Eventos personalizados. Como quedan dentro del HTML, un
 cambio de número necesita publicar una release nueva para verse. Los demás secretos (WhatsApp, IA, service role) **no** se cargan en
 GitHub: solo viven en el `.env.production` del servidor.
 

@@ -74,6 +74,7 @@ jobs:
             --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL" \
             --build-arg NEXT_PUBLIC_WHATSAPP_VENTAS="$NEXT_PUBLIC_WHATSAPP_VENTAS" \
             --build-arg NEXT_PUBLIC_INSTAGRAM="$NEXT_PUBLIC_INSTAGRAM" \
+            --build-arg NEXT_PUBLIC_CLARITY_ID="$NEXT_PUBLIC_CLARITY_ID" \
             .
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -83,6 +84,8 @@ jobs:
           # sin ellos la landing funciona igual, con los botones hacia /demo.
           NEXT_PUBLIC_WHATSAPP_VENTAS: ${{ secrets.NEXT_PUBLIC_WHATSAPP_VENTAS }}
           NEXT_PUBLIC_INSTAGRAM: ${{ secrets.NEXT_PUBLIC_INSTAGRAM }}
+          # T-90: también opcional; sin él no hay medición.
+          NEXT_PUBLIC_CLARITY_ID: ${{ secrets.NEXT_PUBLIC_CLARITY_ID }}
 
       - name: Preparar SSH
         run: |
