@@ -343,6 +343,54 @@ describe("landing (T-80)", () => {
     });
   });
 
+  describe("T-95: la comanda que acompaña la página", () => {
+    const css = readFileSync(join(__dirname, "globals.css"), "utf8");
+    const talones = [...html.matchAll(/<div aria-hidden="true" class="relative z-\[15\] h-0">([\s\S]*?)<\/div><\/div><\/div><\/div>/g)].map((m) =>
+      m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+    );
+
+    it("cuatro talones del pedido #128, en el orden de la historia", () => {
+      expect(talones).toHaveLength(4);
+      expect(talones.every((t) => t.startsWith("#128"))).toBe(true);
+      expect(talones.map((t) => t.replace(/^#128 /, ""))).toEqual([
+        "10:47 p. m. Llega una nota de voz",
+        "10:48 p. m. Total confirmado: $45.000",
+        "10:49 p. m. Comprobante: faltan $5.000",
+        "10:52 p. m. Pedido aprobado por usted",
+      ]);
+    });
+
+    it("cada talón va entre las secciones que le tocan", () => {
+      const pos = (s: string) => html.indexOf(s);
+      const talon = (t: string) => html.indexOf(t);
+      expect(talon("Llega una nota de voz")).toBeLessThan(pos('id="perdidas"'));
+      expect(talon("Total confirmado")).toBeGreaterThan(pos('id="perdidas"'));
+      expect(talon("Total confirmado")).toBeLessThan(pos('id="comprobante"'));
+      expect(talon("faltan $5.000")).toBeGreaterThan(pos('id="comprobante"'));
+      expect(talon("faltan $5.000")).toBeLessThan(pos('id="como-funciona"'));
+      expect(talon("Pedido aprobado por usted")).toBeGreaterThan(pos('id="control"'));
+      expect(talon("Pedido aprobado por usted")).toBeLessThan(pos('id="instalacion"'));
+    });
+
+    it("los montos cuadran con el teléfono del hero ($45.000 y $40.000: faltan $5.000)", () => {
+      expect(html).toContain("El comprobante dice");
+      expect(html).toContain("el pedido es $45.000.");
+      expect(45000 - 40000).toBe(5000);
+    });
+
+    it("son decorativos y no ocupan espacio", () => {
+      expect(html.match(/<div aria-hidden="true" class="relative z-\[15\] h-0">/g)).toHaveLength(4);
+    });
+
+    it("salen de su ranura solo con soporte y sin «reducir movimiento», moviendo solo transform", () => {
+      const bloque = css.slice(css.indexOf("/* T-95:"), css.indexOf("@keyframes comandaSale"));
+      expect(bloque).toMatch(/@supports \(animation-timeline: view\(\)\) \{\s*@media \(prefers-reduced-motion: no-preference\)/);
+      const inicio = css.indexOf("@keyframes comandaSale");
+      const fotogramas = css.slice(inicio, css.indexOf("/*", inicio));
+      expect(new Set([...fotogramas.matchAll(/([a-z-]+):/g)].map((m) => m[1]))).toEqual(new Set(["transform"]));
+    });
+  });
+
   describe("T-84: lo que se pierde", () => {
     const seccion = html.match(/<section id="perdidas"[\s\S]*?<\/section>/)![0];
     const textoSeccion = seccion.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");

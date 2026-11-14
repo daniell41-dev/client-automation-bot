@@ -11,6 +11,7 @@ import type { Metadata } from "next";
 import { jsonLd } from "@/components/landing/datos-estructurados";
 import { BarraMovil } from "@/components/landing/barra-movil";
 import { Cierre } from "@/components/landing/cierre";
+import { TalonComanda } from "@/components/landing/comanda";
 import { ComoFunciona } from "@/components/landing/como-funciona";
 import { Comprobante } from "@/components/landing/comprobante";
 import { Control } from "@/components/landing/control";
@@ -57,11 +58,16 @@ export default function Home() {
             <Hero />
           </div>
         </div>
+        {/* T-95: los talones del pedido #128 van sobre el borde entre secciones. */}
+        <TalonComanda momento="nota" />
         <Perdidas />
+        <TalonComanda momento="total" />
         <Comprobante />
+        <TalonComanda momento="comprobante" />
         <ComoFunciona />
         <Negocios />
         <Control />
+        <TalonComanda momento="aprobado" />
         <Instalacion />
         <Responsable />
         <Precio />
