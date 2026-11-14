@@ -323,6 +323,45 @@ body {
   }
 }
 
+/* T-92: escaneo del comprobante. La tarjeta da la línea de tiempo
+   (--comprobante) y `timeline-scope` en la rejilla la deja ver a sus
+   hermanos: la línea y las marcas avanzan con el mismo scroll. La línea baja
+   entre el 20 % y el 65 % del paso de la tarjeta por la pantalla; cada marca
+   sale cuando la línea llega a su fila (los rangos están calculados con esa
+   cuenta). Sin soporte: sin línea, marcas puestas. */
+.escaneo-linea { opacity: 0; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .escaneo-alcance { timeline-scope: --comprobante; }
+    .escaneo-tarjeta { view-timeline-name: --comprobante; }
+    .escaneo-linea {
+      animation: escaneoBaja linear both;
+      animation-timeline: --comprobante;
+      animation-range: cover 20% cover 65%;
+    }
+    .escaneo-marca {
+      animation: escaneoMarca ease-out both;
+      animation-timeline: --comprobante;
+    }
+    .escaneo-marca-1 { animation-range: cover 29% cover 33%; }
+    .escaneo-marca-2 { animation-range: cover 38% cover 42%; }
+    .escaneo-marca-3 { animation-range: cover 47% cover 51%; }
+    .escaneo-marca-4 { animation-range: cover 56% cover 60%; }
+  }
+}
+
+@keyframes escaneoBaja {
+  0% { opacity: 0; transform: translateY(0); }
+  6% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(100%); }
+}
+
+@keyframes escaneoMarca {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+
 @keyframes anotacionEntra {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: none; }

@@ -213,6 +213,39 @@ describe("landing (T-80)", () => {
       expect(html.match(/data-brillo/g)).toHaveLength(1);
     });
 
+    describe("T-92: la línea de escaneo", () => {
+      const seccion = html.match(/<section id="comprobante"[\s\S]*?<\/section>/)![0];
+      const css = readFileSync(join(__dirname, "..", "..", "src/app/globals.css"), "utf8");
+
+      it("cada dato tiene su marca: tres revisados y la fecha en ámbar", () => {
+        expect(seccion.match(/escaneo-marca escaneo-marca-\d/g)).toHaveLength(4);
+        expect(seccion.match(/aria-label="Revisado"/g)).toHaveLength(3);
+        expect(seccion).toMatch(/escaneo-marca-4[^"]*bg-warn-bg[\s\S]*?Hace 12 días/);
+      });
+
+      it("la línea es decorativa y no se puede tocar", () => {
+        expect(seccion).toMatch(/aria-hidden="true" class="pointer-events-none[^"]*"><div class="escaneo-linea/);
+      });
+
+      it("línea y marcas siguen el mismo scroll, solo con soporte y sin «reducir movimiento»", () => {
+        const bloque = css.slice(css.indexOf("/* T-92:"), css.indexOf("@keyframes escaneoBaja"));
+        expect(bloque).toMatch(/@supports \(animation-timeline: view\(\)\) \{\s*@media \(prefers-reduced-motion: no-preference\)/);
+        expect(bloque).toContain("timeline-scope: --comprobante;");
+        expect(bloque).toContain("view-timeline-name: --comprobante;");
+        expect(bloque.match(/animation-timeline: --comprobante;/g)).toHaveLength(2);
+        // Sin soporte la línea no aparece; las marcas quedan visibles (no tienen opacidad 0 fuera del bloque).
+        expect(css).toContain(".escaneo-linea { opacity: 0; }");
+        expect(css).not.toMatch(/\.escaneo-marca[^{]*\{[^}]*opacity: 0/);
+      });
+
+      it("las marcas salen en orden, de arriba abajo", () => {
+        const inicios = [1, 2, 3, 4].map((n) => Number(css.match(new RegExp(`\\.escaneo-marca-${n} \\{ animation-range: cover (\\d+)%`))![1]));
+        expect([...inicios].sort((x, y) => x - y)).toEqual(inicios);
+        expect(inicios[0]).toBeGreaterThanOrEqual(20);
+        expect(inicios[3]).toBeLessThanOrEqual(65);
+      });
+    });
+
     it("las anotaciones se animan con view() solo si el navegador lo soporta y sin «reducir movimiento»", () => {
       const css = readFileSync(join(__dirname, "..", "..", "src/app/globals.css"), "utf8");
       expect(css).toMatch(/@supports \(animation-timeline: view\(\)\) \{\s*@media \(prefers-reduced-motion: no-preference\) \{[\s\S]*?\.anotacion \{[\s\S]*?animation-timeline: view\(\);/);
