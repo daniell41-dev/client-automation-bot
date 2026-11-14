@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import Home, { metadata } from "@/app/page";
+import { GARANTIA, Precio } from "@/components/landing/precio";
 
 const html = renderToStaticMarkup(createElement(Home));
 /** Texto visible en una línea: sin etiquetas, sin el JSON-LD y con los saltos de línea como espacios. */
@@ -38,7 +39,7 @@ describe("landing (T-80)", () => {
       "Ningún pedido se despacha sin su aprobación.",
       "No inventa precios ni cuentas de pago.",
       "Hacemos un pedido de prueba juntos y le enseñamos a aprobar.",
-      "Instalación gratis y 14 días de prueba. Después, desde $79.900 al mes.",
+      "Desde $79.900 al mes",
       "Los tratamos según la Ley 1581 de 2012.",
       "¿Quiere verlo funcionando con su negocio?",
       "Nexo · Cúcuta, Colombia",
@@ -117,7 +118,9 @@ describe("landing (T-80)", () => {
     });
 
     it("las condiciones del hero coinciden con la sección de precio (no se promete otra cosa)", () => {
-      expect(texto).toContain("Instalación gratis y 14 días de prueba.");
+      const precio = html.match(/<section id="precio"[\s\S]*?<\/section>/)![0];
+      expect(precio).toContain("14 días de prueba");
+      expect(precio).toContain("Sin permanencia");
     });
   });
 
@@ -157,6 +160,51 @@ describe("landing (T-80)", () => {
     it("las anotaciones se animan con view() solo si el navegador lo soporta y sin «reducir movimiento»", () => {
       const css = readFileSync(join(__dirname, "..", "..", "src/app/globals.css"), "utf8");
       expect(css).toMatch(/@supports \(animation-timeline: view\(\)\) \{\s*@media \(prefers-reduced-motion: no-preference\) \{[\s\S]*?\.anotacion \{[\s\S]*?animation-timeline: view\(\);/);
+    });
+  });
+
+  describe("T-85: tarjeta de precio", () => {
+    const textoDe = (h: string) => h.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    const seccion = textoDe(html.match(/<section id="precio"[\s\S]*?<\/section>/)![0]);
+
+    it("precio en grande con «Desde» y «al mes», condiciones, qué incluye y la garantía", () => {
+      for (const frase of [
+        "Desde $79.900 al mes",
+        "Instalación gratis en su negocio",
+        "14 días de prueba",
+        "Sin permanencia",
+        "Incluye",
+        "Pedidos con total confirmado",
+        "Revisión de comprobantes",
+        "Pedidos por nota de voz",
+        "Citas",
+        "Panel de pedidos en el celular",
+        "Soporte por WhatsApp",
+        GARANTIA,
+      ]) {
+        expect(seccion, frase).toContain(frase);
+      }
+      expect(html).toMatch(/font-display[^"]*text-\[56px\][^"]*sm:text-\[72px\][^>]*>\$79\.900</);
+    });
+
+    it("la garantía y «sin permanencia» dicen lo mismo que los Términos", () => {
+      const terminos = readFileSync(join(__dirname, "terminos", "page.tsx"), "utf8");
+      expect(terminos).toContain("Los primeros 14 días son de prueba gratis, sin obligación de continuar.");
+      expect(terminos).toContain("No hay permanencia mínima.");
+    });
+
+    it("NOTA_PRECIO: sin texto no aparece; con texto, se muestra bajo la lista", () => {
+      const sinNota = renderToStaticMarkup(createElement(Precio, { precio: "$79.900", nota: null }));
+      const conNota = renderToStaticMarkup(createElement(Precio, { precio: "$79.900", nota: "Los mensajes de WhatsApp de Meta van aparte." }));
+      expect(sinNota).not.toContain("van aparte");
+      expect(conNota).toContain("Los mensajes de WhatsApp de Meta van aparte.");
+      expect(conNota.indexOf("Soporte por WhatsApp")).toBeLessThan(conNota.indexOf("van aparte"));
+    });
+
+    it("sin precio se conserva el texto de cupos", () => {
+      const sinPrecio = textoDe(renderToStaticMarkup(createElement(Precio, { precio: null })));
+      expect(sinPrecio).toContain("Instalamos pocos negocios al mes porque lo hacemos en persona. Pregúntenos por los cupos.");
+      expect(sinPrecio).not.toContain("Incluye");
     });
   });
 
