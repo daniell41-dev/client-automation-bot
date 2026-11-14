@@ -15,10 +15,16 @@
  * nota de voz, un comprobante y una tarjeta que sale del borde.
  * T-87: las burbujas salen de `chat.tsx`, compartidas con "Así funciona" y
  * "Para qué negocios".
+ * T-91: más parecido a un WhatsApp de verdad, dentro del mismo ciclo: la nota
+ * de voz avanza mientras "se escucha", arriba dice "escribiendo…" y salen
+ * los tres puntos antes de cada respuesta de Nexo, los checks del resumen se
+ * ponen azules cuando el cliente lo lee y el monto que no cuadra se subraya.
+ * Todo lo nuevo se superpone (posición absoluta o la misma celda de grid):
+ * no reserva ni libera espacio, así que sigue sin mover nada.
  */
 
 import { Send } from "lucide-react";
-import { AvisoAmbar, Burbuja, ComprobanteMini, NotaVoz } from "@/components/landing/chat";
+import { AvisoAmbar, Burbuja, ComprobanteMini, Escribiendo, HoraVisto, NotaVoz } from "@/components/landing/chat";
 
 /** Para lectores de pantalla: la animación es decorativa, la historia va en una frase. */
 const DESCRIPCION =
@@ -36,7 +42,11 @@ export function TelefonoAnimado() {
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/25 text-xs font-bold">S</span>
           <span className="flex-1 leading-tight">
             <span className="block text-[13.5px] font-semibold">Su negocio</span>
-            <span className="block text-[11px] text-white">en línea</span>
+            {/* "en línea" y "escribiendo…" en la misma celda: se turnan sin mover nada. */}
+            <span className="grid text-[11px] text-white">
+              <span className="tel-en-linea col-start-1 row-start-1">en línea</span>
+              <span aria-hidden className="tel-escribiendo col-start-1 row-start-1">escribiendo…</span>
+            </span>
           </span>
           <span className="font-display text-[12px] font-semibold text-white">10:47 p. m.</span>
         </div>
@@ -48,12 +58,17 @@ export function TelefonoAnimado() {
           </div>
 
           {/* 1. Nota de voz del cliente */}
-          <NotaVoz className="tel-paso tel-paso-1" />
+          <NotaVoz progreso className="tel-paso tel-paso-1" />
 
-          {/* 2. Resumen del negocio */}
-          <Burbuja de="negocio" className="tel-paso tel-paso-2">
-            {"Su pedido:\n2x Hamburguesa sencilla $36.000\n1x Gaseosa $4.000\nDomicilio $5.000\nTotal: $45.000\n¿Confirma su pedido?"}
-          </Burbuja>
+          {/* 2. Resumen del negocio. Antes, los tres puntos ocupan su lugar
+              (encima, sin espacio propio) mientras Nexo "escribe". */}
+          <div className="relative flex flex-col">
+            <Escribiendo className="tel-tecleo absolute right-0 top-0" />
+            <Burbuja de="negocio" className="tel-paso tel-paso-2">
+              {"Su pedido:\n2x Hamburguesa sencilla $36.000\n1x Gaseosa $4.000\nDomicilio $5.000\nTotal: $45.000\n¿Confirma su pedido?"}
+              <HoraVisto hora="10:47 p. m." vistoClassName="tel-visto" />
+            </Burbuja>
+          </div>
 
           {/* 3. Confirma y manda el comprobante */}
           <Burbuja de="cliente" className="tel-paso tel-paso-3">
@@ -62,7 +77,14 @@ export function TelefonoAnimado() {
           <ComprobanteMini monto="$40.000" className="tel-paso tel-paso-4" />
 
           {/* 4. Nexo marca que no cuadra */}
-          <AvisoAmbar className="tel-paso tel-paso-5">El comprobante dice $40.000, el pedido es $45.000.</AvisoAmbar>
+          <AvisoAmbar className="tel-paso tel-paso-5">
+            El comprobante dice{" "}
+            <span className="relative inline-block">
+              $40.000
+              <span aria-hidden className="tel-subraya absolute inset-x-0 -bottom-px h-[2px] rounded-full bg-warn-ink" />
+            </span>
+            , el pedido es $45.000.
+          </AvisoAmbar>
         </div>
 
         <div className="flex items-center gap-2 bg-surface-2 px-2.5 py-2">

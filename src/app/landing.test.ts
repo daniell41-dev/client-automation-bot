@@ -123,6 +123,56 @@ describe("landing (T-80)", () => {
       expect(css).toMatch(/prefers-reduced-motion: reduce\)\s*\{\s*\.tel-paso,[\s\S]*?animation: none;\s*opacity: 1;\s*transform: none;/);
     });
 
+    describe("T-91: el teléfono se siente como un WhatsApp de verdad", () => {
+      const raiz = join(__dirname, "..", "..");
+      const css = readFileSync(join(raiz, "src/app/globals.css"), "utf8");
+      const telefono = html.match(/<div role="img" aria-label="Ejemplo de un pedido[\s\S]*?Pedir resto/)![0];
+
+      it("trae «escribiendo…», los tres puntos, la nota que avanza, los checks y el subrayado", () => {
+        for (const clase of ["tel-en-linea", "tel-escribiendo", "tel-tecleo", "tel-onda", "tel-onda-barras", "tel-visto", "tel-subraya"]) {
+          expect(telefono, clase).toContain(clase);
+        }
+        expect(telefono).toContain("escribiendo…");
+        expect(telefono.match(/tecleo-punto/g)).toHaveLength(3);
+      });
+
+      it("cada pieza nueva tiene su animación en el mismo ciclo de 15 s", () => {
+        for (const [clase, anim] of [
+          ["tel-onda", "telOnda"],
+          ["tel-onda-barras", "telOndaBarras"],
+          ["tel-escribiendo", "telEscribiendo"],
+          ["tel-en-linea", "telEnLinea"],
+          ["tel-tecleo", "telTecleo"],
+          ["tel-visto", "telVisto"],
+          ["tel-subraya", "telSubraya"],
+        ]) {
+          expect(css, clase).toContain(`.${clase} { animation-name: ${anim}; }`);
+          expect(css, anim).toContain(`@keyframes ${anim} {`);
+        }
+      });
+
+      it("solo anima opacity y transform (nada que mueva el resto de la página)", () => {
+        const bloque = css.slice(css.indexOf("/* T-91: lo que hace"), css.indexOf("/* Con movimiento reducido"));
+        const propiedades = [...bloque.matchAll(/\{([^{}]*)\}/g)]
+          .flatMap((m) => m[1].split(";"))
+          .map((d) => d.split(":")[0].trim())
+          .filter((p) => p && !p.startsWith("animation") && !p.startsWith("/*"));
+        expect(new Set(propiedades)).toEqual(new Set(["opacity", "transform", "transform-origin"]));
+      });
+
+      it("con «reducir movimiento» queda el estado final, quieto", () => {
+        const reducido = css.match(/@media \(prefers-reduced-motion: reduce\) \{\s*\.tel-paso,[\s\S]*?\n\}/)![0];
+        for (const clase of ["tel-onda", "tel-onda-barras", "tel-en-linea", "tel-visto", "tel-subraya", "tel-escribiendo", "tel-tecleo", "tecleo-punto"]) {
+          expect(reducido, clase).toContain(`.${clase}`);
+        }
+      });
+
+      it("las piezas nuevas no se leen dos veces: son decorativas", () => {
+        expect(telefono).toMatch(/aria-hidden="true" class="tel-escribiendo/);
+        expect(telefono).toMatch(/aria-hidden="true" class="tel-onda /);
+      });
+    });
+
     it("las condiciones del hero coinciden con la sección de precio (no se promete otra cosa)", () => {
       const precio = html.match(/<section id="precio"[\s\S]*?<\/section>/)![0];
       expect(precio).toContain("14 días de prueba");

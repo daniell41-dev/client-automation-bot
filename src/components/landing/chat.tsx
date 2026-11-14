@@ -9,6 +9,7 @@
  */
 
 import type { ReactNode } from "react";
+import { CheckCheck } from "lucide-react";
 
 function unir(...clases: (string | false | undefined)[]): string {
   return clases.filter(Boolean).join(" ");
@@ -40,8 +41,24 @@ export function Burbuja({
 /** Alturas de la onda de la nota de voz (px). Fijas: la misma forma en cada render. */
 const ONDA = [6, 10, 14, 9, 16, 12, 7, 13, 18, 11, 8, 15, 10, 6, 12, 9, 14, 7];
 
-/** Nota de voz del cliente, con onda y duración en Sora. */
-export function NotaVoz({ duracion = "0:08", className }: { duracion?: string; className?: string }) {
+/**
+ * Nota de voz del cliente, con onda y duración en Sora.
+ *
+ * T-91: con `progreso`, encima de la onda gris va una copia verde que se
+ * descubre de izquierda a derecha, como cuando la nota se está escuchando.
+ * Se descubre moviendo dos capas en sentido contrario (`.tel-onda`), no
+ * cambiando el ancho: así solo se anima transform. Sin animación (o con
+ * "reducir movimiento") queda toda verde: nota ya escuchada.
+ */
+export function NotaVoz({
+  duracion = "0:08",
+  progreso = false,
+  className,
+}: {
+  duracion?: string;
+  progreso?: boolean;
+  className?: string;
+}) {
   return (
     <div
       className={unir(
@@ -52,13 +69,57 @@ export function NotaVoz({ duracion = "0:08", className }: { duracion?: string; c
       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-wa-header">
         <span className="ml-0.5 h-0 w-0 border-y-[5px] border-l-[8px] border-y-transparent border-l-white" />
       </span>
-      <span className="flex h-[18px] items-center gap-[2px]">
+      <span className="relative flex h-[18px] items-center gap-[2px]">
         {ONDA.map((alto, i) => (
           <span key={i} className="w-[2px] rounded-full bg-ink-soft" style={{ height: alto }} />
         ))}
+        {progreso && (
+          <span aria-hidden className="tel-onda absolute inset-0 overflow-hidden">
+            <span className="tel-onda-barras flex h-full items-center gap-[2px]">
+              {ONDA.map((alto, i) => (
+                <span key={i} className="w-[2px] shrink-0 rounded-full bg-wa-header" style={{ height: alto }} />
+              ))}
+            </span>
+          </span>
+        )}
       </span>
       <span className="font-display text-[11px] font-semibold text-ink-mid">{duracion}</span>
     </div>
+  );
+}
+
+/**
+ * T-91: los tres puntos de "escribiendo…" de WhatsApp, en una burbuja del
+ * negocio. Los puntos saltan desfasados (`.tecleo-punto`); quien la usa decide
+ * cuándo se ve.
+ */
+export function Escribiendo({ className }: { className?: string }) {
+  return (
+    <div
+      aria-hidden
+      className={unir("flex items-center gap-[3px] rounded-lg rounded-br-[3px] bg-wa-out px-3 py-2.5 shadow-card", className)}
+    >
+      {[0, 1, 2].map((i) => (
+        <span key={i} className="tecleo-punto h-[6px] w-[6px] rounded-full bg-ink-mid" style={{ animationDelay: `${i * 0.15}s` }} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * T-91: la hora y los dos checks al pie de un mensaje del negocio. Los checks
+ * grises quedan siempre; los azules van encima y `vistoClassName` decide
+ * cuándo aparecen (el cliente leyó).
+ */
+export function HoraVisto({ hora, vistoClassName }: { hora: string; vistoClassName?: string }) {
+  return (
+    <span className="mt-0.5 flex items-center justify-end gap-1 text-[10px] text-ink-mid">
+      <span className="font-display">{hora}</span>
+      <span className="relative inline-flex">
+        <CheckCheck className="h-3.5 w-3.5 text-ink-soft" aria-hidden />
+        <CheckCheck className={unir("absolute inset-0 h-3.5 w-3.5 text-wa-visto", vistoClassName)} aria-hidden />
+      </span>
+    </span>
   );
 }
 
