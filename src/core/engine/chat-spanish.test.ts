@@ -66,3 +66,20 @@ describe("expandChatSpanish", () => {
     }
   });
 });
+
+// T-88: "p. m." se partía en "p . m ." y la "m" suelta se expandía a "me":
+// el cliente escribía "hoy a las 5 p. m." y el bot le confirmaba la cita
+// "para hoy a las 5 p . me".
+describe("a. m. / p. m. (T-88)", () => {
+  it("las abreviaturas de la hora quedan como am/pm, nunca como «me»", () => {
+    expect(expandChatSpanish("hoy a las 5 p. m.")).toBe("hoy a las 5 pm");
+    expect(expandChatSpanish("a las 9 a.m. por favor")).toBe("a las 9 am por favor");
+    expect(expandChatSpanish("5 P.M")).toBe("5 pm");
+    expect(expandChatSpanish("hoy a las 5 p. m.")).not.toMatch(/\bme\b/);
+  });
+
+  it("la «m» suelta de chat sigue siendo «me», y no se come palabras que empiezan con m", () => {
+    expect(expandChatSpanish("m llamas?")).toBe("me llamas ?");
+    expect(expandChatSpanish("nos vemos a. mañana")).toContain("mañana");
+  });
+});

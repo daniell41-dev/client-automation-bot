@@ -26,6 +26,7 @@ import {
   isMenuRequest,
   isResetRequest,
   looksLikeDate,
+  extraerFechaDeFrase,
   availableServices,
   normalizeDateText,
   parseCantidad,
@@ -592,6 +593,13 @@ export function respond(
   if (service) {
     lead.serviceId = service.id;
     if (lead.state === "nuevo") lead.state = "interesado";
+    // T-88: "corte caballero hoy a las 5" trae la fecha en la misma frase.
+    // Se guarda para no volver a preguntarla (`nextAfterName` salta la
+    // pregunta si ya hay fecha). Solo en lo que se agenda: un pedido no
+    // lleva fecha.
+    if (modoDelItem(service, config.catalogo) !== "pedido") {
+      lead.tentativeDate = extraerFechaDeFrase(message.text) ?? lead.tentativeDate;
+    }
     const info = render(config.messages.serviceInfo, serviceVars(service, config));
 
     // Un solo mensaje: info del servicio + la siguiente pregunta del funnel.
@@ -615,6 +623,10 @@ export function respond(
 
   // 4) Saludo o primer contacto → menú de bienvenida.
   if (lead.stage === "inicio" || isGreeting(message.text)) {
+    // T-88: "¿Tiene turno hoy a las 5?" llega sin servicio, pero con la
+    // hora: se guarda para no volver a preguntarla después de elegir el
+    // servicio y dar el nombre.
+    lead.tentativeDate = extraerFechaDeFrase(message.text) ?? lead.tentativeDate;
     reply(render(config.messages.welcome, leadVars(lead, config)), menuOptions(config));
     lead.stage = "menu_enviado";
     return { lead, messages };
