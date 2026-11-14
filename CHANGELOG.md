@@ -17,6 +17,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
   instalación gratis, 14 días de prueba y sin permanencia.
 - Landing (T-83): sección del comprobante anotado. Un comprobante de ejemplo con las cuatro
   preguntas que Nexo revisa (monto, cuenta, referencia, fecha), que aparecen al bajar.
+- Landing (T-84): "Lo que se pierde" pasa de tres tarjetas a un chat sin responder ("Visto por
+  última vez: nadie.") y tres frases grandes.
 
 ### Cambios
 - El bot le habla de usted al cliente y a la dueña, en español de Colombia (T-78): sin voseo en

@@ -31,7 +31,7 @@ describe("landing (T-80)", () => {
       "Instalación gratis",
       "14 días de prueba",
       "Sin permanencia",
-      "El cliente que escribió a las 9 p. m. y le compró a otro.",
+      "El cliente que escribió de noche y le compró a otro.",
       "El comprobante que ya le habían mandado antes.",
       "Nexo revisa el comprobante: monto, cuenta, referencia y fecha. Si algo no cuadra, le avisa.",
       "Pedidos con inventario: no vende lo que ya no tiene.",
@@ -157,6 +157,39 @@ describe("landing (T-80)", () => {
     it("las anotaciones se animan con view() solo si el navegador lo soporta y sin «reducir movimiento»", () => {
       const css = readFileSync(join(__dirname, "..", "..", "src/app/globals.css"), "utf8");
       expect(css).toMatch(/@supports \(animation-timeline: view\(\)\) \{\s*@media \(prefers-reduced-motion: no-preference\) \{[\s\S]*?\.anotacion \{[\s\S]*?animation-timeline: view\(\);/);
+    });
+  });
+
+  describe("T-84: lo que se pierde", () => {
+    const seccion = html.match(/<section id="perdidas"[\s\S]*?<\/section>/)![0];
+    const textoSeccion = seccion.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+
+    it("el chat sin responder, con sus horas, y nadie que lo vio", () => {
+      for (const frase of [
+        "¿Todavía tienen domicilio?",
+        "9:52 p. m.",
+        "¿Hola?",
+        "10:15 p. m.",
+        "Ya pedí en otro lado.",
+        "10:31 p. m.",
+        "Visto por última vez: nadie.",
+      ]) {
+        expect(textoSeccion, frase).toContain(frase);
+      }
+      // Las horas van en Sora (font-display), como el resto de horas y precios.
+      expect(seccion.match(/<time class="[^"]*font-display/g)).toHaveLength(3);
+    });
+
+    it("las tres frases van solas: sin tarjetas ni iconos", () => {
+      expect(textoSeccion).toContain("El total mal sumado en plena hora pico.");
+      expect(textoSeccion).toContain("El comprobante que ya le habían mandado antes.");
+      expect(seccion).not.toContain("<svg");
+      expect(seccion).not.toContain("rounded-2xl");
+    });
+
+    it("sin cifras ni estadísticas: los únicos números son las horas del chat", () => {
+      const sinHoras = textoSeccion.replace(/\d{1,2}:\d{2} p\. m\./g, "");
+      expect(sinHoras).not.toMatch(/\d/);
     });
   });
 });
