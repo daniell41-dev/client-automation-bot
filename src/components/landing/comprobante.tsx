@@ -16,9 +16,17 @@
  * movimiento", se ven fijas. Componente de servidor: cero JavaScript.
  *
  * El texto no promete que Nexo detecte todo: avisa, y la que decide es la dueña.
+ *
+ * T-92: una línea de escaneo baja por el comprobante a medida que la dueña
+ * baja por la página, y cada dato recibe su marca cuando la línea pasa: tres
+ * en verde y la fecha en ámbar (es de hace 12 días). Así la revisión se ve
+ * pasar, no solo se cuenta. Todas las piezas leen el mismo avance (la línea
+ * de tiempo `--comprobante`, que da la tarjeta) para que la marca salga justo
+ * cuando la línea llega a su dato. Sin soporte o con "reducir movimiento" no
+ * hay línea y las marcas se ven puestas: el resultado de la revisión.
  */
 
-import { CheckCircle2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { BotonWhatsApp } from "@/components/landing/boton-whatsapp";
 import { Seccion } from "@/components/landing/seccion";
 
@@ -60,6 +68,8 @@ const FILAS = [
     valor: () => `${fechaDeHace12Dias()} · 7:15 p. m.`,
     anotacion: "Fecha: ¿es de hoy?",
     filaDato: "row-start-9 lg:row-start-5",
+    // La única que no pasa: un comprobante de hace 12 días no es el de hoy.
+    alerta: "Hace 12 días",
     filaAnotacion: "row-start-8 lg:row-start-5",
   },
 ];
@@ -71,13 +81,23 @@ export function Comprobante() {
         Nexo lee cada comprobante que le mandan y le avisa si algo no cuadra. La decisión siempre es suya.
       </p>
 
-      <div className="mt-10 grid grid-cols-1 grid-rows-[repeat(10,auto)] lg:grid-cols-[340px_64px_minmax(0,1fr)] lg:grid-rows-[repeat(6,auto)]">
+      <div className="escaneo-alcance mt-10 grid grid-cols-1 grid-rows-[repeat(10,auto)] lg:grid-cols-[340px_64px_minmax(0,1fr)] lg:grid-rows-[repeat(6,auto)]">
         {/* Fondo de la tarjeta, con el único borde con brillo azul de la página. */}
         <div
           aria-hidden
           data-brillo
-          className="col-start-1 row-[1/11] rounded-2xl border border-primary-light/70 bg-surface shadow-[0_0_0_1px_rgba(76,141,255,0.35),0_0_44px_-8px_rgba(42,111,219,0.75)] lg:row-[1/7]"
+          className="escaneo-tarjeta col-start-1 row-[1/11] rounded-2xl border border-primary-light/70 bg-surface shadow-[0_0_0_1px_rgba(76,141,255,0.35),0_0_44px_-8px_rgba(42,111,219,0.75)] lg:row-[1/7]"
         />
+
+        {/* La línea de escaneo: una capa del alto de la tarjeta que baja entera
+            (translateY 0 → 100% de su propio alto); el recorte la deja ver
+            solo dentro de la tarjeta. */}
+        <div aria-hidden className="pointer-events-none relative z-10 col-start-1 row-[1/11] overflow-hidden rounded-2xl lg:row-[1/7]">
+          <div className="escaneo-linea absolute inset-0">
+            <span className="block h-[2px] bg-primary shadow-[0_0_12px_2px_rgba(42,111,219,0.55)]" />
+            <span className="block h-10 bg-gradient-to-b from-primary/15 to-transparent" />
+          </div>
+        </div>
 
         {/* Encabezado tipo captura de transferencia: sin logos ni nombres de bancos. */}
         <div className="col-start-1 row-start-1 flex items-center justify-between gap-3 border-b border-line px-5 pb-4 pt-5">
@@ -92,7 +112,17 @@ export function Comprobante() {
           <div key={f.etiqueta} className="contents">
             <div className={`col-start-1 ${f.filaDato} px-5 pb-4 lg:flex lg:min-h-[76px] lg:flex-col lg:justify-center lg:py-3`}>
               <p className="text-[12px] font-semibold text-ink-mid">{f.etiqueta}</p>
-              <p className={`font-display font-bold text-ink ${f.grande ? "text-[30px] leading-tight" : "text-[17px]"}`}>{f.valor()}</p>
+              <p className={`flex flex-wrap items-center gap-x-2 font-display font-bold text-ink ${f.grande ? "text-[30px] leading-tight" : "text-[17px]"}`}>
+                {f.valor()}
+                {f.alerta ? (
+                  <span className={`escaneo-marca escaneo-marca-${i + 1} inline-flex items-center gap-1 rounded-full bg-warn-bg px-2 py-0.5 font-sans text-[12px] font-bold text-warn-ink`}>
+                    <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+                    {f.alerta}
+                  </span>
+                ) : (
+                  <CheckCircle2 className={`escaneo-marca escaneo-marca-${i + 1} h-5 w-5 shrink-0 text-success`} aria-label="Revisado" />
+                )}
+              </p>
             </div>
 
             {/* Línea horizontal en escritorio, con un punto sobre el dato. */}
