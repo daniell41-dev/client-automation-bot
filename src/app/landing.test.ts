@@ -7,7 +7,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import Home, { metadata } from "@/app/page";
 import { GARANTIA, Precio } from "@/components/landing/precio";
@@ -288,6 +288,42 @@ describe("landing (T-80)", () => {
       const sin = textoDe(renderToStaticMarkup(createElement(Cierre, { responsable: ejemplo, hayFoto: false })));
       expect(con).toContain("Le responde Persona De Prueba.");
       expect(sin).not.toContain("Le responde");
+    });
+  });
+
+  describe("T-87: así funciona (línea de tiempo)", () => {
+    const seccion = html.match(/<section id="como-funciona"[\s\S]*?<\/section>/)![0];
+    const t = seccion.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+
+    it("cuatro pasos numerados con su frase y su escena del chat", () => {
+      expect(seccion.match(/<li /g)).toHaveLength(4);
+      for (const n of ["1", "2", "3", "4"]) expect(seccion).toMatch(new RegExp(`font-display[^"]*">${n}</span>`));
+      for (const frase of [
+        "Su cliente escribe o manda una nota de voz.",
+        "Nexo arma el pedido con sus precios y el cliente confirma el total.",
+        "Si algo no cuadra, le avisa.",
+        "Usted aprueba con un botón y el cliente recibe su número de pedido.",
+        "0:08",
+        "Total: $45.000",
+        "El comprobante dice $40.000, el pedido es $45.000.",
+        "Aprobar",
+        "Pedido #128 aprobado",
+      ]) {
+        expect(t, frase).toContain(frase);
+      }
+    });
+
+    it("ya no son tarjetas: en escritorio los pasos alternan de lado", () => {
+      expect(seccion.match(/lg:col-start-3 lg:pl-10/g)!.length).toBeGreaterThanOrEqual(4);
+      expect(seccion).toContain("lg:col-start-1 lg:pr-10 lg:text-right");
+    });
+
+    it("el único componente de cliente de la landing son las pestañas de negocios", () => {
+      const dir = join(__dirname, "..", "components", "landing");
+      const conCliente = readdirSync(dir)
+        .filter((f) => f.endsWith(".tsx"))
+        .filter((f) => /^["']use client["']/m.test(readFileSync(join(dir, f), "utf8")));
+      expect(conCliente).toEqual(["negocios-pestanas.tsx"]);
     });
   });
 });
