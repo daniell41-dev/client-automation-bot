@@ -297,6 +297,52 @@ describe("landing (T-80)", () => {
     });
   });
 
+  // Al juntar los bloques de animación de varias tareas en globals.css, un
+  // conflicto mal resuelto dejó una llave sin cerrar y solo lo vio el build.
+  it("globals.css tiene las llaves balanceadas", () => {
+    const css = readFileSync(join(__dirname, "globals.css"), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/"[^"\n]*"|'[^'\n]*'/g, "");
+    let nivel = 0;
+    for (const c of css) {
+      if (c === "{") nivel++;
+      if (c === "}") nivel--;
+      expect(nivel).toBeGreaterThanOrEqual(0);
+    }
+    expect(nivel).toBe(0);
+  });
+
+  describe("T-94: el precio como ticket que se suma", () => {
+    const crudo = html.match(/<section id="precio"[\s\S]*?<\/section>/)![0];
+    const texto = crudo.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    const css = readFileSync(join(__dirname, "..", "..", "src/app/globals.css"), "utf8");
+
+    it("tres líneas con su valor, la línea de corte y el total mensual", () => {
+      expect(texto).toContain("Su cuenta");
+      expect(texto).toMatch(/Instalación gratis en su negocio \$0/);
+      expect(texto).toMatch(/14 días de prueba \$0/);
+      expect(texto).toMatch(/Sin permanencia 0 meses/);
+      expect(crudo.match(/ticket-linea ticket-linea-\d/g)).toHaveLength(3);
+      expect(crudo).toContain("ticket-corte");
+      expect(crudo.indexOf("ticket-corte")).toBeLessThan(crudo.indexOf("ticket-total"));
+    });
+
+    it("no inventa nada: los valores salen de lo que dicen los Términos", () => {
+      const terminos = readFileSync(join(__dirname, "terminos", "page.tsx"), "utf8");
+      expect(terminos).toContain("No hay permanencia mínima.");
+      expect(terminos).toContain("Los primeros 14 días son de prueba gratis");
+    });
+
+    it("se imprime solo con soporte y sin «reducir movimiento»; sin eso, completo", () => {
+      const bloque = css.slice(css.indexOf("/* T-94:"), css.indexOf("@keyframes ticketImprime"));
+      expect(bloque).toMatch(/@supports \(animation-timeline: view\(\)\) \{\s*@media \(prefers-reduced-motion: no-preference\)/);
+      expect(bloque.slice(0, bloque.indexOf("@supports"))).not.toContain("opacity");
+      const inicio = css.indexOf("@keyframes ticketImprime");
+      const fotogramas = css.slice(inicio, css.indexOf("/*", inicio));
+      expect(new Set([...fotogramas.matchAll(/([a-z-]+):/g)].map((m) => m[1]))).toEqual(new Set(["opacity", "transform"]));
+    });
+  });
+
   describe("T-84: lo que se pierde", () => {
     const seccion = html.match(/<section id="perdidas"[\s\S]*?<\/section>/)![0];
     const textoSeccion = seccion.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
@@ -431,7 +477,9 @@ describe("landing (T-80)", () => {
       });
 
       it("las animaciones nuevas solo mueven opacity y transform", () => {
-        const fotogramas = css.slice(css.indexOf("@keyframes pasoRelleno"), css.indexOf("/* Foco de inputs"));
+        const inicio = css.indexOf("@keyframes pasoRelleno");
+        // Hasta el siguiente bloque comentado (el de otra tarea o "Foco de inputs").
+        const fotogramas = css.slice(inicio, css.indexOf("/*", inicio));
         const props = new Set([...fotogramas.matchAll(/([a-z-]+):/g)].map((m) => m[1]));
         expect(props).toEqual(new Set(["opacity", "transform"]));
       });
