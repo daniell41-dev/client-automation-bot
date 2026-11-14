@@ -8,8 +8,7 @@
  */
 
 import type { Metadata } from "next";
-import { INSTAGRAM, SITIO, WHATSAPP_VENTAS } from "@/app/landing-config";
-import { enlaceInstagram } from "@/lib/enlace-whatsapp";
+import { jsonLd } from "@/components/landing/datos-estructurados";
 import { BarraMovil } from "@/components/landing/barra-movil";
 import { Cierre } from "@/components/landing/cierre";
 import { ComoFunciona } from "@/components/landing/como-funciona";
@@ -27,7 +26,7 @@ import { Preguntas } from "@/components/landing/preguntas";
 import { Responsable } from "@/components/landing/responsable";
 import { Testimonios } from "@/components/landing/testimonios";
 
-const TITULO = "Nexo · Pedidos, citas y pagos por WhatsApp en Cúcuta";
+const TITULO = "WhatsApp con pedidos, citas y revisión de pagos para negocios de Cúcuta · Nexo";
 
 export const metadata: Metadata = {
   // `absolute`: la plantilla del layout ("%s · Nexo") repetiría la marca.
@@ -35,30 +34,9 @@ export const metadata: Metadata = {
   description: SUBTITULO_HERO,
   // Relativa: `metadataBase` (layout) la completa con NEXT_PUBLIC_SITE_URL.
   alternates: { canonical: "/" },
-  // La imagen sale de `opengraph-image.png` (convención de archivo), no se repite acá.
+  // T-89: la imagen sale de `opengraph-image.tsx` (generada con código), no se repite acá.
   openGraph: { title: TITULO, description: SUBTITULO_HERO, url: "/" },
 };
-
-/** Datos estructurados para buscadores: quiénes somos y dónde atendemos. */
-function jsonLd(): string {
-  const instagram = enlaceInstagram(INSTAGRAM);
-  const telefono = (WHATSAPP_VENTAS ?? "").replace(/\D/g, "");
-  const organizacion = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    name: "Nexo",
-    url: SITIO,
-    logo: `${SITIO}/apple-icon.png`,
-    description: SUBTITULO_HERO,
-    areaServed: { "@type": "City", name: "Cúcuta", containedInPlace: { "@type": "Country", name: "Colombia" } },
-    ...(instagram ? { sameAs: [instagram] } : {}),
-    ...(/^57\d{10}$/.test(telefono)
-      ? { contactPoint: { "@type": "ContactPoint", telephone: `+${telefono}`, contactType: "sales", areaServed: "CO", availableLanguage: "es" } }
-      : {}),
-  };
-  // Next recomienda escapar "<" para que un texto no pueda cerrar el <script> (ver docs/guides/json-ld).
-  return JSON.stringify(organizacion).replace(/</g, "\\u003c");
-}
 
 export default function Home() {
   return (
