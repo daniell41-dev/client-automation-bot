@@ -14,11 +14,12 @@ export const WHATSAPP_VENTAS = process.env.NEXT_PUBLIC_WHATSAPP_VENTAS;
 export const INSTAGRAM = process.env.NEXT_PUBLIC_INSTAGRAM;
 
 /**
- * Precio "desde" (p. ej. "$150.000"). `null` = no se muestra precio y la
- * sección invita a preguntar por cupos. No se pone hasta que esté decidido:
- * un precio publicado es una promesa.
+ * Mensualidad "desde". `null` = no se muestra precio y la sección invita a
+ * preguntar por cupos. Un precio publicado es una promesa: solo se cambia con
+ * la decisión del dueño del producto (T-81: $79.900, instalación gratis y 14
+ * días de prueba).
  */
-export const PRECIO_DESDE: string | null = null;
+export const PRECIO_DESDE: string | null = "$79.900";
 
 export interface Testimonio {
   /** Nombre de la persona, tal como autorizó publicarlo. */

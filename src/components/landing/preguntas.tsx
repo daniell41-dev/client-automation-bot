@@ -2,19 +2,25 @@
  * T-80: preguntas frecuentes con <details> nativo: se abren sin JavaScript y
  * funcionan con lector de pantalla.
  *
- * Las respuestas "[CONFIRMAR CON DANIEL]" quedan a la vista a propósito:
- * dependen de decisiones del negocio (Meta, tiempos de instalación) y una
- * respuesta inventada sería una promesa que después habría que cumplir.
+ * T-81: aquí no se dice "bot". La dueña que pregunta está pensando en sus
+ * clientes y en su número, no en tecnología: se le responde como lo haría
+ * una persona que la va a visitar. Las respuestas sobre el número y la
+ * instalación las confirmó Daniel; un plazo o una condición inventada sería
+ * una promesa que después habría que cumplir.
  */
 
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { Seccion } from "@/components/landing/seccion";
 
-export const POR_CONFIRMAR = "[CONFIRMAR CON DANIEL]";
-
 const PREGUNTAS: { pregunta: string; respuesta: React.ReactNode }[] = [
-  { pregunta: "¿Necesito cambiar de número?", respuesta: POR_CONFIRMAR },
+  {
+    pregunta: "¿Necesito cambiar de número?",
+    // Meta no deja usar el mismo número en la app de WhatsApp y en la conexión
+    // para empresas a la vez: por eso se dice que el número queda dedicado.
+    respuesta:
+      "No tiene que comprar nada. Puede usar una línea nueva o la del negocio; lo único es que ese número queda dedicado a atender a sus clientes desde Nexo y ya no se usa en la app de WhatsApp del celular. En la visita le explicamos las dos opciones y elegimos juntos la que mejor le quede.",
+  },
   {
     pregunta: "¿Qué pasa con los datos de mis clientes?",
     respuesta: (
@@ -29,13 +35,18 @@ const PREGUNTAS: { pregunta: string; respuesta: React.ReactNode }[] = [
   },
   {
     pregunta: "¿Puedo responder yo cuando quiera?",
-    respuesta: "Sí. Usted ve las conversaciones y puede pausar el bot en cualquier momento.",
+    respuesta:
+      "Claro. Usted ve todas las conversaciones desde el celular y, cuando quiera atender personalmente, pausa las respuestas automáticas y escribe usted.",
   },
   {
     pregunta: "¿Funciona con Nequi y transferencias?",
     respuesta: "Sí. Nexo le envía al cliente sus datos de pago y revisa el comprobante que le mandan.",
   },
-  { pregunta: "¿Cuánto tarda la instalación?", respuesta: POR_CONFIRMAR },
+  {
+    pregunta: "¿Cuánto tarda la instalación?",
+    respuesta:
+      "Si ya tiene listo su menú con precios y el número que va a usar, en unos 30 minutos lo dejamos funcionando. Si le falta algo, lo preparamos con usted sin afán.",
+  },
 ];
 
 export function Preguntas() {

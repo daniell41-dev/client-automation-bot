@@ -10,6 +10,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 - Landing de venta en la portada (T-80): qué hace Nexo, cómo funciona, para qué negocios,
   instalación y preguntas frecuentes, con botones "Escríbanos por WhatsApp" (número en
   `NEXT_PUBLIC_WHATSAPP_VENTAS`; sin él llevan a la demo).
+- Landing (T-81): precio desde $79.900 al mes con instalación gratis y 14 días de prueba, y
+  respuestas confirmadas sobre el número y el tiempo de instalación (unos 30 minutos).
 
 ### Cambios
 - El bot le habla de usted al cliente y a la dueña, en español de Colombia (T-78): sin voseo en

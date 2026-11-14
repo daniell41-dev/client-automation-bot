@@ -605,7 +605,9 @@ mirando. Se documenta como ADR-004.
 ### Precio (propuesta, a validar con los pilotos)
 Costos fijos ≈ 48 USD/mes (Supabase Pro, Vercel Pro, dominio). Propuesta en pesos, sin
 comisión, con instalación gratis y 14 días de prueba: **Belleza COP 59.900/mes** y
-**Restaurante COP 99.900/mes**. Con 3-4 clientes se cubren los fijos. Reemplaza la
+**Restaurante COP 99.900/mes**. Con 3-4 clientes se cubren los fijos.
+**Decisión (14-nov-2026, T-81):** la landing publica **desde COP 79.900/mes**, con
+instalación gratis y 14 días de prueba. Reemplaza la
 pregunta abierta de "Planes Free/Pro" de abajo.
 
 ---
