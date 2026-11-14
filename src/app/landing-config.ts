@@ -42,5 +42,25 @@ export interface Testimonio {
  */
 export const TESTIMONIOS: Testimonio[] = [];
 
+export interface Responsable {
+  /** Nombre a secas (va en "{nombre}. Voy a su negocio…" y en "Le responde {nombre}."). `null` = la sección no aparece. */
+  nombre: string | null;
+  /** Foto en public/. Si el archivo no existe al compilar, la sección no aparece. */
+  foto: string;
+  /** Nota opcional sobre el piloto (p. ej. con qué negocio se probó). `null` = no se muestra. */
+  piloto: string | null;
+}
+
+/**
+ * T-86: quién está detrás de Nexo. Vacío a propósito: el nombre, la foto y la
+ * nota del piloto los pone el dueño del producto, nunca de ejemplo. Mientras
+ * falte el nombre o la foto, ni la sección ni la foto del cierre aparecen.
+ */
+export const RESPONSABLE: Responsable = {
+  nombre: null,
+  foto: "/landing/responsable.jpg",
+  piloto: null,
+};
+
 /** URL pública, igual criterio que `layout.tsx`: la canónica y el JSON-LD necesitan URLs absolutas. */
 export const SITIO = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";

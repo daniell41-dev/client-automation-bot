@@ -24,6 +24,7 @@ import { Perdidas } from "@/components/landing/perdidas";
 import { Pie } from "@/components/landing/pie";
 import { Precio } from "@/components/landing/precio";
 import { Preguntas } from "@/components/landing/preguntas";
+import { Responsable } from "@/components/landing/responsable";
 import { Testimonios } from "@/components/landing/testimonios";
 
 const TITULO = "Nexo · Pedidos, citas y pagos por WhatsApp en Cúcuta";
@@ -84,6 +85,7 @@ export default function Home() {
         <Negocios />
         <Control />
         <Instalacion />
+        <Responsable />
         <Precio />
         <Testimonios />
         <Preguntas />

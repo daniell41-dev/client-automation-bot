@@ -11,6 +11,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import Home, { metadata } from "@/app/page";
 import { GARANTIA, Precio } from "@/components/landing/precio";
+import { Responsable, responsableVisible } from "@/components/landing/responsable";
+import { Cierre } from "@/components/landing/cierre";
+import { RESPONSABLE } from "@/app/landing-config";
 
 const html = renderToStaticMarkup(createElement(Home));
 /** Texto visible en una línea: sin etiquetas, sin el JSON-LD y con los saltos de línea como espacios. */
@@ -238,6 +241,53 @@ describe("landing (T-80)", () => {
     it("sin cifras ni estadísticas: los únicos números son las horas del chat", () => {
       const sinHoras = textoSeccion.replace(/\d{1,2}:\d{2} p\. m\./g, "");
       expect(sinHoras).not.toMatch(/\d/);
+    });
+  });
+
+  describe("T-86: quién está detrás", () => {
+    // Datos de prueba visiblemente ficticios: la configuración real va en null.
+    const ejemplo = { nombre: "Persona De Prueba", foto: "/landing/responsable.jpg", piloto: null };
+    const textoDe = (h: string) => h.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+
+    it("la configuración no inventa nada: nombre y piloto en null", () => {
+      expect(RESPONSABLE).toEqual({ nombre: null, foto: "/landing/responsable.jpg", piloto: null });
+    });
+
+    it("con los valores de hoy (sin nombre ni foto) la sección no aparece y el cierre queda como antes", () => {
+      expect(html).not.toContain('id="responsable"');
+      expect(texto).not.toContain("Le responde");
+      expect(texto).not.toContain("Detrás de Nexo");
+    });
+
+    it("solo aparece con nombre y con la foto subida", () => {
+      expect(responsableVisible(ejemplo, true)).toBe(true);
+      expect(responsableVisible(ejemplo, false)).toBe(false);
+      expect(responsableVisible({ ...ejemplo, nombre: null }, true)).toBe(false);
+      expect(responsableVisible({ ...ejemplo, nombre: "  " }, true)).toBe(false);
+      expect(renderToStaticMarkup(createElement(Responsable, { responsable: ejemplo, hayFoto: false }))).toBe("");
+    });
+
+    it("con nombre y foto: título, presentación, foto con medidas y los tres datos", () => {
+      const h = renderToStaticMarkup(createElement(Responsable, { responsable: ejemplo, hayFoto: true }));
+      const t = textoDe(h);
+      expect(t).toContain("Detrás de Nexo hay una persona de Cúcuta.");
+      expect(t).toContain("Persona De Prueba. Voy a su negocio, lo instalo con usted y le dejo mi WhatsApp para lo que necesite.");
+      expect(h).toMatch(/<img[^>]*alt="Foto de Persona De Prueba"[^>]*width="640"[^>]*height="800"|<img[^>]*width="640"[^>]*height="800"[^>]*alt="Foto de Persona De Prueba"/);
+      for (const dato of ["1 visita para instalarlo", "14 días de prueba", "0 contratos de permanencia"]) expect(t).toContain(dato);
+      expect(h.match(/font-display[^"]*text-\[34px\]/g)).toHaveLength(3); // números en Sora
+      expect(t).not.toContain("piloto");
+    });
+
+    it("la nota del piloto aparece solo si tiene texto", () => {
+      const h = renderToStaticMarkup(createElement(Responsable, { responsable: { ...ejemplo, piloto: "Nota de piloto de prueba." }, hayFoto: true }));
+      expect(textoDe(h)).toContain("Nota de piloto de prueba.");
+    });
+
+    it("el cierre muestra la foto pequeña y «Le responde {nombre}» solo con responsable", () => {
+      const con = textoDe(renderToStaticMarkup(createElement(Cierre, { responsable: ejemplo, hayFoto: true })));
+      const sin = textoDe(renderToStaticMarkup(createElement(Cierre, { responsable: ejemplo, hayFoto: false })));
+      expect(con).toContain("Le responde Persona De Prueba.");
+      expect(sin).not.toContain("Le responde");
     });
   });
 });

@@ -21,6 +21,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
   última vez: nadie.") y tres frases grandes.
 - Landing (T-85): el precio pasa a una tarjeta con "Desde $79.900 al mes", condiciones, qué
   incluye y la garantía de los 14 días (igual que los Términos).
+- Landing (T-86): sección "Detrás de Nexo hay una persona de Cúcuta" y foto en el cierre. Solo
+  aparecen cuando se configuran el nombre y la foto del responsable (hoy no aparecen).
 
 ### Cambios
 - El bot le habla de usted al cliente y a la dueña, en español de Colombia (T-78): sin voseo en

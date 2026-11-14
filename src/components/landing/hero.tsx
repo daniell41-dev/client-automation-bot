@@ -10,12 +10,11 @@
  * estática), así que no hay un <video> roto mientras el archivo no exista.
  */
 
-import { existsSync } from "node:fs";
-import { join } from "node:path";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { BotonWhatsApp } from "@/components/landing/boton-whatsapp";
 import { TelefonoAnimado } from "@/components/landing/telefono-animado";
+import { existeEnPublic } from "@/lib/archivo-publico";
 
 export const SUBTITULO_HERO =
   "Nexo responde a sus clientes a cualquier hora, arma el pedido con el total, revisa el comprobante de pago y usted aprueba con un botón. Se lo instalamos aquí en Cúcuta.";
@@ -25,10 +24,6 @@ const CONDICIONES = ["Instalación gratis", "14 días de prueba", "Sin permanenc
 
 const VIDEO = "/landing/demo.mp4";
 const POSTER = "/landing/demo.jpg";
-
-function existeEnPublic(ruta: string): boolean {
-  return existsSync(join(process.cwd(), "public", ruta));
-}
 
 export function Hero() {
   const hayVideo = existeEnPublic(VIDEO);
