@@ -36,7 +36,7 @@ describe("landing (T-80)", () => {
       "Ningún pedido se despacha sin su aprobación.",
       "No inventa precios ni cuentas de pago.",
       "Hacemos un pedido de prueba juntos y le enseñamos a aprobar.",
-      "Instalamos pocos negocios al mes porque lo hacemos en persona. Pregúntenos por los cupos.",
+      "Instalación gratis y 14 días de prueba. Después, desde $79.900 al mes.",
       "Los tratamos según la Ley 1581 de 2012.",
       "¿Quiere verlo funcionando con su negocio?",
       "Nexo · Cúcuta, Colombia",
@@ -51,8 +51,14 @@ describe("landing (T-80)", () => {
     expect(texto).not.toMatch(/elimina el fraude|nunca se equivoca|SaaS|IA generativa/i);
   });
 
-  it("deja a la vista las respuestas que faltan confirmar, en vez de inventarlas", () => {
-    expect(texto.match(/\[CONFIRMAR CON DANIEL\]/g)).toHaveLength(2);
+  it("T-81: no queda ninguna respuesta sin confirmar", () => {
+    expect(texto).not.toContain("[CONFIRMAR CON DANIEL]");
+  });
+
+  it("T-81: las preguntas frecuentes hablan como una persona, sin la palabra \"bot\"", () => {
+    const faq = html.match(/<section id="preguntas"[\s\S]*?<\/section>/)![0].replace(/<[^>]+>/g, " ");
+    expect(faq).not.toMatch(/\bbots?\b/i);
+    expect(faq).toContain("en unos 30 minutos lo dejamos funcionando");
   });
 
   it("sin testimonios cargados no hay sección de testimonios", () => {
