@@ -21,6 +21,13 @@ export const INSTAGRAM = process.env.NEXT_PUBLIC_INSTAGRAM;
  */
 export const PRECIO_DESDE: string | null = "$79.900";
 
+/**
+ * T-85: aclaración en gris bajo la lista "Incluye" de la tarjeta de precio,
+ * para costos que van aparte (p. ej. lo que Meta cobra por mensajes si se pasa
+ * de lo incluido, como dicen los Términos). `null` = no se muestra.
+ */
+export const NOTA_PRECIO: string | null = null;
+
 export interface Testimonio {
   /** Nombre de la persona, tal como autorizó publicarlo. */
   nombre: string;
