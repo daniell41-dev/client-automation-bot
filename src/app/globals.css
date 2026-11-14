@@ -140,6 +140,72 @@ body {
   }
 }
 
+/* T-82: teléfono animado del hero. Un ciclo de 15 s = 12 s de historia + 3 s
+   quieto. Cada paso tiene su propio keyframes porque animation-delay solo
+   corre en la primera vuelta: para que el bucle se repita, el momento en que
+   entra cada paso va dentro del ciclo (su %). Entra como fadeUp, se queda y
+   se apaga al cierre. Solo opacity/transform: el lugar ya está reservado. */
+.tel-paso {
+  animation-duration: 15s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease;
+  animation-fill-mode: both;
+}
+
+@keyframes telPaso1 {
+  0%, 3.3% { opacity: 0; transform: translateY(8px); }
+  6.0%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.tel-paso-1 { animation-name: telPaso1; }
+
+@keyframes telPaso2 {
+  0%, 16.7% { opacity: 0; transform: translateY(8px); }
+  19.4%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.tel-paso-2 { animation-name: telPaso2; }
+
+@keyframes telPaso3 {
+  0%, 33.3% { opacity: 0; transform: translateY(8px); }
+  36.0%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.tel-paso-3 { animation-name: telPaso3; }
+
+@keyframes telPaso4 {
+  0%, 40.0% { opacity: 0; transform: translateY(8px); }
+  42.7%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.tel-paso-4 { animation-name: telPaso4; }
+
+@keyframes telPaso5 {
+  0%, 50.0% { opacity: 0; transform: translateY(8px); }
+  52.7%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.tel-paso-5 { animation-name: telPaso5; }
+
+@keyframes telPaso6 {
+  0%, 60.0% { opacity: 0; transform: translateY(10px) scale(0.96); }
+  62.7%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.tel-paso-6 { animation-name: telPaso6; }
+
+/* Con movimiento reducido: la conversación completa, quieta (estado final).
+   `.fade-up` también: el texto del hero (y las pantallas del portal) aparecen
+   ya en su lugar. */
+@media (prefers-reduced-motion: reduce) {
+  .tel-paso,
+  .fade-up {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Foco de inputs: borde primario + ring azul suave. */
 .input-nexo {
   border: 1px solid var(--color-line-input);

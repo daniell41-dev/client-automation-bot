@@ -15,6 +15,7 @@ import { Cierre } from "@/components/landing/cierre";
 import { ComoFunciona } from "@/components/landing/como-funciona";
 import { Control } from "@/components/landing/control";
 import { Encabezado } from "@/components/landing/encabezado";
+import { FondoPuntos } from "@/components/landing/fondo-puntos";
 import { Hero, SUBTITULO_HERO } from "@/components/landing/hero";
 import { Instalacion } from "@/components/landing/instalacion";
 import { Negocios } from "@/components/landing/negocios";
@@ -64,13 +65,17 @@ export default function Home() {
       {/* pb-24: en el celular la barra fija de WhatsApp no tapa el pie. */}
       <main className="bg-canvas pb-24 sm:pb-0">
         <div
+          className="relative overflow-hidden"
           style={{
             background:
               "radial-gradient(80% 60% at 50% 0%, rgba(42,111,219,.28) 0%, rgba(14,32,51,0) 55%), #0E2033",
           }}
         >
-          <Encabezado />
-          <Hero />
+          <FondoPuntos />
+          <div className="relative">
+            <Encabezado />
+            <Hero />
+          </div>
         </div>
         <Perdidas />
         <ComoFunciona />

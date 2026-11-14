@@ -12,6 +12,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
   `NEXT_PUBLIC_WHATSAPP_VENTAS`; sin él llevan a la demo).
 - Landing (T-81): precio desde $79.900 al mes con instalación gratis y 14 días de prueba, y
   respuestas confirmadas sobre el número y el tiempo de instalación (unos 30 minutos).
+- Hero animado (T-82): el teléfono muestra en bucle una nota de voz, el resumen, un comprobante
+  que no cuadra y el aviso para aprobar; solo CSS y quieto con "reducir movimiento". Chips de
+  instalación gratis, 14 días de prueba y sin permanencia.
 
 ### Cambios
 - El bot le habla de usted al cliente y a la dueña, en español de Colombia (T-78): sin voseo en

@@ -7,6 +7,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import Home, { metadata } from "@/app/page";
 
 const html = renderToStaticMarkup(createElement(Home));
@@ -23,12 +25,12 @@ describe("landing (T-80)", () => {
   it("usa los textos dados, tal cual", () => {
     for (const frase of [
       "Su WhatsApp toma pedidos aunque usted esté en la cocina.",
-      "le deja a usted la última palabra. Se lo instalamos aquí en Cúcuta.",
+      "revisa el comprobante de pago y usted aprueba con un botón. Se lo instalamos aquí en Cúcuta.",
       "Escríbanos por WhatsApp",
       "Pruebe la demo",
-      "Conexión oficial para empresas",
-      "Instalación en persona",
-      "Hecho en Cúcuta",
+      "Instalación gratis",
+      "14 días de prueba",
+      "Sin permanencia",
       "El cliente que escribió a las 9 p. m. y le compró a otro.",
       "El comprobante que ya le habían mandado antes.",
       "Nexo revisa el comprobante: monto, cuenta, referencia y fecha. Si algo no cuadra, le avisa.",
@@ -81,5 +83,41 @@ describe("landing (T-80)", () => {
     const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
     expect(ld["@type"]).toBe("Organization");
     expect(ld.areaServed.name).toBe("Cúcuta");
+  });
+
+  describe("T-82: hero animado", () => {
+    it("el teléfono cuenta la historia completa: nota de voz, resumen, comprobante que no cuadra y aviso", () => {
+      for (const frase of [
+        "10:47 p. m.",
+        "0:08",
+        "Confirmo",
+        "$40.000",
+        "El comprobante dice $40.000, el pedido es $45.000.",
+        "Para usted",
+        "Revise el comprobante",
+        "Aprobar",
+        "Rechazar",
+        "Pedir resto",
+      ]) {
+        expect(texto, frase).toContain(frase);
+      }
+    });
+
+    it("la animación es decorativa: el lector de pantalla recibe la historia en una frase", () => {
+      expect(html).toMatch(/role="img" aria-label="Ejemplo de un pedido por WhatsApp[^"]+"/);
+    });
+
+    it("sin JavaScript de cliente, y quieto con «reducir movimiento»", () => {
+      const raiz = join(__dirname, "..", "..");
+      expect(readFileSync(join(raiz, "src/components/landing/telefono-animado.tsx"), "utf8")).not.toMatch(/["']use client["']/);
+      const css = readFileSync(join(raiz, "src/app/globals.css"), "utf8");
+      // Cada paso tiene su animación, y con movimiento reducido todas se apagan mostrando el estado final.
+      for (let n = 1; n <= 6; n++) expect(css).toContain(`.tel-paso-${n} { animation-name: telPaso${n}; }`);
+      expect(css).toMatch(/prefers-reduced-motion: reduce\)\s*\{\s*\.tel-paso,[\s\S]*?animation: none;\s*opacity: 1;\s*transform: none;/);
+    });
+
+    it("las condiciones del hero coinciden con la sección de precio (no se promete otra cosa)", () => {
+      expect(texto).toContain("Instalación gratis y 14 días de prueba.");
+    });
   });
 });

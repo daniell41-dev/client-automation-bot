@@ -1,6 +1,9 @@
 /**
  * T-80: lo primero que ve la dueña: qué hace Nexo, en una frase que se
- * entienda sin saber de tecnología, y la conversación real de un pedido.
+ * entienda sin saber de tecnología.
+ * T-82: el teléfono cuenta la historia completa en movimiento (nota de voz,
+ * resumen, comprobante que no cuadra y aviso para aprobar), y las tres
+ * condiciones que más frenan la compra van a la vista debajo de los botones.
  *
  * El video es opcional: si alguien sube `public/landing/demo.mp4`, reemplaza
  * al teléfono en el próximo build. Se revisa al compilar (la página es
@@ -10,23 +13,15 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import Link from "next/link";
-import { PhonePreview, type PreviewMessage } from "@/components/phone-preview";
+import { Check } from "lucide-react";
 import { BotonWhatsApp } from "@/components/landing/boton-whatsapp";
+import { TelefonoAnimado } from "@/components/landing/telefono-animado";
 
 export const SUBTITULO_HERO =
-  "Nexo responde a sus clientes a cualquier hora con su menú y sus precios, arma el pedido con el total, revisa el comprobante de pago y le deja a usted la última palabra. Se lo instalamos aquí en Cúcuta.";
+  "Nexo responde a sus clientes a cualquier hora, arma el pedido con el total, revisa el comprobante de pago y usted aprueba con un botón. Se lo instalamos aquí en Cúcuta.";
 
-/** Cliente = "in" (burbuja blanca), negocio = "out" (verde), igual que en los editores del portal. */
-const CONVERSACION: PreviewMessage[] = [
-  { role: "in", text: "Buenas, 2 hamburguesas sencillas y una gaseosa a domicilio" },
-  { role: "out", text: "¡Con gusto! ¿A qué dirección se lo llevamos?" },
-  { role: "in", text: "Av. 4 #12-30, La Riviera" },
-  {
-    role: "out",
-    text: "Su pedido:\n2x Hamburguesa sencilla $36.000\n1x Gaseosa $4.000\nDomicilio $5.000\nTotal: $45.000\n¿Confirma su pedido?",
-  },
-  { role: "in", text: "Confirmo" },
-];
+/** Las mismas condiciones que la sección de precio y los Términos: no prometer otra cosa aquí. */
+const CONDICIONES = ["Instalación gratis", "14 días de prueba", "Sin permanencia"];
 
 const VIDEO = "/landing/demo.mp4";
 const POSTER = "/landing/demo.jpg";
@@ -43,7 +38,7 @@ export function Hero() {
     <section className="mx-auto w-full max-w-5xl px-4 pb-10 pt-6 sm:px-6 sm:pb-16 sm:pt-10">
       <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_290px] lg:gap-14">
         <div className="fade-up">
-          <h1 className="text-[32px] font-extrabold leading-[1.1] text-white sm:text-[46px] lg:text-[52px]">
+          <h1 className="text-[38px] font-extrabold leading-[1.08] text-white sm:text-[46px] lg:text-[52px]">
             Su WhatsApp toma pedidos aunque usted esté en la cocina.
           </h1>
           <p className="mt-5 max-w-xl text-base leading-relaxed text-white/75 sm:text-[17px]">{SUBTITULO_HERO}</p>
@@ -56,6 +51,17 @@ export function Hero() {
               Pruebe la demo
             </Link>
           </div>
+          <ul className="mt-6 flex flex-wrap gap-2">
+            {CONDICIONES.map((c) => (
+              <li
+                key={c}
+                className="inline-flex items-center gap-1.5 rounded-full border border-white/20 px-3 py-1.5 text-[13px] font-semibold text-white/85"
+              >
+                <Check className="h-3.5 w-3.5 text-success" aria-hidden />
+                {c}
+              </li>
+            ))}
+          </ul>
         </div>
 
         <div className="flex justify-center lg:justify-end">
@@ -72,18 +78,10 @@ export function Hero() {
               aria-label="Video de un pedido por WhatsApp atendido por Nexo"
             />
           ) : (
-            <PhonePreview botName="Su negocio" messages={CONVERSACION} />
+            <TelefonoAnimado />
           )}
         </div>
       </div>
-
-      <ul className="mt-12 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-center text-[13px] font-semibold text-white/60 sm:text-sm">
-        <li>Conexión oficial para empresas</li>
-        <li aria-hidden>·</li>
-        <li>Instalación en persona</li>
-        <li aria-hidden>·</li>
-        <li>Hecho en Cúcuta</li>
-      </ul>
     </section>
   );
 }
