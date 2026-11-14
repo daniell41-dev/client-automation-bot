@@ -13,16 +13,16 @@
  * El marco copia el de `phone-preview.tsx` (mismos tokens de WhatsApp); no se
  * reutiliza el componente porque ese pinta mensajes de texto, y aquí hay una
  * nota de voz, un comprobante y una tarjeta que sale del borde.
+ * T-87: las burbujas salen de `chat.tsx`, compartidas con "Así funciona" y
+ * "Para qué negocios".
  */
 
 import { Send } from "lucide-react";
+import { AvisoAmbar, Burbuja, ComprobanteMini, NotaVoz } from "@/components/landing/chat";
 
 /** Para lectores de pantalla: la animación es decorativa, la historia va en una frase. */
 const DESCRIPCION =
   "Ejemplo de un pedido por WhatsApp a las 10:47 p. m.: el cliente manda una nota de voz, Nexo responde con el resumen y el total de $45.000, el cliente confirma y envía un comprobante por $40.000, Nexo avisa que no cuadra y a la dueña le llega el pedido #128 para aprobar, rechazar o pedir el resto.";
-
-/** Alturas de la onda de la nota de voz (px). Fijas: la misma forma en cada render. */
-const ONDA = [6, 10, 14, 9, 16, 12, 7, 13, 18, 11, 8, 15, 10, 6, 12, 9, 14, 7];
 
 export function TelefonoAnimado() {
   return (
@@ -48,41 +48,21 @@ export function TelefonoAnimado() {
           </div>
 
           {/* 1. Nota de voz del cliente */}
-          <div className="tel-paso tel-paso-1 flex max-w-[78%] items-center gap-2 self-start rounded-lg rounded-bl-[3px] bg-white px-2.5 py-2 shadow-card">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-wa-header">
-              <span className="ml-0.5 h-0 w-0 border-y-[5px] border-l-[8px] border-y-transparent border-l-white" />
-            </span>
-            <span className="flex h-[18px] items-center gap-[2px]">
-              {ONDA.map((alto, i) => (
-                <span key={i} className="w-[2px] rounded-full bg-ink-soft" style={{ height: alto }} />
-              ))}
-            </span>
-            <span className="font-display text-[11px] font-semibold text-ink-mid">0:08</span>
-          </div>
+          <NotaVoz className="tel-paso tel-paso-1" />
 
           {/* 2. Resumen del negocio */}
-          <div className="tel-paso tel-paso-2 max-w-[86%] self-end whitespace-pre-line rounded-lg rounded-br-[3px] bg-wa-out px-2.5 py-1.5 text-[12.5px] leading-snug text-ink shadow-card">
+          <Burbuja de="negocio" className="tel-paso tel-paso-2">
             {"Su pedido:\n2x Hamburguesa sencilla $36.000\n1x Gaseosa $4.000\nDomicilio $5.000\nTotal: $45.000\n¿Confirma su pedido?"}
-          </div>
+          </Burbuja>
 
           {/* 3. Confirma y manda el comprobante */}
-          <div className="tel-paso tel-paso-3 self-start rounded-lg rounded-bl-[3px] bg-white px-2.5 py-1.5 text-[12.5px] text-ink shadow-card">
+          <Burbuja de="cliente" className="tel-paso tel-paso-3">
             Confirmo
-          </div>
-          <div className="tel-paso tel-paso-4 w-[58%] self-start rounded-lg rounded-bl-[3px] bg-white p-1.5 shadow-card">
-            {/* Comprobante genérico: sin logos de bancos ni datos reales. */}
-            <div className="rounded-md border border-line bg-surface-3 px-2.5 py-2">
-              <p className="text-[9.5px] font-bold uppercase tracking-wide text-ink-mid">Comprobante</p>
-              <p className="font-display text-[17px] font-bold text-ink">$40.000</p>
-              <span className="mt-1 block h-1.5 w-4/5 rounded-full bg-line-2" />
-              <span className="mt-1 block h-1.5 w-3/5 rounded-full bg-line-2" />
-            </div>
-          </div>
+          </Burbuja>
+          <ComprobanteMini monto="$40.000" className="tel-paso tel-paso-4" />
 
           {/* 4. Nexo marca que no cuadra */}
-          <p className="tel-paso tel-paso-5 self-center rounded-md bg-warn-bg px-2.5 py-1 text-center text-[11px] font-semibold leading-snug text-warn-ink shadow-card">
-            El comprobante dice $40.000, el pedido es $45.000.
-          </p>
+          <AvisoAmbar className="tel-paso tel-paso-5">El comprobante dice $40.000, el pedido es $45.000.</AvisoAmbar>
         </div>
 
         <div className="flex items-center gap-2 bg-surface-2 px-2.5 py-2">

@@ -23,6 +23,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
   incluye y la garantía de los 14 días (igual que los Términos).
 - Landing (T-86): sección "Detrás de Nexo hay una persona de Cúcuta" y foto en el cierre. Solo
   aparecen cuando se configuran el nombre y la foto del responsable (hoy no aparecen).
+- Landing (T-87): "Así funciona" pasa a una línea de tiempo con escenas del chat, y "Para qué
+  negocios" a pestañas con conversaciones de ejemplo tomadas de las respuestas reales del bot.
 
 ### Cambios
 - El bot le habla de usted al cliente y a la dueña, en español de Colombia (T-78): sin voseo en
