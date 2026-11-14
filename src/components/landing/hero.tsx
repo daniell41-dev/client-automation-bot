@@ -16,6 +16,9 @@ import { BotonWhatsApp } from "@/components/landing/boton-whatsapp";
 import { TelefonoAnimado } from "@/components/landing/telefono-animado";
 import { existeEnPublic } from "@/lib/archivo-publico";
 
+/** T-89: también es el título de la imagen para redes (opengraph-image.tsx). */
+export const TITULO_HERO = "Su WhatsApp toma pedidos aunque usted esté en la cocina.";
+
 export const SUBTITULO_HERO =
   "Nexo responde a sus clientes a cualquier hora, arma el pedido con el total, revisa el comprobante de pago y usted aprueba con un botón. Se lo instalamos aquí en Cúcuta.";
 
@@ -34,7 +37,7 @@ export function Hero() {
       <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_290px] lg:gap-14">
         <div className="fade-up">
           <h1 className="text-[38px] font-extrabold leading-[1.08] text-white sm:text-[46px] lg:text-[52px]">
-            Su WhatsApp toma pedidos aunque usted esté en la cocina.
+            {TITULO_HERO}
           </h1>
           <p className="mt-5 max-w-xl text-base leading-relaxed text-white/75 sm:text-[17px]">{SUBTITULO_HERO}</p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">

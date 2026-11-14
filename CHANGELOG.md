@@ -6,6 +6,12 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Cambios
+- SEO (T-89): título y descripción nuevos con el mensaje del hero; la imagen para redes
+  (1200×630) ahora se genera con código desde el título y el precio, sin dominio fijo; los
+  datos estructurados suman `SoftwareApplication` con oferta en COP solo si hay precio
+  configurado.
+
 ### Arreglos
 - Citas (T-88): "Corte caballero" ya no agenda "Corte dama" cuando dos servicios comparten una
   palabra clave; la hora que viene en el primer mensaje ("¿tiene turno hoy a las 5?") se

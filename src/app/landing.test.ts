@@ -10,6 +10,8 @@ import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import Home, { metadata } from "@/app/page";
+import { SUBTITULO_HERO } from "@/components/landing/hero";
+import { jsonLd } from "@/components/landing/datos-estructurados";
 import { GARANTIA, Precio } from "@/components/landing/precio";
 import { Responsable, responsableVisible } from "@/components/landing/responsable";
 import { Cierre } from "@/components/landing/cierre";
@@ -82,11 +84,12 @@ describe("landing (T-80)", () => {
   });
 
   it("título, canónica y datos estructurados de la organización en Cúcuta", () => {
-    expect(metadata.title).toEqual({ absolute: "Nexo · Pedidos, citas y pagos por WhatsApp en Cúcuta" });
+    expect(metadata.title).toEqual({ absolute: "WhatsApp con pedidos, citas y revisión de pagos para negocios de Cúcuta · Nexo" });
+    expect(metadata.description).toBe(SUBTITULO_HERO);
     expect(metadata.alternates?.canonical).toBe("/");
     const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
-    expect(ld["@type"]).toBe("Organization");
-    expect(ld.areaServed.name).toBe("Cúcuta");
+    const org = ld["@graph"].find((n: { "@type": string }) => n["@type"] === "Organization");
+    expect(org.areaServed.name).toBe("Cúcuta");
   });
 
   describe("T-82: hero animado", () => {
@@ -324,6 +327,31 @@ describe("landing (T-80)", () => {
         .filter((f) => f.endsWith(".tsx"))
         .filter((f) => /^["']use client["']/m.test(readFileSync(join(dir, f), "utf8")));
       expect(conCliente).toEqual(["negocios-pestanas.tsx"]);
+    });
+  });
+
+  describe("T-89: SEO y Open Graph", () => {
+    type Nodo = { "@type": string; offers?: { "@type": string; price: number; priceCurrency: string } };
+    const grafo = (precio: string | null) => (JSON.parse(jsonLd(precio))["@graph"] as Nodo[]);
+
+    it("con precio: SoftwareApplication con Offer numérica en COP", () => {
+      const app = grafo("$79.900").find((n) => n["@type"] === "SoftwareApplication");
+      expect(app?.offers).toEqual({ "@type": "Offer", price: 79900, priceCurrency: "COP", url: expect.any(String) });
+    });
+
+    it("sin precio no hay oferta (no se inventa)", () => {
+      expect(grafo(null).map((n) => n["@type"])).toEqual(["Organization"]);
+    });
+
+    it("la página usa el PRECIO_DESDE de la configuración", () => {
+      const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
+      expect(ld["@graph"].find((n: Nodo) => n["@type"] === "SoftwareApplication")?.offers?.price).toBe(79900);
+    });
+
+    it("ya no hay imagen OG fija: la genera opengraph-image.tsx", () => {
+      const app = join(__dirname);
+      expect(readdirSync(app)).not.toContain("opengraph-image.png");
+      expect(readdirSync(app)).toContain("opengraph-image.tsx");
     });
   });
 });
