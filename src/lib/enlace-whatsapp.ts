@@ -14,6 +14,8 @@ export const MENSAJES_WHATSAPP = {
   precios: "Hola, quiero saber el precio y los cupos para instalar Nexo en mi negocio.",
   "barra-movil": "Hola, estoy viendo la página de Nexo desde el celular y quiero más información.",
   cierre: "Hola, quiero ver Nexo funcionando con mi negocio.",
+  // T-83: el botón de la sección del comprobante anotado.
+  comprobante: "Hola, quiero saber cómo Nexo revisa los comprobantes.",
 } as const;
 
 export type OrigenWhatsApp = keyof typeof MENSAJES_WHATSAPP;

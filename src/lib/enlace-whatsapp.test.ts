@@ -12,9 +12,15 @@ describe("enlaceWhatsApp (T-80)", () => {
 
   it("cada botón manda un mensaje distinto, para saber desde qué parte escriben", () => {
     const origenes = Object.keys(MENSAJES_WHATSAPP) as OrigenWhatsApp[];
-    expect(origenes).toEqual(expect.arrayContaining(["hero", "precios", "barra-movil", "cierre"]));
+    expect(origenes).toEqual(expect.arrayContaining(["hero", "precios", "barra-movil", "cierre", "comprobante"]));
     const textos = origenes.map((o) => new URL(enlaceWhatsApp(o, NUMERO)).searchParams.get("text"));
     expect(new Set(textos).size).toBe(origenes.length);
+  });
+
+  it("T-83: el botón del comprobante pregunta por la revisión de comprobantes", () => {
+    const url = new URL(enlaceWhatsApp("comprobante", NUMERO));
+    expect(url.searchParams.get("text")).toBe("Hola, quiero saber cómo Nexo revisa los comprobantes.");
+    expect(enlaceWhatsApp("comprobante", undefined)).toBe("/demo");
   });
 
   it("codifica el mensaje: tildes y signos no rompen el enlace", () => {
