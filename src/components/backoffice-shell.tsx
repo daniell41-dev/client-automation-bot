@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Shell del back office: sidebar oscuro (#101828) para distinguirlo del
+ * Shell del back office: sidebar oscuro (night #2A0F2E) para distinguirlo del
  * portal + topbar con título por sección. Nav PLATAFORMA: Negocios, Usuarios,
  * Rubros (plantillas), Leads; pie con "Ver portal cliente" y logout.
  */

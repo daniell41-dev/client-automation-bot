@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
-/* ─── Design tokens "Nexo" (ver docs/09-diseno-nexo.md) ─────────────────── */
+/* ─── Design tokens "Aurela" (design system Aurela en Claude) ────────────── */
+/* Ciruela (morado rojizo) en vez del azul de Nexo: se aleja a propósito del
+   índigo/lima de la competencia. El oro de la corona es el único acento cálido. */
 
 @theme inline {
   /* Tipografía */
@@ -8,30 +10,41 @@
   --font-display: var(--font-sora), var(--font-jakarta), sans-serif;
 
   /* Marca / UI */
-  --color-primary: #2a6fdb;
-  --color-primary-hover: #1f5bc0;
-  --color-primary-light: #4c8dff;
-  --color-primary-tint: #eff5ff;
+  --color-primary: #6b2475;
+  --color-primary-hover: #521c5a;
+  --color-primary-light: #a85db3;
+  --color-primary-tint: #f6ebf6;
+  --color-primary-border: #ddb8e2;
 
   /* Texto */
-  --color-ink: #101828;
-  --color-ink-mid: #475467;
-  --color-ink-soft: #98a2b3;
-  --color-ink-faint: #b4bac5;
+  --color-ink: #1c1220;
+  --color-ink-mid: #4d4350;
+  --color-ink-soft: #928894;
+  --color-ink-faint: #bbb3bc;
 
   /* Superficies */
   --color-surface: #ffffff;
-  --color-canvas: #f6f7f9;
-  --color-surface-2: #f2f4f7;
-  --color-surface-3: #f9fafb;
+  --color-canvas: #f8f6f4;
+  --color-surface-2: #f2eeec;
+  --color-surface-3: #fbfaf8;
 
   /* Bordes */
-  --color-line: #eaecf0;
-  --color-line-2: #e4e7ec;
-  --color-line-input: #d0d5dd;
+  --color-line: #ece7e4;
+  --color-line-2: #e5dfdb;
+  --color-line-input: #d6cecb;
 
   /* Back office */
-  --color-bo-sidebar: #101828;
+  --color-bo-sidebar: #2a0f2e;
+
+  /* Superficies oscuras de marca (hero del login, pantallas de error) */
+  --color-night: #2a0f2e;
+  --color-night-2: #1a0a1c;
+
+  /* Oro de la corona del logo: con moderación, nunca neón */
+  --color-gold: #e8a93a;
+  --color-gold-light: #f4c978;
+  --color-gold-ink: #8a5a00;
+  --color-gold-bg: #fdf3df;
 
   /* Semánticos */
   --color-success: #12b76a;
@@ -61,9 +74,10 @@
   --color-rubro-comercio-ink: #475467;
 
   /* Sombras */
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --shadow-lift: 0 10px 28px -14px rgba(16, 24, 40, 0.22);
-  --shadow-fab: 0 14px 32px -10px rgba(16, 24, 40, 0.55);
+  --shadow-card: 0 1px 2px rgba(28, 18, 32, 0.05);
+  --shadow-lift: 0 10px 28px -14px rgba(28, 18, 32, 0.22);
+  --shadow-fab: 0 14px 32px -10px rgba(28, 18, 32, 0.55);
+  --shadow-primary: 0 8px 20px -8px rgba(107, 36, 117, 0.7);
 }
 
 body {
@@ -510,7 +524,7 @@ body {
 
 .input-nexo:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 4px rgba(42, 111, 219, 0.12);
+  box-shadow: 0 0 0 4px rgba(107, 36, 117, 0.12);
 }
 
 /* T-70: páginas legales — texto largo, cómodo de leer en el celular. */

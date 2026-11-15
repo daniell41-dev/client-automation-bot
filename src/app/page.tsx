@@ -49,7 +49,7 @@ export default function Home() {
           className="relative overflow-hidden"
           style={{
             background:
-              "radial-gradient(80% 60% at 50% 0%, rgba(42,111,219,.28) 0%, rgba(14,32,51,0) 55%), #0E2033",
+              "radial-gradient(80% 60% at 50% 0%, rgba(107,36,117,.28) 0%, rgba(42,15,46,0) 55%), #2A0F2E",
           }}
         >
           <FondoPuntos />

@@ -29,12 +29,12 @@ export default function LoginPage() {
         />
 
         {/* En el celular no hay panel de marca: una franja con el logo y la frase. */}
-        <div className="relative bg-[#0E2033] px-6 pb-8 pt-8 lg:hidden">
+        <div className="relative bg-[#2A0F2E] px-6 pb-8 pt-8 lg:hidden">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0"
             style={{
-              background: "radial-gradient(70% 90% at 10% 0%, rgba(42,111,219,.5) 0%, rgba(14,32,51,0) 70%)",
+              background: "radial-gradient(70% 90% at 10% 0%, rgba(107,36,117,.5) 0%, rgba(42,15,46,0) 70%)",
             }}
           />
           <div className="relative">
