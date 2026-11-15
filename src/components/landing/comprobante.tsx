@@ -140,10 +140,9 @@ export function Comprobante() {
             </div>
           </div>
         ))}
-
-        <p className="col-start-1 row-start-10 border-t border-line px-5 py-3 text-[12px] text-ink-mid lg:row-start-6">
-          Comprobante de ejemplo: los datos no son reales.
-        </p>
+        {/* La última fila queda vacía a propósito (antes llevaba "Comprobante de
+            ejemplo: los datos no son reales."). La etiqueta "Ejemplo" del
+            encabezado basta para que no pase por una transferencia real. */}
       </div>
 
       <BotonWhatsApp origen="comprobante" className="mt-10 w-full sm:w-auto" />
