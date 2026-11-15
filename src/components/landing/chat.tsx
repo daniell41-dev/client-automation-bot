@@ -138,6 +138,21 @@ export function ComprobanteMini({ monto, className }: { monto: string; className
 }
 
 /** Aviso de Aurela cuando algo no cuadra (tokens warn). */
+/** Aviso de Aurela cuando el pago cuadra (tokens success): el final feliz del hero. */
+export function AvisoOk({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <p
+      className={unir(
+        "inline-flex items-center gap-1.5 self-center rounded-md bg-success-bg px-2.5 py-1 text-center text-[11px] font-semibold leading-snug text-success-ink shadow-card",
+        className,
+      )}
+    >
+      <CheckCheck className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span>{children}</span>
+    </p>
+  );
+}
+
 export function AvisoAmbar({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <p

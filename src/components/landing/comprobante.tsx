@@ -43,7 +43,8 @@ function fechaDeHace12Dias(): string {
 const FILAS = [
   {
     etiqueta: "Monto",
-    valor: () => "$40.000",
+    // El mismo total del pedido #128 del hero: el monto pasa y lo que falla es la fecha.
+    valor: () => "$45.000",
     grande: true,
     anotacion: "Monto: ¿es el total del pedido?",
     filaDato: "row-start-3 lg:row-start-2",

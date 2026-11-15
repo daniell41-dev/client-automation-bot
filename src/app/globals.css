@@ -210,6 +210,22 @@ body {
 }
 .tel-paso-6 { animation-name: telPaso6; }
 
+/* Final feliz: la dueña toca "Aprobar" (10,2 s: el botón se hunde un instante)
+   y al cliente le llega su código de retiro (10,8 s). */
+@keyframes telPaso7 {
+  0%, 72.0% { opacity: 0; transform: translateY(8px); }
+  74.7%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.tel-paso-7 { animation-name: telPaso7; }
+
+.tel-toque { animation: telToque 15s linear infinite both; }
+@keyframes telToque {
+  0%, 67.3% { transform: none; }
+  68.3% { transform: scale(0.9); }
+  69.6%, 100% { transform: none; }
+}
+
 /* T-91: lo que hace que el teléfono se sienta como un WhatsApp de verdad.
    Mismo ciclo de 15 s que los pasos, para que todo vaya sincronizado. El
    estilo sin animación es siempre el estado final (nota escuchada, checks
@@ -295,12 +311,14 @@ body {
     opacity: 1;
     transform: none;
   }
-  /* T-91: nota escuchada, checks azules, subrayado hecho y "en línea". */
+  /* T-91: nota escuchada, checks azules, subrayado hecho y "en línea". El
+     botón "Aprobar" queda quieto. */
   .tel-onda,
   .tel-onda-barras,
   .tel-en-linea,
   .tel-visto,
-  .tel-subraya {
+  .tel-subraya,
+  .tel-toque {
     animation: none;
     opacity: 1;
     transform: none;
