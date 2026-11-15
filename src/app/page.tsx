@@ -27,7 +27,11 @@ import { Preguntas } from "@/components/landing/preguntas";
 import { Responsable } from "@/components/landing/responsable";
 import { Testimonios } from "@/components/landing/testimonios";
 
-const TITULO = "WhatsApp con pedidos, citas y revisión de pagos para negocios de Cúcuta · Aurela";
+// La marca va primero: la pestaña del navegador muestra solo los primeros
+// caracteres, y con "WhatsApp con pedidos…" adelante se leía "Whats…". Lo
+// demás conserva las palabras que busca la gente (pedidos, citas, pagos,
+// WhatsApp, Cúcuta) y cabe en los ~60 caracteres que muestra Google.
+const TITULO = "Aurela · Pedidos, citas y pagos por WhatsApp en Cúcuta";
 
 export const metadata: Metadata = {
   // `absolute`: la plantilla del layout ("%s · Aurela") repetiría la marca.

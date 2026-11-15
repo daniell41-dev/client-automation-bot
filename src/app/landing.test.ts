@@ -84,7 +84,9 @@ describe("landing (T-80)", () => {
   });
 
   it("título, canónica y datos estructurados de la organización en Cúcuta", () => {
-    expect(metadata.title).toEqual({ absolute: "WhatsApp con pedidos, citas y revisión de pagos para negocios de Cúcuta · Aurela" });
+    // La marca primero (la pestaña muestra el comienzo) y corto para Google.
+    expect(metadata.title).toEqual({ absolute: "Aurela · Pedidos, citas y pagos por WhatsApp en Cúcuta" });
+    expect((metadata.title as { absolute: string }).absolute.length).toBeLessThanOrEqual(60);
     expect(metadata.description).toBe(SUBTITULO_HERO);
     expect(metadata.alternates?.canonical).toBe("/");
     const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
