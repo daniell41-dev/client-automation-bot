@@ -1,60 +1,48 @@
 # Changelog
 
-Versiones de Nexo. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/);
+Versiones de Aurela (antes Nexo). Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/);
 números: [versionado semántico](https://semver.org/lang/es/) (ver
 `docs/01-git-flow.md` → "Versiones y releases").
 
 ## [Sin publicar]
 
-### Cambios
-- Landing (T-95): talones de la comanda del pedido #128 entre secciones (nota de voz, total
-  confirmado, comprobante con faltante y pedido aprobado) que salen de su ranura al bajar.
-- Landing (T-94): el precio se muestra como un ticket que se suma ("Su cuenta": instalación $0,
-  14 días $0, permanencia 0 meses, y abajo desde $79.900 al mes); las líneas se imprimen al bajar.
-- Landing (T-93): en "Así funciona" la línea se llena de azul al bajar, el número de cada paso
-  se enciende cuando la línea lo alcanza y su escena entra desde su lado.
-- Landing (T-92): una línea de escaneo baja por el comprobante de ejemplo al hacer scroll y
-  cada dato recibe su marca cuando la línea pasa: tres revisados y la fecha en ámbar ("Hace 12 días").
-- Landing (T-91): el teléfono del hero se siente como un WhatsApp de verdad: la nota de voz
-  avanza mientras se escucha, arriba dice "escribiendo…" y salen los tres puntos antes de cada
-  respuesta, los checks del resumen se ponen azules y el monto que no cuadra se subraya.
-- SEO (T-89): título y descripción nuevos con el mensaje del hero; la imagen para redes
-  (1200×630) ahora se genera con código desde el título y el precio, sin dominio fijo; los
-  datos estructurados suman `SoftwareApplication` con oferta en COP solo si hay precio
-  configurado.
-
-### Arreglos
-- Páginas legales: el contacto del responsable muestra un solo teléfono (+57 322 683 7610).
-- Citas (T-88): "Corte caballero" ya no agenda "Corte dama" cuando dos servicios comparten una
-  palabra clave; la hora que viene en el primer mensaje ("¿tiene turno hoy a las 5?") se
-  recuerda en vez de volver a pedirla; y "p. m." llega bien a la confirmación (antes "p . me").
+## [1.1.0] — 2026-11-15
 
 ### Nuevo
-- Landing de venta en la portada (T-80): qué hace Nexo, cómo funciona, para qué negocios,
-  instalación y preguntas frecuentes, con botones "Escríbanos por WhatsApp" (número en
-  `NEXT_PUBLIC_WHATSAPP_VENTAS`; sin él llevan a la demo).
-- Landing (T-81): precio desde $79.900 al mes con instalación gratis y 14 días de prueba, y
-  respuestas confirmadas sobre el número y el tiempo de instalación (unos 30 minutos).
-- Hero animado (T-82): el teléfono muestra en bucle una nota de voz, el resumen, un comprobante
-  que no cuadra y el aviso para aprobar; solo CSS y quieto con "reducir movimiento". Chips de
-  instalación gratis, 14 días de prueba y sin permanencia.
-- Landing (T-83): sección del comprobante anotado. Un comprobante de ejemplo con las cuatro
-  preguntas que Nexo revisa (monto, cuenta, referencia, fecha), que aparecen al bajar.
-- Landing (T-84): "Lo que se pierde" pasa de tres tarjetas a un chat sin responder ("Visto por
-  última vez: nadie.") y tres frases grandes.
-- Landing (T-85): el precio pasa a una tarjeta con "Desde $79.900 al mes", condiciones, qué
-  incluye y la garantía de los 14 días (igual que los Términos).
-- Landing (T-86): sección "Detrás de Nexo hay una persona de Cúcuta" y foto en el cierre. Solo
-  aparecen cuando se configuran el nombre y la foto del responsable (hoy no aparecen).
-- Landing (T-87): "Así funciona" pasa a una línea de tiempo con escenas del chat, y "Para qué
-  negocios" a pestañas con conversaciones de ejemplo tomadas de las respuestas reales del bot.
+- Marca Aurela: el producto pasa a llamarse Aurela en toda la app (landing, login, portal,
+  back office, páginas legales, SEO y mensajes del bot), con paleta ciruela y oro, logo de la
+  burbuja con corona y favicons nuevos.
+- Landing de venta en la portada (T-80 a T-87): qué hace Aurela, cómo funciona, para qué
+  negocios, instalación, precio (desde $79.900 al mes, instalación gratis, 14 días de prueba,
+  sin permanencia) y preguntas frecuentes. La sección "Quién está detrás" solo aparece cuando
+  se configuran el nombre y la foto del responsable.
+- Animaciones de la landing (T-91 a T-95), solo con CSS y quietas con "reducir movimiento":
+  - el teléfono del hero cuenta un pedido con final feliz (nota de voz, resumen, comprobante,
+    "Pago verificado", la dueña aprueba y el cliente recibe su código de retiro);
+  - una línea de escaneo recorre el comprobante de ejemplo y marca cada dato (la fecha, en
+    ámbar: "Hace 12 días");
+  - "Así funciona" se llena al bajar y cada paso se enciende;
+  - el precio es un ticket "Su cuenta" que se imprime línea por línea;
+  - talones del pedido #128 entre secciones.
+- SEO (T-89): título "Aurela · Pedidos, citas y pagos por WhatsApp en Cúcuta", imagen para
+  redes generada con código y datos estructurados con la oferta en COP.
 
 ### Cambios
-- El bot le habla de usted al cliente y a la dueña, en español de Colombia (T-78): sin voseo en
-  los mensajes, las plantillas de rubro ni los prompts de la IA. `pnpm quitar:voseo` corrige lo
-  que ya está guardado en la base.
-- Las pantallas (portal, back office, login, demo y errores) también hablan de usted (T-79), y el
-  tono "Cercano" del bot ya no tutea al cliente.
+- El bot y todas las pantallas le hablan de usted al cliente y a la dueña, en español de
+  Colombia (T-78, T-79). `pnpm quitar:voseo --aplicar` corrige lo que ya está guardado en la
+  base: correrlo el día de esta release.
+- Cada botón de WhatsApp de la landing dice qué va a pasar ("Probarlo en mi negocio", "Pedir
+  instalación gratis"…); solo la barra fija del celular dice "Escríbanos por WhatsApp".
+- Los chats de ejemplo muestran todas las respuestas reales del bot, sin saltos ni notas de
+  "conversación de ejemplo".
+
+### Arreglos
+- Citas (T-88): "Corte caballero" ya no agenda "Corte dama" cuando dos servicios comparten una
+  palabra clave; la hora del primer mensaje ("¿tiene turno hoy a las 5?") se recuerda; y
+  "p. m." llega bien a la confirmación.
+- Login: "Volver al inicio" y el logo llevan a la página principal (antes solo se podía volver
+  con el botón atrás del navegador).
+- Páginas legales: el contacto del responsable muestra un solo teléfono.
 
 ## [1.0.2] — 2026-11-15
 
