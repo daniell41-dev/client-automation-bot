@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Primitivos del design system "Nexo" (ver docs/design/README.md).
+ * Primitivos del design system "Aurela" (ver docs/design/README.md).
  * Componentes presentacionales compartidos por portal, back office y demo.
  */
 

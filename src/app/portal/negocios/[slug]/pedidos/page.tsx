@@ -106,5 +106,5 @@ export default async function PedidosPage({ params }: { params: Promise<{ slug: 
   );
 }
 
-// T-71: el nombre de la pestaña ("Pedidos · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Pedidos · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Pedidos" };

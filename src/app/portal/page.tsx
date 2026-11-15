@@ -214,5 +214,5 @@ export default async function PortalHome() {
   );
 }
 
-// T-71: el nombre de la pestaña ("Mis negocios · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Mis negocios · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Mis negocios" };

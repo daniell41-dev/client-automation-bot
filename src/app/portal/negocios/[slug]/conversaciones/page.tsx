@@ -55,5 +55,5 @@ export default async function ConversacionesPage({
   );
 }
 
-// T-71: el nombre de la pestaña ("Conversaciones · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Conversaciones · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Conversaciones" };

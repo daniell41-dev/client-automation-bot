@@ -1,7 +1,7 @@
 /**
- * T-82: el teléfono del hero cuenta en 12 segundos lo que hace Nexo: llega una
+ * T-82: el teléfono del hero cuenta en 12 segundos lo que hace Aurela: llega una
  * nota de voz a las 10:47 p. m., sale el resumen con el total, el cliente
- * confirma y manda un comprobante que no cuadra, Nexo lo marca y a la dueña
+ * confirma y manda un comprobante que no cuadra, Aurela lo marca y a la dueña
  * le llega el aviso con los tres botones. Después, 3 s quieto y vuelve a
  * empezar.
  *
@@ -17,7 +17,7 @@
  * "Para qué negocios".
  * T-91: más parecido a un WhatsApp de verdad, dentro del mismo ciclo: la nota
  * de voz avanza mientras "se escucha", arriba dice "escribiendo…" y salen
- * los tres puntos antes de cada respuesta de Nexo, los checks del resumen se
+ * los tres puntos antes de cada respuesta de Aurela, los checks del resumen se
  * ponen azules cuando el cliente lo lee y el monto que no cuadra se subraya.
  * Todo lo nuevo se superpone (posición absoluta o la misma celda de grid):
  * no reserva ni libera espacio, así que sigue sin mover nada.
@@ -28,7 +28,7 @@ import { AvisoAmbar, Burbuja, ComprobanteMini, Escribiendo, HoraVisto, NotaVoz }
 
 /** Para lectores de pantalla: la animación es decorativa, la historia va en una frase. */
 const DESCRIPCION =
-  "Ejemplo de un pedido por WhatsApp a las 10:47 p. m.: el cliente manda una nota de voz, Nexo responde con el resumen y el total de $45.000, el cliente confirma y envía un comprobante por $40.000, Nexo avisa que no cuadra y a la dueña le llega el pedido #128 para aprobar, rechazar o pedir el resto.";
+  "Ejemplo de un pedido por WhatsApp a las 10:47 p. m.: el cliente manda una nota de voz, Aurela responde con el resumen y el total de $45.000, el cliente confirma y envía un comprobante por $40.000, Aurela avisa que no cuadra y a la dueña le llega el pedido #128 para aprobar, rechazar o pedir el resto.";
 
 export function TelefonoAnimado() {
   return (
@@ -61,7 +61,7 @@ export function TelefonoAnimado() {
           <NotaVoz progreso className="tel-paso tel-paso-1" />
 
           {/* 2. Resumen del negocio. Antes, los tres puntos ocupan su lugar
-              (encima, sin espacio propio) mientras Nexo "escribe". */}
+              (encima, sin espacio propio) mientras Aurela "escribe". */}
           <div className="relative flex flex-col">
             <Escribiendo className="tel-tecleo absolute right-0 top-0" />
             <Burbuja de="negocio" className="tel-paso tel-paso-2">
@@ -76,7 +76,7 @@ export function TelefonoAnimado() {
           </Burbuja>
           <ComprobanteMini monto="$40.000" className="tel-paso tel-paso-4" />
 
-          {/* 4. Nexo marca que no cuadra */}
+          {/* 4. Aurela marca que no cuadra */}
           <AvisoAmbar className="tel-paso tel-paso-5">
             El comprobante dice{" "}
             <span className="relative inline-block">

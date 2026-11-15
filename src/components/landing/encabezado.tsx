@@ -5,7 +5,7 @@ import { Logo } from "@/components/logo";
 export function Encabezado() {
   return (
     <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-4 sm:px-6 sm:py-5">
-      <Link href="/" aria-label="Nexo, inicio" className="inline-flex min-h-12 items-center">
+      <Link href="/" aria-label="Aurela, inicio" className="inline-flex min-h-12 items-center">
         <Logo variant="dark" />
       </Link>
       <nav className="flex items-center gap-1 text-sm sm:gap-2">

@@ -11,7 +11,7 @@ import { CONTACTO_LEGAL } from "@/lib/legal";
 
 export const metadata = {
   title: "Eliminar mis datos",
-  description: "Cómo pedir que Nexo borre sus datos personales.",
+  description: "Cómo pedir que Aurela borre sus datos personales.",
 };
 
 export default function EliminarDatosPage() {
@@ -19,7 +19,7 @@ export default function EliminarDatosPage() {
     <PaginaLegal titulo="Cómo pedir que borremos sus datos">
       <p>
         Puede pedir en cualquier momento que borremos sus datos personales, sea usted cliente de un negocio que
-        usa Nexo o la dueña o el dueño de un negocio.
+        usa Aurela o la dueña o el dueño de un negocio.
       </p>
 
       <h2>Pasos</h2>

@@ -1,5 +1,5 @@
 /**
- * Rubros base de Nexo (T-40): las plantillas que el back office ofrece al
+ * Rubros base de Aurela (T-40): las plantillas que el back office ofrece al
  * crear un negocio, y que la dueña elegirá en su primer ingreso (T-42).
  *
  * Son SOLO datos: precios y textos de ejemplo que la dueña reemplaza en el
@@ -119,7 +119,7 @@ const restaurante: BusinessConfig = {
     opciones: ["Domicilio", "Recoger en el local"],
   },
   // El antifraude de pantallazos viene activado: es la razón por la que un
-  // restaurante elige Nexo. La dueña carga su Nequi en Configuración.
+  // restaurante elige Aurela. La dueña carga su Nequi en Configuración.
   pagos: { requiereComprobante: true },
   horarios: [0, 1, 2, 3, 4, 5, 6].map((dow) => ({ dow, abierto: true, tramos: [{ desde: "11:00", hasta: "22:00" }] })),
   ai: { enabled: true, knowledge: "Restaurante con domicilios. Pagos por Nequi o Bre-B con comprobante." },

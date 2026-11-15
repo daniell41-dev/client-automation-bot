@@ -27,10 +27,10 @@ import { Preguntas } from "@/components/landing/preguntas";
 import { Responsable } from "@/components/landing/responsable";
 import { Testimonios } from "@/components/landing/testimonios";
 
-const TITULO = "WhatsApp con pedidos, citas y revisión de pagos para negocios de Cúcuta · Nexo";
+const TITULO = "WhatsApp con pedidos, citas y revisión de pagos para negocios de Cúcuta · Aurela";
 
 export const metadata: Metadata = {
-  // `absolute`: la plantilla del layout ("%s · Nexo") repetiría la marca.
+  // `absolute`: la plantilla del layout ("%s · Aurela") repetiría la marca.
   title: { absolute: TITULO },
   description: SUBTITULO_HERO,
   // Relativa: `metadataBase` (layout) la completa con NEXT_PUBLIC_SITE_URL.

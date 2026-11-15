@@ -1,6 +1,6 @@
 /**
- * T-83: el diferencial de Nexo mostrado en vez de contado. Un comprobante de
- * ejemplo y las cuatro preguntas que Nexo le hace a cada uno, cada una unida
+ * T-83: el diferencial de Aurela mostrado en vez de contado. Un comprobante de
+ * ejemplo y las cuatro preguntas que Aurela le hace a cada uno, cada una unida
  * a la parte del comprobante que revisa.
  *
  * Una sola rejilla CSS para los dos tamaños, así cada anotación queda siempre
@@ -15,7 +15,7 @@
  * en globals.css, dentro de @supports). Sin soporte, o con "reducir
  * movimiento", se ven fijas. Componente de servidor: cero JavaScript.
  *
- * El texto no promete que Nexo detecte todo: avisa, y la que decide es la dueña.
+ * El texto no promete que Aurela detecte todo: avisa, y la que decide es la dueña.
  *
  * T-92: una línea de escaneo baja por el comprobante a medida que la dueña
  * baja por la página, y cada dato recibe su marca cuando la línea pasa: tres
@@ -78,7 +78,7 @@ export function Comprobante() {
   return (
     <Seccion id="comprobante" titulo="Le avisamos antes de que despache un pedido mal pagado." oscura>
       <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-white/75 sm:text-[17px]">
-        Nexo lee cada comprobante que le mandan y le avisa si algo no cuadra. La decisión siempre es suya.
+        Aurela lee cada comprobante que le mandan y le avisa si algo no cuadra. La decisión siempre es suya.
       </p>
 
       <div className="escaneo-alcance mt-10 grid grid-cols-1 grid-rows-[repeat(10,auto)] lg:grid-cols-[340px_64px_minmax(0,1fr)] lg:grid-rows-[repeat(6,auto)]">

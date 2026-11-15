@@ -137,7 +137,7 @@ export function ComprobanteMini({ monto, className }: { monto: string; className
   );
 }
 
-/** Aviso de Nexo cuando algo no cuadra (tokens warn). */
+/** Aviso de Aurela cuando algo no cuadra (tokens warn). */
 export function AvisoAmbar({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <p

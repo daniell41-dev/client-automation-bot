@@ -1,11 +1,11 @@
 /**
  * T-78/T-79: las formas de voseo que no pueden aparecer en nada que lea una
- * persona en Nexo. Vive en un módulo propio (y no dentro de un test) porque
+ * persona en Aurela. Vive en un módulo propio (y no dentro de un test) porque
  * la usan dos tests: el del bot (`src/core/sin-voseo.test.ts`) y el de las
  * pantallas (`src/sin-voseo-pantallas.test.ts`). Si cada uno tuviera su
  * lista, una forma nueva se agregaría en una y no en la otra.
  *
- * Solo para revisar textos que ESCRIBE Nexo. Lo que escribe el cliente no se
+ * Solo para revisar textos que ESCRIBE Aurela. Lo que escribe el cliente no se
  * filtra nunca: el bot tiene que seguir entendiendo "querés" (`chat-spanish.ts`).
  */
 

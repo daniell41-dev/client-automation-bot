@@ -26,7 +26,7 @@ const PASOS: { frase: string; escena: ReactNode }[] = [
     escena: <NotaVoz />,
   },
   {
-    frase: "Nexo arma el pedido con sus precios y el cliente confirma el total.",
+    frase: "Aurela arma el pedido con sus precios y el cliente confirma el total.",
     escena: (
       <>
         <Burbuja de="negocio">
@@ -37,7 +37,7 @@ const PASOS: { frase: string; escena: ReactNode }[] = [
     ),
   },
   {
-    frase: "Nexo revisa el comprobante: monto, cuenta, referencia y fecha. Si algo no cuadra, le avisa.",
+    frase: "Aurela revisa el comprobante: monto, cuenta, referencia y fecha. Si algo no cuadra, le avisa.",
     escena: (
       <>
         <ComprobanteMini monto="$40.000" />

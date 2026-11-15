@@ -40,5 +40,5 @@ export default async function RespuestasPage({
   );
 }
 
-// T-71: el nombre de la pestaña ("Respuestas · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Respuestas · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Respuestas" };

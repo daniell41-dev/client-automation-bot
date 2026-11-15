@@ -1,6 +1,6 @@
 /**
  * T-89: la imagen que muestran WhatsApp, Facebook y los buscadores al
- * compartir el link de Nexo, generada con código (convención
+ * compartir el link de Aurela, generada con código (convención
  * `opengraph-image.tsx`) en vez de un PNG fijo. Así sale del mismo título del
  * hero y del mismo PRECIO_DESDE que la página: si cambian allá, cambia aquí
  * en el próximo build, sin rehacer una imagen a mano.
@@ -18,7 +18,7 @@ import { ImageResponse } from "next/og";
 import { PRECIO_DESDE } from "@/app/landing-config";
 import { TITULO_HERO } from "@/components/landing/hero";
 
-export const alt = `Nexo: ${TITULO_HERO}`;
+export const alt = `Aurela: ${TITULO_HERO}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -50,7 +50,7 @@ export default async function Image() {
           color: "#ffffff",
         }}
       >
-        {/* Logo: tile azul con la burbuja + "Nexo" */}
+        {/* Logo: tile azul con la burbuja + "Aurela" */}
         <div style={{ display: "flex", alignItems: "center", gap: 18 }}>
           <div
             style={{
@@ -67,7 +67,7 @@ export default async function Image() {
               <path d={BURBUJA} fill="#ffffff" />
             </svg>
           </div>
-          <span style={{ fontSize: 40, fontWeight: 800 }}>Nexo</span>
+          <span style={{ fontSize: 40, fontWeight: 800 }}>Aurela</span>
         </div>
 
         <div style={{ display: "flex", fontSize: 76, fontWeight: 800, lineHeight: 1.06, letterSpacing: -1.5, maxWidth: 1000 }}>

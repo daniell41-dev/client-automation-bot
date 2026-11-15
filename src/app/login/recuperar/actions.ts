@@ -7,7 +7,7 @@ import type { ActionState } from "@/components/action-form";
 /**
  * "Olvidé mi contraseña" (T-41). La respuesta es SIEMPRE la misma, exista o
  * no el correo: si dijera "ese correo no existe", el formulario serviría
- * para averiguar quién tiene cuenta en Nexo.
+ * para averiguar quién tiene cuenta en Aurela.
  */
 export async function pedirRecuperacion(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const email = String(formData.get("email") ?? "").trim();
@@ -17,5 +17,5 @@ export async function pedirRecuperacion(_prev: ActionState, formData: FormData):
   const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: await linkDefinirContrasena() });
   if (error) console.error("[Auth] resetPasswordForEmail falló:", error.message);
 
-  return { ok: "Si ese correo tiene cuenta en Nexo, le enviamos un link para definir una contraseña nueva." };
+  return { ok: "Si ese correo tiene cuenta en Aurela, le enviamos un link para definir una contraseña nueva." };
 }

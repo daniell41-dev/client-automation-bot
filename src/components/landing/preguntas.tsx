@@ -19,7 +19,7 @@ const PREGUNTAS: { pregunta: string; respuesta: React.ReactNode }[] = [
     // Meta no deja usar el mismo número en la app de WhatsApp y en la conexión
     // para empresas a la vez: por eso se dice que el número queda dedicado.
     respuesta:
-      "No tiene que comprar nada. Puede usar una línea nueva o la del negocio; lo único es que ese número queda dedicado a atender a sus clientes desde Nexo y ya no se usa en la app de WhatsApp del celular. En la visita le explicamos las dos opciones y elegimos juntos la que mejor le quede.",
+      "No tiene que comprar nada. Puede usar una línea nueva o la del negocio; lo único es que ese número queda dedicado a atender a sus clientes desde Aurela y ya no se usa en la app de WhatsApp del celular. En la visita le explicamos las dos opciones y elegimos juntos la que mejor le quede.",
   },
   {
     pregunta: "¿Qué pasa con los datos de mis clientes?",
@@ -40,7 +40,7 @@ const PREGUNTAS: { pregunta: string; respuesta: React.ReactNode }[] = [
   },
   {
     pregunta: "¿Funciona con Nequi y transferencias?",
-    respuesta: "Sí. Nexo le envía al cliente sus datos de pago y revisa el comprobante que le mandan.",
+    respuesta: "Sí. Aurela le envía al cliente sus datos de pago y revisa el comprobante que le mandan.",
   },
   {
     pregunta: "¿Cuánto tarda la instalación?",
