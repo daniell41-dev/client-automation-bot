@@ -209,6 +209,13 @@ describe("landing (T-80)", () => {
       expect(seccion).toContain("Ejemplo");
     });
 
+    // A pedido del dueño: las notas de "es un ejemplo" sobran (ninguna página de
+    // la competencia las pone); en el comprobante queda solo la etiqueta.
+    it("sin notas aclaratorias de «ejemplo» debajo de los chats ni del comprobante", () => {
+      expect(html).not.toContain("Conversación de ejemplo");
+      expect(html).not.toContain("los datos no son reales");
+    });
+
     it("es la única tarjeta de la página con borde con brillo", () => {
       expect(html.match(/data-brillo/g)).toHaveLength(1);
     });

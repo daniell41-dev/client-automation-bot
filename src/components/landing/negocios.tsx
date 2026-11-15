@@ -106,8 +106,9 @@ export function Negocios() {
             <Icono className="h-6 w-6" aria-hidden />
           </span>
           <h3 className="mt-4 text-[22px] font-extrabold text-ink sm:text-[26px]">{titulo}</h3>
+          {/* Sin nota de "conversación de ejemplo": el chat se lee como ilustración
+              y los textos siguen saliendo del motor real (ver arriba). */}
           <p className="mt-2 max-w-md text-[16px] leading-relaxed text-ink-mid">{texto}</p>
-          <p className="mt-4 text-[13px] text-ink-mid">Conversación de ejemplo con las respuestas que da Aurela hoy.</p>
         </div>
         <FondoChat className="w-full">{conversacion}</FondoChat>
       </div>
