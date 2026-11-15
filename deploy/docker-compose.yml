@@ -57,10 +57,26 @@ services:
       start_period: 30s
     labels:
       - traefik.enable=true
-      - traefik.http.routers.nexo.rule=Host(`${DOMINIO}`)
+      # T-96: la app responde en el dominio y, mientras dure el cambio, también
+      # en el anterior (DOMINIO_ANTERIOR, ej. la dirección sslip.io). Así el
+      # webhook de Meta y los links de Supabase siguen andando hasta que se
+      # actualizan al dominio nuevo; después se borra DOMINIO_ANTERIOR. Sin
+      # él, la segunda condición repite el dominio y no cambia nada.
+      - traefik.http.routers.nexo.rule=Host(`${DOMINIO}`) || Host(`${DOMINIO_ANTERIOR:-${DOMINIO}}`)
       - traefik.http.routers.nexo.entrypoints=websecure
       - traefik.http.routers.nexo.tls.certresolver=le
       - traefik.http.services.nexo.loadbalancer.server.port=3000
+      # T-96: www.<dominio> lleva al dominio sin www (redirección permanente,
+      # con su propio certificado): una sola dirección para Google y para
+      # los links que se comparten.
+      - traefik.http.routers.nexo-www.rule=Host(`www.${DOMINIO}`)
+      - traefik.http.routers.nexo-www.entrypoints=websecure
+      - traefik.http.routers.nexo-www.tls.certresolver=le
+      - traefik.http.routers.nexo-www.service=nexo
+      - traefik.http.routers.nexo-www.middlewares=nexo-sin-www
+      - traefik.http.middlewares.nexo-sin-www.redirectregex.regex=^https?://www\.(.+)
+      - traefik.http.middlewares.nexo-sin-www.redirectregex.replacement=https://$${1}
+      - traefik.http.middlewares.nexo-sin-www.redirectregex.permanent=true
 
 volumes:
   letsencrypt:

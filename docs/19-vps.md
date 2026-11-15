@@ -34,11 +34,43 @@ Para entrar al servidor: Lightsail → `nexo-prod` → **Conectar mediante SSH**
 el navegador; no funciona en ventana de incógnito). Si se queda cargando, **Reiniciar** la
 instancia y volver a intentar.
 
-## 2. El dominio (cuando se compre)
+## 2. El dominio: soyaurela.com (T-96)
 
-Registro **A** del dominio (o subdominio, ej. `app.nexo.com.co`) → `100.23.146.236`.
-Después cambiar `DOMINIO` y `NEXT_PUBLIC_SITE_URL` (paso 4 y secreto del paso 5), y
-publicar una release (paso 6). Hasta entonces se usa `100-23-146-236.sslip.io`.
+Comprado en Hostinger (15-nov-2026, 3 años; renueva el 15-nov-2029 a 61.900 COP/año).
+En Hostinger → Dominios → soyaurela.com → **DNS / Nameservers** quedan solo estos dos
+registros (los nameservers siguen siendo los de Hostinger):
+
+| Tipo | Nombre | Contenido |
+|---|---|---|
+| A | `@` | `100.23.146.236` |
+| A | `www` | `100.23.146.236` |
+
+`www.soyaurela.com` redirige solo a `soyaurela.com` (lo hace Traefik, ver
+`deploy/docker-compose.yml`). Comprobar que el DNS ya llegó: dnschecker.org →
+`soyaurela.com`, tipo A → `100.23.146.236`.
+
+### Pasar de sslip.io al dominio, sin cortar el servicio
+
+El orden importa: el webhook de Meta y los links de Supabase apuntan a la dirección
+vieja, así que la app sigue respondiendo en las dos hasta que se actualizan.
+
+1. **GitHub → Secrets:** `NEXT_PUBLIC_SITE_URL` = `https://soyaurela.com` (se incrusta
+   al compilar: tiene que estar antes de la release).
+2. **Servidor** (`nano /opt/nexo/.env.production`, paso 4):
+   - `DOMINIO=soyaurela.com`
+   - `DOMINIO_ANTERIOR=100-23-146-236.sslip.io` ← la vieja sigue andando mientras tanto
+   - `NEXT_PUBLIC_SITE_URL=https://soyaurela.com`
+3. **Publicar la release** (paso 6). Traefik pide los certificados de `soyaurela.com` y
+   `www.soyaurela.com` solo (tarda menos de un minuto).
+4. Abrir `https://soyaurela.com` y `https://soyaurela.com/api/health` (tiene que decir ok).
+5. **Meta** (paso 7): URL del webhook → `https://soyaurela.com/api/webhook/whatsapp`.
+   Verificar y guardar, y mandarle un mensaje de prueba al número.
+6. **Supabase** (paso 7): Site URL → `https://soyaurela.com`; en Redirect URLs agregar
+   `https://soyaurela.com/**` (dejar la vieja hasta el paso 8).
+7. **Monitor** (paso 9): cambiar la URL a `https://soyaurela.com/api/health`.
+8. Cuando todo funcione con el dominio: borrar `DOMINIO_ANTERIOR` del `.env.production`,
+   `cd /opt/nexo && docker compose --env-file .env.production up -d`, y quitar la URL
+   vieja de Supabase.
 
 ## 3. Preparar el servidor (una sola vez, hecho)
 
@@ -67,8 +99,9 @@ nano /opt/nexo/.env.production
 
 Pegar el contenido de `deploy/.env.production.example` completado con los valores de tu
 `.env.local`, y además:
-- `DOMINIO=100-23-146-236.sslip.io` (o el dominio cuando exista)
-- `NEXT_PUBLIC_SITE_URL=https://100-23-146-236.sslip.io`
+- `DOMINIO=soyaurela.com` (antes del dominio era `100-23-146-236.sslip.io`; para
+  cambiarlo, ver el paso 2)
+- `NEXT_PUBLIC_SITE_URL=https://soyaurela.com`
 - `ACME_EMAIL=` el correo para avisos del certificado HTTPS
 
 Guardar: **Ctrl+O**, Enter, **Ctrl+X**. Después `chmod 600 /opt/nexo/.env.production`

@@ -6,7 +6,12 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
-## [1.0.2] — 2026-11-13
+## [1.0.2] — 2026-11-15
+
+### Cambios
+- Dominio propio (T-96): la app responde en `soyaurela.com`, y `www.soyaurela.com` lleva
+  ahí. Durante el cambio también sigue respondiendo en la dirección anterior
+  (`DOMINIO_ANTERIOR`), para que el webhook de Meta y los links de Supabase no se corten.
 
 ### Arreglos
 - Las fuentes (Plus Jakarta Sans y Sora) quedan dentro del proyecto (T-77): el build ya no
