@@ -2,8 +2,7 @@
  * Logo: mark "burbuja-corona" de Aurela (dirección C del design system) + wordmark.
  * El mark va como SVG inline y no como <img> para que la burbuja tome el
  * primario del tema; el oro de la corona y la sonrisa son fijos (reglas de
- * marca: no recolorear). El wordmark sigue diciendo "Nexo" hasta que se haga el
- * cambio de nombre del producto, que toca textos, SEO y tests (tarea aparte).
+ * marca: no recolorear).
  */
 
 const BURBUJA =
@@ -52,7 +51,7 @@ export function Logo({
             variant === "dark" ? "text-white" : "text-ink"
           }`}
         >
-          Nexo
+          Aurela
         </span>
         {caption && (
           <span className="block text-[9px] font-bold uppercase tracking-[0.14em] text-ink-soft">
