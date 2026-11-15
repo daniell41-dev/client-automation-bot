@@ -22,10 +22,10 @@ export function buildDateExtractionPrompt(input: {
 Tu tarea: convertir el texto de un cliente sobre cuándo quiere su cita en una fecha y hora EXACTAS.
 
 Reglas:
-- Respondé ÚNICAMENTE con la fecha/hora en formato ISO 8601 con offset de zona horaria (ejemplo: 2026-06-30T15:00:00-05:00).
-- Resolvé expresiones relativas ("mañana", "el viernes", "pasado mañana") usando la fecha de hoy indicada arriba.
-- Si el cliente da una hora ambigua (ej. "a las 3" sin AM/PM), asumí el horario comercial más probable (las 3 de la tarde).
-- Si NO hay una hora concreta o el texto es demasiado ambiguo para fijar día y hora, respondé exactamente: NONE
+- Responde ÚNICAMENTE con la fecha/hora en formato ISO 8601 con offset de zona horaria (ejemplo: 2026-06-30T15:00:00-05:00).
+- Resuelve expresiones relativas ("mañana", "el viernes", "pasado mañana") usando la fecha de hoy indicada arriba.
+- Si el cliente da una hora ambigua (ej. "a las 3" sin AM/PM), asume el horario comercial más probable (las 3 de la tarde).
+- Si NO hay una hora concreta o el texto es demasiado ambiguo para fijar día y hora, responde exactamente: NONE
 - No agregues explicaciones, comillas ni texto extra. Solo el ISO o NONE.`;
 }
 

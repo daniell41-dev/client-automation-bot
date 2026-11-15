@@ -27,6 +27,6 @@ describe("devolucionPendiente (T-67)", () => {
 
 describe("mensajePedirCuenta (T-67)", () => {
   it("no promete la devolución: la condiciona a que la plata haya salido", () => {
-    expect(mensajePedirCuenta("$ 100")).toContain("Si la transferencia de $ 100 salió de tu cuenta");
+    expect(mensajePedirCuenta("$ 100")).toContain("Si la transferencia de $ 100 salió de su cuenta");
   });
 });

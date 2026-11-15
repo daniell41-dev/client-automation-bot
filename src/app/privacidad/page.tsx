@@ -3,8 +3,8 @@
  * Decreto 1377 de 2013). Meta la exige para publicar la app de WhatsApp.
  *
  * Distingue dos roles a propósito: con los datos de las cuentas del portal,
- * Nexo es responsable; con los datos de los clientes de cada negocio, el
- * responsable es el negocio y Nexo es encargado (los trata por cuenta de
+ * Aurela es responsable; con los datos de los clientes de cada negocio, el
+ * responsable es el negocio y Aurela es encargado (los trata por cuenta de
  * él). Describe lo que el sistema guarda de verdad (ver la base de datos):
  * si cambia lo que se guarda, esta página tiene que cambiar también.
  */
@@ -16,14 +16,14 @@ import { CONTACTO_LEGAL } from "@/lib/legal";
 
 export const metadata = {
   title: "Política de privacidad",
-  description: "Cómo Nexo trata los datos personales de los negocios y de sus clientes.",
+  description: "Cómo Aurela trata los datos personales de los negocios y de sus clientes.",
 };
 
 export default function PrivacidadPage() {
   return (
     <PaginaLegal titulo="Política de privacidad y tratamiento de datos">
       <p>
-        Nexo es un servicio que atiende el WhatsApp de negocios: responde a sus clientes, arma pedidos y citas,
+        Aurela es un servicio que atiende el WhatsApp de negocios: responde a sus clientes, arma pedidos y citas,
         revisa comprobantes de pago y le avisa al negocio para que apruebe. Esta política explica qué datos
         personales tratamos, para qué, con quién los compartimos y cómo puede ejercer sus derechos, conforme a
         la Ley 1581 de 2012, el Decreto 1377 de 2013 y demás normas de protección de datos en Colombia.
@@ -35,12 +35,12 @@ export default function PrivacidadPage() {
       <h2 id="roles">2. Dos tipos de datos, dos roles</h2>
       <ul>
         <li>
-          <strong>Datos de los negocios que usan Nexo</strong> (la dueña o el dueño y su equipo): Nexo es el{" "}
+          <strong>Datos de los negocios que usan Aurela</strong> (la dueña o el dueño y su equipo): Aurela es el{" "}
           <strong>responsable</strong> de su tratamiento.
         </li>
         <li>
           <strong>Datos de los clientes de cada negocio</strong> (las personas que le escriben por WhatsApp): el{" "}
-          <strong>responsable es el negocio</strong>, y Nexo actúa como <strong>encargado</strong>, es decir, trata
+          <strong>responsable es el negocio</strong>, y Aurela actúa como <strong>encargado</strong>, es decir, trata
           esos datos solo por cuenta del negocio y para prestarle el servicio. Si usted es cliente de un negocio,
           también puede dirigirse directamente a ese negocio.
         </li>
@@ -49,7 +49,7 @@ export default function PrivacidadPage() {
       <h2 id="que-datos">3. Qué datos tratamos</h2>
       <h3>De los negocios</h3>
       <ul>
-        <li>Correo electrónico y rol de acceso al portal. La contraseña la guarda nuestro proveedor de autenticación cifrada; nadie en Nexo puede leerla.</li>
+        <li>Correo electrónico y rol de acceso al portal. La contraseña la guarda nuestro proveedor de autenticación cifrada; nadie en Aurela puede leerla.</li>
         <li>Datos del negocio: nombre, catálogo o menú, precios, horarios, costo de domicilio, mensajes del asistente, número de WhatsApp conectado y cuentas para recibir pagos.</li>
         <li>Registros de uso del servicio: cantidad de mensajes y de consultas a la inteligencia artificial, para medir costos.</li>
       </ul>
@@ -82,7 +82,7 @@ export default function PrivacidadPage() {
 
       <h2 id="autorizacion">5. Autorización</h2>
       <p>
-        Al escribirle al WhatsApp de un negocio que usa Nexo, la persona entrega sus datos para que ese negocio
+        Al escribirle al WhatsApp de un negocio que usa Aurela, la persona entrega sus datos para que ese negocio
         la atienda. Cada negocio es responsable de informar a sus clientes y de contar con su autorización,
         y puede enlazar esta política para explicar cómo se tratan los datos. Los negocios autorizan el
         tratamiento de sus propios datos al crear su cuenta y aceptar los{" "}
@@ -124,7 +124,7 @@ export default function PrivacidadPage() {
 
       <h2 id="cuanto-tiempo">9. Cuánto tiempo los guardamos</h2>
       <p>
-        Guardamos los datos mientras el negocio use Nexo y durante el tiempo necesario para cumplir obligaciones
+        Guardamos los datos mientras el negocio use Aurela y durante el tiempo necesario para cumplir obligaciones
         legales o atender reclamos. El historial de la conversación con el asistente se reinicia cuando el
         cliente vuelve después de 24 horas sin escribir. Cuando un negocio cancela el servicio, o cuando alguien
         pide borrar sus datos, los eliminamos según la sección siguiente.

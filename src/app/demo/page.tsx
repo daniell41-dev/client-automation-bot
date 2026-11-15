@@ -1,5 +1,5 @@
 /**
- * /demo — vista pública de demostración (sin login), estilo Nexo.
+ * /demo — vista pública de demostración (sin login), estilo Aurela.
  * Cliente anónimo: RLS solo deja leer las filas `es_demo = true`.
  */
 
@@ -46,11 +46,11 @@ export default async function DemoPage() {
             Demo
           </p>
           <h1 className="mt-1 text-[32px] font-extrabold leading-tight text-ink">
-            Así se ve un negocio en Nexo
+            Así se ve un negocio en Aurela
           </h1>
           <p className="mt-2 max-w-xl text-[15px] text-ink-mid">
-            Este es un negocio de ejemplo configurado en la plataforma. Podés
-            probar el bot como si fueras un cliente escribiéndole por WhatsApp.
+            Este es un negocio de ejemplo configurado en la plataforma. Puede
+            probar el bot como si fuera un cliente escribiéndole por WhatsApp.
           </p>
         </div>
 
@@ -59,7 +59,7 @@ export default async function DemoPage() {
             title="Aún no hay negocio de demostración."
             subtitle={
               supabase
-                ? "Corré el seed: pnpm seed:supabase"
+                ? "Ejecute el seed: pnpm seed:supabase"
                 : "Supabase no está configurado en este entorno."
             }
           />
@@ -136,5 +136,5 @@ export default async function DemoPage() {
   );
 }
 
-// T-71: el nombre de la pestaña ("Demo · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Demo · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Demo" };

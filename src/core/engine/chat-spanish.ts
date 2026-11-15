@@ -123,8 +123,21 @@ function spaceOutPunctuation(text: string): string {
  * token a token por su forma completa. Un token que NO está en el
  * diccionario se deja intacto (con sus tildes/mayúsculas originales).
  */
+/**
+ * T-88: "a. m." / "p. m." (con o sin puntos y espacios) → "am" / "pm" ANTES
+ * de separar la puntuación. Si no, "p. m." quedaba "p . m ." y la "m" suelta
+ * se expandía a "me": el bot confirmaba la cita "para hoy a las 5 p . me".
+ * La "m" tiene que ir sola (no seguida de otra letra) para no comerse
+ * palabras: "a. mañana" no se toca.
+ */
+const MERIDIANO = /(?<![\p{L}])([ap])\s?\.\s?m(?:\s?\.)?(?![\p{L}])|(?<![\p{L}])([ap])m\.(?![\p{L}])/giu;
+
+function unirMeridiano(text: string): string {
+  return text.replace(MERIDIANO, (_todo, conPunto?: string, pegado?: string) => `${(conPunto ?? pegado ?? "").toLowerCase()}m`);
+}
+
 export function expandChatSpanish(text: string): string {
-  const collapsed = collapseRepeatedLetters(text);
+  const collapsed = collapseRepeatedLetters(unirMeridiano(text));
   const spaced = spaceOutPunctuation(collapsed);
   const tokens = spaced.split(/\s+/).filter(Boolean);
   const expanded = tokens.map((tok) => ABBREVIATIONS[foldAccents(tok)] ?? tok);

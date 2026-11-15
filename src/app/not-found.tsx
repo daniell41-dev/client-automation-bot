@@ -9,7 +9,7 @@ export default function NotFound() {
     <PantallaError
       codigo="404"
       titulo="No encontramos esta página"
-      texto="Puede que el enlace esté mal escrito o que la página ya no exista. Si buscabas uno de tus negocios, entrá desde tu lista."
+      texto="Puede que el enlace esté mal escrito o que la página ya no exista. Si buscaba uno de sus negocios, entre desde su lista."
     >
       <Link href="/portal" className={botonPrincipal}>
         Ir a mis negocios

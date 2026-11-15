@@ -1,10 +1,48 @@
 # Changelog
 
-Versiones de Nexo. Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/);
+Versiones de Aurela (antes Nexo). Formato: [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/);
 números: [versionado semántico](https://semver.org/lang/es/) (ver
 `docs/01-git-flow.md` → "Versiones y releases").
 
 ## [Sin publicar]
+
+## [1.1.0] — 2026-11-15
+
+### Nuevo
+- Marca Aurela: el producto pasa a llamarse Aurela en toda la app (landing, login, portal,
+  back office, páginas legales, SEO y mensajes del bot), con paleta ciruela y oro, logo de la
+  burbuja con corona y favicons nuevos.
+- Landing de venta en la portada (T-80 a T-87): qué hace Aurela, cómo funciona, para qué
+  negocios, instalación, precio (desde $79.900 al mes, instalación gratis, 14 días de prueba,
+  sin permanencia) y preguntas frecuentes. La sección "Quién está detrás" solo aparece cuando
+  se configuran el nombre y la foto del responsable.
+- Animaciones de la landing (T-91 a T-95), solo con CSS y quietas con "reducir movimiento":
+  - el teléfono del hero cuenta un pedido con final feliz (nota de voz, resumen, comprobante,
+    "Pago verificado", la dueña aprueba y el cliente recibe su código de retiro);
+  - una línea de escaneo recorre el comprobante de ejemplo y marca cada dato (la fecha, en
+    ámbar: "Hace 12 días");
+  - "Así funciona" se llena al bajar y cada paso se enciende;
+  - el precio es un ticket "Su cuenta" que se imprime línea por línea;
+  - talones del pedido #128 entre secciones.
+- SEO (T-89): título "Aurela · Pedidos, citas y pagos por WhatsApp en Cúcuta", imagen para
+  redes generada con código y datos estructurados con la oferta en COP.
+
+### Cambios
+- El bot y todas las pantallas le hablan de usted al cliente y a la dueña, en español de
+  Colombia (T-78, T-79). `pnpm quitar:voseo --aplicar` corrige lo que ya está guardado en la
+  base: correrlo el día de esta release.
+- Cada botón de WhatsApp de la landing dice qué va a pasar ("Probarlo en mi negocio", "Pedir
+  instalación gratis"…); solo la barra fija del celular dice "Escríbanos por WhatsApp".
+- Los chats de ejemplo muestran todas las respuestas reales del bot, sin saltos ni notas de
+  "conversación de ejemplo".
+
+### Arreglos
+- Citas (T-88): "Corte caballero" ya no agenda "Corte dama" cuando dos servicios comparten una
+  palabra clave; la hora del primer mensaje ("¿tiene turno hoy a las 5?") se recuerda; y
+  "p. m." llega bien a la confirmación.
+- Login: "Volver al inicio" y el logo llevan a la página principal (antes solo se podía volver
+  con el botón atrás del navegador).
+- Páginas legales: el contacto del responsable muestra un solo teléfono.
 
 ## [1.0.2] — 2026-11-15
 

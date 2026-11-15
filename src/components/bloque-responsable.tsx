@@ -5,7 +5,7 @@ export function BloqueResponsable() {
   return (
     <div className="recuadro">
       <p style={{ marginTop: 0 }}>
-        <strong>Responsables:</strong> {RESPONSABLES.join(" y ")}, personas naturales, que operan Nexo.
+        <strong>Responsables:</strong> {RESPONSABLES.join(" y ")}, personas naturales, que operan Aurela.
       </p>
       <p>
         <strong>Dirección:</strong> {CONTACTO_LEGAL.direccion}

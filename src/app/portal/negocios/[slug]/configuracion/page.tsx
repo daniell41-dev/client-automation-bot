@@ -40,7 +40,7 @@ export default async function ConfiguracionPage({
         config.personas?.whatsapp ?? {
           name: "Asistente",
           tone: "",
-          language: "español informal",
+          language: "español de Colombia, trato de usted",
         }
       }
       personas={config.personas}
@@ -51,5 +51,5 @@ export default async function ConfiguracionPage({
   );
 }
 
-// T-71: el nombre de la pestaña ("Configuración · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Configuración · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Configuración" };

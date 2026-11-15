@@ -12,7 +12,7 @@ import { validarNuevaContrasena } from "./validar";
  */
 export async function definirContrasena(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "El link venció o ya se usó. Pedí uno nuevo desde el login." };
+  if (!me) return { error: "El link venció o ya se usó. Pida uno nuevo desde el login." };
 
   const contrasena = String(formData.get("contrasena") ?? "");
   const error = validarNuevaContrasena(contrasena, String(formData.get("repetida") ?? ""));

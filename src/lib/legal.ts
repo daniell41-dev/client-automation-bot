@@ -9,8 +9,11 @@ export const RESPONSABLES = ["Carlos Daniel Valero Guerrero", "Oriana Delimar Me
 export const CONTACTO_LEGAL = {
   direccion: "Av. 7 # 5-68, barrio San Luis, Cúcuta, Norte de Santander, Colombia",
   correo: "daniellvalero41@gmail.com",
-  telefonos: ["+57 322 683 7610", "+57 313 830 6315"],
+  // Un solo teléfono a propósito: el del responsable que atiende las
+  // solicitudes. Se deja como lista para que las páginas no cambien si
+  // algún día se suma otro.
+  telefonos: ["+57 322 683 7610"],
 } as const;
 
 /** Fecha que se muestra como "última actualización"; cambiarla al editar los textos. */
-export const ACTUALIZADO = "8 de noviembre de 2026";
+export const ACTUALIZADO = "14 de noviembre de 2026";

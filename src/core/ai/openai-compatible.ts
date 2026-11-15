@@ -103,8 +103,8 @@ export interface OpenAICompatibleOptions {
 const INAUDIBLE = "[inaudible]";
 
 const PROMPT_TRANSCRIPCION =
-  "Transcribí esta nota de voz de un cliente de WhatsApp exactamente como la dice, en su idioma, " +
-  "sin resumir, corregir ni agregar nada. Devolvé solo el texto. Si no se entiende nada, respondé " +
+  "Transcribe esta nota de voz de un cliente de WhatsApp exactamente como la dice, en su idioma, " +
+  "sin resumir, corregir ni agregar nada. Devuelve solo el texto. Si no se entiende nada, responde " +
   `exactamente ${INAUDIBLE}.`;
 
 /** Modelo de Whisper en Groq: el turbo es más rápido y alcanza para notas de voz cortas. */
@@ -323,7 +323,7 @@ export class OpenAICompatibleProvider implements ILLMProvider {
         type: "text",
         text: input.caption
           ? `El cliente escribió esto junto con la foto: "${input.caption}"`
-          : "Describí la imagen.",
+          : "Describe la imagen.",
       },
       { type: "image_url", image_url: { url: `data:${input.mimeType};base64,${input.base64}` } },
     ];

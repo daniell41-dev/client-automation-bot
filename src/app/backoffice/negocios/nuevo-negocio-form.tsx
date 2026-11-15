@@ -96,7 +96,7 @@ export function NuevoNegocioForm({
           <label className={labelCls}>Cliente dueño</label>
           {clientes.length === 0 ? (
             <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-xs text-warn-ink">
-              No hay ningún cliente todavía — invitá uno en Usuarios.
+              No hay ningún cliente todavía — invite uno en Usuarios.
             </p>
           ) : (
             <select
@@ -105,7 +105,7 @@ export function NuevoNegocioForm({
               defaultValue=""
             >
               <option value="" disabled>
-                Elegí un cliente…
+                Elija un cliente…
               </option>
               {clientes.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -122,7 +122,7 @@ export function NuevoNegocioForm({
           <label className={labelCls}>Rubro (plantilla base)</label>
           {rubros.length === 0 ? (
             <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-xs text-warn-ink">
-              No hay ningún rubro todavía — creá uno en Rubros.
+              No hay ningún rubro todavía — cree uno en Rubros.
             </p>
           ) : (
             <select
@@ -183,7 +183,7 @@ export function NuevoNegocioForm({
       )}
 
       <p className="text-xs text-ink-soft">
-        El negocio nace en pausa; lo activás desde su detalle cuando esté listo.
+        El negocio nace en pausa; lo activa desde su detalle cuando esté listo.
       </p>
     </ActionForm>
   );

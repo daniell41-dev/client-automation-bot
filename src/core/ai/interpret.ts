@@ -15,7 +15,7 @@ export function buildInterpretPrompt(
   input: Pick<InterpretInput, "options" | "stage">,
 ): string {
   const lista = input.options.map((o, i) => `${i + 1}. ${o}`).join("\n");
-  return `Sos un traductor de intención para un bot de atención al cliente.
+  return `Eres un traductor de intención para un bot de atención al cliente.
 El cliente escribió un mensaje que el sistema NO pudo reconocer automáticamente
 (etapa actual: ${input.stage}).
 
@@ -25,7 +25,7 @@ Opciones válidas:
 ${lista}
 
 Reglas estrictas:
-- Respondé ÚNICAMENTE con el texto EXACTO de una opción de la lista de arriba
+- Responde ÚNICAMENTE con el texto EXACTO de una opción de la lista de arriba
   (letra por letra, tal cual está escrita), o con NONE si el mensaje no
   corresponde claramente a ninguna.
 - No agregues comillas, numeración, explicaciones ni texto extra.

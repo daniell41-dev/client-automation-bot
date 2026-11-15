@@ -41,9 +41,9 @@ export default async function DemoChatPage() {
       </header>
 
       <main className="flex flex-1 flex-col items-center px-6 py-8 fade-up">
-        <h1 className="text-[22px] font-extrabold text-ink">Probá el bot</h1>
+        <h1 className="text-[22px] font-extrabold text-ink">Pruebe el bot</h1>
         <p className="mb-6 mt-1 text-sm text-ink-mid">
-          Escribile como si fueras un cliente por WhatsApp.
+          Escríbale como si fuera un cliente por WhatsApp.
         </p>
         <DemoChat businessSlug={slug} />
       </main>
@@ -51,5 +51,5 @@ export default async function DemoChatPage() {
   );
 }
 
-// T-71: el nombre de la pestaña ("Demo del chat · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Demo del chat · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Demo del chat" };

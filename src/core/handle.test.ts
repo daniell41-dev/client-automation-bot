@@ -397,7 +397,7 @@ describe("handleIncoming — avisa a la dueña con el carrito completo (T-21)", 
     expect(notifier.sent[0].text).not.toContain("Servicio:");
     expect(notifier.sent[0].text).not.toContain("Fecha/hora:");
     // T-21/PR5: todavía NO está confirmado — recién lo está cuando la dueña responda.
-    expect(notifier.sent[0].text).toContain("esperando tu aprobación");
+    expect(notifier.sent[0].text).toContain("esperando su aprobación");
     expect(notifier.sent[0].text).toContain("SÍ");
 
     expect(repo.leads[0].state).toBe("interesado");
@@ -537,7 +537,7 @@ describe("handleIncoming — alerta de stock bajo al dueño (T-22.2)", () => {
     await driveHastaConfirmar(repo, inventory, notifier);
 
     expect(notifier.sent).toHaveLength(1); // una sola llamada a la dueña
-    expect(notifier.sent[0].text).toContain("esperando tu aprobación");
+    expect(notifier.sent[0].text).toContain("esperando su aprobación");
     expect(notifier.sent[0].text).toContain("Quedan 2 unidades de Harina 1 Kg");
   });
 
@@ -1588,7 +1588,7 @@ describe("handleIncoming — confirmación de pago con comprobante (T-24.4)", ()
     expect(notifier.sent).toHaveLength(1);
     expect(notifier.sent[0].text).toContain("nequi");
     expect(notifier.sent[0].text).toContain("M12345678");
-    expect(notifier.sent[0].text).toContain("Respondé SÍ para aceptarlo o NO para rechazarlo.");
+    expect(notifier.sent[0].text).toContain("Responda SÍ para aceptarlo o NO para rechazarlo.");
 
     // El comprobante quedó guardado.
     expect(comprobantes.comprobantes).toHaveLength(1);
@@ -1749,7 +1749,7 @@ describe("handleIncoming — confirmación de pago con comprobante (T-24.4)", ()
 
     expect(messages[0].text).toContain("revisión"); // el texto de siempre, no el de pedir comprobante
     expect(notifier.sent).toHaveLength(1); // se avisó a la dueña de una, como siempre
-    expect(notifier.sent[0].text).toContain("Respondé SÍ");
+    expect(notifier.sent[0].text).toContain("Responda SÍ");
   });
 });
 
@@ -2083,7 +2083,7 @@ describe("pedido como entidad propia (T-30)", () => {
     const { notifier } = await confirmarCarrito(tiendaConNotify, repo, roto);
 
     expect(repo.leads[0].stage).toBe("esperando_aprobacion");
-    expect(notifier.sent[0].text).toContain("pedido nuevo, esperando tu aprobación");
+    expect(notifier.sent[0].text).toContain("pedido nuevo, esperando su aprobación");
   });
 });
 
@@ -2253,7 +2253,7 @@ describe("aprobación por pedido, sin FIFO (T-31)", () => {
     );
 
     expect(db.pedidos[0].comprobante_id).toBe(db.comprobantes[0].id);
-    expect(notifier.sent.at(-1)?.text).toContain("revisá en tu app del banco");
+    expect(notifier.sent.at(-1)?.text).toContain("revise en la app de su banco");
 
     await handleOwnerApproval(ownerMsg("sí 1"), tiendaConPagos, repo, new Date(), pedidos, "neg-1", comprobantes);
 
@@ -2448,7 +2448,7 @@ describe("datos de pago para el cliente (T-33)", () => {
   it("sin datos de pago cargados, el mensaje queda como antes", async () => {
     const { messages } = await confirmar({ ...tiendaConNotify, pagos: { requiereComprobante: true } });
 
-    expect(messages[0].text).toContain("hacé el pago y mandanos la foto del comprobante");
+    expect(messages[0].text).toContain("haga el pago y envíenos la foto del comprobante");
   });
 });
 
@@ -2489,7 +2489,7 @@ describe("Wompi: referencia por pedido, monto y aviso a la dueña (T-34)", () =>
     expect(db.pedidos[0].estado).toBe("aprobado");
     expect(result.ownerMessage?.to).toBe("573009998888");
     expect(result.ownerMessage?.text).toContain("pedido #1 de Laura pagado con Wompi");
-    expect(result.ownerMessage?.text).toContain("Ya podés prepararlo");
+    expect(result.ownerMessage?.text).toContain("Ya puede prepararlo");
   });
 
   it("APPROVED por un monto distinto NO confirma y alerta a la dueña", async () => {
@@ -2623,7 +2623,7 @@ describe("código de retiro (T-37)", () => {
 
     const codigo = db.pedidos[0].codigo_retiro;
     expect(codigo).toMatch(/^\d{4}$/);
-    expect(customerReply?.text).toContain(`Tu pedido #1 · código de retiro: ${codigo}`);
+    expect(customerReply?.text).toContain(`Su pedido #1 · código de retiro: ${codigo}`);
     expect(ownerReply.text).toContain(`Código de retiro: ${codigo}`);
   });
 
@@ -2722,7 +2722,7 @@ describe("modo de aviso 'solo resumen' (T-39)", () => {
 
     expect(db.pedidos).toHaveLength(10);
     expect(notifier.sent).toHaveLength(1);
-    expect(notifier.sent[0].text).toContain("tenés 1 pedido por verificar");
+    expect(notifier.sent[0].text).toContain("tiene 1 pedido por verificar");
     expect(notifier.sent[0].botones).toBeUndefined();
   });
 
@@ -2945,7 +2945,7 @@ describe("pagó de menos: pedir el resto (T-66)", () => {
     expect(repo.leads[0].stage).toBe("esperando_aprobacion"); // sigue esperando comprobante
     expect(resto.customerReply?.to).toBe("57300000000");
     expect(resto.customerReply?.text).toMatch(/^Pedido #1: /);
-    expect(resto.customerReply?.text).toContain("Te faltan");
+    expect(resto.customerReply?.text).toContain("Le faltan");
     expect(resto.ownerReply.text).toContain("Laura");
 
     await mandarComprobante(7000, "M2");
@@ -2993,7 +2993,7 @@ describe("pagó de menos: pedir el resto (T-66)", () => {
     expect(db.pedidos[0].estado).toBe("rechazado");
     expect(customerReply?.text).toContain("el pedido era de");
     // T-67: en el mismo mensaje se le pide la cuenta.
-    expect(customerReply?.text).toContain("respondé con el banco o Nequi");
+    expect(customerReply?.text).toContain("envíenos el banco o Nequi");
     expect(ownerReply.text).toContain("hay que devolvérselos");
     expect(db.pedidos[0].devolucion_estado).toBe("pidiendo_cuenta");
   });
@@ -3011,7 +3011,7 @@ describe("pagó de menos: pedir el resto (T-66)", () => {
 
     expect(db.pedidos[0].devolucion_estado).toBe("pendiente");
     expect(db.pedidos[0].devolucion_cuenta).toBe("Nequi 300 123 4567 Laura Gómez");
-    expect(result.messages[0].text).toContain("anotamos tu cuenta");
+    expect(result.messages[0].text).toContain("anotamos su cuenta");
     expect(notifier.sent).toHaveLength(avisosAntes + 1);
     expect(notifier.sent.at(-1)!.text).toContain("Nequi 300 123 4567 Laura Gómez");
     expect(notifier.sent.at(-1)!.text).toContain("pedido #1");
@@ -3027,7 +3027,7 @@ describe("pagó de menos: pedir el resto (T-66)", () => {
       undefined, "neg-1", undefined, undefined, undefined, pedidos,
     );
 
-    expect(result.messages[0].text).not.toContain("anotamos tu cuenta");
+    expect(result.messages[0].text).not.toContain("anotamos su cuenta");
     expect(db.pedidos[0].devolucion_estado).toBe("pidiendo_cuenta");
   });
 
@@ -3042,8 +3042,8 @@ describe("pagó de menos: pedir el resto (T-66)", () => {
       ownerMsg("no 1"), tiendaConPagos, repo, new Date(), pedidos, "neg-1",
     );
 
-    expect(customerReply?.text).toContain("Si ya transferiste, escribinos y coordinamos la devolución");
-    expect(ownerReply.text).toContain("acordate de devolvérselos");
+    expect(customerReply?.text).toContain("Si ya transfirió, escríbanos y coordinamos la devolución");
+    expect(ownerReply.text).toContain("recuerde devolvérselos");
     expect(db.pedidos[0].estado).toBe("rechazado");
   });
 

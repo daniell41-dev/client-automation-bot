@@ -72,11 +72,17 @@ jobs:
             --build-arg NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
             --build-arg NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
             --build-arg NEXT_PUBLIC_SITE_URL="$NEXT_PUBLIC_SITE_URL" \
+            --build-arg NEXT_PUBLIC_WHATSAPP_VENTAS="$NEXT_PUBLIC_WHATSAPP_VENTAS" \
+            --build-arg NEXT_PUBLIC_INSTAGRAM="$NEXT_PUBLIC_INSTAGRAM" \
             .
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          # T-80: opcionales a propósito (no están en la verificación de arriba):
+          # sin ellos la landing funciona igual, con los botones hacia /demo.
+          NEXT_PUBLIC_WHATSAPP_VENTAS: ${{ secrets.NEXT_PUBLIC_WHATSAPP_VENTAS }}
+          NEXT_PUBLIC_INSTAGRAM: ${{ secrets.NEXT_PUBLIC_INSTAGRAM }}
 
       - name: Preparar SSH
         run: |

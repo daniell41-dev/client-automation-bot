@@ -91,7 +91,7 @@ export async function crearNegocio(
     .maybeSingle();
   const template = parseBusinessConfig(rubro?.template);
   if (!template) {
-    return { error: "La plantilla de ese rubro es inválida; revisala en Rubros." };
+    return { error: "La plantilla de ese rubro es inválida; revísela en Rubros." };
   }
 
   // Nace Pausado: el admin lo activa cuando el negocio esté listo para atender.
@@ -112,7 +112,7 @@ export async function crearNegocio(
     return {
       error:
         error.code === "23505"
-          ? "Ya existe un negocio con ese slug o ese WhatsApp; elegí otro."
+          ? "Ya existe un negocio con ese slug o ese WhatsApp; elija otro."
           : `No se pudo crear el negocio: ${error.message}`,
     };
   }
@@ -302,8 +302,8 @@ export async function invitarDuena(
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const rubroIds = formData.getAll("rubroIds").map(String).filter(Boolean);
-  if (!email.includes("@")) return { error: "Escribí un correo válido." };
-  if (rubroIds.length === 0) return { error: "Marcá al menos un tipo de negocio." };
+  if (!email.includes("@")) return { error: "Escriba un correo válido." };
+  if (rubroIds.length === 0) return { error: "Marque al menos un tipo de negocio." };
 
   const admin = createAdminClient();
   if (!admin) return { error: "Supabase no está configurado." };
@@ -477,7 +477,7 @@ export async function asignarRubro(
 
   const userId = String(formData.get("user_id") ?? "");
   const rubroId = String(formData.get("rubro_id") ?? "");
-  if (!userId || !rubroId) return { error: "Elige usuario y rubro." };
+  if (!userId || !rubroId) return { error: "Elija usuario y rubro." };
 
   const supabase = await createUserClient();
   const { error } = await supabase

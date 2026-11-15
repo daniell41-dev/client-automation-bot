@@ -36,21 +36,21 @@ export function devolucionPendiente(pedido: Pick<Pedido, "devolucion">): boolean
  * otra cuenta, o el pantallazo ser falso). Lo comprueba la dueña en su banco.
  */
 export function mensajePedirCuenta(montoTexto: string): string {
-  return `Si la transferencia de ${montoTexto} salió de tu cuenta, respondé con el banco o Nequi, el número y el nombre del titular, y te la devolvemos 🙏`;
+  return `Si la transferencia de ${montoTexto} salió de su cuenta, envíenos el banco o Nequi, el número y el nombre del titular, y se la devolvemos 🙏`;
 }
 
 export function mensajeCuentaRecibida(numeroPedido: number, montoTexto: string): string {
-  return `Listo, anotamos tu cuenta para devolverte ${montoTexto} del pedido #${numeroPedido}. Te avisamos apenas esté hecho 🙏`;
+  return `Listo, anotamos su cuenta para devolverle ${montoTexto} del pedido #${numeroPedido}. Le avisamos apenas esté hecho 🙏`;
 }
 
 export function avisoCuentaParaDueña(pedido: Pick<Pedido, "numero" | "cliente" | "contacto">, montoTexto: string, cuenta: string): string {
   return [
     `💸 Cuenta para devolver ${montoTexto} del pedido #${pedido.numero} (${pedido.cliente ?? pedido.contacto}):`,
     cuenta,
-    "Cuando devuelvas, marcalo en el panel → Pedidos → Devoluciones.",
+    "Cuando devuelva el dinero, márquelo en el panel → Pedidos → Devoluciones.",
   ].join("\n");
 }
 
 export function mensajeDevuelto(numeroPedido: number, montoTexto: string): string {
-  return `Ya te devolvimos ${montoTexto} del pedido #${numeroPedido}. Revisá tu cuenta y cualquier cosa nos escribís 🙏`;
+  return `Ya le devolvimos ${montoTexto} del pedido #${numeroPedido}. Revise su cuenta y cualquier cosa nos escribe 🙏`;
 }

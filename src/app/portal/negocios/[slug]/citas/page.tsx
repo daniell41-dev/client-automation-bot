@@ -60,7 +60,7 @@ export default async function CitasPage({
       initialPedidos={
         config.pedidos ?? {
           enabled: false,
-          pregunta: "¿Vas a retirar tu pedido o prefieres comer en el local?",
+          pregunta: "¿Va a recoger su pedido o prefiere comer en el local?",
           opciones: ["Retirar en el local", "Comer en el local"],
         }
       }
@@ -72,5 +72,5 @@ export default async function CitasPage({
   );
 }
 
-// T-71: el nombre de la pestaña ("Citas · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Citas · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Citas" };

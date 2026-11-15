@@ -131,7 +131,7 @@ export function CitasEditor({
         {/* Servicios reservables */}
         <Card
           title="Servicios reservables"
-          subtitle="El bot solo ofrece turnos para lo que esté activo."
+          subtitle="El bot solo ofrece citas para lo que esté activo."
         >
           <div className="space-y-2">
             {services.map((s) => (
@@ -191,7 +191,7 @@ export function CitasEditor({
                   onChange={(e) =>
                     setPedidos((prev) => ({ ...prev, pregunta: e.target.value }))
                   }
-                  placeholder="¿Vas a retirar tu pedido o prefieres comer en el local?"
+                  placeholder="¿Va a recoger su pedido o prefiere comer en el local?"
                 />
               </div>
               <div>
@@ -347,7 +347,7 @@ export function CitasEditor({
           {proximas.length === 0 ? (
             <EmptyState
               title="Sin reservas por ahora."
-              subtitle="Las citas que confirme el bot van a aparecer acá."
+              subtitle="Las citas que confirme el bot van a aparecer aquí."
             />
           ) : (
             <ul className="divide-y divide-line">
@@ -376,7 +376,7 @@ export function CitasEditor({
         {pasadas.length > 0 && (
           <Card
             title="Citas pasadas sin cerrar"
-            subtitle="El bot las cierra solo cuando el cliente vuelve a escribir. Si no, cerralas acá."
+            subtitle="El bot las cierra solo cuando el cliente vuelve a escribir. Si no, ciérrelas aquí."
           >
             <ul className="divide-y divide-line">
               {pasadas.map((r) => (
@@ -446,19 +446,19 @@ export function CitasEditor({
                 {
                   role: "out",
                   text: reservables.length
-                    ? "¡Dale! ¿Cuál te gustaría?"
-                    : "Contame qué se te antoja 😊",
+                    ? "¡Con gusto! ¿Cuál le gustaría?"
+                    : "Cuénteme qué se le antoja 😊",
                 },
-                { role: "in", text: reservables[0]?.name ?? "Bife de chorizo" },
-                { role: "out", text: pedidos.pregunta || "¿Retirás o comés acá?" },
+                { role: "in", text: reservables[0]?.name ?? "Bandeja paisa" },
+                { role: "out", text: pedidos.pregunta || "¿Lo recoge o lo enviamos a domicilio?" },
               ]
             : [
-                { role: "in", text: "Hola, quiero reservar un turno" },
+                { role: "in", text: "Hola, quiero reservar una cita" },
                 {
                   role: "out",
                   text: reservables.length
                     ? "¡Claro! ¿Para cuál de estos servicios?"
-                    : "Por ahora no tenemos turnos disponibles 🙏",
+                    : "Por ahora no tenemos citas disponibles 🙏",
                 },
               ]
         }

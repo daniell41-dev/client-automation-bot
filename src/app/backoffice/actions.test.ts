@@ -197,7 +197,7 @@ describe("actualizarNegocio — rechaza datos inválidos sin tocar Supabase", ()
         plan: "free",
       }),
     );
-    expect(result.error).toBe("Elegí un cliente dueño.");
+    expect(result.error).toBe("Elija un cliente dueño.");
     expect(createUserClientMock).not.toHaveBeenCalled();
   });
 });

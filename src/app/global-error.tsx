@@ -11,18 +11,18 @@ import "./globals.css";
 export default function GlobalError({ error, retry }: { error: Error & { digest?: string }; retry: () => void }) {
   return (
     <html lang="es">
-      <body style={{ margin: 0, minHeight: "100vh", background: "#0E2033", color: "#fff", fontFamily: "system-ui, sans-serif" }}>
-        <title>Algo salió mal · Nexo</title>
+      <body style={{ margin: 0, minHeight: "100vh", background: "#2A0F2E", color: "#fff", fontFamily: "system-ui, sans-serif" }}>
+        <title>Algo salió mal · Aurela</title>
         <main style={{ maxWidth: 520, margin: "0 auto", padding: "20vh 24px" }}>
-          <p style={{ fontSize: 15, fontWeight: 800, opacity: 0.9 }}>Nexo</p>
+          <p style={{ fontSize: 15, fontWeight: 800, opacity: 0.9 }}>Aurela</p>
           <h1 style={{ fontSize: 32, margin: "16px 0 8px" }}>Algo salió mal</h1>
           <p style={{ opacity: 0.7, lineHeight: 1.6 }}>
-            No pudimos cargar Nexo. Probá de nuevo en unos segundos; tus pedidos y tus datos están bien.
+            No pudimos cargar Aurela. Pruebe de nuevo en unos segundos; sus pedidos y sus datos están bien.
           </p>
           <button
             type="button"
             onClick={() => retry()}
-            style={{ marginTop: 24, background: "#2a6fdb", color: "#fff", border: 0, borderRadius: 10, padding: "10px 16px", fontWeight: 700, cursor: "pointer" }}
+            style={{ marginTop: 24, background: "#6B2475", color: "#fff", border: 0, borderRadius: 10, padding: "10px 16px", fontWeight: 700, cursor: "pointer" }}
           >
             Intentar de nuevo
           </button>

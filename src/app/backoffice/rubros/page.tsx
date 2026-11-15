@@ -47,7 +47,7 @@ export default async function RubrosPage() {
       </div>
 
       {/* Crear plantilla */}
-      <Card title="Nueva plantilla" subtitle="Nace con la plantilla base; después la personalizás.">
+      <Card title="Nueva plantilla" subtitle="Nace con la plantilla base; después la personaliza.">
         <ActionForm action={crearRubro} submitLabel="Crear plantilla">
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
@@ -143,5 +143,5 @@ export default async function RubrosPage() {
   );
 }
 
-// T-71: el nombre de la pestaña ("Rubros · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Rubros · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Rubros" };

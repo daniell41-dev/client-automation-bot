@@ -1,6 +1,6 @@
 /**
  * Panel de marca del login (T-68). Antes era un titular y dos burbujas
- * genéricas con un hueco enorme en el medio: no mostraba qué hace Nexo. Ahora
+ * genéricas con un hueco enorme en el medio: no mostraba qué hace Aurela. Ahora
  * es la venta real del producto en una sola imagen: un cliente pidiendo por
  * WhatsApp, el bot armando el resumen con total, el comprobante, el código de
  * retiro, y el aviso que le llega a la dueña. Los mismos textos que manda el
@@ -11,6 +11,7 @@
  */
 
 import { BadgeCheck, Bell, Clock3, Mic, ShieldCheck, Zap } from "lucide-react";
+import Link from "next/link";
 import { Logo } from "@/components/logo";
 
 type Burbuja = { de: "cliente" | "bot"; texto: string; hora: string };
@@ -19,15 +20,15 @@ const CHAT: Burbuja[] = [
   { de: "cliente", texto: "Hola! Me das una bandeja paisa a domicilio?", hora: "12:01" },
   {
     de: "bot",
-    texto: "¡Claro! 🍽️\n1x Bandeja paisa — $28.000\nDomicilio — $5.000\nTotal: $33.000\n¿Confirmás tu pedido?",
+    texto: "¡Claro! 🍽️\n1x Bandeja paisa — $28.000\nDomicilio — $5.000\nTotal: $33.000\n¿Confirma su pedido?",
     hora: "12:01",
   },
-  { de: "cliente", texto: "Sí 🙌 ya te mando el comprobante", hora: "12:02" },
+  { de: "cliente", texto: "Sí 🙌 ya le mando el comprobante", hora: "12:02" },
   { de: "bot", texto: "Pedido #12 confirmado ✅\nCódigo de retiro: 4821", hora: "12:04" },
 ];
 
 const BENEFICIOS = [
-  { icono: Clock3, titulo: "24/7", texto: "Atiende mientras dormís" },
+  { icono: Clock3, titulo: "24/7", texto: "Atiende mientras usted duerme" },
   { icono: ShieldCheck, titulo: "Pagos revisados", texto: "Alerta si algo no cuadra" },
   { icono: Mic, titulo: "Notas de voz", texto: "Entiende audios" },
 ];
@@ -69,7 +70,7 @@ function Telefono() {
 
 export function LoginHero() {
   return (
-    <section className="relative hidden flex-[1.05] flex-col justify-between overflow-hidden bg-[#0E2033] p-10 lg:flex">
+    <section className="relative hidden flex-[1.05] flex-col justify-between overflow-hidden bg-[#2A0F2E] p-10 lg:flex">
       {/* Fondo: dos luces y una grilla de puntos que se desvanece. Le da
           profundidad sin competir con el teléfono, que es el protagonista. */}
       <div
@@ -77,7 +78,7 @@ export function LoginHero() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(60% 50% at 15% 0%, rgba(42,111,219,.45) 0%, rgba(14,32,51,0) 70%), radial-gradient(45% 40% at 95% 85%, rgba(18,183,106,.18) 0%, rgba(14,32,51,0) 70%)",
+            "radial-gradient(60% 50% at 15% 0%, rgba(107,36,117,.45) 0%, rgba(42,15,46,0) 70%), radial-gradient(45% 40% at 95% 85%, rgba(232,169,58,.20) 0%, rgba(42,15,46,0) 70%)",
         }}
       />
       <div
@@ -92,24 +93,27 @@ export function LoginHero() {
       />
 
       <div className="relative">
-        <Logo variant="dark" />
+        {/* El logo lleva al inicio, como en el resto del sitio. */}
+        <Link href="/" aria-label="Ir al inicio de Aurela" className="inline-block">
+          <Logo variant="dark" />
+        </Link>
       </div>
 
       <div className="relative grid grid-cols-1 items-center gap-10 xl:grid-cols-[1fr_auto]">
         <div className="max-w-md">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold text-white/80">
             <Zap className="h-3.5 w-3.5 text-primary-light" />
-            Tu asistente de ventas en WhatsApp
+            Su asistente de ventas en WhatsApp
           </span>
           <h1 className="mt-5 font-display text-[40px] font-extrabold leading-[1.08] text-white">
-            Tu negocio vende por WhatsApp{" "}
-            <span className="bg-gradient-to-r from-primary-light to-[#5ee6b0] bg-clip-text text-transparent">
+            Su negocio vende por WhatsApp{" "}
+            <span className="text-gold">
               las 24 horas.
             </span>
           </h1>
           <p className="mt-4 text-[15px] leading-relaxed text-white/70">
-            Nexo responde, arma el pedido con el total, revisa el comprobante y te avisa para que solo
-            tengas que aprobar.
+            Aurela responde, arma el pedido con el total, revisa el comprobante y le avisa para que solo
+            tenga que aprobar.
           </p>
         </div>
 
@@ -123,7 +127,7 @@ export function LoginHero() {
             </span>
             <div className="leading-tight">
               <p className="text-[12px] font-bold text-ink">Pedido #12 nuevo</p>
-              <p className="text-[11px] text-ink-mid">$33.000 · Tocá Aprobar</p>
+              <p className="text-[11px] text-ink-mid">$33.000 · Toque Aprobar</p>
             </div>
           </div>
           <div

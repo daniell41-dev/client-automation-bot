@@ -57,7 +57,7 @@ const OFF_TOPIC_LIMIT = 3;
 /** Mensaje de cierre cuando se llega al límite de mensajes fuera de tema. */
 function buildClosingMessage(nombre: string | undefined): string {
   const saludo = nombre ? `${nombre}, ` : "";
-  return `${saludo}fue un gusto charlar 😊 Si más adelante te interesa algún servicio, escribime cuando quieras.`;
+  return `${saludo}fue un gusto conversar 😊 Si más adelante le interesa algún servicio, escríbame cuando quiera.`;
 }
 
 /**
@@ -159,7 +159,7 @@ function resumenParaConfirmar(lead: Lead, config: BusinessConfig): string {
 
 /** T-48: lo próximo que falta para poder cerrar el pedido, en el orden del motor guiado. */
 function preguntaQueFaltaPedido(lead: Lead, config: BusinessConfig): string {
-  if (!(lead.items?.length ?? 0)) return "¿Qué te gustaría pedir y cuántas unidades?";
+  if (!(lead.items?.length ?? 0)) return "¿Qué le gustaría pedir y cuántas unidades?";
   if (config.pedidos?.enabled && !lead.entrega) return config.pedidos.pregunta;
   if (esDomicilio(lead.entrega) && !lead.direccion) return ASK_DIRECCION;
   return render(config.messages.askName, { nombre: "", servicio: "" });
@@ -555,7 +555,7 @@ export async function runAgentTurn(
       ? resumenParaConfirmar(lead, config)
       : esPedido && !listoParaConfirmar
         ? preguntaQueFaltaPedido(lead, config)
-        : "Los datos para pagar te llegan apenas confirmes tu pedido 🙌";
+        : "Los datos para pagar le llegan apenas confirme su pedido 🙌";
     if (mostrarResumen) opciones = PEDIDO_CONFIRM_OPTIONS;
   } else if (preguntarFaltante) {
     respuestaFinal = preguntaQueFaltaPedido(lead, config);

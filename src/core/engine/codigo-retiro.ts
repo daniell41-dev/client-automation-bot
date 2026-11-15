@@ -23,7 +23,7 @@ export function generarCodigoRetiro(aleatorio: () => number = Math.random): stri
 /** Lo que se le dice al cliente junto con la confirmación. */
 export function mensajeCodigoRetiro(numero: number, codigo: string, modalidad: string | undefined): string {
   const cuando = esDomicilio(modalidad)
-    ? "Dáselo a quien te lo entregue para recibirlo."
-    : "Mostralo al recoger tu pedido.";
-  return `Tu pedido #${numero} · código de retiro: ${codigo}. ${cuando}`;
+    ? "Déselo a quien se lo entregue para recibirlo."
+    : "Muéstrelo al recoger su pedido.";
+  return `Su pedido #${numero} · código de retiro: ${codigo}. ${cuando}`;
 }

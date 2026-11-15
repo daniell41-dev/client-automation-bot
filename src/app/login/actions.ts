@@ -22,13 +22,13 @@ export async function signIn(
   const next = String(formData.get("next") ?? "");
 
   if (!email || !password) {
-    return { error: "Ingresa tu correo y contraseña." };
+    return { error: "Ingrese su correo y contraseña." };
   }
 
   const supabase = await createUserClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
-    return { error: "Credenciales incorrectas. Verifica e intenta de nuevo." };
+    return { error: "Credenciales incorrectas. Verifique e intente de nuevo." };
   }
 
   // Redirige según destino solicitado o rol.

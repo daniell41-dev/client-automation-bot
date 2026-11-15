@@ -222,7 +222,7 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
         if (parsed.audio) {
           await channel?.send({
             to: parsed.from,
-            text: "Para aprobar o rechazar un pedido tocá los botones del aviso, o escribí SÍ 12 / NO 12 con el número del pedido.",
+            text: "Para aprobar o rechazar un pedido toque los botones del aviso, o escriba SÍ 12 / NO 12 con el número del pedido.",
           });
           continue;
         }

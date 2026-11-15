@@ -29,7 +29,7 @@ export const plantilla: BusinessConfig = {
     {
       id: "servicio-1",
       name: "Servicio 1",
-      description: "Describe qué incluye el servicio.",
+      description: "Describa qué incluye el servicio.",
       price: 100000,
       durationMinutes: 60,
       keywords: ["palabra1", "palabra2"], // para detectarlo en texto libre
@@ -54,21 +54,21 @@ export const plantilla: BusinessConfig = {
   // },
 
   messages: {
-    welcome: "¡Hola! ¿Qué servicio te interesa?",
-    askName: "Para ayudarte mejor, ¿cuál es tu nombre?",
-    askDate: "{{nombre}}, ¿qué día te gustaría agendar?",
-    askConfirm: "¿Te confirmo tu cita de {{servicio}} para {{fecha}}, {{nombre}}?",
+    welcome: "¡Hola! ¿Qué servicio le interesa?",
+    askName: "Para ayudarle mejor, ¿cuál es su nombre?",
+    askDate: "{{nombre}}, ¿qué día le gustaría agendar?",
+    askConfirm: "¿Le confirmo su cita de {{servicio}} para {{fecha}}, {{nombre}}?",
     serviceInfo:
       "{{servicio}}: {{descripcion}}\nDuración: {{duracion}}.\nPrecio: {{precio}}.",
     captured:
-      "¡Listo {{nombre}}! Tu cita de {{servicio}} para {{fecha}} quedó agendada. {{agenda}}",
-    fallback: "No te entendí 😅. ¿Qué servicio te interesa?",
+      "¡Listo {{nombre}}! Su cita de {{servicio}} para {{fecha}} quedó agendada. {{agenda}}",
+    fallback: "No le entendí 😅. ¿Qué servicio le interesa?",
   },
 
   followUps: [
-    { threshold: "2h", afterMinutes: 120, message: "Hola {{nombre}}, ¿te comparto horarios de {{servicio}}?" },
+    { threshold: "2h", afterMinutes: 120, message: "Hola {{nombre}}, ¿le comparto horarios de {{servicio}}?" },
     { threshold: "1d", afterMinutes: 1440, message: "Tenemos cupos para {{servicio}} esta semana." },
-    { threshold: "3d", afterMinutes: 4320, message: "Último mensaje 😊 ¿Te aviso de promos de {{servicio}}?" },
+    { threshold: "3d", afterMinutes: 4320, message: "Último mensaje 😊 ¿Le aviso de promos de {{servicio}}?" },
   ],
 
   // bookingUrl: "https://calendly.com/tu-negocio", // opcional
@@ -132,12 +132,12 @@ export const plantilla: BusinessConfig = {
   //   whatsapp: {
   //     name: "Sofia",
   //     tone: "Friendly and professional. Use light emojis. Address by name.",
-  //     language: "español colombiano informal",
+  //     language: "español de Colombia, trato de usted",
   //   },
   //   instagram: {
   //     name: "Sofi",
   //     tone: "Fun and trendy. More emojis. Use 'amiga' with female clients.",
-  //     language: "español colombiano informal y juvenil",
+  //     language: "español de Colombia, cercano y juvenil",
   //   },
   // },
 };

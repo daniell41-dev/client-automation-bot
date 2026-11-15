@@ -59,7 +59,7 @@ export function RespuestasEditor({
       text: ai.enabled
         ? ai.knowledge?.trim()
           ? resumen(ai.knowledge)
-          : "Contame qué necesitás y te ayudo 😊 (agregá información del negocio para respuestas más precisas)"
+          : "Cuénteme qué necesita y le ayudo 😊 (agregue información del negocio para respuestas más precisas)"
         : fallback,
     },
   ];
@@ -175,7 +175,7 @@ export function RespuestasEditor({
             ))}
             {(ai.reglas ?? []).length === 0 && (
               <p className="py-2 text-center text-sm text-ink-soft">
-                Sin reglas. Agregá una para responder exacto a &quot;horario&quot;,
+                Sin reglas. Agregue una para responder exacto a &quot;horario&quot;,
                 &quot;envío&quot;, etc.
               </p>
             )}

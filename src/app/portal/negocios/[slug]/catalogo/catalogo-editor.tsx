@@ -158,8 +158,8 @@ export function CatalogoEditor({
         {/* Lista de ítems */}
         {visibles.length === 0 ? (
           <EmptyState
-            title={search ? "Sin resultados." : "Tu catálogo está vacío."}
-            subtitle={search ? undefined : `Agregá tu primer ${itemLabel.toLowerCase()}.`}
+            title={search ? "Sin resultados." : "Su catálogo está vacío."}
+            subtitle={search ? undefined : `Agregue su primer ${itemLabel.toLowerCase()}.`}
           />
         ) : (
           <div className="space-y-2">
@@ -365,7 +365,7 @@ export function CatalogoEditor({
           {
             role: "out",
             text: selected?.name
-              ? `¡Hola! Te comparto ${previewSustantivo}:`
+              ? `¡Hola! Le comparto ${previewSustantivo}:`
               : "¡Hola! Este es nuestro catálogo:",
           },
         ]}

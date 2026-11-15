@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  extraerFechaDeFrase,
   availableServices,
   isAffirmative,
   isGreeting,
@@ -412,5 +413,54 @@ describe("isNegative (T-21/PR5)", () => {
   it("no confunde una respuesta normal con un rechazo", () => {
     expect(isNegative("Carlos")).toBe(false);
     expect(isNegative("sí")).toBe(false);
+  });
+});
+
+// T-88: dos servicios con una palabra clave en común ("corte"). Antes ganaba
+// siempre el primero de la lista: "Corte caballero" agendaba "Corte dama",
+// aunque el cliente tocara el botón con el nombre exacto.
+describe("matchService con palabras clave compartidas (T-88)", () => {
+  const salon: Service[] = [
+    { id: "corte-dama", name: "Corte dama", description: "x", price: 35000, durationMinutes: 45, keywords: ["corte", "dama", "pelo"] },
+    { id: "corte-caballero", name: "Corte caballero", description: "x", price: 20000, durationMinutes: 30, keywords: ["corte", "caballero", "barba"] },
+    { id: "tinte", name: "Tinte", description: "x", price: 90000, durationMinutes: 120, keywords: ["tinte", "color"] },
+  ];
+
+  it("el nombre completo gana sobre una palabra clave compartida (botón o escrito)", () => {
+    expect(matchService("Corte caballero", salon)?.id).toBe("corte-caballero");
+    expect(matchService("quiero un corte caballero hoy a las 5", salon)?.id).toBe("corte-caballero");
+    expect(matchService("Corte dama", salon)?.id).toBe("corte-dama");
+  });
+
+  it("con varias palabras clave, gana el servicio que más coincide", () => {
+    expect(matchService("un corte de barba", salon)?.id).toBe("corte-caballero");
+    expect(matchService("corte para dama", salon)?.id).toBe("corte-dama");
+  });
+
+  it("una palabra clave única sigue funcionando, y el empate conserva el orden de antes", () => {
+    expect(matchService("barba", salon)?.id).toBe("corte-caballero");
+    expect(matchService("tinte", salon)?.id).toBe("tinte");
+    expect(matchService("quiero un corte", salon)?.id).toBe("corte-dama");
+  });
+});
+
+// T-88: la fecha que viene en la misma frase que el servicio ("corte
+// caballero hoy a las 5") o en el primer mensaje se descartaba, y el bot
+// la volvía a pedir.
+describe("extraerFechaDeFrase (T-88)", () => {
+  it("saca solo la parte de la fecha, desde la primera señal", () => {
+    expect(extraerFechaDeFrase("¿Tiene turno hoy a las 5?")).toBe("hoy a las 5");
+    expect(extraerFechaDeFrase("Quiero un corte caballero hoy a las 5")).toBe("hoy a las 5");
+    expect(extraerFechaDeFrase("corte para el viernes a las 3 pm")).toBe("el viernes a las 3 pm");
+    expect(extraerFechaDeFrase("tinte mñn a las 10")).toBe("mañana a las 10");
+    expect(extraerFechaDeFrase("me puede atender a las 4?")).toBe("a las 4");
+    expect(extraerFechaDeFrase("tinte el 20 de noviembre")).toBe("el 20 de noviembre");
+  });
+
+  it("si no hay fecha, no inventa una", () => {
+    expect(extraerFechaDeFrase("Quiero un corte caballero")).toBeUndefined();
+    expect(extraerFechaDeFrase("Hola, buenas tardes")).toBeUndefined();
+    expect(extraerFechaDeFrase("1")).toBeUndefined();
+    expect(extraerFechaDeFrase("Tinte")).toBeUndefined();
   });
 });

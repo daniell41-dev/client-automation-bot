@@ -22,5 +22,5 @@ const NOMBRES: Record<CampoWompi, string> = {
 
 /** `null` si el valor tiene forma de llave de Wompi; si no, el mensaje para la dueña. */
 export function errorLlaveWompi(campo: CampoWompi, valor: string): string | null {
-  return PREFIJOS[campo].test(valor) ? null : `${NOMBRES[campo]} no tiene el formato de Wompi. Copiala de tu panel de Wompi.`;
+  return PREFIJOS[campo].test(valor) ? null : `${NOMBRES[campo]} no tiene el formato de Wompi. Cópiela de su panel de Wompi.`;
 }

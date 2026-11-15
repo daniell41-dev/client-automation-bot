@@ -1109,7 +1109,7 @@ describe("runAgentTurn — pedido sin elegir_servicio (T-53)", () => {
     );
     expect(r!.lead.stage).toBe("esperando_confirmacion");
     expect(r!.messages[0].text).toMatch(/Total: \$\s?36\.500/);
-    expect(r!.messages[0].text).toContain("¿Confirmás tu pedido?");
+    expect(r!.messages[0].text).toContain("¿Confirma su pedido?");
   });
 });
 

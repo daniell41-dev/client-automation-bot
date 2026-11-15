@@ -92,5 +92,5 @@ export default async function LeadsPage() {
   );
 }
 
-// T-71: el nombre de la pestaña ("Leads · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Leads · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Leads" };

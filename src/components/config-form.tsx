@@ -165,7 +165,7 @@ export function ConfigForm({
       <section className={sectionCls}>
         <h2 className="mb-1 text-sm font-semibold text-slate-800">Catálogo de este rubro</h2>
         <p className="mb-4 text-xs text-slate-500">
-          Qué persigue el bot con los ítems de este rubro. Sin tocar nada acá, se
+          Qué persigue el bot con los ítems de este rubro. Sin tocar nada aquí, se
           comporta como una cita (igual que antes de esto existir).
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -210,7 +210,7 @@ export function ConfigForm({
                 setCatalogo({ modoPorDefecto: e.target.value === "pedido" ? "pedido" : "cita" })
               }
             >
-              <option value="cita">Se agenda (cita/turno)</option>
+              <option value="cita">Se agenda (cita)</option>
               <option value="pedido">Se vende (pedido)</option>
             </select>
             <p className="mt-1 text-xs text-slate-500">
@@ -325,7 +325,7 @@ export function ConfigForm({
                     }
                   >
                     <option value="">Automático (según el rubro)</option>
-                    <option value="cita">Se agenda (cita/turno)</option>
+                    <option value="cita">Se agenda (cita)</option>
                     <option value="pedido">Se vende (pedido)</option>
                   </select>
                 </div>

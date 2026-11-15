@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
-/* ─── Design tokens "Nexo" (ver docs/09-diseno-nexo.md) ─────────────────── */
+/* ─── Design tokens "Aurela" (design system Aurela en Claude) ────────────── */
+/* Ciruela (morado rojizo) en vez del azul de Nexo: se aleja a propósito del
+   índigo/lima de la competencia. El oro de la corona es el único acento cálido. */
 
 @theme inline {
   /* Tipografía */
@@ -8,30 +10,41 @@
   --font-display: var(--font-sora), var(--font-jakarta), sans-serif;
 
   /* Marca / UI */
-  --color-primary: #2a6fdb;
-  --color-primary-hover: #1f5bc0;
-  --color-primary-light: #4c8dff;
-  --color-primary-tint: #eff5ff;
+  --color-primary: #6b2475;
+  --color-primary-hover: #521c5a;
+  --color-primary-light: #a85db3;
+  --color-primary-tint: #f6ebf6;
+  --color-primary-border: #ddb8e2;
 
   /* Texto */
-  --color-ink: #101828;
-  --color-ink-mid: #475467;
-  --color-ink-soft: #98a2b3;
-  --color-ink-faint: #b4bac5;
+  --color-ink: #1c1220;
+  --color-ink-mid: #4d4350;
+  --color-ink-soft: #928894;
+  --color-ink-faint: #bbb3bc;
 
   /* Superficies */
   --color-surface: #ffffff;
-  --color-canvas: #f6f7f9;
-  --color-surface-2: #f2f4f7;
-  --color-surface-3: #f9fafb;
+  --color-canvas: #f8f6f4;
+  --color-surface-2: #f2eeec;
+  --color-surface-3: #fbfaf8;
 
   /* Bordes */
-  --color-line: #eaecf0;
-  --color-line-2: #e4e7ec;
-  --color-line-input: #d0d5dd;
+  --color-line: #ece7e4;
+  --color-line-2: #e5dfdb;
+  --color-line-input: #d6cecb;
 
   /* Back office */
-  --color-bo-sidebar: #101828;
+  --color-bo-sidebar: #2a0f2e;
+
+  /* Superficies oscuras de marca (hero del login, pantallas de error) */
+  --color-night: #2a0f2e;
+  --color-night-2: #1a0a1c;
+
+  /* Oro de la corona del logo: con moderación, nunca neón */
+  --color-gold: #e8a93a;
+  --color-gold-light: #f4c978;
+  --color-gold-ink: #8a5a00;
+  --color-gold-bg: #fdf3df;
 
   /* Semánticos */
   --color-success: #12b76a;
@@ -47,6 +60,8 @@
   --color-wa-out: #d9fdd3;
   --color-wa-reply: #0a94d6;
   --color-wa-today: #fff6d5;
+  /* T-91: los dos checks azules de "leído". */
+  --color-wa-visto: #53bdeb;
 
   /* Rubros (tinte de fondo / tinta del icono) */
   --color-rubro-gastro-bg: #fff1e6;
@@ -59,9 +74,10 @@
   --color-rubro-comercio-ink: #475467;
 
   /* Sombras */
-  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --shadow-lift: 0 10px 28px -14px rgba(16, 24, 40, 0.22);
-  --shadow-fab: 0 14px 32px -10px rgba(16, 24, 40, 0.55);
+  --shadow-card: 0 1px 2px rgba(28, 18, 32, 0.05);
+  --shadow-lift: 0 10px 28px -14px rgba(28, 18, 32, 0.22);
+  --shadow-fab: 0 14px 32px -10px rgba(28, 18, 32, 0.55);
+  --shadow-primary: 0 8px 20px -8px rgba(107, 36, 117, 0.7);
 }
 
 body {
@@ -140,6 +156,382 @@ body {
   }
 }
 
+/* T-82: teléfono animado del hero. Un ciclo de 15 s = 12 s de historia + 3 s
+   quieto. Cada paso tiene su propio keyframes porque animation-delay solo
+   corre en la primera vuelta: para que el bucle se repita, el momento en que
+   entra cada paso va dentro del ciclo (su %). Entra como fadeUp, se queda y
+   se apaga al cierre. Solo opacity/transform: el lugar ya está reservado. */
+.tel-paso {
+  animation-duration: 15s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease;
+  animation-fill-mode: both;
+}
+
+@keyframes telPaso1 {
+  0%, 3.3% { opacity: 0; transform: translateY(8px); }
+  6.0%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.tel-paso-1 { animation-name: telPaso1; }
+
+@keyframes telPaso2 {
+  0%, 16.7% { opacity: 0; transform: translateY(8px); }
+  19.4%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.tel-paso-2 { animation-name: telPaso2; }
+
+@keyframes telPaso3 {
+  0%, 33.3% { opacity: 0; transform: translateY(8px); }
+  36.0%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.tel-paso-3 { animation-name: telPaso3; }
+
+@keyframes telPaso4 {
+  0%, 40.0% { opacity: 0; transform: translateY(8px); }
+  42.7%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.tel-paso-4 { animation-name: telPaso4; }
+
+@keyframes telPaso5 {
+  0%, 50.0% { opacity: 0; transform: translateY(8px); }
+  52.7%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.tel-paso-5 { animation-name: telPaso5; }
+
+@keyframes telPaso6 {
+  0%, 60.0% { opacity: 0; transform: translateY(10px) scale(0.96); }
+  62.7%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.tel-paso-6 { animation-name: telPaso6; }
+
+/* Final feliz: la dueña toca "Aprobar" (10,2 s: el botón se hunde un instante)
+   y al cliente le llega su código de retiro (10,8 s). */
+@keyframes telPaso7 {
+  0%, 72.0% { opacity: 0; transform: translateY(8px); }
+  74.7%, 96% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: none; }
+}
+.tel-paso-7 { animation-name: telPaso7; }
+
+.tel-toque { animation: telToque 15s linear infinite both; }
+@keyframes telToque {
+  0%, 67.3% { transform: none; }
+  68.3% { transform: scale(0.9); }
+  69.6%, 100% { transform: none; }
+}
+
+/* T-91: lo que hace que el teléfono se sienta como un WhatsApp de verdad.
+   Mismo ciclo de 15 s que los pasos, para que todo vaya sincronizado. El
+   estilo sin animación es siempre el estado final (nota escuchada, checks
+   azules, subrayado hecho, "en línea"): eso es lo que se ve con "reducir
+   movimiento" o si el navegador no anima. */
+.tel-onda,
+.tel-onda-barras,
+.tel-en-linea,
+.tel-escribiendo,
+.tel-tecleo,
+.tel-visto,
+.tel-subraya {
+  animation-duration: 15s;
+  animation-iteration-count: infinite;
+  animation-timing-function: linear;
+  animation-fill-mode: both;
+}
+.tel-escribiendo,
+.tel-tecleo { opacity: 0; }
+.tel-subraya { transform-origin: left center; }
+
+/* La nota "se escucha" de 1,0 a 2,2 s: la capa verde entra desde la
+   izquierda y sus barras se mueven al revés, así quedan quietas en su lugar
+   mientras se descubren. */
+@keyframes telOnda {
+  0%, 6.7% { transform: translateX(-100%); }
+  14.7%, 100% { transform: none; }
+}
+@keyframes telOndaBarras {
+  0%, 6.7% { transform: translateX(100%); }
+  14.7%, 100% { transform: none; }
+}
+.tel-onda { animation-name: telOnda; }
+.tel-onda-barras { animation-name: telOndaBarras; }
+
+/* "escribiendo…" arriba antes del resumen (1,3–2,5 s) y antes del aviso
+   ámbar (6,6–7,5 s); "en línea" se apaga en esos mismos ratos. */
+@keyframes telEscribiendo {
+  0%, 8%, 17%, 43.5%, 50.5%, 100% { opacity: 0; }
+  9%, 16.2%, 44.5%, 49.7% { opacity: 1; }
+}
+@keyframes telEnLinea {
+  0%, 8%, 17%, 43.5%, 50.5%, 100% { opacity: 1; }
+  9%, 16.2%, 44.5%, 49.7% { opacity: 0; }
+}
+.tel-escribiendo { animation-name: telEscribiendo; }
+.tel-en-linea { animation-name: telEnLinea; }
+
+/* Los tres puntos, donde va a salir el resumen, justo antes de que salga. */
+@keyframes telTecleo {
+  0%, 8.7%, 17.3%, 100% { opacity: 0; }
+  9.7%, 16.4% { opacity: 1; }
+}
+.tel-tecleo { animation-name: telTecleo; }
+
+.tecleo-punto { animation: tecleoPunto 1.2s ease-in-out infinite; }
+@keyframes tecleoPunto {
+  0%, 60%, 100% { transform: none; opacity: 0.5; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+
+/* Checks azules: el cliente leyó el resumen un poco antes de confirmar (4,2 s). */
+@keyframes telVisto {
+  0%, 27.3% { opacity: 0; }
+  28.7%, 100% { opacity: 1; }
+}
+.tel-visto { animation-name: telVisto; }
+
+/* El monto que no cuadra se subraya apenas sale el aviso (7,9–8,6 s). */
+@keyframes telSubraya {
+  0%, 52.7% { transform: scaleX(0); }
+  57.3%, 100% { transform: none; }
+}
+.tel-subraya { animation-name: telSubraya; }
+
+/* Con movimiento reducido: la conversación completa, quieta (estado final).
+   `.fade-up` también: el texto del hero (y las pantallas del portal) aparecen
+   ya en su lugar. */
+@media (prefers-reduced-motion: reduce) {
+  .tel-paso,
+  .fade-up {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  /* T-91: nota escuchada, checks azules, subrayado hecho y "en línea". El
+     botón "Aprobar" queda quieto. */
+  .tel-onda,
+  .tel-onda-barras,
+  .tel-en-linea,
+  .tel-visto,
+  .tel-subraya,
+  .tel-toque {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+  .tel-escribiendo,
+  .tel-tecleo,
+  .tecleo-punto {
+    animation: none;
+  }
+}
+
+/* T-83: anotaciones del comprobante. Entran a medida que cada una aparece en
+   pantalla (scroll-driven, sin JS). El rango se corre un poco por anotación
+   para que, aunque entren varias a la vez, se lean una tras otra. Sin soporte
+   de animation-timeline, o con "reducir movimiento", no hay animación y se
+   ven fijas (es el estilo por defecto). */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .anotacion {
+      animation: anotacionEntra linear both;
+      animation-timeline: view();
+    }
+    .anotacion-linea {
+      transform-origin: left center;
+      animation: anotacionLinea linear both;
+      animation-timeline: view();
+    }
+    /* Cada una termina de entrar cuando va por un tercio de la pantalla: si
+       la dueña deja de bajar con la sección a la vista, las cuatro se leen. */
+    .anotacion-1 { animation-range: entry 0% cover 20%; }
+    .anotacion-2 { animation-range: entry 20% cover 25%; }
+    .anotacion-3 { animation-range: entry 40% cover 30%; }
+    .anotacion-4 { animation-range: entry 60% cover 35%; }
+  }
+}
+
+/* T-92: escaneo del comprobante. La tarjeta da la línea de tiempo
+   (--comprobante) y `timeline-scope` en la rejilla la deja ver a sus
+   hermanos: la línea y las marcas avanzan con el mismo scroll. La línea baja
+   entre el 20 % y el 65 % del paso de la tarjeta por la pantalla; cada marca
+   sale cuando la línea llega a su fila (los rangos están calculados con esa
+   cuenta). Sin soporte: sin línea, marcas puestas. */
+.escaneo-linea { opacity: 0; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .escaneo-alcance { timeline-scope: --comprobante; }
+    .escaneo-tarjeta { view-timeline-name: --comprobante; }
+    .escaneo-linea {
+      animation: escaneoBaja linear both;
+      animation-timeline: --comprobante;
+      animation-range: cover 20% cover 65%;
+    }
+    .escaneo-marca {
+      animation: escaneoMarca ease-out both;
+      animation-timeline: --comprobante;
+    }
+    .escaneo-marca-1 { animation-range: cover 29% cover 33%; }
+    .escaneo-marca-2 { animation-range: cover 38% cover 42%; }
+    .escaneo-marca-3 { animation-range: cover 47% cover 51%; }
+    .escaneo-marca-4 { animation-range: cover 56% cover 60%; }
+  }
+}
+
+@keyframes escaneoBaja {
+  0% { opacity: 0; transform: translateY(0); }
+  6% { opacity: 1; }
+  92% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(100%); }
+}
+
+@keyframes escaneoMarca {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes anotacionEntra {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes anotacionLinea {
+  from { opacity: 0; transform: scaleX(0); }
+  to { opacity: 1; transform: none; }
+}
+
+/* T-93: "Así funciona" se llena con el scroll. La lista da la línea de tiempo
+   (--pasos): el relleno va de "su borde de arriba en la mitad de la
+   pantalla" a "su borde de abajo en la mitad", así la punta azul va siempre
+   por el centro. Cada número usa su propia vista y se enciende al cruzar la
+   mitad de la pantalla, o sea cuando la punta lo alcanza. Las escenas entran
+   desde su lado (en celular, desde abajo). Sin soporte: el estilo normal ya
+   es el final (línea llena, números encendidos, escenas en su lugar). */
+.paso-relleno { transform-origin: top center; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .pasos { view-timeline-name: --pasos; }
+    .paso-relleno {
+      animation: pasoRelleno linear both;
+      animation-timeline: --pasos;
+      animation-range: cover 50vh cover calc(100% - 50vh);
+    }
+    .paso-luz {
+      animation: pasoLuz ease-out both;
+      animation-timeline: view();
+      animation-range: cover calc(50vh - 8px) cover calc(50vh + 24px);
+    }
+    .paso-escena-izq,
+    .paso-escena-der {
+      animation: pasoEscenaAbajo ease-out both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 35%;
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) and (min-width: 1024px) {
+    .paso-escena-izq { animation-name: pasoEscenaIzq; }
+    .paso-escena-der { animation-name: pasoEscenaDer; }
+  }
+}
+
+@keyframes pasoRelleno {
+  from { transform: scaleY(0); }
+  to { transform: none; }
+}
+@keyframes pasoLuz {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pasoEscenaAbajo {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pasoEscenaIzq {
+  from { opacity: 0; transform: translateX(-32px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pasoEscenaDer {
+  from { opacity: 0; transform: translateX(32px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* T-94: el ticket de precio. El borde de papel cortado es una máscara de
+   semicírculos arriba y abajo (estática). Las líneas se "imprimen" al entrar
+   en pantalla, una tras otra; después se corta la línea punteada y por
+   último sale el total. Sin soporte o con "reducir movimiento": completo. */
+.ticket {
+  -webkit-mask:
+    radial-gradient(circle at 50% 0, #0000 5px, #000 5.5px) top / 16px 51% repeat-x,
+    radial-gradient(circle at 50% 100%, #0000 5px, #000 5.5px) bottom / 16px 51% repeat-x;
+  mask:
+    radial-gradient(circle at 50% 0, #0000 5px, #000 5.5px) top / 16px 51% repeat-x,
+    radial-gradient(circle at 50% 100%, #0000 5px, #000 5.5px) bottom / 16px 51% repeat-x;
+}
+.ticket-corte { transform-origin: left center; }
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .ticket-linea,
+    .ticket-corte,
+    .ticket-total {
+      animation-timing-function: ease-out;
+      animation-fill-mode: both;
+      animation-timeline: view();
+    }
+    .ticket-linea { animation-name: ticketImprime; }
+    .ticket-linea-1 { animation-range: entry 40% cover 25%; }
+    .ticket-linea-2 { animation-range: entry 70% cover 28%; }
+    .ticket-linea-3 { animation-range: entry 100% cover 31%; }
+    .ticket-corte { animation-name: ticketCorte; animation-range: cover 22% cover 34%; }
+    .ticket-total { animation-name: ticketTotal; animation-range: cover 20% cover 36%; }
+  }
+}
+
+@keyframes ticketImprime {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ticketCorte {
+  from { transform: scaleX(0); }
+  to { transform: none; }
+}
+@keyframes ticketTotal {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+
+/* T-95: talones de la comanda entre secciones. El borde de papel cortado a
+   los lados es una máscara estática. Al aparecer, el talón baja desde su
+   ranura (el padre lo recorta), como saliendo de la impresora. Cada ranura
+   da su propia línea de tiempo (--talon) y su talón la usa. Sin soporte o
+   con "reducir movimiento": quieto, en su lugar. */
+.comanda-talon {
+  -webkit-mask:
+    radial-gradient(circle at 0 50%, #0000 4px, #000 4.5px) left / 51% 12px repeat-y,
+    radial-gradient(circle at 100% 50%, #0000 4px, #000 4.5px) right / 51% 12px repeat-y;
+  mask:
+    radial-gradient(circle at 0 50%, #0000 4px, #000 4.5px) left / 51% 12px repeat-y,
+    radial-gradient(circle at 100% 50%, #0000 4px, #000 4.5px) right / 51% 12px repeat-y;
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .comanda-ranura { view-timeline: --talon; }
+    .comanda-talon {
+      animation: comandaSale ease-out both;
+      animation-timeline: --talon;
+      animation-range: entry 100% cover 45%;
+    }
+  }
+}
+
+@keyframes comandaSale {
+  from { transform: translateY(-100%); }
+  to { transform: none; }
+}
+
 /* Foco de inputs: borde primario + ring azul suave. */
 .input-nexo {
   border: 1px solid var(--color-line-input);
@@ -150,7 +542,7 @@ body {
 
 .input-nexo:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 4px rgba(42, 111, 219, 0.12);
+  box-shadow: 0 0 0 4px rgba(107, 36, 117, 0.12);
 }
 
 /* T-70: páginas legales — texto largo, cómodo de leer en el celular. */

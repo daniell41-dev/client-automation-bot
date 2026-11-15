@@ -33,7 +33,7 @@ type Tono = "cercano" | "neutral" | "formal";
 
 const TONOS: Record<Tono, string> = {
   cercano:
-    "Cálido y cercano. Usa emojis con moderación, tutea al cliente y responde con energía positiva.",
+    "Cálido y cercano. Usa emojis con moderación, trata al cliente de usted con calidez y responde con energía positiva.",
   neutral:
     "Claro y profesional. Directo al punto, sin emojis, amable pero conciso.",
   formal:
@@ -68,6 +68,10 @@ const CUENTA_VACIA: CuentaPago = { entidad: "", tipo: "billetera", numero: "", t
 const MAX_CUENTAS = 6; // mismo tope que el schema
 
 function tonoActual(tone: string): Tono {
+  // T-79: el preset "Cercano" ahora también dice "usted", así que se
+  // reconoce antes que "formal". El viejo ("tutea al cliente") cae en el
+  // `return "cercano"` del final: al guardar se reemplaza por el nuevo.
+  if (/cálido y cercano/i.test(tone)) return "cercano";
   if (/formal|usted/i.test(tone)) return "formal";
   if (/claro y profesional|neutral|conciso/i.test(tone)) return "neutral";
   return "cercano";
@@ -256,10 +260,10 @@ export function ConfiguracionEditor({
       {/* Notificaciones */}
       <Card
         title="Notificaciones"
-        subtitle="Tu WhatsApp personal: te avisamos ahí cuando el bot confirme una cita o un pedido."
+        subtitle="Su WhatsApp personal: le avisamos ahí cuando el bot confirme una cita o un pedido."
       >
         <div className="max-w-sm">
-          <label className={labelCls}>Tu número de WhatsApp</label>
+          <label className={labelCls}>Su número de WhatsApp</label>
           <input
             className={inputCls}
             value={notifyPhoneNumber}
@@ -267,7 +271,7 @@ export function ConfiguracionEditor({
             placeholder="573001234567"
           />
           <p className="mt-1.5 text-xs text-ink-soft">
-            Formato internacional sin espacios ni + (ej. 573001234567). Dejalo
+            Formato internacional sin espacios ni + (ej. 573001234567). Déjelo
             vacío para no recibir avisos.
           </p>
         </div>
@@ -308,7 +312,7 @@ export function ConfiguracionEditor({
                 ))}
               </select>{" "}
               y los pedidos en el panel. Para días de muchos pedidos. Un comprobante
-              sospechoso igual te avisa al instante.
+              sospechoso igual le avisa al instante.
             </span>
           </label>
         </fieldset>
@@ -319,7 +323,7 @@ export function ConfiguracionEditor({
           le pide la foto; la plata la verifica la dueña en su app del banco. */}
       <Card
         title="Cobro con comprobante"
-        subtitle="El cliente paga a cualquiera de tus cuentas y manda la foto; vos aprobás el pedido después de ver la plata en tu app."
+        subtitle="El cliente paga a cualquiera de sus cuentas y envía la foto; usted aprueba el pedido después de ver la plata en la app de su banco."
       >
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
@@ -422,14 +426,14 @@ export function ConfiguracionEditor({
           <p className="text-xs text-ink-soft">
             El bot le manda todas estas cuentas al cliente al confirmar el pedido, con el número,
             el tipo y a nombre de quién está. Si el comprobante dice que se pagó a otra cuenta,
-            te avisa. Se guarda con el botón &quot;Guardar cambios&quot; de más abajo.
+            le avisa. Se guarda con el botón &quot;Guardar cambios&quot; de más abajo.
           </p>
 
           {/* El QR se guarda aparte (sube un archivo), igual que las llaves de Wompi. */}
           <div className="border-t border-line pt-4">
             <p className="text-sm font-semibold text-ink">Código QR de pago (opcional)</p>
             <p className="mt-0.5 text-xs text-ink-soft">
-              La captura del QR de tu Nequi, Bancolombia o Bre-B. El bot la manda como imagen
+              La captura del QR de su Nequi, Bancolombia o Bre-B. El bot la envía como imagen
               después de las cuentas. PNG, JPG o WEBP, hasta 2 MB.
             </p>
             {initialPagos?.qrUrl && (
@@ -520,9 +524,9 @@ export function ConfiguracionEditor({
                 </div>
               </div>
               <p className="text-xs text-ink-soft">
-                Las tres llaves están en tu panel de Wompi (Configuración → Llaves de la
-                API). Por seguridad nunca se muestran acá una vez guardadas — dejá en
-                blanco la que no quieras cambiar.
+                Las tres llaves están en su panel de Wompi (Configuración → Llaves de la
+                API). Por seguridad nunca se muestran aquí una vez guardadas — deje en
+                blanco la que no quiera cambiar.
               </p>
             </ActionForm>
           </div>
