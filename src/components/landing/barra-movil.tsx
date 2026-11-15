@@ -7,7 +7,7 @@ import { BotonWhatsApp } from "@/components/landing/boton-whatsapp";
  */
 export function BarraMovil() {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#0E2033]/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/10 bg-[#2A0F2E]/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur sm:hidden">
       <BotonWhatsApp origen="barra-movil" className="w-full shadow-none" />
     </div>
   );
