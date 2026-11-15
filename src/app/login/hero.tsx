@@ -11,6 +11,7 @@
  */
 
 import { BadgeCheck, Bell, Clock3, Mic, ShieldCheck, Zap } from "lucide-react";
+import Link from "next/link";
 import { Logo } from "@/components/logo";
 
 type Burbuja = { de: "cliente" | "bot"; texto: string; hora: string };
@@ -92,7 +93,10 @@ export function LoginHero() {
       />
 
       <div className="relative">
-        <Logo variant="dark" />
+        {/* El logo lleva al inicio, como en el resto del sitio. */}
+        <Link href="/" aria-label="Ir al inicio de Aurela" className="inline-block">
+          <Logo variant="dark" />
+        </Link>
       </div>
 
       <div className="relative grid grid-cols-1 items-center gap-10 xl:grid-cols-[1fr_auto]">
