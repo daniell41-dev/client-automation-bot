@@ -17,7 +17,7 @@
 
 import type { ReactNode } from "react";
 import { Check } from "lucide-react";
-import { AvisoAmbar, Burbuja, ComprobanteMini, FondoChat, NotaVoz } from "@/components/landing/chat";
+import { AvisoOk, Burbuja, ComprobanteMini, FondoChat, NotaVoz } from "@/components/landing/chat";
 import { Seccion } from "@/components/landing/seccion";
 
 const PASOS: { frase: string; escena: ReactNode }[] = [
@@ -40,8 +40,9 @@ const PASOS: { frase: string; escena: ReactNode }[] = [
     frase: "Aurela revisa el comprobante: monto, cuenta, referencia y fecha. Si algo no cuadra, le avisa.",
     escena: (
       <>
-        <ComprobanteMini monto="$40.000" />
-        <AvisoAmbar>El comprobante dice $40.000, el pedido es $45.000.</AvisoAmbar>
+        {/* Mismo pedido que el hero, con su final feliz: el pago cuadra. */}
+        <ComprobanteMini monto="$45.000" />
+        <AvisoOk>Pago verificado: $45.000, igual al pedido.</AvisoOk>
       </>
     ),
   },

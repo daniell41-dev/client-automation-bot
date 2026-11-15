@@ -16,6 +16,8 @@ import { GARANTIA, Precio } from "@/components/landing/precio";
 import { Responsable, responsableVisible } from "@/components/landing/responsable";
 import { Cierre } from "@/components/landing/cierre";
 import { RESPONSABLE } from "@/app/landing-config";
+import { MENSAJE_CODIGO } from "@/components/landing/telefono-animado";
+import { mensajeCodigoRetiro } from "@/core/engine/codigo-retiro";
 
 const html = renderToStaticMarkup(createElement(Home));
 /** Texto visible en una línea: sin etiquetas, sin el JSON-LD y con los saltos de línea como espacios. */
@@ -103,21 +105,28 @@ describe("landing (T-80)", () => {
   });
 
   describe("T-82: hero animado", () => {
-    it("el teléfono cuenta la historia completa: nota de voz, resumen, comprobante que no cuadra y aviso", () => {
+    it("el teléfono cuenta la historia con final feliz: pago verificado, aprobado y código de retiro", () => {
       for (const frase of [
         "10:47 p. m.",
         "0:08",
         "Confirmo",
-        "$40.000",
-        "El comprobante dice $40.000, el pedido es $45.000.",
+        "Pago verificado: $45.000, igual al pedido.",
         "Para usted",
-        "Revise el comprobante",
+        "Pedido #128 · Pago verificado",
         "Aprobar",
         "Rechazar",
-        "Pedir resto",
+        MENSAJE_CODIGO,
       ]) {
         expect(texto, frase).toContain(frase);
       }
+      // Ya no muestra el pago incompleto: eso queda para la sección del comprobante.
+      expect(texto).not.toContain("Pedir resto");
+      expect(texto).not.toContain("$40.000");
+    });
+
+    it("el código de retiro es el mismo texto que manda el bot al aprobar", () => {
+      expect(MENSAJE_CODIGO).toBe(mensajeCodigoRetiro(128, "4821", "Domicilio"));
+      expect(MENSAJE_CODIGO).toBe("Su pedido #128 · código de retiro: 4821. Déselo a quien se lo entregue para recibirlo.");
     });
 
     it("la animación es decorativa: el lector de pantalla recibe la historia en una frase", () => {
@@ -129,14 +138,15 @@ describe("landing (T-80)", () => {
       expect(readFileSync(join(raiz, "src/components/landing/telefono-animado.tsx"), "utf8")).not.toMatch(/["']use client["']/);
       const css = readFileSync(join(raiz, "src/app/globals.css"), "utf8");
       // Cada paso tiene su animación, y con movimiento reducido todas se apagan mostrando el estado final.
-      for (let n = 1; n <= 6; n++) expect(css).toContain(`.tel-paso-${n} { animation-name: telPaso${n}; }`);
+      for (let n = 1; n <= 7; n++) expect(css).toContain(`.tel-paso-${n} { animation-name: telPaso${n}; }`);
+      expect(css).toMatch(/prefers-reduced-motion: reduce\)[\s\S]*?\.tel-toque \{\s*animation: none;/);
       expect(css).toMatch(/prefers-reduced-motion: reduce\)\s*\{\s*\.tel-paso,[\s\S]*?animation: none;\s*opacity: 1;\s*transform: none;/);
     });
 
     describe("T-91: el teléfono se siente como un WhatsApp de verdad", () => {
       const raiz = join(__dirname, "..", "..");
       const css = readFileSync(join(raiz, "src/app/globals.css"), "utf8");
-      const telefono = html.match(/<div role="img" aria-label="Ejemplo de un pedido[\s\S]*?Pedir resto/)![0];
+      const telefono = html.match(/<div role="img" aria-label="Ejemplo de un pedido[\s\S]*?Rechazar/)![0];
 
       it("trae «escribiendo…», los tres puntos, la nota que avanza, los checks y el subrayado", () => {
         for (const clase of ["tel-en-linea", "tel-escribiendo", "tel-tecleo", "tel-onda", "tel-onda-barras", "tel-visto", "tel-subraya"]) {
@@ -195,7 +205,7 @@ describe("landing (T-80)", () => {
       for (const frase of [
         "Le avisamos antes de que despache un pedido mal pagado.",
         "Aurela lee cada comprobante que le mandan y le avisa si algo no cuadra. La decisión siempre es suya.",
-        "$40.000",
+        "$45.000",
         "300 000 0000",
         "M4471902",
         "Monto: ¿es el total del pedido?",
@@ -372,7 +382,7 @@ describe("landing (T-80)", () => {
       expect(talones.map((t) => t.replace(/^#128 /, ""))).toEqual([
         "10:47 p. m. Llega una nota de voz",
         "10:48 p. m. Total confirmado: $45.000",
-        "10:49 p. m. Comprobante: faltan $5.000",
+        "10:49 p. m. Pago verificado: $45.000",
         "10:52 p. m. Pedido aprobado por usted",
       ]);
     });
@@ -383,16 +393,16 @@ describe("landing (T-80)", () => {
       expect(talon("Llega una nota de voz")).toBeLessThan(pos('id="perdidas"'));
       expect(talon("Total confirmado")).toBeGreaterThan(pos('id="perdidas"'));
       expect(talon("Total confirmado")).toBeLessThan(pos('id="comprobante"'));
-      expect(talon("faltan $5.000")).toBeGreaterThan(pos('id="comprobante"'));
-      expect(talon("faltan $5.000")).toBeLessThan(pos('id="como-funciona"'));
+      expect(talon("Pago verificado: $45.000")).toBeGreaterThan(pos('id="comprobante"'));
+      expect(talon("Pago verificado: $45.000")).toBeLessThan(pos('id="como-funciona"'));
       expect(talon("Pedido aprobado por usted")).toBeGreaterThan(pos('id="control"'));
       expect(talon("Pedido aprobado por usted")).toBeLessThan(pos('id="instalacion"'));
     });
 
-    it("los montos cuadran con el teléfono del hero ($45.000 y $40.000: faltan $5.000)", () => {
-      expect(html).toContain("El comprobante dice");
-      expect(html).toContain("el pedido es $45.000.");
-      expect(45000 - 40000).toBe(5000);
+    it("los montos cuadran con el teléfono del hero (pedido y pago de $45.000)", () => {
+      expect(html).toContain("Total: $45.000");
+      expect(html).toContain("Pago verificado:");
+      expect(html).not.toContain("faltan $5.000");
     });
 
     it("son decorativos y no ocupan espacio", () => {
@@ -503,7 +513,7 @@ describe("landing (T-80)", () => {
         "Usted aprueba con un botón y el cliente recibe su número de pedido.",
         "0:08",
         "Total: $45.000",
-        "El comprobante dice $40.000, el pedido es $45.000.",
+        "Pago verificado: $45.000, igual al pedido.",
         "Aprobar",
         "Pedido #128 aprobado",
       ]) {
