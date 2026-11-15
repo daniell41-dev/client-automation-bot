@@ -8,7 +8,7 @@ export function Seccion({
 }: {
   id?: string;
   titulo?: string;
-  /** Fondo de marca (#0E2033) en vez del lienzo claro. */
+  /** Fondo de marca (#2A0F2E) en vez del lienzo claro. */
   oscura?: boolean;
   children: React.ReactNode;
 }) {
@@ -16,7 +16,7 @@ export function Seccion({
     <section
       id={id}
       aria-labelledby={id && titulo ? `${id}-titulo` : undefined}
-      className={oscura ? "bg-[#0E2033] text-white" : "text-ink"}
+      className={oscura ? "bg-[#2A0F2E] text-white" : "text-ink"}
     >
       <div className="mx-auto w-full max-w-5xl px-4 py-14 sm:px-6 sm:py-20">
         {titulo && (

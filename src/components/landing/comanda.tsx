@@ -31,7 +31,7 @@ export function TalonComanda({ momento }: { momento: keyof typeof MOMENTOS_COMAN
   const m: { hora: string; texto: string; alerta?: boolean } = MOMENTOS_COMANDA[momento];
   return (
     <div aria-hidden className="relative z-[15] h-0">
-      <div className="absolute left-1/2 top-0 w-max max-w-[calc(100%-32px)] -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_6px_14px_rgba(14,32,51,0.28)]">
+      <div className="absolute left-1/2 top-0 w-max max-w-[calc(100%-32px)] -translate-x-1/2 -translate-y-1/2 drop-shadow-[0_6px_14px_rgba(42,15,46,0.28)]">
         {/* La ranura recorta el talón mientras "sale" (overflow-hidden). */}
         <div className="comanda-ranura overflow-hidden">
           <div className="comanda-talon flex flex-col items-start gap-0.5 bg-surface px-5 py-2 sm:flex-row sm:items-center sm:gap-3 sm:py-2.5">

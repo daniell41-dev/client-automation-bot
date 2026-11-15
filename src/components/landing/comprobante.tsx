@@ -86,7 +86,7 @@ export function Comprobante() {
         <div
           aria-hidden
           data-brillo
-          className="escaneo-tarjeta col-start-1 row-[1/11] rounded-2xl border border-primary-light/70 bg-surface shadow-[0_0_0_1px_rgba(76,141,255,0.35),0_0_44px_-8px_rgba(42,111,219,0.75)] lg:row-[1/7]"
+          className="escaneo-tarjeta col-start-1 row-[1/11] rounded-2xl border border-primary-light/70 bg-surface shadow-[0_0_0_1px_rgba(168,93,179,0.35),0_0_44px_-8px_rgba(107,36,117,0.75)] lg:row-[1/7]"
         />
 
         {/* La línea de escaneo: una capa del alto de la tarjeta que baja entera
@@ -94,7 +94,7 @@ export function Comprobante() {
             solo dentro de la tarjeta. */}
         <div aria-hidden className="pointer-events-none relative z-10 col-start-1 row-[1/11] overflow-hidden rounded-2xl lg:row-[1/7]">
           <div className="escaneo-linea absolute inset-0">
-            <span className="block h-[2px] bg-primary shadow-[0_0_12px_2px_rgba(42,111,219,0.55)]" />
+            <span className="block h-[2px] bg-primary shadow-[0_0_12px_2px_rgba(107,36,117,0.55)]" />
             <span className="block h-10 bg-gradient-to-b from-primary/15 to-transparent" />
           </div>
         </div>

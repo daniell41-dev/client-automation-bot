@@ -30,7 +30,7 @@ export function PantallaError({
       className="flex min-h-screen flex-col"
       style={{
         background:
-          "radial-gradient(70% 55% at 15% 0%, rgba(42,111,219,.4) 0%, rgba(14,32,51,0) 65%), #0E2033",
+          "radial-gradient(70% 55% at 15% 0%, rgba(107,36,117,.4) 0%, rgba(42,15,46,0) 65%), #2A0F2E",
       }}
     >
       <header className="px-6 py-6 sm:px-10">

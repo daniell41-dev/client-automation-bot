@@ -76,10 +76,10 @@ export function ComoFunciona() {
             <li key={paso.frase} className="relative grid grid-cols-[48px_minmax(0,1fr)] gap-x-4 pb-12 last:pb-0 lg:grid-cols-[minmax(0,1fr)_96px_minmax(0,1fr)] lg:gap-x-0">
               {/* Número sobre la línea */}
               <span
-                className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-[#0E2033] font-display text-[28px] font-bold text-white ring-1 ring-white/20 lg:col-start-2 lg:row-start-1 lg:mx-auto lg:h-16 lg:w-16 lg:text-[36px]`}
+                className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full bg-[#2A0F2E] font-display text-[28px] font-bold text-white ring-1 ring-white/20 lg:col-start-2 lg:row-start-1 lg:mx-auto lg:h-16 lg:w-16 lg:text-[36px]`}
               >
                 {/* La luz del número: un círculo azul encima del oscuro, que aparece cuando la línea llega. */}
-                <span aria-hidden className="paso-luz absolute inset-0 rounded-full bg-primary shadow-[0_0_24px_-2px_rgba(76,141,255,0.8)]" />
+                <span aria-hidden className="paso-luz absolute inset-0 rounded-full bg-primary shadow-[0_0_24px_-2px_rgba(168,93,179,0.8)]" />
                 <span className="relative">{i + 1}</span>
               </span>
 

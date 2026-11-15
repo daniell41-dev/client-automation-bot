@@ -69,7 +69,7 @@ function Telefono() {
 
 export function LoginHero() {
   return (
-    <section className="relative hidden flex-[1.05] flex-col justify-between overflow-hidden bg-[#0E2033] p-10 lg:flex">
+    <section className="relative hidden flex-[1.05] flex-col justify-between overflow-hidden bg-[#2A0F2E] p-10 lg:flex">
       {/* Fondo: dos luces y una grilla de puntos que se desvanece. Le da
           profundidad sin competir con el teléfono, que es el protagonista. */}
       <div
@@ -77,7 +77,7 @@ export function LoginHero() {
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(60% 50% at 15% 0%, rgba(42,111,219,.45) 0%, rgba(14,32,51,0) 70%), radial-gradient(45% 40% at 95% 85%, rgba(18,183,106,.18) 0%, rgba(14,32,51,0) 70%)",
+            "radial-gradient(60% 50% at 15% 0%, rgba(107,36,117,.45) 0%, rgba(42,15,46,0) 70%), radial-gradient(45% 40% at 95% 85%, rgba(232,169,58,.20) 0%, rgba(42,15,46,0) 70%)",
         }}
       />
       <div
@@ -103,7 +103,7 @@ export function LoginHero() {
           </span>
           <h1 className="mt-5 font-display text-[40px] font-extrabold leading-[1.08] text-white">
             Su negocio vende por WhatsApp{" "}
-            <span className="bg-gradient-to-r from-primary-light to-[#5ee6b0] bg-clip-text text-transparent">
+            <span className="text-gold">
               las 24 horas.
             </span>
           </h1>
