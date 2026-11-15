@@ -20,6 +20,20 @@ export const MENSAJES_WHATSAPP = {
 
 export type OrigenWhatsApp = keyof typeof MENSAJES_WHATSAPP;
 
+/**
+ * El texto de cada botón. Antes todos decían "Escríbanos por WhatsApp" y se
+ * leía repetido; ahora cada uno dice qué va a pasar según la sección, en la
+ * línea del mensaje que precarga. Solo la barra fija del celular queda
+ * genérica, porque acompaña toda la página. Cortos: caben en una línea a 320 px.
+ */
+export const ETIQUETAS_WHATSAPP: Record<OrigenWhatsApp, string> = {
+  hero: "Probarlo en mi negocio",
+  precios: "Pedir instalación gratis",
+  "barra-movil": "Escríbanos por WhatsApp",
+  cierre: "Quiero verlo funcionando",
+  comprobante: "Ver cómo revisa los pagos",
+};
+
 /** Sin número válido el botón no puede quedar muerto: la demo es lo siguiente mejor. */
 const SIN_NUMERO = "/demo";
 
