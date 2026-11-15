@@ -1,5 +1,5 @@
 /**
- * T-78: red de seguridad contra el voseo. Nexo atiende negocios de Cúcuta y
+ * T-78: red de seguridad contra el voseo. Aurela atiende negocios de Cúcuta y
  * un "¿Confirmás tu pedido?" hace que el producto parezca de otro país. Los
  * textos se arreglaron a mano; este test evita que vuelvan a colarse por un
  * mensaje nuevo, un default o el prompt (el modelo imita el registro del

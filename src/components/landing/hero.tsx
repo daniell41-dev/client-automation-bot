@@ -1,5 +1,5 @@
 /**
- * T-80: lo primero que ve la dueña: qué hace Nexo, en una frase que se
+ * T-80: lo primero que ve la dueña: qué hace Aurela, en una frase que se
  * entienda sin saber de tecnología.
  * T-82: el teléfono cuenta la historia completa en movimiento (nota de voz,
  * resumen, comprobante que no cuadra y aviso para aprobar), y las tres
@@ -20,7 +20,7 @@ import { existeEnPublic } from "@/lib/archivo-publico";
 export const TITULO_HERO = "Su WhatsApp toma pedidos aunque usted esté en la cocina.";
 
 export const SUBTITULO_HERO =
-  "Nexo responde a sus clientes a cualquier hora, arma el pedido con el total, revisa el comprobante de pago y usted aprueba con un botón. Se lo instalamos aquí en Cúcuta.";
+  "Aurela responde a sus clientes a cualquier hora, arma el pedido con el total, revisa el comprobante de pago y usted aprueba con un botón. Se lo instalamos aquí en Cúcuta.";
 
 /** Las mismas condiciones que la sección de precio y los Términos: no prometer otra cosa aquí. */
 const CONDICIONES = ["Instalación gratis", "14 días de prueba", "Sin permanencia"];
@@ -73,7 +73,7 @@ export function Hero() {
               loop
               playsInline
               preload="metadata"
-              aria-label="Video de un pedido por WhatsApp atendido por Nexo"
+              aria-label="Video de un pedido por WhatsApp atendido por Aurela"
             />
           ) : (
             <TelefonoAnimado />

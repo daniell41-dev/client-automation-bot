@@ -36,7 +36,7 @@ describe("opengraph-image (generada con código)", () => {
   it("1200×630 PNG, con el título del hero como texto alternativo", () => {
     expect(size).toEqual({ width: 1200, height: 630 });
     expect(contentType).toBe("image/png");
-    expect(alt).toBe(`Nexo: ${TITULO_HERO}`);
+    expect(alt).toBe(`Aurela: ${TITULO_HERO}`);
   });
 
   it("se genera de verdad (fuentes y JSX válidos para ImageResponse)", async () => {

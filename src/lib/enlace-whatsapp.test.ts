@@ -19,7 +19,7 @@ describe("enlaceWhatsApp (T-80)", () => {
 
   it("T-83: el botón del comprobante pregunta por la revisión de comprobantes", () => {
     const url = new URL(enlaceWhatsApp("comprobante", NUMERO));
-    expect(url.searchParams.get("text")).toBe("Hola, quiero saber cómo Nexo revisa los comprobantes.");
+    expect(url.searchParams.get("text")).toBe("Hola, quiero saber cómo Aurela revisa los comprobantes.");
     expect(enlaceWhatsApp("comprobante", undefined)).toBe("/demo");
   });
 

@@ -1,6 +1,6 @@
 /**
- * Login "Nexo": dos columnas a pantalla completa.
- * Izquierda: el panel de marca (`hero.tsx`) — qué hace Nexo, mostrado.
+ * Login "Aurela": dos columnas a pantalla completa.
+ * Izquierda: el panel de marca (`hero.tsx`) — qué hace Aurela, mostrado.
  * Derecha: formulario. No se elige rol al entrar: sale de `profiles.role`
  * tras autenticar, y con él la redirección — ver `actions.ts`.
  */
@@ -60,7 +60,7 @@ export default function LoginPage() {
         </div>
 
         <p className="relative pb-6 text-center text-xs text-ink-faint">
-          © {new Date().getFullYear()} Nexo · Cúcuta, Colombia ·{" "}
+          © {new Date().getFullYear()} Aurela · Cúcuta, Colombia ·{" "}
           <Link href="/privacidad" className="hover:text-ink-mid">Privacidad</Link> ·{" "}
           <Link href="/terminos" className="hover:text-ink-mid">Términos</Link>
         </p>

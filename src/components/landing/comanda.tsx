@@ -1,7 +1,7 @@
 /**
  * T-95: la comanda que acompaña la página. Entre algunas secciones aparece un
  * talón del mismo pedido #128 del teléfono del hero, con su hora y lo que
- * pasó: llega la nota de voz, el cliente confirma el total, Nexo revisa el
+ * pasó: llega la nota de voz, el cliente confirma el total, Aurela revisa el
  * comprobante y avisa que falta plata, y usted lo aprueba. Así, al bajar, la
  * historia del hero sigue avanzando y une las secciones.
  *

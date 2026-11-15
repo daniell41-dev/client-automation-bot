@@ -49,7 +49,7 @@ export function Responsable({
 
         <div>
           <h2 id="responsable-titulo" className="text-[28px] font-extrabold leading-tight text-ink sm:text-[36px]">
-            Detrás de Nexo hay una persona de Cúcuta.
+            Detrás de Aurela hay una persona de Cúcuta.
           </h2>
           <p className="mt-4 text-[17px] leading-relaxed text-ink-mid sm:text-[18px]">
             {responsable.nombre}. Voy a su negocio, lo instalo con usted y le dejo mi WhatsApp para lo que necesite.

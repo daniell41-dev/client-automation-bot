@@ -3,7 +3,7 @@ import localFont from "next/font/local";
 import { ToastProvider } from "@/components/toast";
 import "./globals.css";
 
-// Tipografía del design system "Nexo": Plus Jakarta Sans para UI,
+// Tipografía del design system "Aurela": Plus Jakarta Sans para UI,
 // Sora para números/KPIs (ver docs/design/README.md).
 //
 // T-77: las fuentes viven en el repo (`./fonts`, versión variable, subset
@@ -33,20 +33,20 @@ const sora = localFont({
 const SITIO = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
 
 const DESCRIPCION =
-  "Nexo responde el WhatsApp de su negocio, arma el pedido con el total, revisa el comprobante y le avisa para aprobar.";
+  "Aurela responde el WhatsApp de su negocio, arma el pedido con el total, revisa el comprobante y le avisa para aprobar.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITIO),
-  // "Pedidos · Nexo": la dueña suele tener varias pestañas abiertas, y el
+  // "Pedidos · Aurela": la dueña suele tener varias pestañas abiertas, y el
   // nombre de la sección es lo que la ayuda a encontrar la que busca.
-  title: { default: "Nexo — Su negocio vende por WhatsApp las 24 horas", template: "%s · Nexo" },
+  title: { default: "Aurela — Su negocio vende por WhatsApp las 24 horas", template: "%s · Aurela" },
   description: DESCRIPCION,
-  applicationName: "Nexo",
+  applicationName: "Aurela",
   openGraph: {
     type: "website",
     locale: "es_CO",
-    siteName: "Nexo",
-    title: "Nexo — Su negocio vende por WhatsApp las 24 horas",
+    siteName: "Aurela",
+    title: "Aurela — Su negocio vende por WhatsApp las 24 horas",
     description: DESCRIPCION,
   },
   twitter: { card: "summary_large_image" },

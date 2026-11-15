@@ -52,7 +52,7 @@ export interface Responsable {
 }
 
 /**
- * T-86: quién está detrás de Nexo. Vacío a propósito: el nombre, la foto y la
+ * T-86: quién está detrás de Aurela. Vacío a propósito: el nombre, la foto y la
  * nota del piloto los pone el dueño del producto, nunca de ejemplo. Mientras
  * falte el nombre o la foto, ni la sección ni la foto del cierre aparecen.
  */

@@ -25,7 +25,7 @@ export default async function DefinirContrasenaPage() {
         <Logo />
         <h1 className="mt-8 text-[25px] font-extrabold text-ink">Defina su contraseña</h1>
         <p className="mt-1 text-sm text-ink-mid">
-          Es la que vas a usar para entrar a Nexo con {me.email}.
+          Es la que vas a usar para entrar a Aurela con {me.email}.
         </p>
         <ActionForm action={definirContrasena} submitLabel="Guardar y entrar" className="mt-6 space-y-4">
           <div>

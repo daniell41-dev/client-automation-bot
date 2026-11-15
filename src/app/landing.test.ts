@@ -39,7 +39,7 @@ describe("landing (T-80)", () => {
       "Sin permanencia",
       "El cliente que escribió de noche y le compró a otro.",
       "El comprobante que ya le habían mandado antes.",
-      "Nexo revisa el comprobante: monto, cuenta, referencia y fecha. Si algo no cuadra, le avisa.",
+      "Aurela revisa el comprobante: monto, cuenta, referencia y fecha. Si algo no cuadra, le avisa.",
       "Pedidos con inventario: no vende lo que ya no tiene.",
       "Ningún pedido se despacha sin su aprobación.",
       "No inventa precios ni cuentas de pago.",
@@ -47,7 +47,7 @@ describe("landing (T-80)", () => {
       "Desde $79.900 al mes",
       "Los tratamos según la Ley 1581 de 2012.",
       "¿Quiere verlo funcionando con su negocio?",
-      "Nexo · Cúcuta, Colombia",
+      "Aurela · Cúcuta, Colombia",
       "Total: $45.000 ¿Confirma su pedido?",
     ]) {
       expect(texto, frase).toContain(frase);
@@ -84,7 +84,7 @@ describe("landing (T-80)", () => {
   });
 
   it("título, canónica y datos estructurados de la organización en Cúcuta", () => {
-    expect(metadata.title).toEqual({ absolute: "WhatsApp con pedidos, citas y revisión de pagos para negocios de Cúcuta · Nexo" });
+    expect(metadata.title).toEqual({ absolute: "WhatsApp con pedidos, citas y revisión de pagos para negocios de Cúcuta · Aurela" });
     expect(metadata.description).toBe(SUBTITULO_HERO);
     expect(metadata.alternates?.canonical).toBe("/");
     const ld = JSON.parse(html.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)![1]);
@@ -181,10 +181,10 @@ describe("landing (T-80)", () => {
   });
 
   describe("T-83: comprobante anotado", () => {
-    it("título, texto y las cuatro preguntas que Nexo le hace al comprobante", () => {
+    it("título, texto y las cuatro preguntas que Aurela le hace al comprobante", () => {
       for (const frase of [
         "Le avisamos antes de que despache un pedido mal pagado.",
-        "Nexo lee cada comprobante que le mandan y le avisa si algo no cuadra. La decisión siempre es suya.",
+        "Aurela lee cada comprobante que le mandan y le avisa si algo no cuadra. La decisión siempre es suya.",
         "$40.000",
         "300 000 0000",
         "M4471902",
@@ -436,7 +436,7 @@ describe("landing (T-80)", () => {
     it("con los valores de hoy (sin nombre ni foto) la sección no aparece y el cierre queda como antes", () => {
       expect(html).not.toContain('id="responsable"');
       expect(texto).not.toContain("Le responde");
-      expect(texto).not.toContain("Detrás de Nexo");
+      expect(texto).not.toContain("Detrás de Aurela");
     });
 
     it("solo aparece con nombre y con la foto subida", () => {
@@ -450,7 +450,7 @@ describe("landing (T-80)", () => {
     it("con nombre y foto: título, presentación, foto con medidas y los tres datos", () => {
       const h = renderToStaticMarkup(createElement(Responsable, { responsable: ejemplo, hayFoto: true }));
       const t = textoDe(h);
-      expect(t).toContain("Detrás de Nexo hay una persona de Cúcuta.");
+      expect(t).toContain("Detrás de Aurela hay una persona de Cúcuta.");
       expect(t).toContain("Persona De Prueba. Voy a su negocio, lo instalo con usted y le dejo mi WhatsApp para lo que necesite.");
       expect(h).toMatch(/<img[^>]*alt="Foto de Persona De Prueba"[^>]*width="640"[^>]*height="800"|<img[^>]*width="640"[^>]*height="800"[^>]*alt="Foto de Persona De Prueba"/);
       for (const dato of ["1 visita para instalarlo", "14 días de prueba", "0 contratos de permanencia"]) expect(t).toContain(dato);
@@ -481,7 +481,7 @@ describe("landing (T-80)", () => {
       for (const n of ["1", "2", "3", "4"]) expect(seccion).toMatch(new RegExp(`font-display[^"]*">(?:<span[^>]*></span>)?<span class="relative">${n}</span>`));
       for (const frase of [
         "Su cliente escribe o manda una nota de voz.",
-        "Nexo arma el pedido con sus precios y el cliente confirma el total.",
+        "Aurela arma el pedido con sus precios y el cliente confirma el total.",
         "Si algo no cuadra, le avisa.",
         "Usted aprueba con un botón y el cliente recibe su número de pedido.",
         "0:08",

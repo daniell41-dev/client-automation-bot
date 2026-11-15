@@ -51,5 +51,5 @@ export default async function DemoChatPage() {
   );
 }
 
-// T-71: el nombre de la pestaña ("Demo del chat · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Demo del chat · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Demo del chat" };

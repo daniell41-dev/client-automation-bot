@@ -164,5 +164,5 @@ function VolverLink() {
   );
 }
 
-// T-71: el nombre de la pestaña ("Negocio · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Negocio · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Negocio" };

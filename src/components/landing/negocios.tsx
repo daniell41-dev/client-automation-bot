@@ -1,7 +1,7 @@
 /**
  * T-80: para qué negocios sirve, con los colores de rubro del portal.
  * T-87: en vez de tres tarjetas iguales, pestañas que muestran cómo le
- * contesta Nexo a un cliente de cada tipo de negocio.
+ * contesta Aurela a un cliente de cada tipo de negocio.
  *
  * Las conversaciones salen del motor real (plantillas de rubro, modo guiado),
  * no de un guion ideal. Donde el bot hace más preguntas en el medio, se marca
@@ -107,7 +107,7 @@ export function Negocios() {
           </span>
           <h3 className="mt-4 text-[22px] font-extrabold text-ink sm:text-[26px]">{titulo}</h3>
           <p className="mt-2 max-w-md text-[16px] leading-relaxed text-ink-mid">{texto}</p>
-          <p className="mt-4 text-[13px] text-ink-mid">Conversación de ejemplo con las respuestas que da Nexo hoy.</p>
+          <p className="mt-4 text-[13px] text-ink-mid">Conversación de ejemplo con las respuestas que da Aurela hoy.</p>
         </div>
         <FondoChat className="w-full">{conversacion}</FondoChat>
       </div>

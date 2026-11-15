@@ -142,5 +142,5 @@ export default async function UsuariosPage() {
   );
 }
 
-// T-71: el nombre de la pestaña ("Usuarios · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Usuarios · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Usuarios" };

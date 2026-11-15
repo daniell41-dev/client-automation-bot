@@ -8,5 +8,5 @@ export default function BackofficeHome() {
   redirect("/backoffice/negocios");
 }
 
-// T-71: el nombre de la pestaña ("Back office · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Back office · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Back office" };

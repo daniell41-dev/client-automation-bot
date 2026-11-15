@@ -1117,7 +1117,7 @@ async function avisarPedidoNuevo(
     const toca = await pedidos.reclamarAvisoResumen(negocio, config.avisos.cadaMinutos ?? DEFAULT_MINUTOS_RESUMEN);
     if (!toca) return; // ya se le mandó un resumen hace poco: lo ve en el panel
     const pendientes = (await pedidos.pendientesDeDecision(negocio)).length || 1;
-    const texto = `🔔 ${config.name}: ${pendientes === 1 ? "tiene 1 pedido" : `tiene ${pendientes} pedidos`} por verificar. Revíselos en Nexo → Pedidos.`;
+    const texto = `🔔 ${config.name}: ${pendientes === 1 ? "tiene 1 pedido" : `tiene ${pendientes} pedidos`} por verificar. Revíselos en Aurela → Pedidos.`;
     await notifier.send({
       to: config.notifyPhoneNumber!,
       text: texto,

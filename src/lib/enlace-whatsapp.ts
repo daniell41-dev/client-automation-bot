@@ -1,5 +1,5 @@
 /**
- * T-80: enlaces de la landing hacia el WhatsApp de ventas de Nexo.
+ * T-80: enlaces de la landing hacia el WhatsApp de ventas de Aurela.
  *
  * Cada botón precarga un mensaje distinto. Así, cuando alguien escribe, se
  * sabe desde qué parte de la página llegó (el hero, la sección de precio, la
@@ -10,12 +10,12 @@
  */
 
 export const MENSAJES_WHATSAPP = {
-  hero: "Hola, vi la página de Nexo y quiero saber cómo funcionaría en mi negocio.",
-  precios: "Hola, quiero saber el precio y los cupos para instalar Nexo en mi negocio.",
-  "barra-movil": "Hola, estoy viendo la página de Nexo desde el celular y quiero más información.",
-  cierre: "Hola, quiero ver Nexo funcionando con mi negocio.",
+  hero: "Hola, vi la página de Aurela y quiero saber cómo funcionaría en mi negocio.",
+  precios: "Hola, quiero saber el precio y los cupos para instalar Aurela en mi negocio.",
+  "barra-movil": "Hola, estoy viendo la página de Aurela desde el celular y quiero más información.",
+  cierre: "Hola, quiero ver Aurela funcionando con mi negocio.",
   // T-83: el botón de la sección del comprobante anotado.
-  comprobante: "Hola, quiero saber cómo Nexo revisa los comprobantes.",
+  comprobante: "Hola, quiero saber cómo Aurela revisa los comprobantes.",
 } as const;
 
 export type OrigenWhatsApp = keyof typeof MENSAJES_WHATSAPP;
@@ -37,7 +37,7 @@ export function enlaceWhatsApp(origen: OrigenWhatsApp, numero: string | undefine
   return `https://wa.me/${limpio}?text=${encodeURIComponent(MENSAJES_WHATSAPP[origen])}`;
 }
 
-/** Enlace al Instagram de Nexo a partir del usuario (con o sin @) o de la URL; `null` si no hay. */
+/** Enlace al Instagram de Aurela a partir del usuario (con o sin @) o de la URL; `null` si no hay. */
 export function enlaceInstagram(valor: string | undefined): string | null {
   const limpio = (valor ?? "").trim();
   if (!limpio) return null;

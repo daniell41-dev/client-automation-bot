@@ -109,5 +109,5 @@ export default async function AsignacionesPage() {
   );
 }
 
-// T-71: el nombre de la pestaña ("Asignaciones · Nexo"); la plantilla vive en el layout raíz.
+// T-71: el nombre de la pestaña ("Asignaciones · Aurela"); la plantilla vive en el layout raíz.
 export const metadata = { title: "Asignaciones" };

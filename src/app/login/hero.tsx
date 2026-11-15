@@ -1,6 +1,6 @@
 /**
  * Panel de marca del login (T-68). Antes era un titular y dos burbujas
- * genéricas con un hueco enorme en el medio: no mostraba qué hace Nexo. Ahora
+ * genéricas con un hueco enorme en el medio: no mostraba qué hace Aurela. Ahora
  * es la venta real del producto en una sola imagen: un cliente pidiendo por
  * WhatsApp, el bot armando el resumen con total, el comprobante, el código de
  * retiro, y el aviso que le llega a la dueña. Los mismos textos que manda el
@@ -108,7 +108,7 @@ export function LoginHero() {
             </span>
           </h1>
           <p className="mt-4 text-[15px] leading-relaxed text-white/70">
-            Nexo responde, arma el pedido con el total, revisa el comprobante y le avisa para que solo
+            Aurela responde, arma el pedido con el total, revisa el comprobante y le avisa para que solo
             tenga que aprobar.
           </p>
         </div>

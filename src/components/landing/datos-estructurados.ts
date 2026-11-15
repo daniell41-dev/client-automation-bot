@@ -14,7 +14,7 @@ export function jsonLd(precio: string | null = PRECIO_DESDE): string {
   const organizacion = {
     "@type": "Organization",
     "@id": `${SITIO}/#organizacion`,
-    name: "Nexo",
+    name: "Aurela",
     url: SITIO,
     logo: `${SITIO}/apple-icon.png`,
     description: SUBTITULO_HERO,
@@ -32,7 +32,7 @@ export function jsonLd(precio: string | null = PRECIO_DESDE): string {
       ? null
       : {
           "@type": "SoftwareApplication",
-          name: "Nexo",
+          name: "Aurela",
           applicationCategory: "BusinessApplication",
           operatingSystem: "WhatsApp, Web",
           description: SUBTITULO_HERO,
