@@ -11,7 +11,9 @@ export default function RecuperarPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-canvas px-6 py-10">
       <div className="w-full max-w-[364px] fade-up">
-        <Logo />
+        <Link href="/" aria-label="Ir al inicio de Aurela" className="inline-block">
+          <Logo />
+        </Link>
         <h1 className="mt-8 text-[25px] font-extrabold text-ink">¿Olvidó su contraseña?</h1>
         <p className="mt-1 text-sm text-ink-mid">Le enviamos un link a su correo para definir una nueva.</p>
         <ActionForm action={pedirRecuperacion} submitLabel="Enviar link" className="mt-6 space-y-4">

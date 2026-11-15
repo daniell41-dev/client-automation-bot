@@ -7,7 +7,7 @@
 
 import { Suspense } from "react";
 import Link from "next/link";
-import { Lock } from "lucide-react";
+import { ArrowLeft, Lock } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { LoginForm } from "./login-form";
 import { LoginHero } from "./hero";
@@ -38,7 +38,9 @@ export default function LoginPage() {
             }}
           />
           <div className="relative">
-            <Logo variant="dark" />
+            <Link href="/" aria-label="Ir al inicio de Aurela" className="inline-block">
+              <Logo variant="dark" />
+            </Link>
             <p className="mt-4 font-display text-2xl font-extrabold leading-tight text-white">
               Su negocio vende por WhatsApp las 24 horas.
             </p>
@@ -47,6 +49,15 @@ export default function LoginPage() {
 
         <div className="relative flex flex-1 flex-col items-center justify-center px-6 py-10">
           <div className="w-full max-w-[364px] fade-up">
+            {/* Quien llega desde la página de venta tiene que poder volver sin el
+                botón "atrás" del navegador. Alto de 48 px para el dedo. */}
+            <Link
+              href="/"
+              className="-ml-1 mb-4 inline-flex min-h-12 items-center gap-1.5 px-1 text-sm font-semibold text-ink-mid hover:text-primary"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden />
+              Volver al inicio
+            </Link>
             <h2 className="font-display text-[28px] font-extrabold text-ink">Hola de nuevo 👋</h2>
             <p className="mt-1 text-sm text-ink-mid">Ingrese para ver sus pedidos y gestionar su negocio.</p>
             <Suspense>
