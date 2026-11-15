@@ -59,17 +59,23 @@ describe("T-87: las conversaciones de la landing son las del bot", () => {
     const config: BusinessConfig = { ...plantilla("peluqueria"), slug: "peluqueria", botActivo: true };
     // T-88: la hora del primer mensaje se recuerda: después del nombre pasa directo a confirmar.
     const { textos, opciones } = await conversar(config, ["¿Tiene turno hoy a las 5?", "Corte caballero", "Andrés", "Sí, confirmar"]);
-    for (const respuesta of [
+    // Sin saltos: la landing muestra todas las respuestas, en orden.
+    const respuestas = [
       "¡Hola! Gracias por escribirnos ✂️ ¿Qué servicio le interesa?",
+      "Corte caballero: Corte con máquina y tijera.\nDuración: 30 minutos.\nPrecio: $ 20.000.\n\n¡Perfecto! ¿Cuál es su nombre? 😊",
+      "¿Le confirmo su cita de Corte caballero para hoy a las 5, Andrés?",
       "¡Listo Andrés! ✨ Su cita de Corte caballero para hoy a las 5 quedó agendada. Lo esperamos.",
-    ]) {
-      expect(textos, respuesta).toContain(respuesta);
-      enLanding(respuesta);
-    }
-    for (const o of ["Corte dama", "Corte caballero", "Tinte"]) expect(opciones).toContain(o);
+    ];
+    expect(textos).toEqual(respuestas);
+    for (const r of respuestas) enLanding(r);
+    for (const o of ["Corte dama", "Corte caballero", "Tinte", "Sí, confirmar", "Cambiar fecha"]) expect(opciones).toContain(o);
   });
 
-  it("restaurante: precio, nombre y resumen con domicilio y total", async () => {
+  it("los chats no se saltan pasos con «· · ·»", () => {
+    expect(html).not.toContain("· · ·");
+  });
+
+  it("restaurante: precio, nombre, cantidad y total, sin saltos", async () => {
     const config: BusinessConfig = {
       ...plantilla("restaurante"),
       slug: "restaurante",
@@ -84,9 +90,15 @@ describe("T-87: las conversaciones de la landing son las del bot", () => {
     expect(textos.at(-1)).toBe(
       "2x Hamburguesa sencilla — $ 36.000\nDomicilio — $ 5.000\nTotal: $ 41.000\n\nEntrega: Domicilio\nDirección: Av. 4 #12-30, La Riviera\n\n¿Confirma su pedido?",
     );
-    enLanding("Hamburguesa sencilla: Carne, queso y papas. — $ 18.000.\n\n¡Con gusto! ¿A nombre de quién va el pedido?");
-    enLanding("2x Hamburguesa sencilla — $ 36.000\nDomicilio — $ 5.000\nTotal: $ 41.000");
-    expect(opciones).toEqual(expect.arrayContaining(["Sí, confirmar", "Agregar más"]));
+    // La landing muestra las tres primeras respuestas completas y corta en el
+    // total (la conversación entera es larga para la pestaña); no salta nada.
+    for (const r of textos.slice(0, 3)) enLanding(r);
+    expect(textos.slice(0, 3)).toEqual([
+      "Hamburguesa sencilla: Carne, queso y papas. — $ 18.000.\n\n¡Con gusto! ¿A nombre de quién va el pedido?",
+      "¿Cuántas unidades de Hamburguesa sencilla quiere, Laura?",
+      "2x Hamburguesa sencilla — $ 36.000\nTotal: $ 36.000\n\n¿Quiere agregar algo más a su pedido?",
+    ]);
+    expect(opciones).toEqual(expect.arrayContaining(["No, eso es todo", "Sí, confirmar", "Agregar más"]));
   });
 
   it("tienda: precio y las preguntas que hace de verdad (no promete apartar ni dice cuántos quedan)", async () => {

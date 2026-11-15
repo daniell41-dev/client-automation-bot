@@ -4,9 +4,10 @@
  * contesta Aurela a un cliente de cada tipo de negocio.
  *
  * Las conversaciones salen del motor real (plantillas de rubro, modo guiado),
- * no de un guion ideal. Donde el bot hace más preguntas en el medio, se marca
- * con "· · ·" para no fingir que es más corto de lo que es. Si cambian los
- * textos del bot, cambian aquí.
+ * no de un guion ideal. Sin saltos marcados con "· · ·" (a pedido del dueño):
+ * cada chat muestra todas las respuestas en orden, y el del restaurante corta
+ * en el total en vez de saltarse pasos para llegar al resumen final. Si
+ * cambian los textos del bot, cambian aquí (negocios.test.ts avisa).
  *
  * Los paneles se arman aquí (servidor); `NegociosPestanas` solo cambia cuál
  * se ve.
@@ -14,7 +15,7 @@
 
 import type { ReactNode } from "react";
 import { Scissors, ShoppingBag, UtensilsCrossed, type LucideIcon } from "lucide-react";
-import { Burbuja, FondoChat, RespuestasRapidas, TurnosOmitidos } from "@/components/landing/chat";
+import { Burbuja, FondoChat, RespuestasRapidas } from "@/components/landing/chat";
 import { NegociosPestanas, type Pestana } from "@/components/landing/negocios-pestanas";
 import { Seccion } from "@/components/landing/seccion";
 
@@ -46,11 +47,12 @@ const RUBROS: Rubro[] = [
           {"Hamburguesa sencilla: Carne, queso y papas. — $ 18.000.\n\n¡Con gusto! ¿A nombre de quién va el pedido?"}
         </Burbuja>
         <Burbuja de="cliente">Laura</Burbuja>
-        <TurnosOmitidos texto="pregunta la cantidad, la entrega y la dirección" />
+        <Burbuja de="negocio">¿Cuántas unidades de Hamburguesa sencilla quiere, Laura?</Burbuja>
+        <Burbuja de="cliente">2</Burbuja>
         <Burbuja de="negocio">
-          {"2x Hamburguesa sencilla — $ 36.000\nDomicilio — $ 5.000\nTotal: $ 41.000\n\nEntrega: Domicilio\nDirección: Av. 4 #12-30, La Riviera\n\n¿Confirma su pedido?"}
+          {"2x Hamburguesa sencilla — $ 36.000\nTotal: $ 36.000\n\n¿Quiere agregar algo más a su pedido?"}
         </Burbuja>
-        <RespuestasRapidas opciones={["Sí, confirmar", "Agregar más"]} />
+        <RespuestasRapidas opciones={["No, eso es todo"]} />
       </>
     ),
   },
@@ -68,7 +70,13 @@ const RUBROS: Rubro[] = [
         <Burbuja de="negocio">¡Hola! Gracias por escribirnos ✂️ ¿Qué servicio le interesa?</Burbuja>
         <RespuestasRapidas opciones={["Corte dama", "Corte caballero", "Tinte"]} />
         <Burbuja de="cliente">Corte caballero</Burbuja>
-        <TurnosOmitidos texto="pide el nombre y confirma" />
+        <Burbuja de="negocio">
+          {"Corte caballero: Corte con máquina y tijera.\nDuración: 30 minutos.\nPrecio: $ 20.000.\n\n¡Perfecto! ¿Cuál es su nombre? 😊"}
+        </Burbuja>
+        <Burbuja de="cliente">Andrés</Burbuja>
+        <Burbuja de="negocio">¿Le confirmo su cita de Corte caballero para hoy a las 5, Andrés?</Burbuja>
+        <RespuestasRapidas opciones={["Sí, confirmar", "Cambiar fecha"]} />
+        <Burbuja de="cliente">Sí, confirmar</Burbuja>
         <Burbuja de="negocio">¡Listo Andrés! ✨ Su cita de Corte caballero para hoy a las 5 quedó agendada. Lo esperamos.</Burbuja>
       </>
     ),

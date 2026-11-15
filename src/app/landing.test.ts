@@ -79,6 +79,14 @@ describe("landing (T-80)", () => {
     for (const [etiqueta] of botones) expect(etiqueta).toContain('href="/demo"');
   });
 
+  it("cada botón de WhatsApp dice algo distinto (solo la barra del celular es genérica)", () => {
+    const textos = [...html.matchAll(/<a[^>]*data-origen="[^"]+"[^>]*>([\s\S]*?)<\/a>/g)].map((m) =>
+      m[1].replace(/<[^>]+>/g, "").trim(),
+    );
+    expect(new Set(textos).size).toBe(textos.length);
+    expect(textos.filter((t) => t === "Escríbanos por WhatsApp")).toHaveLength(1);
+  });
+
   it("no usa el logo de WhatsApp: la palabra va escrita", () => {
     expect(html).not.toMatch(/whatsapp\.(svg|png)|SiWhatsapp/i);
   });

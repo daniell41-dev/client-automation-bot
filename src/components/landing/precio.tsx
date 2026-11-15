@@ -58,7 +58,8 @@ export function Precio({
           <p className="text-[22px] font-extrabold leading-snug text-white sm:text-[28px]">
             Instalamos pocos negocios al mes porque lo hacemos en persona. Pregúntenos por los cupos.
           </p>
-          <BotonWhatsApp origen="precios" className="mt-8 w-full sm:w-auto" />
+          {/* Sin precio no hay "instalación gratis" que ofrecer en el botón: pregunta por cupos, como el texto. */}
+          <BotonWhatsApp origen="precios" texto="Preguntar por los cupos" className="mt-8 w-full sm:w-auto" />
         </div>
       </Seccion>
     );
@@ -67,7 +68,7 @@ export function Precio({
   return (
     <Seccion id="precio" oscura>
       {/* En celulares de 320 px la tarjeta gana 8 px por lado (-mx-2) y menos
-          relleno, para que "Escríbanos por WhatsApp" quepa en una línea. */}
+          relleno, para que el texto del botón quepa en una línea. */}
       <div className="mx-auto w-full max-w-md">
         <div className="-mx-2 rounded-2xl bg-surface px-4 py-6 text-ink shadow-lift min-[360px]:mx-0 min-[360px]:px-6 sm:p-8">
           {/* El ticket: borde de papel cortado arriba y abajo (.ticket, una máscara). */}

@@ -164,17 +164,6 @@ export function RespuestasRapidas({ opciones, className }: { opciones: string[];
   );
 }
 
-/** Marca de turnos omitidos: deja claro que la conversación real tiene más pasos en el medio. */
-export function TurnosOmitidos({ texto }: { texto: string }) {
-  return (
-    <p className="self-center px-2 text-center text-[11px] font-semibold text-ink-mid">
-      <span aria-hidden>· · · </span>
-      {texto}
-      <span aria-hidden> · · ·</span>
-    </p>
-  );
-}
-
 /** Fondo de chat sin marco de teléfono (las escenas pequeñas de la página). */
 export function FondoChat({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={unir("flex flex-col gap-2 rounded-2xl bg-wa-bg p-3", className)}>{children}</div>;

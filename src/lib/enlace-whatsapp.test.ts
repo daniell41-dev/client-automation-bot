@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { enlaceInstagram, enlaceWhatsApp, MENSAJES_WHATSAPP, type OrigenWhatsApp } from "@/lib/enlace-whatsapp";
+import { enlaceInstagram, enlaceWhatsApp, ETIQUETAS_WHATSAPP, MENSAJES_WHATSAPP, type OrigenWhatsApp } from "@/lib/enlace-whatsapp";
 
 const NUMERO = "573001234567";
 
@@ -15,6 +15,19 @@ describe("enlaceWhatsApp (T-80)", () => {
     expect(origenes).toEqual(expect.arrayContaining(["hero", "precios", "barra-movil", "cierre", "comprobante"]));
     const textos = origenes.map((o) => new URL(enlaceWhatsApp(o, NUMERO)).searchParams.get("text"));
     expect(new Set(textos).size).toBe(origenes.length);
+  });
+
+  it("cada botón tiene su propio texto, corto y que dice qué va a pasar", () => {
+    const origenes = Object.keys(MENSAJES_WHATSAPP) as OrigenWhatsApp[];
+    expect(Object.keys(ETIQUETAS_WHATSAPP).sort()).toEqual([...origenes].sort());
+    const etiquetas = origenes.map((o) => ETIQUETAS_WHATSAPP[o]);
+    expect(new Set(etiquetas).size).toBe(origenes.length);
+    // Cortos: tienen que caber en una línea en el botón de un celular de 320 px
+    // (medido: 25 caracteres caben; 28 ya se parten en dos líneas).
+    for (const e of etiquetas) expect(e.length, e).toBeLessThanOrEqual(25);
+    // Uno solo genérico: el de la barra fija del celular, que acompaña toda la página.
+    expect(etiquetas.filter((e) => e === "Escríbanos por WhatsApp")).toEqual(["Escríbanos por WhatsApp"]);
+    expect(ETIQUETAS_WHATSAPP["barra-movil"]).toBe("Escríbanos por WhatsApp");
   });
 
   it("T-83: el botón del comprobante pregunta por la revisión de comprobantes", () => {
