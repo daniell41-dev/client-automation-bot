@@ -92,16 +92,25 @@ export function Comprobante() {
 
         {/* La línea de escaneo: una capa del alto de la tarjeta que baja entera
             (translateY 0 → 100% de su propio alto); el recorte la deja ver
-            solo dentro de la tarjeta. */}
-        <div aria-hidden className="pointer-events-none relative z-10 col-start-1 row-[1/11] overflow-hidden rounded-2xl lg:row-[1/7]">
+            solo dentro de la tarjeta.
+            En el celular una raya sólida de borde a borde se leía como un
+            error de la página, así que se dibuja como un escáner: una estela
+            de luz suave por encima (por donde ya pasó), una línea corta con
+            puntas redondeadas y la etiqueta "Revisando…" pegada, que dice qué
+            está pasando. Va por DETRÁS del contenido (z-0; los datos y las
+            preguntas en z-[1]): si pasara por encima, parecería que tacha el texto. */}
+        <div aria-hidden className="pointer-events-none relative z-0 col-start-1 row-[1/11] overflow-hidden rounded-2xl lg:row-[1/7]">
           <div className="escaneo-linea absolute inset-0">
-            <span className="block h-[2px] bg-primary shadow-[0_0_12px_2px_rgba(107,36,117,0.55)]" />
-            <span className="block h-10 bg-gradient-to-b from-primary/15 to-transparent" />
+            <span className="absolute inset-x-0 bottom-full h-16 bg-gradient-to-b from-transparent to-primary-light/15" />
+            <span className="absolute inset-x-5 top-0 h-[3px] -translate-y-1/2 rounded-full bg-primary-light/80 shadow-[0_0_14px_3px_rgba(168,93,179,0.45)]" />
+            <span className="absolute right-5 top-0 -translate-y-1/2 rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold text-white shadow-card">
+              Revisando…
+            </span>
           </div>
         </div>
 
         {/* Encabezado tipo captura de transferencia: sin logos ni nombres de bancos. */}
-        <div className="col-start-1 row-start-1 flex items-center justify-between gap-3 border-b border-line px-5 pb-4 pt-5">
+        <div className="relative z-[1] col-start-1 row-start-1 flex items-center justify-between gap-3 border-b border-line px-5 pb-4 pt-5">
           <span className="flex items-center gap-2 text-[14px] font-bold text-ink">
             <CheckCircle2 className="h-5 w-5 text-success" aria-hidden />
             Transferencia exitosa
@@ -111,7 +120,7 @@ export function Comprobante() {
 
         {FILAS.map((f, i) => (
           <div key={f.etiqueta} className="contents">
-            <div className={`col-start-1 ${f.filaDato} px-5 pb-4 lg:flex lg:min-h-[76px] lg:flex-col lg:justify-center lg:py-3`}>
+            <div className={`relative z-[1] col-start-1 ${f.filaDato} px-5 pb-4 lg:flex lg:min-h-[76px] lg:flex-col lg:justify-center lg:py-3`}>
               <p className="text-[12px] font-semibold text-ink-mid">{f.etiqueta}</p>
               <p className={`flex flex-wrap items-center gap-x-2 font-display font-bold text-ink ${f.grande ? "text-[30px] leading-tight" : "text-[17px]"}`}>
                 {f.valor()}
@@ -127,12 +136,12 @@ export function Comprobante() {
             </div>
 
             {/* Línea horizontal en escritorio, con un punto sobre el dato. */}
-            <span aria-hidden className={`anotacion-linea anotacion-${i + 1} col-start-2 hidden items-center lg:flex ${f.filaAnotacion}`}>
+            <span aria-hidden className={`anotacion-linea anotacion-${i + 1} relative z-[1] col-start-2 hidden items-center lg:flex ${f.filaAnotacion}`}>
               <span className="-ml-1 h-2 w-2 rounded-full bg-primary-light" />
               <span className="h-px flex-1 bg-primary-light/70" />
             </span>
 
-            <div className={`anotacion anotacion-${i + 1} col-start-1 px-5 pt-1 lg:col-start-3 lg:flex lg:items-center lg:px-0 lg:pt-0 ${f.filaAnotacion}`}>
+            <div className={`anotacion anotacion-${i + 1} relative z-[1] col-start-1 px-5 pt-1 lg:col-start-3 lg:flex lg:items-center lg:px-0 lg:pt-0 ${f.filaAnotacion}`}>
               <p className="relative inline-flex rounded-xl bg-primary-tint px-3 py-2 text-[14px] font-semibold leading-snug text-ink lg:text-[15px]">
                 {f.anotacion}
               </p>

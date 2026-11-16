@@ -6,6 +6,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Arreglos
+- Landing: la línea de escaneo del comprobante se dibuja como un escáner (estela suave, línea corta y la etiqueta "Revisando…") y pasa por detrás del texto; en el celular parecía una raya de error que tachaba los datos.
+
 ## [1.1.0] — 2026-11-15
 
 ### Nuevo
