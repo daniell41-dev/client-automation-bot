@@ -98,8 +98,11 @@ export function Comprobante() {
             de luz suave por encima (por donde ya pasó), una línea corta con
             puntas redondeadas y la etiqueta "Revisando…" pegada, que dice qué
             está pasando. Va por DETRÁS del contenido (z-0; los datos y las
-            preguntas en z-[1]): si pasara por encima, parecería que tacha el texto. */}
-        <div aria-hidden className="pointer-events-none relative z-0 col-start-1 row-[1/11] overflow-hidden rounded-2xl lg:row-[1/7]">
+            preguntas en z-[1]): si pasara por encima, parecería que tacha el texto.
+            Solo en escritorio (`hidden lg:block`), por decisión del dueño: en
+            el celular la tarjeta ocupa todo el ancho y la línea seguía
+            distrayendo. Allí los checks aparecen igual, uno por uno al bajar. */}
+        <div aria-hidden className="pointer-events-none relative z-0 col-start-1 row-[1/11] hidden overflow-hidden rounded-2xl lg:row-[1/7] lg:block">
           <div className="escaneo-linea absolute inset-0">
             <span className="absolute inset-x-0 bottom-full h-16 bg-gradient-to-b from-transparent to-primary-light/15" />
             <span className="absolute inset-x-5 top-0 h-[3px] -translate-y-1/2 rounded-full bg-primary-light/80 shadow-[0_0_14px_3px_rgba(168,93,179,0.45)]" />
