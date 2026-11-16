@@ -254,6 +254,13 @@ describe("landing (T-80)", () => {
         expect(seccion).toMatch(/aria-hidden="true" class="pointer-events-none[^"]*"><div class="escaneo-linea/);
       });
 
+      it("la línea solo se ve en escritorio (en el celular distraía); los checks quedan en los dos", () => {
+        const capa = seccion.match(/<div aria-hidden="true" class="(pointer-events-none[^"]*)"><div class="escaneo-linea/)![1].split(" ");
+        expect(capa).toContain("hidden");
+        expect(capa).toContain("lg:block");
+        expect(seccion.match(/escaneo-marca escaneo-marca-\d/g)).toHaveLength(4);
+      });
+
       it("línea y marcas siguen el mismo scroll, solo con soporte y sin «reducir movimiento»", () => {
         const bloque = css.slice(css.indexOf("/* T-92:"), css.indexOf("@keyframes escaneoBaja"));
         expect(bloque).toMatch(/@supports \(animation-timeline: view\(\)\) \{\s*@media \(prefers-reduced-motion: no-preference\)/);
