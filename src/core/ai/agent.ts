@@ -19,6 +19,7 @@ import type {
   PersonaConfig,
 } from "@/core/types";
 import type { AgentTurnInput, ILLMProvider } from "@/core/ai/provider";
+import { RESPUESTA_SEGURA, revisarRespuestaIA } from "@/core/ai/filtro-respuesta";
 import type { RespondResult } from "@/core/engine/responder";
 import {
   ASK_DIRECCION,
@@ -549,13 +550,25 @@ export async function runAgentTurn(
 
   let respuestaFinal = aiResult.respuesta;
   let opciones: string[] | undefined;
-  if (inventaDatosDePago(aiResult.respuesta, config)) {
-    console.error("[Agent] la IA escribió un número de cuenta que no está configurado; se descarta su respuesta");
+  // T-98: además de las cuentas inventadas (T-51), se revisa que el texto no
+  // prometa precios o descuentos que el negocio no tiene ni deje ver las
+  // instrucciones. Es la defensa contra la inyección de prompt sobre lo
+  // único que la IA manda directo al cliente: su texto.
+  const revision = revisarRespuestaIA(aiResult.respuesta, config);
+  if (!revision.ok) {
+    console.error(`[Agent] respuesta de la IA descartada (${revision.motivos.join(", ")}); se manda una segura`);
+  }
+  if (inventaDatosDePago(aiResult.respuesta, config) || !revision.ok) {
+    if (revision.ok) {
+      console.error("[Agent] la IA escribió un número de cuenta que no está configurado; se descarta su respuesta");
+    }
     respuestaFinal = mostrarResumen
       ? resumenParaConfirmar(lead, config)
       : esPedido && !listoParaConfirmar
         ? preguntaQueFaltaPedido(lead, config)
-        : "Los datos para pagar le llegan apenas confirme su pedido 🙌";
+        : revision.ok
+          ? "Los datos para pagar le llegan apenas confirme su pedido 🙌"
+          : RESPUESTA_SEGURA;
     if (mostrarResumen) opciones = PEDIDO_CONFIRM_OPTIONS;
   } else if (preguntarFaltante) {
     respuestaFinal = preguntaQueFaltaPedido(lead, config);
