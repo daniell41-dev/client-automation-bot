@@ -7,6 +7,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Seguridad
+- Límite de mensajes por número (T-99): si un mismo contacto manda más de 15 mensajes en un minuto o 120 en una hora, se le avisa una vez que espere y no se gasta IA en el resto hasta que baje el ritmo. La dueña no tiene límite.
 - Cabeceras de seguridad en todo el sitio (T-97): ninguna otra página puede mostrar la app dentro de un marco, HTTPS obligatorio, sin adivinar tipos de archivo, sin filtrar rutas al salir, cámara/micrófono/ubicación apagados y sin anunciar la versión de Next.
 
 ## [1.1.1] — 2026-11-16
