@@ -38,6 +38,12 @@ import { ventanaAbierta } from "@/core/storage/ventana-duena-repository";
 import { createLLMProvider } from "@/core/ai/factory";
 import { handleIncoming, handleOwnerApproval } from "@/core/handle";
 import type { IncomingMessage } from "@/core/types";
+import { LimitadorMensajes, MENSAJE_LIMITE } from "@/core/engine/limite-mensajes";
+
+// T-99: un solo limitador por proceso (memoria compartida entre requests).
+// La dueña no pasa por acá: su camino sale antes, en el bloque de aprobación.
+const limitador = new LimitadorMensajes();
+let ultimaLimpieza = 0;
 
 // Necesitamos el runtime de Node (módulo crypto para la firma HMAC).
 export const runtime = "nodejs";
@@ -248,6 +254,20 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
           await channel.send(ownerReply);
           if (customerReply) await channel.send(customerReply);
         }
+        continue;
+      }
+
+      // T-99: antes de cualquier llamada a la IA (transcribir, leer foto,
+      // agente). Fuera del tope se avisa una vez y después no se contesta.
+      const ahoraLimite = new Date();
+      if (ahoraLimite.getTime() - ultimaLimpieza > 10 * 60_000) {
+        limitador.limpiar(ahoraLimite);
+        ultimaLimpieza = ahoraLimite.getTime();
+      }
+      const decisionLimite = limitador.registrar(business.slug, parsed.from, ahoraLimite);
+      if (decisionLimite !== "ok") {
+        console.warn(`[WhatsApp] ${business.slug}: límite de mensajes alcanzado por un contacto (${decisionLimite})`);
+        if (decisionLimite === "avisar") await channel?.send({ to: parsed.from, text: MENSAJE_LIMITE });
         continue;
       }
 
