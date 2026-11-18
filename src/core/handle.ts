@@ -38,6 +38,7 @@ import { calcularSeñalesPago, type Señal } from "@/core/engine/señales-pago";
 import { destinosDePago, normalizarReferencia, textoCuentasPago } from "@/core/engine/datos-pago";
 import { decidirAccionWompi, type EstadoWompi } from "@/core/engine/pago-wompi";
 import { runAgentTurn } from "@/core/ai/agent";
+import { reformulacionSegura } from "@/core/ai/filtro-respuesta";
 import { isResetRequest } from "@/core/engine/intake";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
 import { validarCita } from "@/core/engine/horarios";
@@ -870,7 +871,7 @@ export async function handleIncoming(
       enhanced.push(msg);
       continue;
     }
-    const text = await llm.enhance({
+    const reformulado = await llm.enhance({
       businessName: config.name,
       persona,
       history: sessionParaEnhance.history,
@@ -878,6 +879,12 @@ export async function handleIncoming(
       stage: lead.stage,
       knowledge: config.ai?.knowledge,
     });
+    // T-98: la IA solo cambia el tono. Si su versión trae un monto, un
+    // número de cuenta o una promesa que el borrador no tenía (inyección por
+    // el historial del cliente), se manda el borrador del sistema tal cual.
+    const segura = reformulacionSegura(msg.text, reformulado, config);
+    if (!segura) console.error("[AI] la reformulación cambió datos del mensaje; se manda el borrador del sistema");
+    const text = segura ? reformulado : msg.text;
     enhanced.push({ ...msg, text });
     sessionParaEnhance.history.push({
       role: "assistant",
