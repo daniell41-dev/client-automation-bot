@@ -8,6 +8,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ### Seguridad
 - Defensa contra inyección de prompt (T-98): antes de mandarle al cliente lo que escribió la IA, se revisa que no prometa precios, descuentos o regalos que el negocio no tiene ni deje ver sus instrucciones; si pasa, se manda una respuesta segura. En el modo guiado, la versión reformulada por la IA solo se usa si no cambia montos ni números de cuenta. Los prompts del agente, de comprobantes y de fotos tratan lo que manda el cliente como datos, nunca como órdenes. Batería de ataques en `src/core/ai/inyeccion.test.ts`.
+- Cabeceras de seguridad en todo el sitio (T-97): ninguna otra página puede mostrar la app dentro de un marco, HTTPS obligatorio, sin adivinar tipos de archivo, sin filtrar rutas al salir, cámara/micrófono/ubicación apagados y sin anunciar la versión de Next.
 
 ## [1.1.1] — 2026-11-16
 
