@@ -6,6 +6,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.2.0] — 2026-11-18
+
 ### Seguridad
 - Límite de mensajes por número (T-99): si un mismo contacto manda más de 15 mensajes en un minuto o 120 en una hora, se le avisa una vez que espere y no se gasta IA en el resto hasta que baje el ritmo. La dueña no tiene límite.
 - Defensa contra inyección de prompt (T-98): antes de mandarle al cliente lo que escribió la IA, se revisa que no prometa precios, descuentos o regalos que el negocio no tiene ni deje ver sus instrucciones; si pasa, se manda una respuesta segura. En el modo guiado, la versión reformulada por la IA solo se usa si no cambia montos ni números de cuenta. Los prompts del agente, de comprobantes y de fotos tratan lo que manda el cliente como datos, nunca como órdenes. Batería de ataques en `src/core/ai/inyeccion.test.ts`.
