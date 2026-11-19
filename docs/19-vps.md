@@ -251,7 +251,8 @@ clientes que paguen.
 ### Monitor con alertas al celular (T-65, obligatorio antes de vender)
 
 La app expone `https://100-23-146-236.sslip.io/api/health`: responde **200** si la app y la
-base (Supabase) andan, y **503** si la base no contesta. Un monitor externo la llama
+base (Supabase) andan, y **503** si la base no contesta o si faltan las variables de Supabase
+(T-100: sin ellas la app guardaría en un archivo que se borra en cada despliegue). Un monitor externo la llama
 cada minuto y avisa si falla — así uno se entera antes que el cliente.
 
 1. Crear cuenta gratis en **UptimeRobot** (uptimerobot.com) o **Better Stack**
