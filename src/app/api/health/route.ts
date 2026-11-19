@@ -35,7 +35,13 @@ async function baseResponde(): Promise<boolean | null> {
 
 export async function GET(): Promise<NextResponse> {
   const base = await baseResponde();
-  const ok = base !== false;
+  // T-100: sin Supabase la app cae a guardar en un JSON dentro del
+  // contenedor, que se borra en el siguiente despliegue. En local es lo
+  // esperado (modo de prueba); en producción significa que faltan las
+  // variables y se están perdiendo pedidos, así que el monitor tiene que
+  // avisar igual que si la base estuviera caída.
+  const sinBaseEnProduccion = base === null && process.env.NODE_ENV === "production";
+  const ok = base !== false && !sinBaseEnProduccion;
   return NextResponse.json(
     { ok, base: base === null ? "sin configurar" : base ? "ok" : "caída", hora: new Date().toISOString() },
     { status: ok ? 200 : 503, headers: { "Cache-Control": "no-store" } },
