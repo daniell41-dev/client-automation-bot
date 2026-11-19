@@ -6,6 +6,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Arreglos
+- `/api/health` responde 503 si en producción faltan las variables de Supabase (T-100): antes respondía 200 con "sin configurar" mientras la app guardaba en un archivo que se borra en cada despliegue, y el monitor no avisaba.
+
 ## [1.2.0] — 2026-11-18
 
 ### Seguridad

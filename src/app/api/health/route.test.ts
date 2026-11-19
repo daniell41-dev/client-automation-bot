@@ -37,4 +37,16 @@ describe("GET /api/health (T-65)", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ ok: true, base: "sin configurar" });
   });
+
+  it("sin Supabase configurado EN PRODUCCIÓN responde 503 (T-100)", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    try {
+      adminMock.mockReturnValue(null);
+      const res = await GET();
+      expect(res.status).toBe(503);
+      expect(await res.json()).toMatchObject({ ok: false, base: "sin configurar" });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 });
