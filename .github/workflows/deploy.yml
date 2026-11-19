@@ -102,6 +102,10 @@ jobs:
           ssh "$VPS" "test -f $VPS_DIR/.env.production" \
             || { echo "::error::Falta $VPS_DIR/.env.production en el servidor (docs/19-vps.md)"; exit 1; }
           scp deploy/docker-compose.yml "$VPS:$VPS_DIR/docker-compose.yml"
+          # T-101: el script del respaldo diario viaja con cada versión, así
+          # un arreglo en él llega solo; el cron que lo llama no cambia.
+          scp deploy/respaldo-db.sh "$VPS:$VPS_DIR/respaldo-db.sh"
+          ssh "$VPS" "chmod 700 $VPS_DIR/respaldo-db.sh"
           docker save "nexo-app:$VERSION" | gzip | ssh "$VPS" "gunzip | docker load"
 
       - name: Levantar la versión nueva

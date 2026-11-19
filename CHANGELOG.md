@@ -6,6 +6,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Nuevo
+- Respaldo diario de la base desde el VPS (T-101): `deploy/respaldo-db.sh` saca una copia con `pg_dump` cada noche y guarda las últimas 14. El despliegue copia el script; la configuración (una sola vez) está en `docs/19-vps.md`.
+
 ### Arreglos
 - `/api/health` responde 503 si en producción faltan las variables de Supabase (T-100): antes respondía 200 con "sin configurar" mientras la app guardaba en un archivo que se borra en cada despliegue, y el monitor no avisaba.
 
