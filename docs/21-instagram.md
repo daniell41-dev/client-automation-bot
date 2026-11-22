@@ -57,8 +57,13 @@ del negocio solo hacen falta para conectar cuentas **de terceros** (los clientes
 8. **Probar.** Desde **otra** cuenta de Instagram, comentar `ALMUERZO` en una publicación de
    Aurela. Debe llegar el DM y aparecer la respuesta pública. En el servidor:
    `docker compose --env-file .env.production logs -f app` muestra
-   `[Instagram] DM enviado por el comentario …`. Si dice `firma inválida`, el App Secret no es
-   el de Instagram (paso 5).
+   `[Instagram] DM enviado por el comentario …`. El webhook acepta la firma con la clave de
+   Instagram o con la clave general de la app (`WHATSAPP_APP_SECRET`), y anota una vez cuál
+   usó Meta. Si dice `firma inválida`, ninguna de las dos coincide: revisar que la clave no
+   haya quedado cortada al pegarla.
+9. **Modo desarrollo:** mientras la app no esté publicada, Meta solo avisa de comentarios
+   hechos por cuentas con rol en la app (evaluadores de Instagram). Para probar con otra
+   cuenta, agregarla como evaluadora; para que funcione con cualquier persona, publicar la app.
 
 ## Renovar el token (cada menos de 60 días)
 
