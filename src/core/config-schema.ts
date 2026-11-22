@@ -255,6 +255,15 @@ export const businessConfigSchema = z.object({
       mock: personaSchema.optional(),
     })
     .optional(),
+  // T-121: catálogo en PDF. La URL sale del bucket público `catalogos`
+  // (migración 0031); el nombre lo ve el cliente en el chat, por eso el tope.
+  catalogoPdf: z
+    .object({
+      url: z.string().url().max(500),
+      nombreArchivo: z.string().trim().min(1).max(120),
+      enviarAlSaludar: z.boolean(),
+    })
+    .optional(),
   // Almacenamiento propio del negocio (multi-tenant sin Supabase).
   storage: z
     .object({

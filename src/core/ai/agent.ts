@@ -158,6 +158,7 @@ function buildAgentInput(
         };
       }),
     },
+    tieneCatalogoPdf: Boolean(config.catalogoPdf),
     history,
     message,
     nowISO: now.toISOString(),

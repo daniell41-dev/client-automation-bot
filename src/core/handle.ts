@@ -46,6 +46,7 @@ import { validarCita } from "@/core/engine/horarios";
 import { citaCumplida, cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
 import { pedidoFinalizado, cerrarPedidoFinalizado } from "@/core/engine/pedido-lifecycle";
 import { inactivo, limpiarDatosCapturados, reseteablePorInactividad } from "@/core/engine/session-lifecycle";
+import { mensajeCatalogo } from "@/core/engine/catalogo-pdf";
 import { describirOrigen, registrarOrigen } from "@/core/engine/origen";
 import { cantidadesPorProducto, nombreItem, resumenCarrito, totalPedido } from "@/core/engine/flows/pedido";
 import { BOTON_APROBAR, BOTON_RECHAZAR, BOTON_RESTO, interpretarDecisionDueña } from "@/core/engine/approval";
@@ -521,6 +522,9 @@ export async function handleIncoming(
   }
 
   let existing = await repo.findByContact(message.businessSlug, message.from);
+  // T-121: se toma acá porque `existing` se reasigna más abajo (cierres,
+  // vencimientos); lo que importa es si el contacto ya había escrito antes.
+  const clienteNuevo = existing === null;
 
   // T-23.5/T-24.4: un mensaje con imagen es un camino aparte, completamente
   // distinto del funnel de cita/pedido de texto. Dos sub-caminos según el
@@ -853,6 +857,11 @@ export async function handleIncoming(
   if (lead.followUpsSent.length) lead.followUpsSent = [];
   if (pideNoContactar(message.text)) lead.noContactar = true;
 
+  // T-121: el catálogo en PDF va al final, detrás del saludo o la respuesta,
+  // en los dos modos. Lo decide `mensajeCatalogo` (al saludar o si lo pidió).
+  const catalogo = mensajeCatalogo(config, message.from, message.text, clienteNuevo);
+  if (catalogo) messages.push(catalogo);
+
   await repo.save(lead);
 
   if (usedAgent) {
@@ -885,8 +894,8 @@ export async function handleIncoming(
   const enhanced: OutgoingMessage[] = [];
   for (const msg of messages) {
     // T-45: el pie de una imagen (el QR de pago) es fijo y corto; reformularlo
-    // gasta una llamada a la IA sin mejorar nada.
-    if (msg.imagenUrl) {
+    // gasta una llamada a la IA sin mejorar nada. Igual el del catálogo (T-121).
+    if (msg.imagenUrl || msg.documento) {
       enhanced.push(msg);
       continue;
     }

@@ -140,6 +140,11 @@ export interface AgentTurnInput {
   /** T-52: `costoDomicilio` para que la IA pueda contestar cuánto sale el domicilio. */
   pedidos?: { pregunta: string; opciones: string[]; costoDomicilio?: number };
   lead: AgentLeadState;
+  /**
+   * T-121: el negocio tiene catálogo en PDF. El sistema lo manda solo cuando
+   * el cliente lo pide; la IA tiene que saberlo para no decir que no hay.
+   */
+  tieneCatalogoPdf?: boolean;
   /** Historial reciente de la conversación. */
   history: ConversationTurn[];
   /** Mensaje actual del cliente. */

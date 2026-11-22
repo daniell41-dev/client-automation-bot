@@ -413,3 +413,121 @@ export async function quitarQrPago(_prev: ActionState, formData: FormData): Prom
   if (!slug) return { error: "Falta el negocio." };
   return guardarQr(slug, null);
 }
+
+// ── T-121: catálogo en PDF ───────────────────────────────────────────────────
+
+const BUCKET_CATALOGOS = "catalogos";
+const MAX_CATALOGO_BYTES = 10 * 1024 * 1024; // mismo tope que el bucket (migración 0031)
+
+/** Ruta dentro del bucket a partir de la URL pública, para borrar el PDF anterior. */
+function rutaCatalogo(url: string | undefined): string | null {
+  const marca = `/${BUCKET_CATALOGOS}/`;
+  const i = url?.indexOf(marca) ?? -1;
+  return url && i >= 0 ? url.slice(i + marca.length) : null;
+}
+
+/**
+ * El navegador manda el `type` según la extensión: un .exe renombrado a .pdf
+ * pasaría. Mirar los primeros bytes ("%PDF-") es barato y evita que el bucket
+ * público sirva otra cosa con el nombre del negocio encima.
+ */
+async function esPdf(archivo: File): Promise<boolean> {
+  const cabecera = new Uint8Array(await archivo.slice(0, 5).arrayBuffer());
+  return String.fromCharCode(...cabecera) === "%PDF-";
+}
+
+/**
+ * Sube (o reemplaza) el PDF y guarda nombre e interruptor. Sin archivo nuevo
+ * solo cambia el nombre o el interruptor del que ya estaba. Mismo esquema que
+ * el QR: lee y escribe con el cliente de la dueña (RLS), sube con service
+ * role y todo el config pasa por Zod antes de tocar la base.
+ */
+export async function guardarCatalogoPdf(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const me = await getUserRole();
+  if (!me) return { error: "No autorizado." };
+  const slug = String(formData.get("slug") ?? "");
+  if (!slug) return { error: "Falta el negocio." };
+  const enviarAlSaludar = formData.get("enviarAlSaludar") === "on";
+  const archivo = formData.get("catalogo");
+  const hayArchivo = archivo instanceof File && archivo.size > 0;
+  if (hayArchivo) {
+    if (archivo.type !== "application/pdf" || !(await esPdf(archivo))) {
+      return { error: "El catálogo tiene que ser un archivo PDF." };
+    }
+    if (archivo.size > MAX_CATALOGO_BYTES) {
+      return { error: "El PDF pesa más de 10 MB. Pruebe exportándolo con menos calidad de imagen." };
+    }
+  }
+
+  const supabase = await createUserClient();
+  const { data: negocio } = await supabase.from("negocios").select("id, config").eq("slug", slug).maybeSingle();
+  const actual = parseBusinessConfig(negocio?.config);
+  if (!negocio || !actual) return { error: "Negocio no encontrado o sin permisos." };
+  if (!hayArchivo && !actual.catalogoPdf) return { error: "Elija el PDF del catálogo." };
+
+  // El nombre lo ve el cliente en el chat: si la dueña no escribió uno, se
+  // usa el del archivo que subió (o el que ya tenía).
+  const nombreArchivo =
+    String(formData.get("nombreArchivo") ?? "").trim() ||
+    (hayArchivo ? archivo.name : actual.catalogoPdf?.nombreArchivo) ||
+    "Catálogo.pdf";
+
+  const admin = createAdminClient();
+  if (!admin) return { error: "Falta configurar Supabase en el servidor." };
+
+  let url = actual.catalogoPdf?.url;
+  if (hayArchivo) {
+    // Nombre nuevo en cada subida: WhatsApp cachea por URL, y con el mismo
+    // nombre el cliente podría recibir el catálogo viejo.
+    const ruta = `${negocio.id as string}/catalogo-${Date.now()}.pdf`;
+    const { error } = await admin.storage
+      .from(BUCKET_CATALOGOS)
+      .upload(ruta, archivo, { contentType: "application/pdf", upsert: false });
+    if (error) return { error: `No se pudo subir el catálogo: ${error.message}` };
+    url = admin.storage.from(BUCKET_CATALOGOS).getPublicUrl(ruta).data.publicUrl;
+  }
+
+  const config = parseBusinessConfig({ ...actual, catalogoPdf: { url, nombreArchivo, enviarAlSaludar } });
+  if (!config) return { error: "No se pudo validar la configuración (revise el nombre del archivo)." };
+  const { error } = await supabase
+    .from("negocios")
+    .update({ config, updated_at: new Date().toISOString() })
+    .eq("id", negocio.id);
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  // Best-effort: si falla, queda un archivo huérfano en el bucket, nada más.
+  const anterior = hayArchivo ? rutaCatalogo(actual.catalogoPdf?.url) : null;
+  if (anterior) await admin.storage.from(BUCKET_CATALOGOS).remove([anterior]);
+
+  invalidateBusinessCache();
+  revalidatePath(`/portal/negocios/${slug}/configuracion`);
+  return { ok: hayArchivo ? "Catálogo guardado." : "Cambios del catálogo guardados." };
+}
+
+export async function quitarCatalogoPdf(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const me = await getUserRole();
+  if (!me) return { error: "No autorizado." };
+  const slug = String(formData.get("slug") ?? "");
+  if (!slug) return { error: "Falta el negocio." };
+
+  const supabase = await createUserClient();
+  const { data: negocio } = await supabase.from("negocios").select("id, config").eq("slug", slug).maybeSingle();
+  const actual = parseBusinessConfig(negocio?.config);
+  if (!negocio || !actual) return { error: "Negocio no encontrado o sin permisos." };
+
+  const config = parseBusinessConfig({ ...actual, catalogoPdf: undefined });
+  if (!config) return { error: "No se pudo validar la configuración." };
+  const { error } = await supabase
+    .from("negocios")
+    .update({ config, updated_at: new Date().toISOString() })
+    .eq("id", negocio.id);
+  if (error) return { error: `No se pudo guardar: ${error.message}` };
+
+  const anterior = rutaCatalogo(actual.catalogoPdf?.url);
+  const admin = createAdminClient();
+  if (anterior && admin) await admin.storage.from(BUCKET_CATALOGOS).remove([anterior]);
+
+  invalidateBusinessCache();
+  revalidatePath(`/portal/negocios/${slug}/configuracion`);
+  return { ok: "Catálogo quitado. El bot ya no lo envía." };
+}

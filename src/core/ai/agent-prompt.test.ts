@@ -464,3 +464,14 @@ describe("buildAgentSystemPrompt — origen del anuncio (T-120)", () => {
     expect(buildAgentSystemPrompt(baseInput)).not.toContain("llegó por");
   });
 });
+
+// T-121: la IA sabe que existe el PDF para no negarlo.
+describe("buildAgentSystemPrompt — catálogo en PDF (T-121)", () => {
+  it("avisa que el sistema manda el PDF cuando el negocio lo tiene", () => {
+    expect(buildAgentSystemPrompt({ ...baseInput, tieneCatalogoPdf: true })).toContain("catálogo en PDF");
+  });
+
+  it("sin PDF no lo menciona", () => {
+    expect(buildAgentSystemPrompt(baseInput)).not.toContain("catálogo en PDF");
+  });
+});

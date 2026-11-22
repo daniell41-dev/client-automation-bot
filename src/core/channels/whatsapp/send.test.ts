@@ -358,3 +358,28 @@ describe("WhatsAppChannel.send — forzarPlantilla (T-59)", () => {
     expect(JSON.parse(fetchImpl.mock.calls[0][1].body as string).type).toBe("text");
   });
 });
+
+describe("buildSendRequest — documento (T-121)", () => {
+  const documento = {
+    url: "https://x.supabase.co/storage/v1/object/public/catalogos/n/catalogo-1.pdf",
+    nombreArchivo: "Catálogo Jeans 2026.pdf",
+  };
+
+  it("con documento manda type document con link, nombre y el texto como pie", () => {
+    const { url, init } = buildSendRequest(opts, { to: "573001112233", text: "Aquí está el catálogo 📄", documento });
+    expect(url).toContain("/messages");
+    const body = JSON.parse(init.body as string);
+    expect(body.type).toBe("document");
+    expect(body.to).toBe("573001112233");
+    expect(body.document).toEqual({
+      link: documento.url,
+      filename: "Catálogo Jeans 2026.pdf",
+      caption: "Aquí está el catálogo 📄",
+    });
+  });
+
+  it("sin texto no manda un pie vacío", () => {
+    const body = JSON.parse(buildSendRequest(opts, { to: "573001112233", text: "", documento }).init.body as string);
+    expect(body.document.caption).toBeUndefined();
+  });
+});
