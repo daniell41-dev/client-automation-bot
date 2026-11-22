@@ -131,6 +131,14 @@ export interface Service {
   referencia?: string;
   /** T-104: si el producto viene en opciones (tallas, colores…), cuáles hay. */
   variantes?: VariantesItem;
+  /**
+   * T-123: varios detalles a la vez ("Talla": 28, 30… y "Color": Blanco,
+   * Azul). Reemplaza a `variantes` cuando está: el portal nuevo escribe
+   * esto, y `variantes` queda para los productos guardados antes (se leen
+   * como un solo detalle, ver `engine/detalles.ts`). Cada línea del carrito
+   * guarda la combinación elegida en `CartItem.variante`.
+   */
+  detalles?: VariantesItem[];
 }
 
 /**

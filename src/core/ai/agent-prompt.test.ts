@@ -475,3 +475,47 @@ describe("buildAgentSystemPrompt — catálogo en PDF (T-121)", () => {
     expect(buildAgentSystemPrompt(baseInput)).not.toContain("catálogo en PDF");
   });
 });
+
+// T-123: el modelo a veces manda cada detalle en su propio campo.
+describe("parseAgentResponse — talla y color separados (T-123)", () => {
+  it("los junta en `variante` para que el motor reconozca los dos", () => {
+    const r = parseAgentResponse(
+      JSON.stringify({
+        respuesta: "Listo",
+        acciones: [{ tipo: "guardar_cantidad", servicioId: "jean", cantidad: 6, talla: 30, color: "Blanco" }],
+      }),
+    );
+    expect(r.ok && r.value.acciones[0]).toMatchObject({ variante: "30 Blanco" });
+  });
+
+  it("con un solo campo de talla sigue como antes", () => {
+    const r = parseAgentResponse(
+      JSON.stringify({ respuesta: "Listo", acciones: [{ tipo: "guardar_cantidad", servicioId: "jean", cantidad: 6, talla: 30 }] }),
+    );
+    expect(r.ok && r.value.acciones[0]).toMatchObject({ variante: "30" });
+  });
+});
+
+// T-123: el prompt muestra cada detalle con sus opciones.
+describe("buildAgentSystemPrompt — varios detalles (T-123)", () => {
+  it("lista talla y color y pide una opción de cada uno", () => {
+    const prompt = buildAgentSystemPrompt({
+      ...baseInput,
+      services: [
+        {
+          id: "jean",
+          name: "Jean",
+          description: "Denim",
+          price: 35000,
+          modo: "pedido",
+          detalles: [
+            { nombre: "Talla", opciones: ["30", "32"] },
+            { nombre: "Color", opciones: ["Blanco", "Azul"] },
+          ],
+        },
+      ],
+    });
+    expect(prompt).toContain("Talla (opciones): 30, 32. Color (opciones): Blanco, Azul.");
+    expect(prompt).toContain("TIENE VARIOS DETALLES");
+  });
+});

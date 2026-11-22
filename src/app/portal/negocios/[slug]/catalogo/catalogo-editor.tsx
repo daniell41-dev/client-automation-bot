@@ -8,7 +8,8 @@
 
 import { useActionState, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
+import { detallesDe, preguntaDetalles } from "@/core/engine/detalles";
 import type { CatalogoConfig, Service } from "@/core/types";
 import { servicesSchema } from "@/core/config-schema";
 import { guardarConfigParcial, type ActionState } from "@/app/portal/actions";
@@ -26,17 +27,24 @@ const inputCls =
  * con "30 minutos" — nadie se lo va a sacar si no lo ve.
  */
 /**
- * T-104: arma `variantes` desde los dos campos del formulario. Sin opciones
- * no hay variantes (un nombre suelto no significa nada). Sin nombre se usa
- * "Opción": el bot igual necesita una palabra para preguntar.
+ * T-123: los detalles que se pueden agregar. Lista cerrada a propósito: con
+ * texto libre cada dueña escribía "Talla", "tallas" o "Tallaje" y el bot
+ * preguntaba distinto en cada producto.
  */
-function armarVariantes(nombre: string, texto: string): Service["variantes"] {
-  const opciones = texto
+const TIPOS_DETALLE = ["Talla", "Color", "Estilo"];
+
+/** "28, 30,30 , 32" → ["28", "30", "32"]: sin vacíos ni repetidas (sin importar mayúsculas). */
+function separarOpciones(texto: string): string[] {
+  const vistas = new Set<string>();
+  return texto
     .split(",")
     .map((o) => o.trim())
-    .filter(Boolean);
-  if (opciones.length === 0) return undefined;
-  return { nombre: nombre.trim() || "Opción", opciones };
+    .filter((o) => {
+      const clave = o.toLowerCase();
+      if (!o || vistas.has(clave)) return false;
+      vistas.add(clave);
+      return true;
+    });
 }
 
 function nuevoItem(n: number, conDuracion: boolean): Service {
@@ -77,22 +85,27 @@ export function CatalogoEditor({
   );
   const [search, setSearch] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  // T-104: lo que el dueño va escribiendo en "Opciones", tal cual (con la coma
-  // final mientras escribe). Si se guardara solo la lista ya separada, el
-  // campo se "comería" la coma y no se podría escribir la siguiente opción.
-  // Igual con el nombre: escrito antes que las opciones, todavía no hay
-  // `variantes` donde guardarlo.
-  const [opcionesTexto, setOpcionesTexto] = useState<Record<string, { nombre: string; opciones: string }>>({});
-  const textoVariantes = (id: string) => {
-    const guardado = services.find((s) => s.id === id)?.variantes;
-    return (
-      opcionesTexto[id] ?? { nombre: guardado?.nombre ?? "", opciones: guardado?.opciones.join(", ") ?? "" }
-    );
+  // T-123: el mini formulario de "Agregar detalles" (qué detalle y sus
+  // opciones) antes de tocar el +. Lo agregado vive en `Service.detalles`.
+  const [borrador, setBorrador] = useState({ tipo: TIPOS_DETALLE[0], opciones: "" });
+  const agregarDetalle = (service: Service) => {
+    const opciones = separarOpciones(borrador.opciones);
+    if (opciones.length === 0) return;
+    const actuales = detallesDe(service);
+    // El mismo detalle otra vez reemplaza sus opciones en vez de duplicarlo.
+    const existe = actuales.some((d) => d.nombre === borrador.tipo);
+    const detalles = existe
+      ? actuales.map((d) => (d.nombre === borrador.tipo ? { nombre: d.nombre, opciones } : d))
+      : [...actuales, { nombre: borrador.tipo, opciones }];
+    // `variantes` (T-104) se pasa a `detalles` al primer cambio: un solo lugar.
+    patchService(service.id, { detalles, variantes: undefined });
+    const libre = TIPOS_DETALLE.find((t) => !detalles.some((d) => d.nombre === t));
+    setBorrador({ tipo: libre ?? borrador.tipo, opciones: "" });
+    if (fieldErrors.detalles) setFieldErrors((prev) => ({ ...prev, detalles: "" }));
   };
-  const editarVariantes = (id: string, cambio: Partial<{ nombre: string; opciones: string }>) => {
-    const texto = { ...textoVariantes(id), ...cambio };
-    setOpcionesTexto((prev) => ({ ...prev, [id]: texto }));
-    patchService(id, { variantes: armarVariantes(texto.nombre, texto.opciones) });
+  const quitarDetalle = (service: Service, nombre: string) => {
+    const detalles = detallesDe(service).filter((d) => d.nombre !== nombre);
+    patchService(service.id, { detalles: detalles.length > 0 ? detalles : undefined, variantes: undefined });
   };
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     guardarConfigParcial,
@@ -349,48 +362,104 @@ export function CatalogoEditor({
                   <p className="mt-1 text-xs text-warn-ink">{fieldErrors.referencia}</p>
                 )}
               </div>
-              {/* T-107: antes eran dos campos pegados en una fila, y con el ancho de
-                  la columna el de las opciones quedaba como un cuadrito donde no se
-                  veía lo escrito. Ahora es un bloque a lo ancho, cada campo con su
-                  etiqueta, y abajo la pregunta que va a hacer el bot: así se
-                  entiende para qué sirve sin explicarlo. */}
+              {/* T-123: "Agregar detalles". Un mini formulario (qué detalle, sus
+                  opciones y el +) y abajo la lista de lo agregado. Reemplaza los
+                  dos campos de T-104/T-107, que solo permitían una lista: un jean
+                  viene en talla Y en color. */}
               <div className="sm:col-span-2 rounded-xl border border-line p-3">
-                <p className="text-sm font-semibold text-ink">Tallas, colores u otras opciones (opcional)</p>
+                <p className="text-sm font-semibold text-ink">Detalles del producto (opcional)</p>
                 <p className="mb-3 text-xs text-ink-mid">
-                  Si el producto viene en varias opciones, el bot le pregunta al cliente cuál quiere antes de cerrar el pedido.
+                  Si el producto viene en varias tallas, colores o estilos, agréguelos aquí. El bot le pregunta al
+                  cliente cuál quiere antes de cerrar el pedido.
                 </p>
-                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-                  <div>
-                    <label className={labelCls} htmlFor="variantes-nombre">¿Qué elige el cliente?</label>
-                    <input
-                      id="variantes-nombre"
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <div className="sm:w-40">
+                    <label className={labelCls} htmlFor="detalle-tipo">Detalle</label>
+                    <select
+                      id="detalle-tipo"
                       className={inputCls}
-                      value={textoVariantes(selected.id).nombre}
-                      onChange={(e) => editarVariantes(selected.id, { nombre: e.target.value })}
-                      placeholder="Talla"
-                    />
-                    <p className="mt-1 text-xs text-ink-mid">Ej.: Talla, Color, Tamaño.</p>
+                      value={borrador.tipo}
+                      onChange={(e) => setBorrador((b) => ({ ...b, tipo: e.target.value }))}
+                    >
+                      {TIPOS_DETALLE.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                  <div>
-                    <label className={labelCls} htmlFor="variantes-opciones">Opciones disponibles</label>
+                  <div className="min-w-0 flex-1">
+                    <label className={labelCls} htmlFor="detalle-opciones">Opciones</label>
                     <input
-                      id="variantes-opciones"
+                      id="detalle-opciones"
                       className={inputCls}
-                      value={textoVariantes(selected.id).opciones}
-                      onChange={(e) => editarVariantes(selected.id, { opciones: e.target.value })}
-                      placeholder="28, 30, 32, 34"
+                      value={borrador.opciones}
+                      onChange={(e) => setBorrador((b) => ({ ...b, opciones: e.target.value }))}
+                      onKeyDown={(e) => {
+                        // Enter agrega el detalle en vez de enviar todo el formulario.
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          agregarDetalle(selected);
+                        }
+                      }}
+                      placeholder={borrador.tipo === "Talla" ? "28, 30, 32, 34" : borrador.tipo === "Color" ? "Blanco, Azul, Negro" : "Clásico, Skinny"}
                     />
-                    <p className="mt-1 text-xs text-ink-mid">Separadas por coma.</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => agregarDetalle(selected)}
+                    disabled={
+                      separarOpciones(borrador.opciones).length === 0 ||
+                      (detallesDe(selected).length >= 3 && !detallesDe(selected).some((d) => d.nombre === borrador.tipo))
+                    }
+                    aria-label="Agregar detalle"
+                    title="Agregar detalle"
+                    className="flex h-[42px] w-full shrink-0 items-center justify-center rounded-[10px] bg-primary text-white transition-colors hover:bg-primary-hover disabled:opacity-40 sm:w-[42px]"
+                  >
+                    <Plus className="h-5 w-5" />
+                  </button>
                 </div>
-                {selected.variantes && (
+                <p className="mt-1 text-xs text-ink-mid">
+                  Opciones separadas por coma. Si agrega un detalle que ya está, se reemplazan sus opciones.
+                </p>
+
+                {detallesDe(selected).length > 0 && (
+                  <ul className="mt-3 space-y-2">
+                    {detallesDe(selected).map((d) => (
+                      <li
+                        key={d.nombre}
+                        className="flex items-start justify-between gap-3 rounded-lg border border-line bg-surface-2 px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-ink">{d.nombre}</p>
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            {d.opciones.map((o) => (
+                              <span key={o} className="rounded-full bg-primary-tint px-2.5 py-0.5 text-xs font-semibold text-primary">
+                                {o}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => quitarDetalle(selected, d.nombre)}
+                          aria-label={`Quitar ${d.nombre}`}
+                          title={`Quitar ${d.nombre}`}
+                          className="shrink-0 rounded-md p-1 text-ink-mid transition-colors hover:bg-warn-bg hover:text-warn-ink"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {detallesDe(selected).length > 0 && (
                   <p className="mt-3 rounded-lg bg-primary-tint px-3 py-2 text-xs text-ink">
-                    El bot preguntará: «¿En qué {selected.variantes.nombre.toLowerCase()} lo quiere? Tenemos:{" "}
-                    {selected.variantes.opciones.join(", ")}».
+                    El bot preguntará: «{preguntaDetalles(selected, selected.name || "producto")}»
                   </p>
                 )}
-                {fieldErrors.variantes && (
-                  <p className="mt-1 text-xs text-warn-ink">{fieldErrors.variantes}</p>
+                {(fieldErrors.detalles || fieldErrors.variantes) && (
+                  <p className="mt-1 text-xs text-warn-ink">{fieldErrors.detalles || fieldErrors.variantes}</p>
                 )}
               </div>
               <div className="sm:col-span-2">

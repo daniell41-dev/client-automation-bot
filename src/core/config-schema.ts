@@ -40,8 +40,33 @@ export const serviceSchema = z
           .max(40, "Máximo 40 opciones por producto."),
       })
       .optional(),
+    // T-123: hasta 3 detalles (Talla, Color, Estilo), cada uno con sus opciones.
+    detalles: z
+      .array(
+        z.object({
+          nombre: z.string().trim().min(1, "Elija qué detalle es (Talla, Color…).").max(30),
+          opciones: z
+            .array(z.string().trim().min(1).max(30))
+            .min(1, "Agregue al menos una opción.")
+            .max(40, "Máximo 40 opciones por detalle."),
+        }),
+      )
+      .max(3, "Máximo 3 detalles por producto.")
+      .optional(),
   })
   .superRefine((item, ctx) => {
+    // T-123: el mismo detalle dos veces ("Talla" y "talla") haría que el bot
+    // no sepa cuál preguntar; opciones repetidas, en cuál anotar.
+    const nombres = item.detalles?.map((d) => d.nombre.trim().toLowerCase()) ?? [];
+    if (new Set(nombres).size !== nombres.length) {
+      ctx.addIssue({ code: "custom", path: ["detalles"], message: "Ese detalle ya está agregado." });
+    }
+    item.detalles?.forEach((d, i) => {
+      const ops = d.opciones.map((o) => o.trim().toLowerCase());
+      if (new Set(ops).size !== ops.length) {
+        ctx.addIssue({ code: "custom", path: ["detalles", i, "opciones"], message: `Hay opciones repetidas en ${d.nombre}.` });
+      }
+    });
     // T-104: dos opciones iguales ("30" y "30 ", o "M" y "m") harían que el
     // bot no sepa en cuál anotar el pedido.
     const opciones = item.variantes?.opciones.map((o) => o.trim().toLowerCase()) ?? [];

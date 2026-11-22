@@ -100,7 +100,7 @@ const ALIAS_CAMPOS: Record<string, string[]> = {
   modalidad: ["entrega", "opcion", "valor", "value"],
   direccion: ["address", "valor", "value"],
   cantidad: ["qty", "quantity", "unidades", "valor", "value"],
-  variante: ["talla", "size", "color", "opcion", "option", "variant"],
+  variante: ["talla", "size", "color", "estilo", "style", "opcion", "option", "variant"],
   nota: ["cambio", "cambios", "observacion", "indicacion", "detalle", "texto", "valor", "value"],
 };
 
@@ -124,6 +124,16 @@ const CAMPOS_POR_TIPO: Record<string, string[]> = {
 function normalizarAccion(item: unknown): unknown {
   if (!item || typeof item !== "object") return item;
   const accion = { ...(item as Record<string, unknown>) };
+  // T-123: con varios detalles el modelo a veces manda cada uno en su campo
+  // (`"talla": 30, "color": "Blanco"`). Se juntan en `variante` ("30 Blanco")
+  // y el motor reconoce cada opción por separado; si se tomara solo el
+  // primero, el color se perdería y el bot volvería a preguntarlo.
+  if (accion.variante === undefined) {
+    const partes = ["talla", "size", "color", "estilo", "style"]
+      .map((k) => accion[k])
+      .filter((v): v is string | number => typeof v === "string" || typeof v === "number");
+    if (partes.length > 1) accion.variante = partes.join(" ");
+  }
   for (const campo of CAMPOS_POR_TIPO[String(accion.tipo)] ?? []) {
     if (accion[campo] === undefined) {
       const alias = ALIAS_CAMPOS[campo]?.find((a) => accion[a] !== undefined);
