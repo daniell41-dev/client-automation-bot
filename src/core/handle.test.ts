@@ -3058,3 +3058,32 @@ describe("pagó de menos: pedir el resto (T-66)", () => {
     expect(ownerReply.text).not.toContain("devolvérselos");
   });
 });
+
+// T-121: catálogo en PDF.
+describe("handleIncoming — catálogo en PDF (T-121)", () => {
+  const URL_PDF = "https://x.supabase.co/storage/v1/object/public/catalogos/n/catalogo-1.pdf";
+  const conCatalogo = (enviarAlSaludar: boolean): BusinessConfig => ({
+    ...config,
+    catalogoPdf: { url: URL_PDF, nombreArchivo: "Catálogo 2026.pdf", enviarAlSaludar },
+  });
+
+  it("con el interruptor prendido, el primer mensaje recibe el saludo y después el PDF", async () => {
+    const repo = new InMemoryRepo();
+    const { messages } = await handleIncoming(msg("hola"), conCatalogo(true), repo, new Date(), fakeLLM());
+    expect(messages.length).toBeGreaterThan(1);
+    expect(messages[0].documento).toBeUndefined();
+    expect(messages.at(-1)?.documento).toEqual({ url: URL_PDF, nombreArchivo: "Catálogo 2026.pdf" });
+
+    const segundo = await handleIncoming(msg("limpieza facial"), conCatalogo(true), repo, new Date(), fakeLLM());
+    expect(segundo.messages.some((m) => m.documento)).toBe(false);
+  });
+
+  it("con el interruptor apagado no sale al saludar, pero sí cuando lo piden", async () => {
+    const repo = new InMemoryRepo();
+    const primero = await handleIncoming(msg("hola"), conCatalogo(false), repo, new Date(), fakeLLM());
+    expect(primero.messages.some((m) => m.documento)).toBe(false);
+
+    const pedido = await handleIncoming(msg("me mandas el catálogo?"), conCatalogo(false), repo, new Date(), fakeLLM());
+    expect(pedido.messages.at(-1)?.documento?.url).toBe(URL_PDF);
+  });
+});

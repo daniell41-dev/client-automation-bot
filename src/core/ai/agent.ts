@@ -134,6 +134,7 @@ function buildAgentInput(
         cantidad: i.cantidad,
       })),
     },
+    tieneCatalogoPdf: Boolean(config.catalogoPdf),
     history,
     message,
     nowISO: now.toISOString(),

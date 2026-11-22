@@ -7,6 +7,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Nuevo
+- Catálogo en PDF (T-121): en Configuración la dueña sube el PDF de su catálogo (hasta 10 MB), elige el nombre que ve el cliente y si se envía al saludar. El bot lo manda por WhatsApp como documento al saludar (si está activado) o cuando el cliente pide "el catálogo". El PDF queda público. Requiere la migración `0031_catalogos_pdf.sql`.
 - Respaldo diario de la base desde el VPS (T-101): `deploy/respaldo-db.sh` saca una copia con `pg_dump` cada noche y guarda las últimas 14. El despliegue copia el script; la configuración (una sola vez) está en `docs/19-vps.md`.
 
 ### Arreglos

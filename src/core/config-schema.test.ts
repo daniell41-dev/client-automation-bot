@@ -352,3 +352,24 @@ describe("motivoConfigInvalida (T-47)", () => {
     expect(motivoConfigInvalida(config)).toBe("Un servicio que se agenda necesita una duración.");
   });
 });
+
+describe("parseBusinessConfig — catálogo en PDF (T-121)", () => {
+  const catalogoPdf = {
+    url: "https://x.supabase.co/storage/v1/object/public/catalogos/n/catalogo-1.pdf",
+    nombreArchivo: "Catálogo Jeans 2026.pdf",
+    enviarAlSaludar: true,
+  };
+
+  it("sin catálogo sigue siendo válido", () => {
+    expect(parseBusinessConfig(esteticaBella)?.catalogoPdf).toBeUndefined();
+  });
+
+  it("conserva el catálogo (no lo descarta en silencio al parsear)", () => {
+    expect(parseBusinessConfig({ ...esteticaBella, catalogoPdf })?.catalogoPdf).toEqual(catalogoPdf);
+  });
+
+  it("rechaza una URL inválida o un nombre vacío", () => {
+    expect(parseBusinessConfig({ ...esteticaBella, catalogoPdf: { ...catalogoPdf, url: "no-es-url" } })).toBeNull();
+    expect(parseBusinessConfig({ ...esteticaBella, catalogoPdf: { ...catalogoPdf, nombreArchivo: "  " } })).toBeNull();
+  });
+});

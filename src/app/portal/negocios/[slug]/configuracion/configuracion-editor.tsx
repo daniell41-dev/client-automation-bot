@@ -17,7 +17,9 @@ import { personaSchema } from "@/core/config-schema";
 import {
   actualizarWhatsapp,
   actualizarWompi,
+  guardarCatalogoPdf,
   guardarConfigParcial,
+  quitarCatalogoPdf,
   quitarQrPago,
   subirQrPago,
   type ActionState,
@@ -83,18 +85,27 @@ function tonoActual(tone: string): Tono {
  * tarjeta. Se esconde y se reemplaza por un botón en español con el nombre
  * del archivo elegido.
  */
-function SelectorImagen({ name }: { name: string }) {
+function SelectorImagen({
+  name,
+  accept = "image/png,image/jpeg,image/webp",
+  etiqueta = "Elegir imagen",
+}: {
+  name: string;
+  /** T-121: el mismo selector sirve para el PDF del catálogo. */
+  accept?: string;
+  etiqueta?: string;
+}) {
   const [archivo, setArchivo] = useState<string | null>(null);
   return (
     <label className="flex min-w-0 cursor-pointer items-center gap-3 rounded-[10px] border border-dashed border-line-input px-3 py-2.5 text-sm transition-colors hover:bg-surface-3">
       <input
         type="file"
         name={name}
-        accept="image/png,image/jpeg,image/webp"
+        accept={accept}
         className="sr-only"
         onChange={(e) => setArchivo(e.target.files?.[0]?.name ?? null)}
       />
-      <span className="shrink-0 font-semibold text-primary">Elegir imagen</span>
+      <span className="shrink-0 font-semibold text-primary">{etiqueta}</span>
       <span className="min-w-0 truncate text-ink-soft">{archivo ?? "Ninguna elegida"}</span>
     </label>
   );
@@ -112,6 +123,7 @@ export function ConfiguracionEditor({
   initialAi,
   initialPagos,
   initialAvisos,
+  catalogoPdf,
 }: {
   slug: string;
   nombre: string;
@@ -124,6 +136,8 @@ export function ConfiguracionEditor({
   initialAi: BotAIConfig;
   initialPagos: BusinessConfig["pagos"];
   initialAvisos: BusinessConfig["avisos"];
+  /** T-121: se guarda aparte (sube un archivo), igual que el QR. */
+  catalogoPdf: BusinessConfig["catalogoPdf"];
 }) {
   const [direccion, setDireccion] = useState(direccionInicial);
   const [notifyPhoneNumber, setNotifyPhoneNumber] = useState(notifyPhoneNumberInicial);
@@ -450,6 +464,72 @@ export function ConfiguracionEditor({
               <SelectorImagen name="qr" />
             </ActionForm>
           </div>
+        </div>
+      </Card>
+
+      {/* T-121: catálogo en PDF. Se guarda con su propio botón (sube un
+          archivo), como el QR; el "Guardar cambios" de abajo no lo toca. */}
+      <Card title="Catálogo en PDF" subtitle="Opcional. El bot se lo manda al cliente por WhatsApp.">
+        <div className="space-y-3">
+          {catalogoPdf && (
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href={catalogoPdf.url}
+                target="_blank"
+                rel="noreferrer"
+                className="min-w-0 truncate text-sm font-semibold text-primary underline-offset-2 hover:underline"
+              >
+                📄 {catalogoPdf.nombreArchivo}
+              </a>
+              <Pill tone={catalogoPdf.enviarAlSaludar ? "success" : "neutral"}>
+                {catalogoPdf.enviarAlSaludar ? "Se envía al saludar" : "Solo si lo piden"}
+              </Pill>
+              <ActionForm action={quitarCatalogoPdf} submitLabel="Quitar catálogo">
+                <input type="hidden" name="slug" value={slug} />
+              </ActionForm>
+            </div>
+          )}
+          <ActionForm
+            action={guardarCatalogoPdf}
+            submitLabel={catalogoPdf ? "Guardar catálogo" : "Subir catálogo"}
+            className="space-y-3"
+          >
+            <input type="hidden" name="slug" value={slug} />
+            <SelectorImagen
+              name="catalogo"
+              accept="application/pdf"
+              etiqueta={catalogoPdf ? "Cambiar PDF" : "Elegir PDF"}
+            />
+            <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-xs text-warn-ink">
+              ⚠️ El PDF queda público: cualquiera con el link lo puede abrir. No suba
+              documentos privados, solo su catálogo. Solo PDF, hasta 10 MB.
+            </p>
+            <div className="max-w-sm">
+              <label className={labelCls} htmlFor="catalogo-nombre">
+                Nombre que ve el cliente
+              </label>
+              <input
+                id="catalogo-nombre"
+                name="nombreArchivo"
+                maxLength={120}
+                defaultValue={catalogoPdf?.nombreArchivo ?? ""}
+                placeholder="Catálogo Jeans 2026.pdf"
+                className={inputCls}
+              />
+            </div>
+            <label className="flex items-center gap-2.5 text-sm text-ink">
+              <input
+                type="checkbox"
+                name="enviarAlSaludar"
+                defaultChecked={catalogoPdf?.enviarAlSaludar ?? false}
+                className="h-4 w-4 accent-primary"
+              />
+              Enviar el catálogo al saludar
+            </label>
+            <p className="text-xs text-ink-soft">
+              Apagado, el bot igual lo manda cuando el cliente pide &quot;el catálogo&quot;.
+            </p>
+          </ActionForm>
         </div>
       </Card>
 
