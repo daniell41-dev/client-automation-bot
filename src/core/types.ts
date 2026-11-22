@@ -47,7 +47,7 @@ export interface PersonaConfig {
 }
 
 /** Umbrales de seguimiento soportados en el MVP. */
-export type FollowUpThreshold = "2h" | "1d" | "3d";
+export type FollowUpThreshold = "2h" | "20h" | "1d" | "3d";
 
 /**
  * Qué persigue el bot cuando el cliente elige este ítem (T-21).
@@ -434,6 +434,13 @@ export interface BusinessConfig {
   /** Modalidad de entrega opcional (retirar / comer en el local, etc.). */
   pedidos?: PedidosConfig;
   /**
+   * T-106: seguimiento automático de pedidos que quedaron a medias (ver
+   * `engine/seguimientos.ts`). Apagado si no está o `activo` es false.
+   * `primero` y `segundo` reemplazan los textos por defecto; admiten
+   * `{{nombre}}` y `{{pedido}}`.
+   */
+  seguimientos?: { activo: boolean; primero?: string; segundo?: string };
+  /**
    * WhatsApp personal de la dueña/o (E.164, ej. "573001234567"). Si está
    * configurado, el bot le avisa por WhatsApp cuando se confirma una cita o
    * pedido (usa el mismo número de WhatsApp Business del negocio para enviar).
@@ -597,6 +604,12 @@ export interface Lead {
   confirmedAt?: string;
   /** Umbrales de seguimiento ya enviados (para no repetir). */
   followUpsSent: FollowUpThreshold[];
+  /**
+   * T-106: el cliente pidió que no le escriban más ("no me escriban"). No
+   * vuelve a recibir seguimientos automáticos; si él escribe, se le atiende
+   * igual.
+   */
+  noContactar?: boolean;
   notes?: string;
 }
 

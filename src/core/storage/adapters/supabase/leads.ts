@@ -47,6 +47,11 @@ export function toRow(lead: Lead, negocioId: string | undefined): LeadRow {
     entrega: lead.entrega ?? null,
     direccion: lead.direccion ?? null,
     negocio_id: negocioId ?? null,
+    // T-106 (migración 0027): solo se manda cuando es `true`. Si la columna
+    // todavía no existe en la base (migración sin correr el día del
+    // despliegue), un `false` en cada guardado rompería TODOS los mensajes;
+    // así solo falla el caso raro de alguien que pidió que no le escriban.
+    ...(lead.noContactar && { no_contactar: true }),
   };
 }
 
@@ -71,6 +76,7 @@ export function fromRow(row: LeadRow): Lead {
     items: row.items ?? undefined,
     entrega: row.entrega ?? undefined,
     direccion: row.direccion ?? undefined,
+    ...(row.no_contactar && { noContactar: true }),
   };
 }
 

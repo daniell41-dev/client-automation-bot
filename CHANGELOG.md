@@ -7,6 +7,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Nuevo
+- Seguimiento automático de pedidos a medias (T-106): si un cliente deja un pedido sin cerrar, el bot le escribe para retomarlo a las 2 horas y, si sigue sin responder, al día siguiente. Nunca más de dos veces por silencio, solo en el horario del negocio (o de 8 a. m. a 8 p. m.), solo dentro de las 24 h gratis de WhatsApp y nunca a quien pidió "no me escriban". Se enciende en Configuración, con los dos mensajes editables. Necesita la migración `0027` y un cron en el VPS (`docs/19-vps.md`).
+
+### Nuevo
 - Referencias y tallas en los productos (T-104): en el catálogo cada producto puede tener una referencia ("102") y opciones con el nombre que elija el negocio (tallas, colores, tamaños). El bot pregunta la talla antes de cerrar el pedido, entiende "6 de la 30 y 6 de la 32", no acepta una talla que no existe y reconoce "mándeme la 102". La talla aparece en el resumen, en el aviso a la dueña y en el panel de pedidos; el inventario suma las tallas del mismo producto.
 
 ### Nuevo

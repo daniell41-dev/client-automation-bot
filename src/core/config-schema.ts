@@ -232,6 +232,13 @@ export const businessConfigSchema = z.object({
   horarios: z.array(diaAtencionSchema).optional().catch(undefined),
   ai: aiSchema.optional(),
   pedidos: pedidosSchema.optional(),
+  seguimientos: z
+    .object({
+      activo: z.boolean(),
+      primero: z.string().max(500, "El mensaje es muy largo.").optional(),
+      segundo: z.string().max(500, "El mensaje es muy largo.").optional(),
+    })
+    .optional(),
   notifyPhoneNumber: z.string().optional(),
   avisos: z
     .object({
