@@ -171,16 +171,123 @@ desplegar la última versión (paso 6). Unos 20 minutos.
 
 - **Actualizaciones de seguridad del sistema:** automáticas (`unattended-upgrades`, viene con Ubuntu).
 - **Certificado HTTPS:** Traefik lo renueva solo.
-- **Backups:** la base y los archivos están en Supabase. El VPS no guarda nada que no se
-  pueda reconstruir (paso 8).
+- **Backups:** el plan gratis de Supabase **no** guarda copias recuperables: el VPS saca
+  una cada noche (ver "Respaldo diario de la base", abajo). Las fotos de comprobantes
+  siguen solo en Supabase. Con Supabase Pro (USD 25) hay copias diarias de ellos además.
 - **Si el servidor se reinicia:** los contenedores vuelven solos (`restart: unless-stopped`).
 - **Espacio en disco:** cada versión desplegada deja su imagen (~250 MB). Cada tanto,
   `docker image ls` y borrar las versiones viejas con `docker image rm nexo-app:vX.Y.Z`.
 
+### Respaldo diario de la base (T-101, obligatorio mientras Supabase sea gratis)
+
+`deploy/respaldo-db.sh` saca cada noche una copia completa de la base con `pg_dump`
+(pedidos, clientes, negocios, configuración y usuarios del login) y guarda las últimas 14
+en `/opt/nexo/respaldos/`. Cada despliegue copia el script al servidor; esto se configura
+**una sola vez**:
+
+1. **La cadena de conexión.** Supabase → el proyecto → botón **Connect** (arriba) →
+   pestaña **Connection string** → **Session pooler** (no "Direct connection": esa es
+   solo IPv6 y Docker en el VPS sale por IPv4). Copiar la URI; se ve así:
+   `postgresql://postgres.<ref>:[YOUR-PASSWORD]@aws-0-us-west-2.pooler.supabase.com:5432/postgres`.
+   Cambiar `[YOUR-PASSWORD]` por la contraseña de la base (si no se acuerda:
+   Project Settings → Database → **Reset database password**; la app no la usa, así
+   que cambiarla no rompe nada).
+2. **Ver la versión de Postgres** de Supabase: Project Settings → **Infrastructure** →
+   "Postgres version". Si empieza por 15 o 17, sirve la imagen por defecto
+   (`postgres:17-alpine`). Si es más nueva (18…), agregar `PG_IMAGEN=postgres:18-alpine`
+   en el archivo del paso 3.
+3. **Guardar el secreto en el servidor** (SSH, paso 1). Crear el archivo con el editor:
+   ```bash
+   sudo nano /opt/nexo/respaldo.env
+   ```
+   Escribir una sola línea, con la URI entre comillas simples:
+   ```
+   SUPABASE_DB_URL='postgresql://postgres.<ref>:LA-CONTRASEÑA@aws-0-us-west-2.pooler.supabase.com:5432/postgres'
+   ```
+   Guardar con **Ctrl+O**, Enter, y salir con **Ctrl+X**. Después dejarlo legible solo por root:
+   ```bash
+   sudo chmod 600 /opt/nexo/respaldo.env
+   ```
+4. **El script**, si todavía no llegó con un despliegue (llega con la release que trae
+   T-101). Mientras tanto se puede bajar a mano:
+   ```bash
+   sudo curl -fsSL -o /opt/nexo/respaldo-db.sh https://raw.githubusercontent.com/daniell41-dev/client-automation-bot/main/deploy/respaldo-db.sh
+   sudo chmod 700 /opt/nexo/respaldo-db.sh
+   ```
+5. **Probarlo a mano:**
+   ```bash
+   sudo /opt/nexo/respaldo-db.sh
+   ```
+   Tiene que terminar con `[respaldo] ok: /opt/nexo/respaldos/aurela-AAAA-MM-DD.dump (…)`.
+   Si dice `password authentication failed`, la contraseña del paso 1 está mal; si dice
+   `server version mismatch`, ajustar `PG_IMAGEN` (paso 2).
+6. **Programarlo todas las noches** (3:17 a. m. de Colombia = 08:17 UTC, la hora del servidor):
+   ```bash
+   echo '17 8 * * * root /opt/nexo/respaldo-db.sh >> /var/log/aurela-respaldo.log 2>&1' | sudo tee /etc/cron.d/aurela-respaldo
+   ```
+   Al día siguiente, `ls -lh /opt/nexo/respaldos` debe mostrar el archivo nuevo y
+   `tail /var/log/aurela-respaldo.log` la línea `ok`.
+7. **Opcional, alerta si deja de correr:** crear una cuenta gratis en **healthchecks.io**
+   → New check → periodo 1 día, gracia 2 horas → copiar la URL de ping y agregar en
+   `/opt/nexo/respaldo.env` la línea `RESPALDO_PING_URL='https://hc-ping.com/...'`.
+   Si una noche no llega el ping, avisa por correo.
+
+**Restaurar** (cuando algo se borró). Primero hacer un respaldo del estado actual (paso 5),
+por si acaso. Después, desde el servidor:
+```bash
+cd /opt/nexo && sudo bash -c 'source respaldo.env && docker run --rm -i postgres:17-alpine \
+  pg_restore --clean --if-exists --no-owner --no-privileges --schema=public \
+  -d "$SUPABASE_DB_URL" < respaldos/aurela-AAAA-MM-DD.dump'
+```
+Eso devuelve las tablas de la app al estado de esa noche (lo de después se pierde). Para
+una sola tabla, agregar `--table=pedidos`. Los usuarios del login (`auth`) van en el mismo
+archivo, pero en el mismo proyecto no hace falta restaurarlos (Supabase no los borra con
+la base). Si hay dudas, mejor pedir ayuda antes de correrlo: `--clean` borra lo actual.
+
+**Si el VPS se pierde, se pierden también estos respaldos.** Cubren el caso de "algo
+borró la base", no el de "se cayó todo". Para lo segundo: Supabase Pro cuando haya
+clientes que paguen.
+
+### Seguimiento automático de pedidos a medias (T-106)
+
+Cada negocio lo enciende en Portal → Configuración → "Seguimiento automático" (apagado por
+defecto). Para que funcione, el servidor tiene que llamar a la app cada 15 minutos. Se
+configura **una sola vez**:
+
+1. **Migración:** correr `supabase/migrations/0027_seguimientos.sql` en el SQL Editor de
+   Supabase.
+2. **El secreto.** En el servidor, generar uno:
+   ```bash
+   openssl rand -hex 32
+   ```
+   Copiar el resultado y agregarlo al final de `/opt/nexo/.env.production` (con
+   `sudo nano /opt/nexo/.env.production`): `CRON_SECRET=lo-que-salió`. Después reiniciar
+   la app: `cd /opt/nexo && sudo docker compose --env-file .env.production up -d app`.
+3. **Guardar el mismo secreto para el cron** en un archivo que solo lea root:
+   ```bash
+   sudo nano /opt/nexo/cron.env
+   ```
+   Una línea: `CRON_SECRET=lo-mismo-del-paso-2`. Guardar y `sudo chmod 600 /opt/nexo/cron.env`.
+4. **Probarlo a mano:**
+   ```bash
+   sudo bash -c 'source /opt/nexo/cron.env && curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://soyaurela.com/api/cron/seguimientos'
+   ```
+   Debe responder algo como `{"ok":true,"negocios":1,"enviados":0}`. Un `401` es que el
+   secreto no coincide con el de `.env.production`; un `503`, que la app no lo tiene (falta el
+   reinicio del paso 2).
+5. **Programarlo cada 15 minutos:**
+   ```bash
+   echo '*/15 * * * * root . /opt/nexo/cron.env && curl -fsS -m 60 -X POST -H "Authorization: Bearer $CRON_SECRET" https://soyaurela.com/api/cron/seguimientos >> /var/log/aurela-seguimientos.log 2>&1' | sudo tee /etc/cron.d/aurela-seguimientos
+   ```
+
+Las reglas (máximo 2 por silencio del cliente, solo en horario, solo dentro de las 24 h de
+WhatsApp, nunca a quien pidió "no me escriban") viven en `src/core/engine/seguimientos.ts`.
+
 ### Monitor con alertas al celular (T-65, obligatorio antes de vender)
 
 La app expone `https://100-23-146-236.sslip.io/api/health`: responde **200** si la app y la
-base (Supabase) andan, y **503** si la base no contesta. Un monitor externo la llama
+base (Supabase) andan, y **503** si la base no contesta o si faltan las variables de Supabase
+(T-100: sin ellas la app guardaría en un archivo que se borra en cada despliegue). Un monitor externo la llama
 cada minuto y avisa si falla — así uno se entera antes que el cliente.
 
 1. Crear cuenta gratis en **UptimeRobot** (uptimerobot.com) o **Better Stack**

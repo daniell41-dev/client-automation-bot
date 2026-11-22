@@ -174,4 +174,26 @@ describe("SupabaseLeadRepository — carrito de pedido (T-21)", () => {
     const found = await repo.getById("lead-1");
     expect(found?.items).toBeUndefined();
   });
+
+  // T-120 (migración 0030).
+  it("guarda y recupera el anuncio de origen", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseLeadRepository(db);
+    await repo.save(makeLead({ origen: { tipo: "anuncio", id: "A1", titulo: "Jeans clásicos" } }));
+
+    expect(db.leads[0].origen).toEqual({ tipo: "anuncio", id: "A1", titulo: "Jeans clásicos" });
+    const found = await repo.getById("lead-1");
+    expect(found?.origen).toEqual({ tipo: "anuncio", id: "A1", titulo: "Jeans clásicos" });
+  });
+
+  it("sin origen no manda la columna (sirve antes de aplicar la 0030), y uno mal formado vuelve en undefined", async () => {
+    const db = makeFakeSupabaseDb();
+    const repo = new SupabaseLeadRepository(db);
+    await repo.save(makeLead());
+    expect("origen" in db.leads[0]).toBe(false);
+
+    db.leads[0].origen = { tipo: "otra-cosa" };
+    const found = await repo.getById("lead-1");
+    expect(found?.origen).toBeUndefined();
+  });
 });

@@ -144,6 +144,10 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       return negocios.find((n) => n.whatsapp_phone_number_id === id) ?? null;
     },
 
+    async listNegociosConWhatsapp() {
+      return negocios.filter((n) => n.whatsapp_phone_number_id);
+    },
+
     async claimMessage(messageId) {
       if (mensajesProcesados.has(messageId)) return false;
       mensajesProcesados.add(messageId);

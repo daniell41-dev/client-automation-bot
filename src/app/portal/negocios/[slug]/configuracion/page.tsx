@@ -47,6 +47,8 @@ export default async function ConfiguracionPage({
       initialAi={config.ai ?? { enabled: true }}
       initialPagos={config.pagos}
       initialAvisos={config.avisos}
+      catalogoPdf={config.catalogoPdf}
+      initialSeguimientos={config.seguimientos}
     />
   );
 }

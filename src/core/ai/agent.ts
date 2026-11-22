@@ -17,6 +17,7 @@ import type {
   Lead,
   OutgoingMessage,
   PersonaConfig,
+  Service,
 } from "@/core/types";
 import type { AgentTurnInput, ILLMProvider } from "@/core/ai/provider";
 import { RESPUESTA_SEGURA, revisarRespuestaIA } from "@/core/ai/filtro-respuesta";
@@ -42,15 +43,29 @@ import {
 } from "@/core/engine/intake";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { limpiarDatosCapturados } from "@/core/engine/session-lifecycle";
+import { describirOrigen, registrarOrigen } from "@/core/engine/origen";
 import { modoDelItem } from "@/core/engine/modo-item";
 import {
   agregarAlCarrito,
+  anotarCambio,
+  elegirVariante,
+  esAgregado,
   esDomicilio,
+  faltaVariante,
   fijarCantidad,
+  limpiarNota,
   lineasEntrega,
+  nombreItem,
   pareceDireccion,
+  quitarDelCarrito,
   resumenCarrito,
 } from "@/core/engine/flows/pedido";
+
+/** T-105: respuesta cuando el negocio apagó los cambios en los productos. */
+const SIN_CAMBIOS = "Por ahora preparamos los productos tal como están en el catálogo, no puedo anotar cambios 🙏";
+
+/** T-105: lo que se suma cuando el cliente pidió AGREGAR algo (puede tener costo). */
+const AVISO_AGREGADO = "Lo dejo anotado. Si lo que pidió agregar tiene costo adicional, el negocio se lo confirma 🙌";
 
 /** Cuántos mensajes SEGUIDOS fuera de tema tolera el bot antes de cerrar la charla. */
 const OFF_TOPIC_LIMIT = 3;
@@ -106,6 +121,8 @@ function buildAgentInput(
       durationMinutes: s.durationMinutes,
       categoria: s.categoria,
       modo: modoDelItem(s, config.catalogo),
+      referencia: s.referencia,
+      variantes: s.variantes,
     })),
     horarios: config.horarios,
     pedidos: config.pedidos?.enabled
@@ -126,14 +143,22 @@ function buildAgentInput(
       // solo se está esperando el sí/no de la dueña.
       esperandoAprobacion: lead.stage === "esperando_aprobacion",
       offTopicCount: lead.offTopicCount ?? 0,
+      origen: lead.origen ? describirOrigen(lead.origen) : undefined,
       // T-21: se resuelve el nombre acá (no en el prompt) para que la IA no
       // tenga que cruzar `servicioId` contra el catálogo ella misma.
-      items: lead.items?.map((i) => ({
-        servicioId: i.serviceId,
-        nombre: config.services.find((s) => s.id === i.serviceId)?.name ?? i.serviceId,
-        cantidad: i.cantidad,
-      })),
+      items: lead.items?.map((i) => {
+        const service = config.services.find((s) => s.id === i.serviceId);
+        return {
+          servicioId: i.serviceId,
+          // T-104: con la talla en el nombre, la IA ve "Jean Ref 102 · Talla 30".
+          nombre: service ? nombreItem(service, i.variante) : i.serviceId,
+          cantidad: i.cantidad,
+          ...(i.variante !== undefined && { variante: i.variante }),
+          ...(i.nota !== undefined && { nota: i.nota }),
+        };
+      }),
     },
+    tieneCatalogoPdf: Boolean(config.catalogoPdf),
     history,
     message,
     nowISO: now.toISOString(),
@@ -161,9 +186,21 @@ function resumenParaConfirmar(lead: Lead, config: BusinessConfig): string {
 /** T-48: lo próximo que falta para poder cerrar el pedido, en el orden del motor guiado. */
 function preguntaQueFaltaPedido(lead: Lead, config: BusinessConfig): string {
   if (!(lead.items?.length ?? 0)) return "¿Qué le gustaría pedir y cuántas unidades?";
+  const sinVariante = faltaVariante(lead.items ?? [], config.services);
+  if (sinVariante) return preguntaVariante(sinVariante.service);
   if (config.pedidos?.enabled && !lead.entrega) return config.pedidos.pregunta;
   if (esDomicilio(lead.entrega) && !lead.direccion) return ASK_DIRECCION;
   return render(config.messages.askName, { nombre: "", servicio: "" });
+}
+
+/**
+ * T-104: "¿En qué talla quiere el Jean clásico Ref 102? Tenemos: 28, 30, 32."
+ * Lo arma el motor con las opciones reales: la IA no puede ofrecer una talla
+ * que el negocio no tiene.
+ */
+function preguntaVariante(service: Service): string {
+  const v = service.variantes!;
+  return `¿En qué ${v.nombre.toLowerCase()} quiere el ${nombreItem(service)}? Tenemos: ${v.opciones.join(", ")}. Si quiere varias, dígame cuántas de cada una 🙌`;
 }
 
 /**
@@ -201,8 +238,16 @@ function productoNombrado(texto: string, config: BusinessConfig) {
   return availableServices(config.services).find(
     (s) =>
       modoDelItem(s, config.catalogo) === "pedido" &&
-      (t.includes(sinTildes(s.name)) || (s.keywords ?? []).some((k) => k.length >= 4 && t.includes(sinTildes(k)))),
+      (t.includes(sinTildes(s.name)) ||
+        (s.keywords ?? []).some((k) => k.length >= 4 && t.includes(sinTildes(k))) ||
+        // T-104: "mándeme la 102" / "ref 102". La referencia va como palabra
+        // completa: "102" no debe calzar dentro de "1020" ni de un teléfono.
+        (!!s.referencia && new RegExp(`(^|[^\\w])${escaparRegex(sinTildes(s.referencia))}([^\\w]|$)`).test(t))),
   );
+}
+
+function escaparRegex(texto: string): string {
+  return texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -279,6 +324,9 @@ export async function runAgentTurn(
   now: Date,
 ): Promise<RespondResult | null> {
   const lead: Lead = existing ? { ...existing } : createLead(message, now);
+  // T-120: un lead que ya existía (de antes de T-120, o que escribió primero
+  // por su cuenta) también toma el anuncio — y la IA lo ve en ESTE turno.
+  registrarOrigen(lead, message.origen);
   lead.lastInboundAt = message.timestamp;
   lead.updatedAt = now.toISOString();
 
@@ -339,6 +387,8 @@ export async function runAgentTurn(
   );
 
   let sawOffTopic = false;
+  // T-104: producto al que la IA le quiso anotar una opción que no existe.
+  let varianteRechazada: Service | undefined;
   for (const accion of acciones) {
     switch (accion.tipo) {
       case "elegir_servicio": {
@@ -405,13 +455,29 @@ export async function runAgentTurn(
         );
         const cantidad = Math.round(accion.cantidad);
         if (servicio && modoDelItem(servicio, config.catalogo) === "pedido" && cantidad > 0) {
-          lead.items = fijarCantidad(lead.items, servicio.id, cantidad);
+          // T-104: si el producto tiene opciones, la que mandó la IA tiene
+          // que ser una de ellas. Una talla inexistente no se anota (ni se
+          // cambia a la más parecida): el motor le dice al cliente cuáles hay.
+          // Sin talla todavía, la línea entra igual y el motor la pregunta
+          // antes del resumen (ver `faltaVariante`).
+          let variante: string | undefined;
+          if (servicio.variantes && accion.variante !== undefined) {
+            variante = elegirVariante(servicio, accion.variante);
+            if (variante === undefined) {
+              varianteRechazada = servicio;
+              break;
+            }
+          }
+          lead.items = fijarCantidad(lead.items, servicio.id, cantidad, variante);
           if (lead.state === "nuevo") lead.state = "interesado";
         }
         break;
       }
       case "quitar_producto": {
-        lead.items = lead.items?.filter((i) => i.serviceId !== accion.servicioId);
+        const servicio = config.services.find((s) => s.id === accion.servicioId);
+        const variante =
+          servicio && accion.variante !== undefined ? elegirVariante(servicio, accion.variante) : undefined;
+        lead.items = quitarDelCarrito(lead.items, accion.servicioId, variante);
         if (!lead.items?.length) lead.items = undefined;
         if (lead.serviceId === accion.servicioId) lead.serviceId = lead.items?.[0]?.serviceId;
         break;
@@ -419,6 +485,8 @@ export async function runAgentTurn(
       case "fuera_de_contexto":
         sawOffTopic = true;
         break;
+      case "anotar_cambio":
+        break; // T-105: se aplica después, cuando el carrito ya tiene todo lo de este turno
       case "reiniciar":
         break; // ya se aplicó arriba, antes del resto de las acciones
       case "confirmar":
@@ -458,6 +526,34 @@ export async function runAgentTurn(
     }
   }
 
+  // T-105: los cambios a un producto ("sin arroz") se anotan al final, con
+  // el carrito ya armado: en "un bistec sin salsa" la IA puede mandar la nota
+  // antes que la cantidad, o el producto entra recién por la red de T-54.
+  // La nota no toca el precio (el total lo sigue calculando el sistema) y
+  // pasa por el mismo filtro que el texto de la IA (T-98): un "sin costo" o
+  // un "$1.000" no llegan al resumen ni al aviso de la dueña.
+  const aceptaCambios = config.ai?.cambiosEnProductos !== false;
+  let cambioRechazado = false;
+  let cambioAgregado = false;
+  for (const accion of acciones) {
+    if (accion.tipo !== "anotar_cambio") continue;
+    if (!aceptaCambios) {
+      cambioRechazado = true;
+      continue;
+    }
+    if (!lead.items?.some((i) => i.serviceId === accion.servicioId)) continue;
+    const nota = limpiarNota(accion.nota);
+    if (!nota || !revisarRespuestaIA(nota, config).ok) {
+      if (nota) console.warn("[Agent] nota de cambio descartada por el filtro:", JSON.stringify(nota));
+      continue;
+    }
+    const servicio = config.services.find((s) => s.id === accion.servicioId);
+    const variante =
+      servicio && accion.variante !== undefined ? elegirVariante(servicio, accion.variante) : undefined;
+    lead.items = anotarCambio(lead.items, accion.servicioId, nota, variante);
+    if (esAgregado(nota)) cambioAgregado = true;
+  }
+
   // T-50: si el cliente nombró la modalidad ("domicilio por favor") y la IA
   // no la declaró, se toma del mensaje — misma comparación que usa el motor
   // guiado. Solo con un pedido en curso, para no confundir una pregunta suelta.
@@ -494,6 +590,8 @@ export async function runAgentTurn(
       // domicilio — un pedido a domicilio sin dirección no se puede entregar.
       !!lead.name &&
       (lead.items?.length ?? 0) > 0 &&
+      // T-104: cada producto con tallas tiene que tener su talla elegida.
+      !faltaVariante(lead.items ?? [], config.services) &&
       (!config.pedidos?.enabled || !!lead.entrega) &&
       (!esDomicilio(lead.entrega) || !!lead.direccion)
     : !!lead.name &&
@@ -570,6 +668,10 @@ export async function runAgentTurn(
           ? "Los datos para pagar le llegan apenas confirme su pedido 🙌"
           : RESPUESTA_SEGURA;
     if (mostrarResumen) opciones = PEDIDO_CONFIRM_OPTIONS;
+  } else if (varianteRechazada) {
+    // T-104: la IA anotó una talla que no existe; su texto seguramente la da
+    // por buena. Se reemplaza por las opciones reales.
+    respuestaFinal = `No tenemos esa ${varianteRechazada.variantes!.nombre.toLowerCase()} en el ${nombreItem(varianteRechazada)}. ${preguntaVariante(varianteRechazada)}`;
   } else if (preguntarFaltante) {
     respuestaFinal = preguntaQueFaltaPedido(lead, config);
   } else if (mostrarResumen) {
@@ -585,6 +687,16 @@ export async function runAgentTurn(
   // mientras se espera la respuesta de la dueña, T-21/PR5): una charla
   // informal después de agendar/pedir no debe borrar una cita o un pedido ya
   // en trámite.
+  // T-105: el negocio no acepta cambios. La IA seguramente le dijo al
+  // cliente que lo anotó: se reemplaza su texto (el resumen, si tocaba, se
+  // conserva).
+  if (cambioRechazado && respuestaFinal !== RESPUESTA_SEGURA) {
+    respuestaFinal = mostrarResumen ? `${SIN_CAMBIOS}\n\n${resumenParaConfirmar(lead, config)}` : SIN_CAMBIOS;
+  } else if (cambioAgregado && respuestaFinal !== RESPUESTA_SEGURA) {
+    // Agregar algo puede costar, y ese cobro no lo decide el bot.
+    respuestaFinal = `${respuestaFinal}\n\n${AVISO_AGREGADO}`;
+  }
+
   if (lead.stage !== "datos_completos" && lead.stage !== "esperando_aprobacion") {
     if (sawOffTopic) {
       const nuevoCount = offTopicCountBefore + 1;

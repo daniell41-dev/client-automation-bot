@@ -56,10 +56,12 @@ const DESCUENTO = /\d{1,3}\s?%|\bdescuento\b|\brebaja\b/i;
 const MARCAS_INTERNAS = [
   /\[SE (VENDE|AGENDA)/i,
   /"tipo"\s*:/,
-  /\b(guardar_(nombre|fecha|modalidad|direccion|cantidad)|elegir_servicio|quitar_producto|fuera_de_contexto)\b/,
+  /\b(guardar_(nombre|fecha|modalidad|direccion|cantidad)|elegir_servicio|quitar_producto|anotar_cambio|fuera_de_contexto)\b/,
   /\bsystem prompt\b/i,
   /\binstrucciones del sistema\b/i,
   /los [ÚU]NICOS que existen/,
+  // T-104: marca de los productos con tallas/opciones en el catálogo del prompt.
+  /\[TIENE OPCIONES/i,
 ];
 
 function normalizar(texto: string): string {

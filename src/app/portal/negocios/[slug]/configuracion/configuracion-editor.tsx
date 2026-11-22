@@ -17,12 +17,15 @@ import { personaSchema } from "@/core/config-schema";
 import {
   actualizarWhatsapp,
   actualizarWompi,
+  guardarCatalogoPdf,
   guardarConfigParcial,
+  quitarCatalogoPdf,
   quitarQrPago,
   subirQrPago,
   type ActionState,
 } from "@/app/portal/actions";
 import { ActionForm } from "@/components/action-form";
+import { SEGUIMIENTO_PRIMERO_DEFAULT, SEGUIMIENTO_SEGUNDO_DEFAULT } from "@/core/engine/seguimientos";
 import { Card, Pill, Segmented, Toggle } from "@/components/ui";
 
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
@@ -83,18 +86,27 @@ function tonoActual(tone: string): Tono {
  * tarjeta. Se esconde y se reemplaza por un botón en español con el nombre
  * del archivo elegido.
  */
-function SelectorImagen({ name }: { name: string }) {
+function SelectorImagen({
+  name,
+  accept = "image/png,image/jpeg,image/webp",
+  etiqueta = "Elegir imagen",
+}: {
+  name: string;
+  /** T-121: el mismo selector sirve para el PDF del catálogo. */
+  accept?: string;
+  etiqueta?: string;
+}) {
   const [archivo, setArchivo] = useState<string | null>(null);
   return (
     <label className="flex min-w-0 cursor-pointer items-center gap-3 rounded-[10px] border border-dashed border-line-input px-3 py-2.5 text-sm transition-colors hover:bg-surface-3">
       <input
         type="file"
         name={name}
-        accept="image/png,image/jpeg,image/webp"
+        accept={accept}
         className="sr-only"
         onChange={(e) => setArchivo(e.target.files?.[0]?.name ?? null)}
       />
-      <span className="shrink-0 font-semibold text-primary">Elegir imagen</span>
+      <span className="shrink-0 font-semibold text-primary">{etiqueta}</span>
       <span className="min-w-0 truncate text-ink-soft">{archivo ?? "Ninguna elegida"}</span>
     </label>
   );
@@ -112,6 +124,8 @@ export function ConfiguracionEditor({
   initialAi,
   initialPagos,
   initialAvisos,
+  catalogoPdf,
+  initialSeguimientos,
 }: {
   slug: string;
   nombre: string;
@@ -124,7 +138,16 @@ export function ConfiguracionEditor({
   initialAi: BotAIConfig;
   initialPagos: BusinessConfig["pagos"];
   initialAvisos: BusinessConfig["avisos"];
+  /** T-121: se guarda aparte (sube un archivo), igual que el QR. */
+  catalogoPdf: BusinessConfig["catalogoPdf"];
+  initialSeguimientos: BusinessConfig["seguimientos"];
 }) {
+  // T-106: apagado por defecto. Los textos vacíos usan los del sistema.
+  const [seguimientos, setSeguimientos] = useState({
+    activo: initialSeguimientos?.activo ?? false,
+    primero: initialSeguimientos?.primero ?? "",
+    segundo: initialSeguimientos?.segundo ?? "",
+  });
   const [direccion, setDireccion] = useState(direccionInicial);
   const [notifyPhoneNumber, setNotifyPhoneNumber] = useState(notifyPhoneNumberInicial);
   const [wompiEnabled, setWompiEnabled] = useState(initialPagos?.wompi?.enabled ?? false);
@@ -168,6 +191,11 @@ export function ConfiguracionEditor({
     direccion: direccion || undefined,
     notifyPhoneNumber: notifyPhoneNumber.trim() || undefined,
     avisos: { modo: modoAviso, cadaMinutos: minutosResumen },
+    seguimientos: {
+      activo: seguimientos.activo,
+      primero: seguimientos.primero.trim() || undefined,
+      segundo: seguimientos.segundo.trim() || undefined,
+    },
     personas: { ...personas, whatsapp: nuevaPersona },
     ai,
     pagos: {
@@ -255,6 +283,51 @@ export function ConfiguracionEditor({
             />
           </div>
         </ActionForm>
+      </Card>
+
+      {/* T-106: seguimiento automático de pedidos a medias */}
+      <Card
+        title="Seguimiento automático"
+        subtitle="Si un cliente deja un pedido a medias, el bot le escribe para retomarlo: a las 2 horas y, si sigue sin responder, al día siguiente. Nunca más de dos veces, solo en su horario de atención, y nunca a quien pidió que no le escriban."
+      >
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-semibold text-ink">Retomar pedidos a medias</span>
+          <Toggle
+            checked={seguimientos.activo}
+            onChange={(next) => setSeguimientos((prev) => ({ ...prev, activo: next }))}
+            label="Seguimiento automático activado"
+          />
+        </div>
+        {seguimientos.activo && (
+          <div className="mt-4 space-y-3">
+            <div>
+              <label className={labelCls}>Primer mensaje (a las 2 horas)</label>
+              <textarea
+                className={inputCls}
+                rows={2}
+                maxLength={500}
+                value={seguimientos.primero}
+                onChange={(e) => setSeguimientos((prev) => ({ ...prev, primero: e.target.value }))}
+                placeholder={SEGUIMIENTO_PRIMERO_DEFAULT}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Segundo mensaje (al día siguiente)</label>
+              <textarea
+                className={inputCls}
+                rows={2}
+                maxLength={500}
+                value={seguimientos.segundo}
+                onChange={(e) => setSeguimientos((prev) => ({ ...prev, segundo: e.target.value }))}
+                placeholder={SEGUIMIENTO_SEGUNDO_DEFAULT}
+              />
+            </div>
+            <p className="text-xs text-ink-soft">
+              Déjelos vacíos para usar los de arriba. Puede usar {"{{nombre}}"} (el nombre del cliente) y{" "}
+              {"{{pedido}}"} (lo que dejó en el carrito). Se guardan con el botón de abajo.
+            </p>
+          </div>
+        )}
       </Card>
 
       {/* Notificaciones */}
@@ -453,6 +526,72 @@ export function ConfiguracionEditor({
         </div>
       </Card>
 
+      {/* T-121: catálogo en PDF. Se guarda con su propio botón (sube un
+          archivo), como el QR; el "Guardar cambios" de abajo no lo toca. */}
+      <Card title="Catálogo en PDF" subtitle="Opcional. El bot se lo manda al cliente por WhatsApp.">
+        <div className="space-y-3">
+          {catalogoPdf && (
+            <div className="flex flex-wrap items-center gap-3">
+              <a
+                href={catalogoPdf.url}
+                target="_blank"
+                rel="noreferrer"
+                className="min-w-0 truncate text-sm font-semibold text-primary underline-offset-2 hover:underline"
+              >
+                📄 {catalogoPdf.nombreArchivo}
+              </a>
+              <Pill tone={catalogoPdf.enviarAlSaludar ? "success" : "neutral"}>
+                {catalogoPdf.enviarAlSaludar ? "Se envía al saludar" : "Solo si lo piden"}
+              </Pill>
+              <ActionForm action={quitarCatalogoPdf} submitLabel="Quitar catálogo">
+                <input type="hidden" name="slug" value={slug} />
+              </ActionForm>
+            </div>
+          )}
+          <ActionForm
+            action={guardarCatalogoPdf}
+            submitLabel={catalogoPdf ? "Guardar catálogo" : "Subir catálogo"}
+            className="space-y-3"
+          >
+            <input type="hidden" name="slug" value={slug} />
+            <SelectorImagen
+              name="catalogo"
+              accept="application/pdf"
+              etiqueta={catalogoPdf ? "Cambiar PDF" : "Elegir PDF"}
+            />
+            <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-xs text-warn-ink">
+              ⚠️ El PDF queda público: cualquiera con el link lo puede abrir. No suba
+              documentos privados, solo su catálogo. Solo PDF, hasta 10 MB.
+            </p>
+            <div className="max-w-sm">
+              <label className={labelCls} htmlFor="catalogo-nombre">
+                Nombre que ve el cliente
+              </label>
+              <input
+                id="catalogo-nombre"
+                name="nombreArchivo"
+                maxLength={120}
+                defaultValue={catalogoPdf?.nombreArchivo ?? ""}
+                placeholder="Catálogo Jeans 2026.pdf"
+                className={inputCls}
+              />
+            </div>
+            <label className="flex items-center gap-2.5 text-sm text-ink">
+              <input
+                type="checkbox"
+                name="enviarAlSaludar"
+                defaultChecked={catalogoPdf?.enviarAlSaludar ?? false}
+                className="h-4 w-4 accent-primary"
+              />
+              Enviar el catálogo al saludar
+            </label>
+            <p className="text-xs text-ink-soft">
+              Apagado, el bot igual lo manda cuando el cliente pide &quot;el catálogo&quot;.
+            </p>
+          </ActionForm>
+        </div>
+      </Card>
+
       {/* Pagos con Wompi (T-24.6): Wompi solo cubre Colombia — para otros
           países (ej. Venezuela) queda el camino de comprobante manual, que no
           depende de esta pantalla. */}
@@ -593,6 +732,21 @@ export function ConfiguracionEditor({
               Con esto el bot responde preguntas que no están en el catálogo (medios
               de pago, horarios especiales, etc.).
             </p>
+            {/* T-105: "sin arroz, sin salsa". Encendido por defecto (undefined = sí). */}
+            <div className="mt-4 flex items-start justify-between gap-3">
+              <span>
+                <span className="block text-sm font-semibold text-ink">Aceptar cambios en los productos</span>
+                <span className="block text-xs text-ink-soft">
+                  El cliente puede pedir “sin arroz” o “sin salsa”: el bot lo anota en el pedido y usted lo
+                  ve en el aviso y en el panel. No cambia el precio.
+                </span>
+              </span>
+              <Toggle
+                checked={ai.cambiosEnProductos !== false}
+                onChange={(next) => setAi((prev) => ({ ...prev, cambiosEnProductos: next }))}
+                label="Aceptar cambios en los productos"
+              />
+            </div>
           </div>
         </div>
       </Card>

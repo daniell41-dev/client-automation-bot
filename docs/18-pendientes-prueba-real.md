@@ -68,17 +68,27 @@ Si algo falla: captura del chat + las líneas `[Agent]` y `[WhatsApp]` de la ter
 
 ## 4. Antes de vender
 
-- [ ] **Bot en el VPS** (no en la compu con ngrok): `docs/19-vps.md`.
-- [ ] **Monitor con alertas al celular** sobre `/api/health`: `docs/19-vps.md` §9.
+Estado al 19-nov-2026: la app corre en el VPS con **soyaurela.com** (v1.2.0) y el monitor
+avisa al celular. Lo que falta, en orden de importancia:
 
-- [ ] Verificación de la empresa en Meta (RUT de persona natural) — sin esto, 2 números.
-- [ ] Publicar la app de Meta. Las páginas ya existen (T-70): en Meta → Configuración de la app →
-      Básica, poner **Política de privacidad** = `https://<dominio>/privacidad`, **Condiciones del
-      servicio** = `https://<dominio>/terminos` y **Eliminación de datos de usuario** (instrucciones) =
-      `https://<dominio>/eliminar-datos`. Antes de vender, que un abogado revise los textos.
-- [ ] Subir Nexo a un VPS propio (que no dependa de la compu ni de ngrok): `docs/19-vps.md` (T-61).
-- [ ] Borrar el admin de ejemplo `tucorreo@dominio.com` (su clave quedó escrita en la conversación).
+- [x] **Bot en el VPS** (no en la compu con ngrok): `docs/19-vps.md` (T-61, 9-nov; dominio
+      soyaurela.com desde el 15-nov, T-96).
+- [x] **Monitor con alertas al celular** sobre `/api/health`: `docs/19-vps.md` §9 (T-65).
+      Desde T-100 también avisa si en producción faltan las variables de Supabase.
+- [ ] **Respaldo diario de la base** mientras Supabase sea gratis (T-101): configurarlo una
+      vez en el servidor, `docs/19-vps.md` → "Respaldo diario de la base".
+- [ ] **Borrar el admin de ejemplo** `tucorreo@dominio.com` (su clave quedó escrita en la
+      conversación): Supabase → Authentication → Users → buscarlo → ⋮ → **Delete user**.
+- [ ] **Verificación de la empresa en Meta** (RUT de persona natural) — sin esto, 2 números,
+      y Sabores del Sur ya ocupa uno.
+- [ ] **Publicar la app de Meta.** Las páginas ya existen (T-70): en Meta → Configuración de la
+      app → Básica, poner **Política de privacidad** = `https://soyaurela.com/privacidad`,
+      **Condiciones del servicio** = `https://soyaurela.com/terminos` y **Eliminación de datos
+      de usuario** = `https://soyaurela.com/eliminar-datos`. Antes de vender, que un abogado
+      revise los textos.
 - [ ] Capa paga de Gemini con tope de gasto (límites diarios y privacidad), ver T-56.
+- [ ] Supabase Pro (USD 25) cuando haya clientes que paguen: copias diarias propias y
+      también de las fotos de comprobantes.
 
 ## 5. Lo que se arregló durante la prueba (referencia)
 

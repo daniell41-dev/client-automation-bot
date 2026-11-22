@@ -29,8 +29,25 @@ export const serviceSchema = z
     reservable: z.boolean().optional(),
     modo: z.enum(["cita", "pedido"]).optional(),
     stock: z.number().int().nonnegative("El stock no puede ser negativo.").optional(),
+    // T-104: referencia del mayorista y opciones (tallas, colores…).
+    referencia: z.string().trim().min(1).max(40, "La referencia es muy larga.").optional(),
+    variantes: z
+      .object({
+        nombre: z.string().trim().min(1, "Escriba cómo se llaman las opciones (p. ej. Talla).").max(30),
+        opciones: z
+          .array(z.string().trim().min(1).max(30))
+          .min(1, "Agregue al menos una opción.")
+          .max(40, "Máximo 40 opciones por producto."),
+      })
+      .optional(),
   })
   .superRefine((item, ctx) => {
+    // T-104: dos opciones iguales ("30" y "30 ", o "M" y "m") harían que el
+    // bot no sepa en cuál anotar el pedido.
+    const opciones = item.variantes?.opciones.map((o) => o.trim().toLowerCase()) ?? [];
+    if (new Set(opciones).size !== opciones.length) {
+      ctx.addIssue({ code: "custom", path: ["variantes", "opciones"], message: "Hay opciones repetidas." });
+    }
     // Un ítem que se agenda SÍ necesita duración: `buildCalendarEvent` calcula
     // el fin del evento con ella y `validarCita` la usa para saber si entra
     // antes del cierre. Sin ella, el evento duraría cero.
@@ -87,6 +104,7 @@ const aiSchema = z.object({
   reglas: z.array(quickRuleSchema).optional(),
   botonesMenu: z.array(z.string()).optional(),
   derivarHumano: z.boolean().optional(),
+  cambiosEnProductos: z.boolean().optional(),
 });
 
 const HORA_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -215,6 +233,13 @@ export const businessConfigSchema = z.object({
   horarios: z.array(diaAtencionSchema).optional().catch(undefined),
   ai: aiSchema.optional(),
   pedidos: pedidosSchema.optional(),
+  seguimientos: z
+    .object({
+      activo: z.boolean(),
+      primero: z.string().max(500, "El mensaje es muy largo.").optional(),
+      segundo: z.string().max(500, "El mensaje es muy largo.").optional(),
+    })
+    .optional(),
   notifyPhoneNumber: z.string().optional(),
   avisos: z
     .object({
@@ -228,6 +253,15 @@ export const businessConfigSchema = z.object({
       whatsapp: personaSchema.optional(),
       instagram: personaSchema.optional(),
       mock: personaSchema.optional(),
+    })
+    .optional(),
+  // T-121: catálogo en PDF. La URL sale del bucket público `catalogos`
+  // (migración 0031); el nombre lo ve el cliente en el chat, por eso el tope.
+  catalogoPdf: z
+    .object({
+      url: z.string().url().max(500),
+      nombreArchivo: z.string().trim().min(1).max(120),
+      enviarAlSaludar: z.boolean(),
     })
     .optional(),
   // Almacenamiento propio del negocio (multi-tenant sin Supabase).

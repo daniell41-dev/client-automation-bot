@@ -47,7 +47,7 @@ export interface PersonaConfig {
 }
 
 /** Umbrales de seguimiento soportados en el MVP. */
-export type FollowUpThreshold = "2h" | "1d" | "3d";
+export type FollowUpThreshold = "2h" | "20h" | "1d" | "3d";
 
 /**
  * Qué persigue el bot cuando el cliente elige este ítem (T-21).
@@ -63,6 +63,28 @@ export interface CartItem {
   /** `Service.id` del producto. */
   serviceId: string;
   cantidad: number;
+  /**
+   * T-104: la opción elegida de `Service.variantes` ("30" si las variantes son
+   * tallas). El mismo producto en dos tallas son DOS líneas del carrito: el
+   * mayorista pide "6 de la 30 y 6 de la 32", y cada talla se prepara aparte.
+   * Ausente en un producto sin variantes, o mientras el cliente no la dijo.
+   */
+  variante?: string;
+  /**
+   * T-105: lo que el cliente pidió cambiar de ESTA línea ("sin arroz, sin
+   * ensalada"). Es una indicación para quien prepara: no cambia el precio.
+   */
+  nota?: string;
+}
+
+/**
+ * T-104: las opciones de un producto ("Talla": 28, 30, 32…). El `nombre` lo
+ * escribe el dueño, así sirve igual para "Color", "Tamaño" o "Término de la
+ * carne" sin código por rubro. Todas las opciones valen el mismo precio.
+ */
+export interface VariantesItem {
+  nombre: string;
+  opciones: string[];
 }
 
 /** Un servicio que ofrece el negocio (lo personaliza cada `BusinessConfig`). */
@@ -101,6 +123,14 @@ export interface Service {
    * guardado y dos ventas simultáneas se pisarían.
    */
   stock?: number;
+  /**
+   * T-104: código con el que el negocio y sus clientes nombran el producto
+   * ("102", "JX-55"). En ropa al por mayor se pide por referencia, no por
+   * nombre: "mándeme la 102". El bot la reconoce y la muestra en el pedido.
+   */
+  referencia?: string;
+  /** T-104: si el producto viene en opciones (tallas, colores…), cuáles hay. */
+  variantes?: VariantesItem;
 }
 
 /**
@@ -165,6 +195,12 @@ export interface BotAIConfig {
   botonesMenu?: string[];
   /** Si el bot no entiende, ¿derivar a una persona? */
   derivarHumano?: boolean;
+  /**
+   * T-105: si el cliente puede pedir cambios a un producto ("sin arroz", "sin
+   * salsa"). Default `true`: es lo que pasa en el mostrador de cualquier
+   * negocio. Apagado, el bot dice que los productos van como están.
+   */
+  cambiosEnProductos?: boolean;
 }
 
 /**
@@ -409,6 +445,13 @@ export interface BusinessConfig {
   /** Modalidad de entrega opcional (retirar / comer en el local, etc.). */
   pedidos?: PedidosConfig;
   /**
+   * T-106: seguimiento automático de pedidos que quedaron a medias (ver
+   * `engine/seguimientos.ts`). Apagado si no está o `activo` es false.
+   * `primero` y `segundo` reemplazan los textos por defecto; admiten
+   * `{{nombre}}` y `{{pedido}}`.
+   */
+  seguimientos?: { activo: boolean; primero?: string; segundo?: string };
+  /**
    * WhatsApp personal de la dueña/o (E.164, ej. "573001234567"). Si está
    * configurado, el bot le avisa por WhatsApp cuando se confirma una cita o
    * pedido (usa el mismo número de WhatsApp Business del negocio para enviar).
@@ -435,6 +478,14 @@ export interface BusinessConfig {
     /** ID del Google Calendar del negocio (su email o un id @group.calendar.google.com). */
     calendarId?: string;
   };
+  /**
+   * T-121: catálogo en PDF que el bot puede mandar por WhatsApp. `url` es
+   * PÚBLICA a propósito (Meta descarga el archivo desde ahí, sin
+   * credenciales); `nombreArchivo` es lo que ve el cliente en el chat.
+   * Con `enviarAlSaludar` sale solo en el primer mensaje del cliente; sin
+   * él, igual se manda cuando el cliente pide "el catálogo".
+   */
+  catalogoPdf?: { url: string; nombreArchivo: string; enviarAlSaludar: boolean };
 }
 
 /** Evento de calendario normalizado, independiente del proveedor (Google, etc.). */
@@ -482,6 +533,26 @@ export interface IncomingMessage {
    * UN pedido concreto sin escribir su número.
    */
   botonId?: string;
+  /**
+   * T-120: de qué anuncio o publicación viene el cliente, si el canal lo
+   * informa (en WhatsApp, el `referral` de un Click-to-WhatsApp). Solo viene
+   * en el mensaje que abrió el chat desde el anuncio: por eso `Lead.origen`
+   * se guarda la primera vez y no se pisa después.
+   */
+  origen?: OrigenContacto;
+}
+
+/**
+ * T-120: anuncio o publicación que trajo al cliente. Todos los campos menos
+ * `tipo` son opcionales: Meta no garantiza ninguno (un anuncio sin título,
+ * uno lanzado desde Estados), y el bot no debe descartar el mensaje por eso.
+ */
+export interface OrigenContacto {
+  tipo: "anuncio" | "publicacion";
+  id?: string;
+  titulo?: string;
+  texto?: string;
+  url?: string;
 }
 
 /** Mensaje saliente normalizado que un canal debe entregar. */
@@ -515,6 +586,12 @@ export interface OutgoingMessage {
    * pie de foto. Un canal sin imágenes manda solo `text`.
    */
   imagenUrl?: string;
+  /**
+   * T-121: archivo a mandar como documento (el catálogo en PDF), con URL
+   * pública y el nombre que ve el cliente. `text` va como pie. Un canal sin
+   * documentos manda solo `text`.
+   */
+  documento?: { url: string; nombreArchivo: string };
 }
 
 /** Un interesado registrado por el sistema. */
@@ -572,7 +649,19 @@ export interface Lead {
   confirmedAt?: string;
   /** Umbrales de seguimiento ya enviados (para no repetir). */
   followUpsSent: FollowUpThreshold[];
+  /**
+   * T-106: el cliente pidió que no le escriban más ("no me escriban"). No
+   * vuelve a recibir seguimientos automáticos; si él escribe, se le atiende
+   * igual.
+   */
+  noContactar?: boolean;
   notes?: string;
+  /**
+   * T-120: el primer anuncio/publicación por el que llegó. No lo borra el
+   * "empezar de nuevo" ni el reinicio por inactividad: sirve para contar qué
+   * anuncio trae clientes, no para la conversación en curso.
+   */
+  origen?: OrigenContacto;
 }
 
 /** Un turno en el historial de conversación (para memoria de sesión). */

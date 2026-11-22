@@ -38,6 +38,7 @@ import { calcularSeñalesPago, type Señal } from "@/core/engine/señales-pago";
 import { destinosDePago, normalizarReferencia, textoCuentasPago } from "@/core/engine/datos-pago";
 import { decidirAccionWompi, type EstadoWompi } from "@/core/engine/pago-wompi";
 import { runAgentTurn } from "@/core/ai/agent";
+import { pideNoContactar } from "@/core/engine/seguimientos";
 import { reformulacionSegura } from "@/core/ai/filtro-respuesta";
 import { isResetRequest } from "@/core/engine/intake";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
@@ -45,7 +46,9 @@ import { validarCita } from "@/core/engine/horarios";
 import { citaCumplida, cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
 import { pedidoFinalizado, cerrarPedidoFinalizado } from "@/core/engine/pedido-lifecycle";
 import { inactivo, limpiarDatosCapturados, reseteablePorInactividad } from "@/core/engine/session-lifecycle";
-import { resumenCarrito, totalPedido } from "@/core/engine/flows/pedido";
+import { mensajeCatalogo } from "@/core/engine/catalogo-pdf";
+import { describirOrigen, registrarOrigen } from "@/core/engine/origen";
+import { cantidadesPorProducto, nombreItem, resumenCarrito, totalPedido } from "@/core/engine/flows/pedido";
 import { BOTON_APROBAR, BOTON_RECHAZAR, BOTON_RESTO, interpretarDecisionDueña } from "@/core/engine/approval";
 import { transition } from "@/core/engine/lead-state";
 import { pagoVencido, pedidoPendienteDeDecision, transicionarPedido } from "@/core/engine/pedido-estado";
@@ -236,7 +239,16 @@ async function crearPedidoDelCarrito(
   const items = lead.items.flatMap((item) => {
     const service = config.services.find((s) => s.id === item.serviceId);
     return service
-      ? [{ serviceId: item.serviceId, nombre: service.name, cantidad: item.cantidad, precioUnitario: service.price }]
+      ? [
+          {
+            serviceId: item.serviceId,
+            nombre: nombreItem(service, item.variante),
+            cantidad: item.cantidad,
+            precioUnitario: service.price,
+            ...(item.variante !== undefined && { variante: item.variante }),
+            ...(item.nota !== undefined && { nota: item.nota }),
+          },
+        ]
       : [];
   });
   try {
@@ -299,10 +311,8 @@ async function devolverStock(
 ): Promise<void> {
   if (!inventory || !items?.length) return;
   try {
-    await inventory.incrementCart(
-      negocio,
-      items.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
-    );
+    // T-104: sumadas por producto (dos tallas del mismo jean son un solo stock).
+    await inventory.incrementCart(negocio, cantidadesPorProducto(items));
   } catch (err) {
     console.error("[Stock] no se pudo devolver el stock de un pedido no concretado:", err);
   }
@@ -512,6 +522,9 @@ export async function handleIncoming(
   }
 
   let existing = await repo.findByContact(message.businessSlug, message.from);
+  // T-121: se toma acá porque `existing` se reasigna más abajo (cierres,
+  // vencimientos); lo que importa es si el contacto ya había escrito antes.
+  const clienteNuevo = existing === null;
 
   // T-23.5/T-24.4: un mensaje con imagen es un camino aparte, completamente
   // distinto del funnel de cita/pedido de texto. Dos sub-caminos según el
@@ -659,6 +672,10 @@ export async function handleIncoming(
 
   const { lead } = result;
   let { messages } = result;
+  // T-120: antes de los avisos de abajo, para que el de la dueña ya diga de
+  // qué anuncio vino. `createLead` lo pone en un lead nuevo; esto cubre al
+  // lead que ya existía y llega ahora desde un anuncio (solo si no tenía).
+  registrarOrigen(lead, message.origen);
 
   // T-20: si ESTE turno capturó una fecha nueva (cambió respecto a la que
   // tenía el lead antes de procesar el mensaje), resolverla a ISO real y
@@ -766,7 +783,7 @@ export async function handleIncoming(
       if (inventory) {
         const resultado = await inventory.decrementCart(
           negocioParaStock ?? config.slug,
-          lead.items!.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
+          cantidadesPorProducto(lead.items!),
         );
         if (!resultado.ok) {
           stockOk = false;
@@ -834,6 +851,17 @@ export async function handleIncoming(
     }
   }
 
+  // T-106: el cliente escribió, así que la cuenta de seguimientos vuelve a
+  // cero (máximo 2 por cada silencio suyo). Si pidió que no le escriban, no
+  // recibe más seguimientos automáticos.
+  if (lead.followUpsSent.length) lead.followUpsSent = [];
+  if (pideNoContactar(message.text)) lead.noContactar = true;
+
+  // T-121: el catálogo en PDF va al final, detrás del saludo o la respuesta,
+  // en los dos modos. Lo decide `mensajeCatalogo` (al saludar o si lo pidió).
+  const catalogo = mensajeCatalogo(config, message.from, message.text, clienteNuevo);
+  if (catalogo) messages.push(catalogo);
+
   await repo.save(lead);
 
   if (usedAgent) {
@@ -866,8 +894,8 @@ export async function handleIncoming(
   const enhanced: OutgoingMessage[] = [];
   for (const msg of messages) {
     // T-45: el pie de una imagen (el QR de pago) es fijo y corto; reformularlo
-    // gasta una llamada a la IA sin mejorar nada.
-    if (msg.imagenUrl) {
+    // gasta una llamada a la IA sin mejorar nada. Igual el del catálogo (T-121).
+    if (msg.imagenUrl || msg.documento) {
       enhanced.push(msg);
       continue;
     }
@@ -1014,6 +1042,8 @@ async function notifyOwner(
       ? `🔔 ${config.name}: pedido ${opciones.pedido ? `#${opciones.pedido.numero} ` : ""}nuevo, esperando su aprobación`
       : `🔔 ${config.name}: confirmación nueva`,
     `Cliente: ${lead.name ?? lead.contact}`,
+    // T-120: saber qué anuncio trajo el pedido le dice a la dueña cuál le rinde.
+    lead.origen ? `Llegó por: ${describirOrigen(lead.origen)}` : null,
     esPedido ? resumenCarrito(lead.items!, config.services, config, lead.entrega) : null,
     !esPedido && service
       ? `${config.pedidos?.enabled ? "Pedido" : "Servicio"}: ${service.name}`
@@ -1731,7 +1761,7 @@ export async function handleWompiWebhookEvent(
   if (inventory && itemsPedido.length > 0) {
     const resultado = await inventory.decrementCart(
       negocioParaStock ?? config.slug,
-      itemsPedido.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
+      cantidadesPorProducto(itemsPedido),
     );
     if (!resultado.ok) {
       const nombres = (resultado.faltantes ?? [])

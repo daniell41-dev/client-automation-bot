@@ -64,6 +64,10 @@ export interface AgentServiceSummary {
    * para no romper fixtures/tests de antes de T-21 que arman este objeto a mano.
    */
   modo?: ModoItem;
+  /** T-104: código del producto ("102"); el cliente puede pedirlo así. */
+  referencia?: string;
+  /** T-104: opciones del producto (tallas, colores…). La IA pregunta cuál y solo usa estas. */
+  variantes?: { nombre: string; opciones: string[] };
 }
 
 /** Lo que el motor ya sabe del cliente antes de este turno. */
@@ -94,7 +98,13 @@ export interface AgentLeadState {
    * (la IA no tiene que cruzar `servicioId` contra el catálogo ella misma).
    * Vacío/ausente si no hay ítems de pedido cargados todavía.
    */
-  items?: { servicioId: string; nombre: string; cantidad: number }[];
+  items?: { servicioId: string; nombre: string; cantidad: number; variante?: string; nota?: string }[];
+  /**
+   * T-120: de qué anuncio viene, ya en palabras ("anuncio «Jeans clásicos»").
+   * Es contexto para entender qué busca, no una instrucción: va en los datos
+   * del cliente, bajo las mismas reglas de seguridad que lo que él escribe.
+   */
+  origen?: string;
 }
 
 /** Contexto completo que necesita la IA para decidir un turno en modo agente. */
@@ -130,6 +140,11 @@ export interface AgentTurnInput {
   /** T-52: `costoDomicilio` para que la IA pueda contestar cuánto sale el domicilio. */
   pedidos?: { pregunta: string; opciones: string[]; costoDomicilio?: number };
   lead: AgentLeadState;
+  /**
+   * T-121: el negocio tiene catálogo en PDF. El sistema lo manda solo cuando
+   * el cliente lo pide; la IA tiene que saberlo para no decir que no hay.
+   */
+  tieneCatalogoPdf?: boolean;
   /** Historial reciente de la conversación. */
   history: ConversationTurn[];
   /** Mensaje actual del cliente. */

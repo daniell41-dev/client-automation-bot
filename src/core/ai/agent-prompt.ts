@@ -34,7 +34,13 @@ function buildCatalogBlock(input: AgentTurnInput): string {
       // los dos tipos (taller) necesita la señal por ítem, no por negocio.
       const camino =
         s.modo === "pedido" ? " [SE VENDE: pide cantidad, nunca fecha]" : " [SE AGENDA: pide fecha]";
-      return `- id="${s.id}" | ${s.name}${categoria}: ${s.description}. Precio: ${formatPrice(input, s.price)}.${duracion}${camino}`;
+      // T-104: la referencia permite reconocer "mándeme la 102"; las opciones
+      // son las ÚNICAS que la IA puede anotar (el motor descarta otras).
+      const ref = s.referencia ? ` Referencia: ${s.referencia}.` : "";
+      const opciones = s.variantes
+        ? ` ${s.variantes.nombre} (opciones): ${s.variantes.opciones.join(", ")}. [TIENE OPCIONES: pregunta cuál y manda "variante" en guardar_cantidad, una acción por cada opción]`
+        : "";
+      return `- id="${s.id}" | ${s.name}${categoria}: ${s.description}. Precio: ${formatPrice(input, s.price)}.${duracion}${ref}${opciones}${camino}`;
     })
     .join("\n");
 }
@@ -91,6 +97,16 @@ function buildKnowledgeBlock(input: AgentTurnInput): string {
  * IA como referencia para que no improvise cuando el negocio ya definió su
  * propia respuesta (p. ej. la política de envíos exacta).
  */
+/**
+ * T-121: el PDF lo manda el sistema detrás de la respuesta (ver
+ * `engine/catalogo-pdf.ts`). Sin este aviso la IA contestaba "no tenemos
+ * catálogo" justo antes de que llegara el archivo.
+ */
+function buildCatalogoPdfBlock(input: AgentTurnInput): string {
+  if (!input.tieneCatalogoPdf) return "";
+  return `\n\nEste negocio tiene su catálogo en PDF: si el cliente lo pide, el sistema se lo envía solo justo después de tu respuesta. Dile que ya se lo mandas; no escribas links ni digas que no hay catálogo.`;
+}
+
 function buildReglasBlock(input: AgentTurnInput): string {
   if (!input.reglas?.length) return "";
   const lineas = input.reglas
@@ -102,7 +118,8 @@ function buildReglasBlock(input: AgentTurnInput): string {
 /** Carrito del pedido en curso (T-21), como texto legible para el prompt ("2x Harina 1 Kg, 1x Aceite 1 Lt — Total: $22.000"). */
 function buildCarritoTexto(input: AgentTurnInput): string | null {
   if (!input.lead.items?.length) return null;
-  const lineas = input.lead.items.map((i) => `${i.cantidad}x ${i.nombre}`).join(", ");
+  // T-105: con la nota, la IA sabe qué cambios ya están anotados y manda la nota completa al sumar otro.
+  const lineas = input.lead.items.map((i) => `${i.cantidad}x ${i.nombre}${i.nota ? ` (${i.nota})` : ""}`).join(", ");
   const total = input.lead.items.reduce((sum, item) => {
     const service = input.services.find((s) => s.id === item.servicioId);
     return service ? sum + service.price * item.cantidad : sum;
@@ -118,6 +135,10 @@ function buildDatosConocidos(input: AgentTurnInput): string {
     input.lead.entrega ? `modalidad de entrega: ${input.lead.entrega}` : null,
     input.lead.direccion ? `dirección de entrega: ${input.lead.direccion}` : null,
     buildCarritoTexto(input),
+    // T-120: le dice a la IA qué vio el cliente antes de escribir ("¿tienen
+    // la 32?" se entiende si sabe que viene del anuncio de jeans). Va acá,
+    // entre los datos, y no como una regla: el texto del anuncio no manda.
+    input.lead.origen ? `llegó por: ${input.lead.origen}` : null,
   ].filter((p): p is string => p !== null);
   return partes.length > 0 ? partes.join(", ") : "ninguno todavía";
 }
@@ -201,7 +222,7 @@ ${REGLAS_SEGURIDAD}
 Sé breve: máximo 2 o 3 frases, con tono de mensaje de WhatsApp real, no de folleto. Sin markdown ni listas largas, salvo que el cliente pida el menú completo.
 
 Catálogo de servicios (los ÚNICOS que existen — nunca inventes otro, otro precio ni otra duración):
-${buildCatalogBlock(input)}${buildHorariosBlock(input)}${buildPedidosBlock(input)}${buildKnowledgeBlock(input)}${buildReglasBlock(input)}
+${buildCatalogBlock(input)}${buildHorariosBlock(input)}${buildPedidosBlock(input)}${buildKnowledgeBlock(input)}${buildReglasBlock(input)}${buildCatalogoPdfBlock(input)}
 
 Datos que ya tienes de este cliente: ${buildDatosConocidos(input)}.${buildConfirmadoBlock(input)}${buildEsperandoAprobacionBlock(input)}${buildOffTopicNote(input)}
 
@@ -211,8 +232,9 @@ Acciones disponibles (declara las que correspondan a este turno, pueden ser vari
 - {"tipo": "guardar_fecha", "fecha": "<texto de la fecha>"}: el cliente dio una fecha/hora real (no una pregunta). Solo para ítems marcados [SE AGENDA] — un ítem [SE VENDE] nunca necesita fecha.
 - {"tipo": "guardar_modalidad", "modalidad": "<opción exacta>"}: SOLO si este negocio pregunta modalidad de entrega (ver arriba) — usa el texto EXACTO de una de sus opciones.
 - {"tipo": "guardar_direccion", "direccion": "<dirección>"}: la dirección de entrega que dio el cliente, SOLO si eligió entrega a domicilio. Cópiala tal cual la escribió.
-- {"tipo": "guardar_cantidad", "servicioId": "<id>", "cantidad": <número>}: la cantidad TOTAL que el cliente quiere de ese producto (reemplaza la anterior: si tenía 1 y pide "otra más", envía 2) — el cliente dijo cuánto quiere de un ítem [SE VENDE] ("2 harinas", "una no más"). Usa el id EXACTO del catálogo y la cantidad como número. Si en el mismo pedido pide VARIOS productos distintos, declara una acción "guardar_cantidad" por cada uno.
-- {"tipo": "quitar_producto", "servicioId": "<id>"}: el cliente ya no quiere un producto que está en el carrito ("quite la bandeja", "solo quiero la limonada"). Mira el "carrito" en los datos que ya tienes: si el cliente dice que pidió SOLO algo, quita todo lo demás.
+- {"tipo": "guardar_cantidad", "servicioId": "<id>", "cantidad": <número>}: la cantidad TOTAL que el cliente quiere de ese producto (reemplaza la anterior: si tenía 1 y pide "otra más", envía 2) — el cliente dijo cuánto quiere de un ítem [SE VENDE] ("2 harinas", "una no más"). Usa el id EXACTO del catálogo y la cantidad como número. Si en el mismo pedido pide VARIOS productos distintos, declara una acción "guardar_cantidad" por cada uno. Si el producto dice [TIENE OPCIONES] (por ejemplo tallas), agrega "variante": "<opción exacta de la lista>" y declara una acción por cada opción ("6 de la 30 y 6 de la 32" son dos acciones con "variante": "30" y "variante": "32"); si el cliente no dijo cuál, pregúntale y no la inventes.
+- {"tipo": "anotar_cambio", "servicioId": "<id>", "nota": "<cambio>"} (opcional "variante"): el cliente quiere un producto del carrito con un cambio ("sin arroz", "sin salsa", "la carne bien asada"). "nota" es la indicación COMPLETA para ese producto: si ya tenía una, júntalas ("sin arroz, sin ensalada"). Escribe solo lo que pidió el cliente, corto y sin precios. Si pide AGREGAR algo ("doble queso", "extra papas"), anótalo igual y no le digas un precio: el negocio confirma si tiene costo. Si el producto todavía no está en el carrito, declara también su "guardar_cantidad".
+- {"tipo": "quitar_producto", "servicioId": "<id>"} (opcional "variante": "<opción>" para quitar solo esa talla/opción): el cliente ya no quiere un producto que está en el carrito ("quite la bandeja", "solo quiero la limonada"). Mira el "carrito" en los datos que ya tienes: si el cliente dice que pidió SOLO algo, quita todo lo demás.
 - {"tipo": "confirmar"}: para un ítem [SE AGENDA], SOLO cuando ya tengas nombre + servicio + fecha (+ modalidad, si este negocio la usa) — tu respuesta puede decir que quedó confirmado/agendado. Para un ítem [SE VENDE], SOLO cuando tengas nombre + al menos un producto cargado (ver "carrito" en los datos que ya tienes) + la modalidad si este negocio la usa + la dirección si es a domicilio, y el cliente haya respondido "sí" al resumen con el total que le mostró el sistema. El resumen (productos, total, entrega y dirección) lo agrega el sistema solo cuando están todos los datos: tú no lo escribas ni inventes totales. NUNCA digas que el pedido ya se le pasó a la dueña, que quedó registrado ni que está confirmado: eso lo informa el sistema cuando de verdad pasa. Si falta algo, pídelo en tu respuesta y NO declares esta acción.
 - {"tipo": "fuera_de_contexto"}: el mensaje no tiene NADA que ver con este negocio (política, deportes, chistes, otro tema totalmente ajeno). Responde breve y amablemente, y redirige hacia el negocio.
 - {"tipo": "reiniciar"}: el cliente dice que los datos que tenemos están MAL o quiere empezar de cero ("yo no pedí nada", "ese no es mi nombre", "cambié de idea", "empecemos de nuevo", "cancele todo"). Borra todo lo capturado. Es tu ÚNICA forma de corregir un dato viejo o equivocado: las demás acciones solo agregan, no borran. Si sospechas que un dato guardado no corresponde a esta conversación, usa esta acción en vez de seguir adelante con él.

@@ -18,8 +18,14 @@ const nextConfig: NextConfig = {
       // T-45: el QR de pago se sube por Server Action. El default (1 MB) deja
       // afuera muchas capturas de pantalla de celular; el bucket corta en 2 MB
       // y el resto es margen para el multipart.
-      bodySizeLimit: "3mb",
+      // T-121: el catálogo en PDF también, hasta 10 MB (tope del bucket
+      // `catalogos`, migración 0031) más el margen del multipart.
+      bodySizeLimit: "11mb",
     },
+    // T-121: `src/proxy.ts` corre sobre /portal y Next guarda el body en
+    // memoria hasta 10 MB por defecto; un PDF de 10 MB más el multipart lo
+    // pasa y llegaría cortado a la Server Action.
+    proxyClientMaxBodySize: "11mb",
   },
 };
 

@@ -167,6 +167,32 @@ export function buildSendRequest(
 ): SendRequest {
   const version = opts.apiVersion ?? "v21.0";
   const url = `https://graph.facebook.com/${version}/${opts.phoneNumberId}/messages`;
+  // T-121: igual que la imagen, Meta descarga el PDF desde el link (bucket
+  // `catalogos` público). Sin `filename`, el cliente vería un nombre genérico
+  // en vez de "Catálogo Jeans 2026.pdf".
+  if (message.documento) {
+    return {
+      url,
+      init: {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${opts.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: message.to,
+          type: "document",
+          document: {
+            link: message.documento.url,
+            filename: message.documento.nombreArchivo,
+            ...(message.text && { caption: message.text.slice(0, MAX_CUERPO_INTERACTIVO) }),
+          },
+        }),
+      },
+    };
+  }
   // T-45: Meta descarga la imagen desde el link (por eso el bucket del QR es
   // público) y muestra `text` como pie de foto, que admite hasta 1024 caracteres.
   if (message.imagenUrl) {

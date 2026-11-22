@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { cantidadPegadaAlProducto, inventaDatosDePago, pideCorregirOEmpezar, runAgentTurn } from "@/core/ai/agent";
 import type { AgentResponse } from "@/core/ai/agent-schema";
-import type { ILLMProvider } from "@/core/ai/provider";
+import type { AgentTurnInput, ILLMProvider } from "@/core/ai/provider";
 import type { BusinessConfig, IncomingMessage, Lead, PersonaConfig } from "@/core/types";
 
 const config: BusinessConfig = {
@@ -1297,5 +1297,49 @@ describe("pideCorregirOEmpezar — casos límite (T-62)", () => {
   it("cerrar el carrito ('no, eso es todo') no es reiniciar", () => {
     expect(pideCorregirOEmpezar("no, eso es todo")).toBe(false);
     expect(pideCorregirOEmpezar("no quiero nada más")).toBe(false);
+  });
+});
+
+// T-120: la IA sabe de qué anuncio viene el cliente desde su primer mensaje.
+describe("runAgentTurn — origen del anuncio (T-120)", () => {
+  function llmQueGuarda(): ILLMProvider & { visto: AgentTurnInput[] } {
+    const visto: AgentTurnInput[] = [];
+    return {
+      visto,
+      async enhance(ctx) {
+        return ctx.draftResponse;
+      },
+      async extractDateTime() {
+        return null;
+      },
+      async interpret() {
+        return null;
+      },
+      async runAgent(input: AgentTurnInput): Promise<AgentResponse | null> {
+        visto.push(input);
+        return { respuesta: "¡Hola! Sí, tenemos.", acciones: [] };
+      },
+    };
+  }
+
+  it("el primer mensaje desde un anuncio llega al agente y queda en el lead", async () => {
+    const llm = llmQueGuarda();
+    const result = await runAgentTurn(
+      null,
+      { ...msg("¿Tienen la 32?"), origen: { tipo: "anuncio", titulo: "Jeans clásicos desde $35.000" } },
+      config,
+      llm,
+      persona,
+      [],
+      now,
+    );
+    expect(llm.visto[0].lead.origen).toBe("anuncio «Jeans clásicos desde $35.000»");
+    expect(result!.lead.origen?.titulo).toBe("Jeans clásicos desde $35.000");
+  });
+
+  it("sin anuncio, el agente no recibe origen", async () => {
+    const llm = llmQueGuarda();
+    await runAgentTurn(null, msg("Hola"), config, llm, persona, [], now);
+    expect(llm.visto[0].lead.origen).toBeUndefined();
   });
 });

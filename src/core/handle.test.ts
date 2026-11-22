@@ -3058,3 +3058,83 @@ describe("pagó de menos: pedir el resto (T-66)", () => {
     expect(ownerReply.text).not.toContain("devolvérselos");
   });
 });
+
+// T-120: el anuncio que trajo al cliente.
+describe("handleIncoming — origen del anuncio (T-120)", () => {
+  const anuncio = { tipo: "anuncio" as const, id: "A1", titulo: "Limpieza facial 2x1" };
+
+  it("lo guarda en el lead la primera vez y no lo pisa otro anuncio", async () => {
+    const repo = new InMemoryRepo();
+    await handleIncoming({ ...msg("hola"), origen: anuncio }, config, repo, new Date(), fakeLLM());
+    expect(repo.leads[0].origen).toEqual(anuncio);
+
+    await handleIncoming(
+      { ...msg("limpieza facial"), origen: { tipo: "anuncio", id: "B2", titulo: "Otro" } },
+      config,
+      repo,
+      new Date(),
+      fakeLLM(),
+    );
+    await handleIncoming(msg("Laura"), config, repo, new Date(), fakeLLM());
+    expect(repo.leads[0].origen).toEqual(anuncio);
+  });
+
+  it("un lead que ya existía sin origen lo toma cuando llega desde un anuncio", async () => {
+    const repo = new InMemoryRepo();
+    await handleIncoming(msg("hola"), config, repo, new Date(), fakeLLM());
+    expect(repo.leads[0].origen).toBeUndefined();
+
+    await handleIncoming({ ...msg("limpieza facial"), origen: anuncio }, config, repo, new Date(), fakeLLM());
+    expect(repo.leads[0].origen).toEqual(anuncio);
+  });
+
+  it("el aviso a la dueña dice por qué anuncio llegó", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+    await handleIncoming({ ...msg("limpieza facial"), origen: anuncio }, configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("Laura"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("mañana a las 3"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("sí"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+
+    expect(notifier.sent).toHaveLength(1);
+    expect(notifier.sent[0].text).toContain("Llegó por: anuncio «Limpieza facial 2x1»");
+  });
+
+  it("sin anuncio, el aviso no trae la línea", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+    for (const t of ["limpieza facial", "Laura", "mañana a las 3", "sí"]) {
+      await handleIncoming(msg(t), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    }
+    expect(notifier.sent[0].text).not.toContain("Llegó por");
+  });
+});
+
+// T-121: catálogo en PDF.
+describe("handleIncoming — catálogo en PDF (T-121)", () => {
+  const URL_PDF = "https://x.supabase.co/storage/v1/object/public/catalogos/n/catalogo-1.pdf";
+  const conCatalogo = (enviarAlSaludar: boolean): BusinessConfig => ({
+    ...config,
+    catalogoPdf: { url: URL_PDF, nombreArchivo: "Catálogo 2026.pdf", enviarAlSaludar },
+  });
+
+  it("con el interruptor prendido, el primer mensaje recibe el saludo y después el PDF", async () => {
+    const repo = new InMemoryRepo();
+    const { messages } = await handleIncoming(msg("hola"), conCatalogo(true), repo, new Date(), fakeLLM());
+    expect(messages.length).toBeGreaterThan(1);
+    expect(messages[0].documento).toBeUndefined();
+    expect(messages.at(-1)?.documento).toEqual({ url: URL_PDF, nombreArchivo: "Catálogo 2026.pdf" });
+
+    const segundo = await handleIncoming(msg("limpieza facial"), conCatalogo(true), repo, new Date(), fakeLLM());
+    expect(segundo.messages.some((m) => m.documento)).toBe(false);
+  });
+
+  it("con el interruptor apagado no sale al saludar, pero sí cuando lo piden", async () => {
+    const repo = new InMemoryRepo();
+    const primero = await handleIncoming(msg("hola"), conCatalogo(false), repo, new Date(), fakeLLM());
+    expect(primero.messages.some((m) => m.documento)).toBe(false);
+
+    const pedido = await handleIncoming(msg("me mandas el catálogo?"), conCatalogo(false), repo, new Date(), fakeLLM());
+    expect(pedido.messages.at(-1)?.documento?.url).toBe(URL_PDF);
+  });
+});

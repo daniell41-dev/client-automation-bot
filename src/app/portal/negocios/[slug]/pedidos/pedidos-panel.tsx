@@ -136,6 +136,7 @@ function TarjetaPedido({
   columna,
   señales,
   foto,
+  origen,
   moneda,
   locale,
 }: {
@@ -144,6 +145,8 @@ function TarjetaPedido({
   columna: ColumnaPanel;
   señales: { detalle: string; nivel: string }[];
   foto?: string;
+  /** T-120: "anuncio «…»" si el cliente llegó desde uno. */
+  origen?: string;
   moneda: string;
   locale: string;
 }) {
@@ -159,11 +162,15 @@ function TarjetaPedido({
 
       <ul className="mt-2 space-y-0.5 text-sm text-ink">
         {pedido.items.map((item) => (
-          <li key={item.serviceId}>
+          <li key={`${item.serviceId}-${item.variante ?? ""}`}>
             {item.cantidad}x {item.nombre}
+            {/* T-105: lo que el cliente pidió cambiar, resaltado para quien prepara. */}
+            {item.nota && <span className="ml-1 font-semibold text-warn-ink">({item.nota})</span>}
           </li>
         ))}
       </ul>
+
+      {origen && <p className="mt-2 text-xs text-ink-mid">📣 Llegó por: {origen}</p>}
 
       {(pedido.modalidad || pedido.direccion) && (
         <p className="mt-2 text-xs text-ink-mid">
@@ -210,6 +217,7 @@ export function PedidosPanel({
   devoluciones,
   señales,
   fotos,
+  origenes,
   moneda,
   locale,
 }: {
@@ -220,6 +228,8 @@ export function PedidosPanel({
   señales: SeñalesPorPedido;
   /** T-38b: URL firmada de la foto del comprobante, por id de pedido. */
   fotos: Record<string, string>;
+  /** T-120: de qué anuncio vino cada pedido, por id de pedido. */
+  origenes: Record<string, string>;
   moneda: string;
   locale: string;
 }) {
@@ -265,6 +275,7 @@ export function PedidosPanel({
                     columna={columna.id}
                     señales={señales[pedido.id] ?? []}
                     foto={fotos[pedido.id]}
+                    origen={origenes[pedido.id]}
                     moneda={moneda}
                     locale={locale}
                   />

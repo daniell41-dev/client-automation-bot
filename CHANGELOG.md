@@ -6,6 +6,19 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.3.0] — 2026-11-22
+
+### Nuevo
+- Seguimiento automático de pedidos a medias (T-106): si un cliente deja un pedido sin cerrar, el bot le escribe para retomarlo a las 2 horas y, si sigue sin responder, al día siguiente. Nunca más de dos veces por silencio, solo en el horario del negocio (o de 8 a. m. a 8 p. m.), solo dentro de las 24 h gratis de WhatsApp y nunca a quien pidió "no me escriban". Se enciende en Configuración, con los dos mensajes editables. Necesita la migración `0027` y un cron en el VPS (`docs/19-vps.md`).
+- Cambios a un producto (T-105): el cliente puede pedir "sin arroz" o "sin salsa" y el bot lo anota en esa línea del pedido; la dueña lo ve en el resumen, en el aviso y resaltado en el panel. No cambia el precio. Si pide agregar algo ("doble queso"), se anota y se le avisa que el negocio confirma si tiene costo. Se puede apagar en Configuración → "Aceptar cambios en los productos".
+- Referencias y tallas en los productos (T-104): en el catálogo cada producto puede tener una referencia ("102") y opciones con el nombre que elija el negocio (tallas, colores, tamaños). El bot pregunta la talla antes de cerrar el pedido, entiende "6 de la 30 y 6 de la 32", no acepta una talla que no existe y reconoce "mándeme la 102". La talla aparece en el resumen, en el aviso a la dueña y en el panel de pedidos; el inventario suma las tallas del mismo producto.
+- Catálogo en PDF (T-121): en Configuración la dueña sube el PDF de su catálogo (hasta 10 MB), elige el nombre que ve el cliente y si se envía al saludar. El bot lo manda por WhatsApp como documento al saludar (si está activado) o cuando el cliente pide "el catálogo". El PDF queda público. Requiere la migración `0031_catalogos_pdf.sql`.
+- De qué anuncio viene cada cliente (T-120): cuando alguien escribe desde un anuncio o publicación de Facebook/Instagram (Click-to-WhatsApp), el bot lo guarda en el lead la primera vez, la IA lo tiene como contexto, el aviso a la dueña y el panel de pedidos dicen "Llegó por: anuncio «…»" y el Inicio del portal cuenta clientes por anuncio. Requiere la migración `0030_leads_origen.sql`.
+- Respaldo diario de la base desde el VPS (T-101): `deploy/respaldo-db.sh` saca una copia con `pg_dump` cada noche y guarda las últimas 14. El despliegue copia el script; la configuración (una sola vez) está en `docs/19-vps.md`.
+
+### Arreglos
+- `/api/health` responde 503 si en producción faltan las variables de Supabase (T-100): antes respondía 200 con "sin configurar" mientras la app guardaba en un archivo que se borra en cada despliegue, y el monitor no avisaba.
+
 ## [1.2.0] — 2026-11-18
 
 ### Seguridad
