@@ -344,31 +344,51 @@ export function CatalogoEditor({
                   }
                   placeholder="Ej. 102"
                 />
+                <p className="mt-1 text-xs text-ink-mid">El código con el que sus clientes piden el producto.</p>
                 {fieldErrors.referencia && (
                   <p className="mt-1 text-xs text-warn-ink">{fieldErrors.referencia}</p>
                 )}
               </div>
-              <div>
-                <label className={labelCls}>Opciones (opcional)</label>
-                <div className="flex gap-2">
-                  <input
-                    className={`${inputCls} w-28 shrink-0`}
-                    value={textoVariantes(selected.id).nombre}
-                    onChange={(e) => editarVariantes(selected.id, { nombre: e.target.value })}
-                    placeholder="Talla"
-                    aria-label="Nombre de las opciones"
-                  />
-                  <input
-                    className={inputCls}
-                    value={textoVariantes(selected.id).opciones}
-                    onChange={(e) => editarVariantes(selected.id, { opciones: e.target.value })}
-                    placeholder="28, 30, 32, 34"
-                    aria-label="Opciones separadas por coma"
-                  />
-                </div>
-                <p className="mt-1 text-xs text-ink-mid">
-                  Separadas por coma. El bot pregunta cuál quiere el cliente antes de cerrar el pedido.
+              {/* T-107: antes eran dos campos pegados en una fila, y con el ancho de
+                  la columna el de las opciones quedaba como un cuadrito donde no se
+                  veía lo escrito. Ahora es un bloque a lo ancho, cada campo con su
+                  etiqueta, y abajo la pregunta que va a hacer el bot: así se
+                  entiende para qué sirve sin explicarlo. */}
+              <div className="sm:col-span-2 rounded-xl border border-line p-3">
+                <p className="text-sm font-semibold text-ink">Tallas, colores u otras opciones (opcional)</p>
+                <p className="mb-3 text-xs text-ink-mid">
+                  Si el producto viene en varias opciones, el bot le pregunta al cliente cuál quiere antes de cerrar el pedido.
                 </p>
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+                  <div>
+                    <label className={labelCls} htmlFor="variantes-nombre">¿Qué elige el cliente?</label>
+                    <input
+                      id="variantes-nombre"
+                      className={inputCls}
+                      value={textoVariantes(selected.id).nombre}
+                      onChange={(e) => editarVariantes(selected.id, { nombre: e.target.value })}
+                      placeholder="Talla"
+                    />
+                    <p className="mt-1 text-xs text-ink-mid">Ej.: Talla, Color, Tamaño.</p>
+                  </div>
+                  <div>
+                    <label className={labelCls} htmlFor="variantes-opciones">Opciones disponibles</label>
+                    <input
+                      id="variantes-opciones"
+                      className={inputCls}
+                      value={textoVariantes(selected.id).opciones}
+                      onChange={(e) => editarVariantes(selected.id, { opciones: e.target.value })}
+                      placeholder="28, 30, 32, 34"
+                    />
+                    <p className="mt-1 text-xs text-ink-mid">Separadas por coma.</p>
+                  </div>
+                </div>
+                {selected.variantes && (
+                  <p className="mt-3 rounded-lg bg-primary-tint px-3 py-2 text-xs text-ink">
+                    El bot preguntará: «¿En qué {selected.variantes.nombre.toLowerCase()} lo quiere? Tenemos:{" "}
+                    {selected.variantes.opciones.join(", ")}».
+                  </p>
+                )}
                 {fieldErrors.variantes && (
                   <p className="mt-1 text-xs text-warn-ink">{fieldErrors.variantes}</p>
                 )}

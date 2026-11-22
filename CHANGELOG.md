@@ -6,6 +6,11 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.3.1] — 2026-11-22
+
+### Arreglos
+- Menú/Catálogo del portal (T-107): el bloque de tallas u opciones de un producto se veía mal (el campo de las opciones quedaba como un cuadrito donde no se leía lo escrito). Ahora es un bloque a lo ancho con "¿Qué elige el cliente?" y "Opciones disponibles", y muestra la pregunta que va a hacer el bot.
+
 ## [1.3.0] — 2026-11-22
 
 ### Nuevo
