@@ -6,6 +6,14 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.4.0] — 2026-11-22
+
+### Nuevo
+- Comentario → DM en el Instagram de Aurela (T-108): quien comenta ALMUERZO o CITA en un Reel recibe un DM con el enlace a soyaurela.com y una respuesta pública "¡Le escribí por DM!". Un DM por persona cada 24 h, nunca a la propia cuenta ni dentro de hilos. Webhook nuevo `/api/webhook/instagram` con firma obligatoria. Configuración en `docs/21-instagram.md`.
+
+### Arreglos
+- Manito al pasar el mouse (T-122): botones, interruptores, casillas, selectores y el botón de subir archivo muestran la mano en vez de la flecha, para que se note qué se puede tocar; lo deshabilitado muestra que no se puede usar.
+
 ## [1.3.1] — 2026-11-22
 
 ### Arreglos

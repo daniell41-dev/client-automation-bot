@@ -562,3 +562,32 @@ body {
 .prosa-legal table { margin-top: 12px; width: 100%; border-collapse: collapse; font-size: 14px; }
 .prosa-legal th, .prosa-legal td { border-bottom: 1px solid var(--color-line); padding: 8px 10px 8px 0; text-align: left; vertical-align: top; }
 .prosa-legal th { font-weight: 700; }
+
+/* ─── T-122: manito en todo lo que se puede tocar ────────────────────────── */
+/* Tailwind v4 dejó los botones con la flecha normal (su preflight ya no les
+   pone `cursor: pointer`), así que en el portal nada parecía clicable. Se
+   pone una sola vez acá, en vez de agregar `cursor-pointer` a cada botón y
+   que el próximo que se cree se lo olvide. Los links ya la tienen por el
+   navegador. Lo deshabilitado muestra que no se puede usar. */
+@layer base {
+  button,
+  [role="button"],
+  select,
+  summary,
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"],
+  input[type="submit"],
+  input[type="button"],
+  input[type="reset"],
+  label:has(> input[type="checkbox"], > input[type="radio"], > input[type="file"]) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  input:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
