@@ -60,6 +60,8 @@ const MARCAS_INTERNAS = [
   /\bsystem prompt\b/i,
   /\binstrucciones del sistema\b/i,
   /los [ÚU]NICOS que existen/,
+  // T-104: marca de los productos con tallas/opciones en el catálogo del prompt.
+  /\[TIENE OPCIONES/i,
 ];
 
 function normalizar(texto: string): string {

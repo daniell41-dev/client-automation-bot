@@ -37,9 +37,12 @@ export interface Devolucion {
  */
 export interface ItemPedido {
   serviceId: string;
+  /** Con la talla incluida (T-104): "Jean clásico Ref 102 · Talla 30". */
   nombre: string;
   cantidad: number;
   precioUnitario: number;
+  /** T-104: la opción elegida (talla, color…), si el producto tiene. */
+  variante?: string;
 }
 
 export interface NuevoPedido {
