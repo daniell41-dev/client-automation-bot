@@ -104,6 +104,7 @@ const aiSchema = z.object({
   reglas: z.array(quickRuleSchema).optional(),
   botonesMenu: z.array(z.string()).optional(),
   derivarHumano: z.boolean().optional(),
+  cambiosEnProductos: z.boolean().optional(),
 });
 
 const HORA_RE = /^([01]\d|2[0-3]):[0-5]\d$/;

@@ -70,6 +70,11 @@ export interface CartItem {
    * Ausente en un producto sin variantes, o mientras el cliente no la dijo.
    */
   variante?: string;
+  /**
+   * T-105: lo que el cliente pidió cambiar de ESTA línea ("sin arroz, sin
+   * ensalada"). Es una indicación para quien prepara: no cambia el precio.
+   */
+  nota?: string;
 }
 
 /**
@@ -190,6 +195,12 @@ export interface BotAIConfig {
   botonesMenu?: string[];
   /** Si el bot no entiende, ¿derivar a una persona? */
   derivarHumano?: boolean;
+  /**
+   * T-105: si el cliente puede pedir cambios a un producto ("sin arroz", "sin
+   * salsa"). Default `true`: es lo que pasa en el mostrador de cualquier
+   * negocio. Apagado, el bot dice que los productos van como están.
+   */
+  cambiosEnProductos?: boolean;
 }
 
 /**

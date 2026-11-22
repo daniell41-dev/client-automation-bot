@@ -652,6 +652,21 @@ export function ConfiguracionEditor({
               Con esto el bot responde preguntas que no están en el catálogo (medios
               de pago, horarios especiales, etc.).
             </p>
+            {/* T-105: "sin arroz, sin salsa". Encendido por defecto (undefined = sí). */}
+            <div className="mt-4 flex items-start justify-between gap-3">
+              <span>
+                <span className="block text-sm font-semibold text-ink">Aceptar cambios en los productos</span>
+                <span className="block text-xs text-ink-soft">
+                  El cliente puede pedir “sin arroz” o “sin salsa”: el bot lo anota en el pedido y usted lo
+                  ve en el aviso y en el panel. No cambia el precio.
+                </span>
+              </span>
+              <Toggle
+                checked={ai.cambiosEnProductos !== false}
+                onChange={(next) => setAi((prev) => ({ ...prev, cambiosEnProductos: next }))}
+                label="Aceptar cambios en los productos"
+              />
+            </div>
           </div>
         </div>
       </Card>

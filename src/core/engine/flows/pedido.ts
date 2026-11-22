@@ -55,10 +55,16 @@ export function fijarCantidad(
   variante?: string,
 ): CartItem[] {
   let actuales = items ?? [];
+  // T-105: la nota de la línea que esperaba talla ("sin bolsillo") pasa a la
+  // línea con talla; si no, el cambio que pidió el cliente se perdería.
+  const notaPendiente =
+    variante !== undefined ? actuales.find((i) => mismaLinea(i, serviceId, undefined))?.nota : undefined;
   if (variante !== undefined) actuales = actuales.filter((i) => !mismaLinea(i, serviceId, undefined));
-  return actuales.some((i) => mismaLinea(i, serviceId, variante))
-    ? actuales.map((i) => (mismaLinea(i, serviceId, variante) ? { ...i, cantidad } : i))
-    : [...actuales, linea(serviceId, cantidad, variante)];
+  if (actuales.some((i) => mismaLinea(i, serviceId, variante))) {
+    return actuales.map((i) => (mismaLinea(i, serviceId, variante) ? { ...i, cantidad } : i));
+  }
+  const nueva = linea(serviceId, cantidad, variante);
+  return [...actuales, notaPendiente ? { ...nueva, nota: notaPendiente } : nueva];
 }
 
 /**
@@ -79,6 +85,54 @@ export function agregarAlCarrito(
     );
   }
   return [...actuales, linea(serviceId, cantidad, variante)];
+}
+
+/** Largo máximo de una nota (T-105): lo justo para "sin arroz, sin ensalada y la carne bien asada". */
+export const MAX_NOTA = 140;
+
+/**
+ * T-105: deja la nota lista para guardar: sin espacios de más, sin un
+ * "nota:" adelante y con un largo razonable. Vacía → `undefined`.
+ */
+export function limpiarNota(texto: string): string | undefined {
+  const limpia = texto
+    .replace(/\s+/g, " ")
+    .replace(/^\s*(nota|cambio|observaci[oó]n)\s*:\s*/i, "")
+    .trim()
+    .slice(0, MAX_NOTA)
+    .trim();
+  return limpia || undefined;
+}
+
+/**
+ * T-105: pone (o reemplaza) la nota de un producto del carrito. Con
+ * `variante`, solo en esa línea; sin ella, en todas las del producto (un
+ * plato sin opciones tiene una sola). La nota nueva reemplaza la anterior:
+ * la IA manda la indicación completa, igual que la cantidad en `fijarCantidad`.
+ */
+export function anotarCambio(
+  items: CartItem[] | undefined,
+  serviceId: string,
+  nota: string | undefined,
+  variante?: string,
+): CartItem[] {
+  return (items ?? []).map((i) => {
+    const corresponde = i.serviceId === serviceId && (variante === undefined || i.variante === variante);
+    if (!corresponde) return i;
+    const actualizado: CartItem = { ...i, nota };
+    if (!nota) delete actualizado.nota;
+    return actualizado;
+  });
+}
+
+/**
+ * T-105: ¿la nota AGREGA algo ("doble queso", "extra papas")? Quitar no
+ * cuesta; agregar puede costar, y eso no lo cobra el bot solo: se anota y se
+ * le avisa al cliente que el negocio lo confirma.
+ */
+export function esAgregado(nota: string): boolean {
+  const t = sinTildes(nota);
+  return /\b(extra|doble|adicional|agreg\w*|anad\w*|con mas|mas de|aparte)\b/.test(t);
 }
 
 /** T-104: saca una variante del producto ("quite la talla 30"), o el producto entero si no se dice cuál. */
@@ -172,7 +226,10 @@ export function resumenCarrito(
     .map((item) => {
       const service = services.find((s) => s.id === item.serviceId);
       if (!service) return null;
-      return `${item.cantidad}x ${nombreItem(service, item.variante)} — ${formatPrice(config, service.price * item.cantidad)}`;
+      // T-105: la nota va entre paréntesis en la misma línea, para que la
+      // dueña la vea junto al producto que tiene que preparar distinto.
+      const nota = item.nota ? ` (${item.nota})` : "";
+      return `${item.cantidad}x ${nombreItem(service, item.variante)}${nota} — ${formatPrice(config, service.price * item.cantidad)}`;
     })
     .filter((l): l is string => l !== null);
   const domicilio = costoEntrega(config, entrega);
