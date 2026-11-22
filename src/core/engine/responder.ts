@@ -119,6 +119,9 @@ export function createLead(message: IncomingMessage, now: Date): Lead {
     updatedAt: iso,
     lastInboundAt: message.timestamp,
     followUpsSent: [],
+    // T-120: acá se guarda casi siempre — el `referral` viene en el mensaje
+    // que abre el chat desde el anuncio, que es el que crea el lead.
+    ...(message.origen && { origen: message.origen }),
   };
 }
 

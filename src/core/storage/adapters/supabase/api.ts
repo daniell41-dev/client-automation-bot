@@ -36,6 +36,8 @@ export interface LeadRow {
   /** T-36 (migración 0017): modalidad elegida y dirección de entrega. */
   entrega?: string | null;
   direccion?: string | null;
+  /** T-120 (migración 0030): anuncio que trajo al cliente. Ver `Lead.origen`. */
+  origen?: unknown;
   /**
    * FK de conveniencia a `negocios.id` (T-08): `business_slug` sigue siendo
    * lo que usan el motor y las políticas de RLS. `null`/ausente cuando el

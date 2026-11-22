@@ -3058,3 +3058,54 @@ describe("pagó de menos: pedir el resto (T-66)", () => {
     expect(ownerReply.text).not.toContain("devolvérselos");
   });
 });
+
+// T-120: el anuncio que trajo al cliente.
+describe("handleIncoming — origen del anuncio (T-120)", () => {
+  const anuncio = { tipo: "anuncio" as const, id: "A1", titulo: "Limpieza facial 2x1" };
+
+  it("lo guarda en el lead la primera vez y no lo pisa otro anuncio", async () => {
+    const repo = new InMemoryRepo();
+    await handleIncoming({ ...msg("hola"), origen: anuncio }, config, repo, new Date(), fakeLLM());
+    expect(repo.leads[0].origen).toEqual(anuncio);
+
+    await handleIncoming(
+      { ...msg("limpieza facial"), origen: { tipo: "anuncio", id: "B2", titulo: "Otro" } },
+      config,
+      repo,
+      new Date(),
+      fakeLLM(),
+    );
+    await handleIncoming(msg("Laura"), config, repo, new Date(), fakeLLM());
+    expect(repo.leads[0].origen).toEqual(anuncio);
+  });
+
+  it("un lead que ya existía sin origen lo toma cuando llega desde un anuncio", async () => {
+    const repo = new InMemoryRepo();
+    await handleIncoming(msg("hola"), config, repo, new Date(), fakeLLM());
+    expect(repo.leads[0].origen).toBeUndefined();
+
+    await handleIncoming({ ...msg("limpieza facial"), origen: anuncio }, config, repo, new Date(), fakeLLM());
+    expect(repo.leads[0].origen).toEqual(anuncio);
+  });
+
+  it("el aviso a la dueña dice por qué anuncio llegó", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+    await handleIncoming({ ...msg("limpieza facial"), origen: anuncio }, configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("Laura"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("mañana a las 3"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    await handleIncoming(msg("sí"), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+
+    expect(notifier.sent).toHaveLength(1);
+    expect(notifier.sent[0].text).toContain("Llegó por: anuncio «Limpieza facial 2x1»");
+  });
+
+  it("sin anuncio, el aviso no trae la línea", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+    for (const t of ["limpieza facial", "Laura", "mañana a las 3", "sí"]) {
+      await handleIncoming(msg(t), configConNotify, repo, new Date(), fakeLLM(), undefined, undefined, notifier);
+    }
+    expect(notifier.sent[0].text).not.toContain("Llegó por");
+  });
+});

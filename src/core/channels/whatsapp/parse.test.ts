@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { esVentanaCerradaEnEstado, parseEnviosFallidos, parseInbound } from "@/core/channels/whatsapp/parse";
+import {
+  esVentanaCerradaEnEstado,
+  origenDeReferral,
+  parseEnviosFallidos,
+  parseInbound,
+} from "@/core/channels/whatsapp/parse";
 
 // Payload de ejemplo con la forma real de un webhook de mensajes de Meta.
 const samplePayload = {
@@ -288,5 +293,77 @@ describe("parseEnviosFallidos (T-58)", () => {
     ]);
     expect(esVentanaCerradaEnEstado(fallidos[0].codigo)).toBe(true);
     expect(parseInbound(payload)).toEqual([]);
+  });
+});
+
+// T-120: Click-to-WhatsApp. Forma del `referral` según la documentación de
+// integradores (no se pudo contrastar contra un webhook real todavía).
+function payloadConMensaje(mensaje: Record<string, unknown>) {
+  return {
+    entry: [
+      {
+        changes: [
+          {
+            value: {
+              metadata: { phone_number_id: "111111111111111" },
+              messages: [{ from: "573009998877", id: "wamid.REF", timestamp: "1750500000", ...mensaje }],
+            },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+describe("referral → origen (T-120)", () => {
+  const referral = {
+    source_url: "https://fb.me/abc",
+    source_id: "120200000000001",
+    source_type: "ad",
+    headline: "Jeans clásicos desde $35.000",
+    body: "Escríbenos y te mostramos tallas",
+    media_type: "image",
+    image_url: "https://scontent.example/img.jpg",
+    ctwa_clid: "ARAkLkA",
+  };
+
+  it("un mensaje desde un anuncio trae el origen", () => {
+    const [msg] = parseInbound(
+      payloadConMensaje({ type: "text", text: { body: "Hola, ¿tienen talla 32?" }, referral }),
+    );
+    expect(msg.text).toBe("Hola, ¿tienen talla 32?");
+    expect(msg.origen).toEqual({
+      tipo: "anuncio",
+      id: "120200000000001",
+      titulo: "Jeans clásicos desde $35.000",
+      texto: "Escríbenos y te mostramos tallas",
+      url: "https://fb.me/abc",
+    });
+  });
+
+  it("un mensaje sin referral no trae origen", () => {
+    const [msg] = parseInbound(payloadConMensaje({ type: "text", text: { body: "Hola" } }));
+    expect(msg.origen).toBeUndefined();
+  });
+
+  it("el origen viaja también si el primer mensaje es una foto o un botón", () => {
+    const [foto] = parseInbound(payloadConMensaje({ type: "image", image: { id: "M1", mime_type: "image/jpeg" }, referral }));
+    expect(foto.origen?.tipo).toBe("anuncio");
+    const [boton] = parseInbound(
+      payloadConMensaje({ type: "button", button: { payload: "info", text: "Quiero info" }, referral }),
+    );
+    expect(boton.origen?.tipo).toBe("anuncio");
+  });
+
+  it("una publicación se marca como tal y los campos que faltan no rompen nada", () => {
+    expect(origenDeReferral({ source_type: "post", source_id: "P9" })).toEqual({ tipo: "publicacion", id: "P9" });
+  });
+
+  it("un referral raro no hace perder el mensaje", () => {
+    expect(origenDeReferral({ source_type: "status" })).toBeUndefined();
+    expect(origenDeReferral("basura")).toBeUndefined();
+    const [msg] = parseInbound(payloadConMensaje({ type: "text", text: { body: "Hola" }, referral: 42 }));
+    expect(msg.text).toBe("Hola");
+    expect(msg.origen).toBeUndefined();
   });
 });

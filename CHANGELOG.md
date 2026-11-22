@@ -7,6 +7,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Nuevo
+- De qué anuncio viene cada cliente (T-120): cuando alguien escribe desde un anuncio o publicación de Facebook/Instagram (Click-to-WhatsApp), el bot lo guarda en el lead la primera vez, la IA lo tiene como contexto, el aviso a la dueña y el panel de pedidos dicen "Llegó por: anuncio «…»" y el Inicio del portal cuenta clientes por anuncio. Requiere la migración `0030_leads_origen.sql`.
 - Respaldo diario de la base desde el VPS (T-101): `deploy/respaldo-db.sh` saca una copia con `pg_dump` cada noche y guarda las últimas 14. El despliegue copia el script; la configuración (una sola vez) está en `docs/19-vps.md`.
 
 ### Arreglos

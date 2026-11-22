@@ -13,6 +13,7 @@ import type {
   LeadState,
 } from "@/core/types";
 import type { LeadRepository } from "@/core/storage/repository";
+import { leerOrigen } from "@/core/engine/origen";
 import type { LeadRow, SupabaseDb } from "@/core/storage/adapters/supabase/api";
 
 /**
@@ -46,6 +47,9 @@ export function toRow(lead: Lead, negocioId: string | undefined): LeadRow {
     // ("Domicilio", después la dirección, después "sí").
     entrega: lead.entrega ?? null,
     direccion: lead.direccion ?? null,
+    // T-120 (migración 0030). Solo se manda si hay origen: así un deploy que
+    // llega antes que la migración sigue guardando los leads sin anuncio.
+    ...(lead.origen && { origen: lead.origen }),
     negocio_id: negocioId ?? null,
   };
 }
@@ -71,6 +75,9 @@ export function fromRow(row: LeadRow): Lead {
     items: row.items ?? undefined,
     entrega: row.entrega ?? undefined,
     direccion: row.direccion ?? undefined,
+    // `leerOrigen` y no un cast: es un jsonb, y uno mal formado no debe
+    // impedir cargar el lead.
+    origen: leerOrigen(row.origen),
   };
 }
 

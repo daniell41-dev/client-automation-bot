@@ -4,6 +4,7 @@
  */
 
 import { cuentasDeConfig } from "@/core/engine/datos-pago";
+import { contarPorOrigen } from "@/core/engine/origen";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createUserClient } from "@/lib/supabase/server";
@@ -35,7 +36,7 @@ export default async function ResumenPage({
   if (!negocio) notFound();
   const config = parseBusinessConfig(negocio.config);
 
-  const [{ data: leads }, { data: sesiones }] = await Promise.all([
+  const [{ data: leads }, { data: sesiones }, { data: conOrigen }] = await Promise.all([
     supabase.from("leads").select("state, stage").eq("business_slug", slug),
     supabase
       .from("sesiones")
@@ -43,7 +44,11 @@ export default async function ResumenPage({
       .eq("business_slug", slug)
       .order("updated_at", { ascending: false })
       .limit(20),
+    // T-120: consulta aparte de la de arriba para que, sin la migración
+    // 0030, falle solo el conteo por anuncio y no los KPIs.
+    supabase.from("leads").select("origen").eq("business_slug", slug).not("origen", "is", null),
   ]);
+  const porAnuncio = contarPorOrigen(((conOrigen ?? []) as { origen: unknown }[]).map((l) => l.origen));
 
   // KPIs
   const hoy = new Date();
@@ -141,6 +146,23 @@ export default async function ResumenPage({
           Continuar configuración
         </Link>
       </Card>
+
+      {/* T-120: cuántos clientes trajo cada anuncio. Solo aparece cuando
+          hay al menos uno: a quien no pauta no le dice nada. */}
+      {porAnuncio.length > 0 && (
+        <Card title="Clientes por anuncio" subtitle="Quienes escribieron desde un anuncio o publicación de Facebook o Instagram.">
+          <ul className="divide-y divide-line">
+            {porAnuncio.map((fila) => (
+              <li key={fila.clave} className="flex items-center justify-between gap-3 py-2.5 text-sm">
+                <span className="min-w-0 truncate text-ink">{fila.etiqueta}</span>
+                <span className="shrink-0 font-bold tabular-nums text-ink">
+                  {fila.clientes} {fila.clientes === 1 ? "cliente" : "clientes"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {/* Conversaciones recientes: preview informativo, sin link — la
           sección "Conversaciones" está oculta (T-16). */}

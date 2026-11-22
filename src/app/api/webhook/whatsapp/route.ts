@@ -282,6 +282,7 @@ export async function processWebhookPayload(payload: unknown): Promise<void> {
           ? { mediaId: parsed.image.mediaId, mimeType: parsed.image.mimeType }
           : undefined,
         audio: parsed.audio,
+        origen: parsed.origen,
       };
 
       // T-23.5: mismo token/versión de Graph API que usa `channel` para

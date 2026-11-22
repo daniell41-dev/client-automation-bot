@@ -45,6 +45,7 @@ import { validarCita } from "@/core/engine/horarios";
 import { citaCumplida, cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
 import { pedidoFinalizado, cerrarPedidoFinalizado } from "@/core/engine/pedido-lifecycle";
 import { inactivo, limpiarDatosCapturados, reseteablePorInactividad } from "@/core/engine/session-lifecycle";
+import { describirOrigen, registrarOrigen } from "@/core/engine/origen";
 import { resumenCarrito, totalPedido } from "@/core/engine/flows/pedido";
 import { BOTON_APROBAR, BOTON_RECHAZAR, BOTON_RESTO, interpretarDecisionDueña } from "@/core/engine/approval";
 import { transition } from "@/core/engine/lead-state";
@@ -659,6 +660,10 @@ export async function handleIncoming(
 
   const { lead } = result;
   let { messages } = result;
+  // T-120: antes de los avisos de abajo, para que el de la dueña ya diga de
+  // qué anuncio vino. `createLead` lo pone en un lead nuevo; esto cubre al
+  // lead que ya existía y llega ahora desde un anuncio (solo si no tenía).
+  registrarOrigen(lead, message.origen);
 
   // T-20: si ESTE turno capturó una fecha nueva (cambió respecto a la que
   // tenía el lead antes de procesar el mensaje), resolverla a ISO real y
@@ -1014,6 +1019,8 @@ async function notifyOwner(
       ? `🔔 ${config.name}: pedido ${opciones.pedido ? `#${opciones.pedido.numero} ` : ""}nuevo, esperando su aprobación`
       : `🔔 ${config.name}: confirmación nueva`,
     `Cliente: ${lead.name ?? lead.contact}`,
+    // T-120: saber qué anuncio trajo el pedido le dice a la dueña cuál le rinde.
+    lead.origen ? `Llegó por: ${describirOrigen(lead.origen)}` : null,
     esPedido ? resumenCarrito(lead.items!, config.services, config, lead.entrega) : null,
     !esPedido && service
       ? `${config.pedidos?.enabled ? "Pedido" : "Servicio"}: ${service.name}`

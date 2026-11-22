@@ -448,3 +448,19 @@ describe("parseAgentResponse — campos con otro nombre (T-54)", () => {
     expect(result.ok && result.value.acciones).toEqual([]);
   });
 });
+
+// T-120: el anuncio va entre los datos del cliente, no como instrucción.
+describe("buildAgentSystemPrompt — origen del anuncio (T-120)", () => {
+  it("lo muestra en los datos que ya se tienen del cliente", () => {
+    const prompt = buildAgentSystemPrompt({
+      ...baseInput,
+      lead: { ...baseInput.lead, origen: "anuncio «Limpieza facial 2x1»" },
+    });
+    const datos = prompt.slice(prompt.indexOf("Datos que ya tienes de este cliente:"));
+    expect(datos).toContain("llegó por: anuncio «Limpieza facial 2x1»");
+  });
+
+  it("sin origen no menciona anuncios", () => {
+    expect(buildAgentSystemPrompt(baseInput)).not.toContain("llegó por");
+  });
+});
