@@ -56,6 +56,25 @@ describe("POST /api/webhook/instagram (firma)", () => {
     );
     expect(buena.status).toBe(200);
   });
+
+  it("también acepta la firma con la clave general de la app (la de WhatsApp), y rechaza otra", async () => {
+    vi.stubEnv("INSTAGRAM_APP_SECRET", "secreto-instagram");
+    vi.stubEnv("WHATSAPP_APP_SECRET", "secreto-app");
+    const conLaDeLaApp = await POST(
+      new Request("https://x", { method: "POST", body: cuerpo, headers: { "x-hub-signature-256": firmar(cuerpo, "secreto-app") } }),
+    );
+    expect(conLaDeLaApp.status).toBe(200);
+    const conOtra = await POST(
+      new Request("https://x", { method: "POST", body: cuerpo, headers: { "x-hub-signature-256": firmar(cuerpo, "de-un-atacante") } }),
+    );
+    expect(conOtra.status).toBe(401);
+  });
+
+  it("tolera espacios al final de la clave (pegada a mano en el servidor)", async () => {
+    vi.stubEnv("INSTAGRAM_APP_SECRET", "secreto  ");
+    const r = await POST(new Request("https://x", { method: "POST", body: cuerpo, headers: { "x-hub-signature-256": firmar(cuerpo, "secreto") } }));
+    expect(r.status).toBe(200);
+  });
 });
 
 describe("procesarComentarios (T-108)", () => {
