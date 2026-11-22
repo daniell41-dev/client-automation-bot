@@ -448,3 +448,14 @@ describe("parseAgentResponse — campos con otro nombre (T-54)", () => {
     expect(result.ok && result.value.acciones).toEqual([]);
   });
 });
+
+// T-121: la IA sabe que existe el PDF para no negarlo.
+describe("buildAgentSystemPrompt — catálogo en PDF (T-121)", () => {
+  it("avisa que el sistema manda el PDF cuando el negocio lo tiene", () => {
+    expect(buildAgentSystemPrompt({ ...baseInput, tieneCatalogoPdf: true })).toContain("catálogo en PDF");
+  });
+
+  it("sin PDF no lo menciona", () => {
+    expect(buildAgentSystemPrompt(baseInput)).not.toContain("catálogo en PDF");
+  });
+});

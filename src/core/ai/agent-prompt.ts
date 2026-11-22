@@ -97,6 +97,16 @@ function buildKnowledgeBlock(input: AgentTurnInput): string {
  * IA como referencia para que no improvise cuando el negocio ya definió su
  * propia respuesta (p. ej. la política de envíos exacta).
  */
+/**
+ * T-121: el PDF lo manda el sistema detrás de la respuesta (ver
+ * `engine/catalogo-pdf.ts`). Sin este aviso la IA contestaba "no tenemos
+ * catálogo" justo antes de que llegara el archivo.
+ */
+function buildCatalogoPdfBlock(input: AgentTurnInput): string {
+  if (!input.tieneCatalogoPdf) return "";
+  return `\n\nEste negocio tiene su catálogo en PDF: si el cliente lo pide, el sistema se lo envía solo justo después de tu respuesta. Dile que ya se lo mandas; no escribas links ni digas que no hay catálogo.`;
+}
+
 function buildReglasBlock(input: AgentTurnInput): string {
   if (!input.reglas?.length) return "";
   const lineas = input.reglas
@@ -208,7 +218,7 @@ ${REGLAS_SEGURIDAD}
 Sé breve: máximo 2 o 3 frases, con tono de mensaje de WhatsApp real, no de folleto. Sin markdown ni listas largas, salvo que el cliente pida el menú completo.
 
 Catálogo de servicios (los ÚNICOS que existen — nunca inventes otro, otro precio ni otra duración):
-${buildCatalogBlock(input)}${buildHorariosBlock(input)}${buildPedidosBlock(input)}${buildKnowledgeBlock(input)}${buildReglasBlock(input)}
+${buildCatalogBlock(input)}${buildHorariosBlock(input)}${buildPedidosBlock(input)}${buildKnowledgeBlock(input)}${buildReglasBlock(input)}${buildCatalogoPdfBlock(input)}
 
 Datos que ya tienes de este cliente: ${buildDatosConocidos(input)}.${buildConfirmadoBlock(input)}${buildEsperandoAprobacionBlock(input)}${buildOffTopicNote(input)}
 

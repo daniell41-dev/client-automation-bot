@@ -478,6 +478,14 @@ export interface BusinessConfig {
     /** ID del Google Calendar del negocio (su email o un id @group.calendar.google.com). */
     calendarId?: string;
   };
+  /**
+   * T-121: catálogo en PDF que el bot puede mandar por WhatsApp. `url` es
+   * PÚBLICA a propósito (Meta descarga el archivo desde ahí, sin
+   * credenciales); `nombreArchivo` es lo que ve el cliente en el chat.
+   * Con `enviarAlSaludar` sale solo en el primer mensaje del cliente; sin
+   * él, igual se manda cuando el cliente pide "el catálogo".
+   */
+  catalogoPdf?: { url: string; nombreArchivo: string; enviarAlSaludar: boolean };
 }
 
 /** Evento de calendario normalizado, independiente del proveedor (Google, etc.). */
@@ -558,6 +566,12 @@ export interface OutgoingMessage {
    * pie de foto. Un canal sin imágenes manda solo `text`.
    */
   imagenUrl?: string;
+  /**
+   * T-121: archivo a mandar como documento (el catálogo en PDF), con URL
+   * pública y el nombre que ve el cliente. `text` va como pie. Un canal sin
+   * documentos manda solo `text`.
+   */
+  documento?: { url: string; nombreArchivo: string };
 }
 
 /** Un interesado registrado por el sistema. */
