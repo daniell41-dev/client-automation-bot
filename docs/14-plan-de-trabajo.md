@@ -629,6 +629,16 @@ No empezar estas hasta tener respuesta:
 
 ---
 
+## 4-quater. Backlog mayoristas (nov-2026): pantalones al por mayor
+
+Primer cliente fuera de restaurantes y estética. El plan completo, con quién hace cada tarea
+(dos personas en paralelo), dependencias, migraciones reservadas y criterios de cada una,
+vive en [`20-plan-mayoristas.md`](./20-plan-mayoristas.md):
+
+- **Daniel:** T-104 referencias y tallas · T-105 quitar o cambiar algo de un producto ·
+  T-106 seguimiento automático sin spam.
+- **Socia:** T-120 de qué anuncio escribe el cliente · T-121 catálogo en PDF al saludar.
+
 ## 5. Plantilla de PR (obligatoria)
 
 ```markdown
