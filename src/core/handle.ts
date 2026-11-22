@@ -243,6 +243,7 @@ async function crearPedidoDelCarrito(
             cantidad: item.cantidad,
             precioUnitario: service.price,
             ...(item.variante !== undefined && { variante: item.variante }),
+            ...(item.nota !== undefined && { nota: item.nota }),
           },
         ]
       : [];

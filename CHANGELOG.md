@@ -7,6 +7,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Nuevo
+- Cambios a un producto (T-105): el cliente puede pedir "sin arroz" o "sin salsa" y el bot lo anota en esa línea del pedido; la dueña lo ve en el resumen, en el aviso y resaltado en el panel. No cambia el precio. Si pide agregar algo ("doble queso"), se anota y se le avisa que el negocio confirma si tiene costo. Se puede apagar en Configuración → "Aceptar cambios en los productos".
 - Referencias y tallas en los productos (T-104): en el catálogo cada producto puede tener una referencia ("102") y opciones con el nombre que elija el negocio (tallas, colores, tamaños). El bot pregunta la talla antes de cerrar el pedido, entiende "6 de la 30 y 6 de la 32", no acepta una talla que no existe y reconoce "mándeme la 102". La talla aparece en el resumen, en el aviso a la dueña y en el panel de pedidos; el inventario suma las tallas del mismo producto.
 
 ### Nuevo
