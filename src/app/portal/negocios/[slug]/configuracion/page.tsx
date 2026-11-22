@@ -48,6 +48,7 @@ export default async function ConfiguracionPage({
       initialPagos={config.pagos}
       initialAvisos={config.avisos}
       catalogoPdf={config.catalogoPdf}
+      initialSeguimientos={config.seguimientos}
     />
   );
 }

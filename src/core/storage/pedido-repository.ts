@@ -43,6 +43,8 @@ export interface ItemPedido {
   precioUnitario: number;
   /** T-104: la opción elegida (talla, color…), si el producto tiene. */
   variante?: string;
+  /** T-105: lo que el cliente pidió cambiar ("sin arroz"). */
+  nota?: string;
 }
 
 export interface NuevoPedido {

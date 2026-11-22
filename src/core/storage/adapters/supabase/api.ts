@@ -36,6 +36,8 @@ export interface LeadRow {
   /** T-36 (migración 0017): modalidad elegida y dirección de entrega. */
   entrega?: string | null;
   direccion?: string | null;
+  /** T-106 (migración 0027): el cliente pidió que no le escriban más. */
+  no_contactar?: boolean | null;
   /**
    * FK de conveniencia a `negocios.id` (T-08): `business_slug` sigue siendo
    * lo que usan el motor y las políticas de RLS. `null`/ausente cuando el
@@ -132,6 +134,8 @@ export interface SupabaseDb {
   upsertSession(row: SessionRow): Promise<void>;
   selectNegocioBySlug(slug: string): Promise<NegocioRow | null>;
   selectNegocioByPhoneNumberId(id: string): Promise<NegocioRow | null>;
+  /** T-106: los negocios con WhatsApp conectado (los únicos a los que el cron les puede mandar seguimientos). */
+  listNegociosConWhatsapp(): Promise<NegocioRow[]>;
   /**
    * Reclama un `message.id` de WhatsApp. `true` la primera vez, `false` si ya
    * estaba reclamado. Atómico vía la restricción `unique` de la tabla
@@ -352,6 +356,15 @@ class RealSupabaseDb implements SupabaseDb {
       .maybeSingle();
     if (error) throw error;
     return (data as NegocioRow | null) ?? null;
+  }
+
+  async listNegociosConWhatsapp(): Promise<NegocioRow[]> {
+    const { data, error } = await this.client
+      .from("negocios")
+      .select("id, slug, config, whatsapp_phone_number_id, es_demo")
+      .not("whatsapp_phone_number_id", "is", null);
+    if (error) throw error;
+    return (data as NegocioRow[] | null) ?? [];
   }
 
   async claimMessage(messageId: string): Promise<boolean> {

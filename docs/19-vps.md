@@ -248,6 +248,41 @@ la base). Si hay dudas, mejor pedir ayuda antes de correrlo: `--clean` borra lo 
 borró la base", no el de "se cayó todo". Para lo segundo: Supabase Pro cuando haya
 clientes que paguen.
 
+### Seguimiento automático de pedidos a medias (T-106)
+
+Cada negocio lo enciende en Portal → Configuración → "Seguimiento automático" (apagado por
+defecto). Para que funcione, el servidor tiene que llamar a la app cada 15 minutos. Se
+configura **una sola vez**:
+
+1. **Migración:** correr `supabase/migrations/0027_seguimientos.sql` en el SQL Editor de
+   Supabase.
+2. **El secreto.** En el servidor, generar uno:
+   ```bash
+   openssl rand -hex 32
+   ```
+   Copiar el resultado y agregarlo al final de `/opt/nexo/.env.production` (con
+   `sudo nano /opt/nexo/.env.production`): `CRON_SECRET=lo-que-salió`. Después reiniciar
+   la app: `cd /opt/nexo && sudo docker compose --env-file .env.production up -d app`.
+3. **Guardar el mismo secreto para el cron** en un archivo que solo lea root:
+   ```bash
+   sudo nano /opt/nexo/cron.env
+   ```
+   Una línea: `CRON_SECRET=lo-mismo-del-paso-2`. Guardar y `sudo chmod 600 /opt/nexo/cron.env`.
+4. **Probarlo a mano:**
+   ```bash
+   sudo bash -c 'source /opt/nexo/cron.env && curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://soyaurela.com/api/cron/seguimientos'
+   ```
+   Debe responder algo como `{"ok":true,"negocios":1,"enviados":0}`. Un `401` es que el
+   secreto no coincide con el de `.env.production`; un `503`, que la app no lo tiene (falta el
+   reinicio del paso 2).
+5. **Programarlo cada 15 minutos:**
+   ```bash
+   echo '*/15 * * * * root . /opt/nexo/cron.env && curl -fsS -m 60 -X POST -H "Authorization: Bearer $CRON_SECRET" https://soyaurela.com/api/cron/seguimientos >> /var/log/aurela-seguimientos.log 2>&1' | sudo tee /etc/cron.d/aurela-seguimientos
+   ```
+
+Las reglas (máximo 2 por silencio del cliente, solo en horario, solo dentro de las 24 h de
+WhatsApp, nunca a quien pidió "no me escriban") viven en `src/core/engine/seguimientos.ts`.
+
 ### Monitor con alertas al celular (T-65, obligatorio antes de vender)
 
 La app expone `https://100-23-146-236.sslip.io/api/health`: responde **200** si la app y la

@@ -25,6 +25,7 @@ import {
   type ActionState,
 } from "@/app/portal/actions";
 import { ActionForm } from "@/components/action-form";
+import { SEGUIMIENTO_PRIMERO_DEFAULT, SEGUIMIENTO_SEGUNDO_DEFAULT } from "@/core/engine/seguimientos";
 import { Card, Pill, Segmented, Toggle } from "@/components/ui";
 
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
@@ -124,6 +125,7 @@ export function ConfiguracionEditor({
   initialPagos,
   initialAvisos,
   catalogoPdf,
+  initialSeguimientos,
 }: {
   slug: string;
   nombre: string;
@@ -138,7 +140,14 @@ export function ConfiguracionEditor({
   initialAvisos: BusinessConfig["avisos"];
   /** T-121: se guarda aparte (sube un archivo), igual que el QR. */
   catalogoPdf: BusinessConfig["catalogoPdf"];
+  initialSeguimientos: BusinessConfig["seguimientos"];
 }) {
+  // T-106: apagado por defecto. Los textos vacíos usan los del sistema.
+  const [seguimientos, setSeguimientos] = useState({
+    activo: initialSeguimientos?.activo ?? false,
+    primero: initialSeguimientos?.primero ?? "",
+    segundo: initialSeguimientos?.segundo ?? "",
+  });
   const [direccion, setDireccion] = useState(direccionInicial);
   const [notifyPhoneNumber, setNotifyPhoneNumber] = useState(notifyPhoneNumberInicial);
   const [wompiEnabled, setWompiEnabled] = useState(initialPagos?.wompi?.enabled ?? false);
@@ -182,6 +191,11 @@ export function ConfiguracionEditor({
     direccion: direccion || undefined,
     notifyPhoneNumber: notifyPhoneNumber.trim() || undefined,
     avisos: { modo: modoAviso, cadaMinutos: minutosResumen },
+    seguimientos: {
+      activo: seguimientos.activo,
+      primero: seguimientos.primero.trim() || undefined,
+      segundo: seguimientos.segundo.trim() || undefined,
+    },
     personas: { ...personas, whatsapp: nuevaPersona },
     ai,
     pagos: {
@@ -269,6 +283,51 @@ export function ConfiguracionEditor({
             />
           </div>
         </ActionForm>
+      </Card>
+
+      {/* T-106: seguimiento automático de pedidos a medias */}
+      <Card
+        title="Seguimiento automático"
+        subtitle="Si un cliente deja un pedido a medias, el bot le escribe para retomarlo: a las 2 horas y, si sigue sin responder, al día siguiente. Nunca más de dos veces, solo en su horario de atención, y nunca a quien pidió que no le escriban."
+      >
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-semibold text-ink">Retomar pedidos a medias</span>
+          <Toggle
+            checked={seguimientos.activo}
+            onChange={(next) => setSeguimientos((prev) => ({ ...prev, activo: next }))}
+            label="Seguimiento automático activado"
+          />
+        </div>
+        {seguimientos.activo && (
+          <div className="mt-4 space-y-3">
+            <div>
+              <label className={labelCls}>Primer mensaje (a las 2 horas)</label>
+              <textarea
+                className={inputCls}
+                rows={2}
+                maxLength={500}
+                value={seguimientos.primero}
+                onChange={(e) => setSeguimientos((prev) => ({ ...prev, primero: e.target.value }))}
+                placeholder={SEGUIMIENTO_PRIMERO_DEFAULT}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Segundo mensaje (al día siguiente)</label>
+              <textarea
+                className={inputCls}
+                rows={2}
+                maxLength={500}
+                value={seguimientos.segundo}
+                onChange={(e) => setSeguimientos((prev) => ({ ...prev, segundo: e.target.value }))}
+                placeholder={SEGUIMIENTO_SEGUNDO_DEFAULT}
+              />
+            </div>
+            <p className="text-xs text-ink-soft">
+              Déjelos vacíos para usar los de arriba. Puede usar {"{{nombre}}"} (el nombre del cliente) y{" "}
+              {"{{pedido}}"} (lo que dejó en el carrito). Se guardan con el botón de abajo.
+            </p>
+          </div>
+        )}
       </Card>
 
       {/* Notificaciones */}
@@ -673,6 +732,21 @@ export function ConfiguracionEditor({
               Con esto el bot responde preguntas que no están en el catálogo (medios
               de pago, horarios especiales, etc.).
             </p>
+            {/* T-105: "sin arroz, sin salsa". Encendido por defecto (undefined = sí). */}
+            <div className="mt-4 flex items-start justify-between gap-3">
+              <span>
+                <span className="block text-sm font-semibold text-ink">Aceptar cambios en los productos</span>
+                <span className="block text-xs text-ink-soft">
+                  El cliente puede pedir “sin arroz” o “sin salsa”: el bot lo anota en el pedido y usted lo
+                  ve en el aviso y en el panel. No cambia el precio.
+                </span>
+              </span>
+              <Toggle
+                checked={ai.cambiosEnProductos !== false}
+                onChange={(next) => setAi((prev) => ({ ...prev, cambiosEnProductos: next }))}
+                label="Aceptar cambios en los productos"
+              />
+            </div>
           </div>
         </div>
       </Card>

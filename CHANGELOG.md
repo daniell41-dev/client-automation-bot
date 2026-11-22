@@ -7,10 +7,10 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Nuevo
+- Seguimiento automático de pedidos a medias (T-106): si un cliente deja un pedido sin cerrar, el bot le escribe para retomarlo a las 2 horas y, si sigue sin responder, al día siguiente. Nunca más de dos veces por silencio, solo en el horario del negocio (o de 8 a. m. a 8 p. m.), solo dentro de las 24 h gratis de WhatsApp y nunca a quien pidió "no me escriban". Se enciende en Configuración, con los dos mensajes editables. Necesita la migración `0027` y un cron en el VPS (`docs/19-vps.md`).
+- Cambios a un producto (T-105): el cliente puede pedir "sin arroz" o "sin salsa" y el bot lo anota en esa línea del pedido; la dueña lo ve en el resumen, en el aviso y resaltado en el panel. No cambia el precio. Si pide agregar algo ("doble queso"), se anota y se le avisa que el negocio confirma si tiene costo. Se puede apagar en Configuración → "Aceptar cambios en los productos".
 - Referencias y tallas en los productos (T-104): en el catálogo cada producto puede tener una referencia ("102") y opciones con el nombre que elija el negocio (tallas, colores, tamaños). El bot pregunta la talla antes de cerrar el pedido, entiende "6 de la 30 y 6 de la 32", no acepta una talla que no existe y reconoce "mándeme la 102". La talla aparece en el resumen, en el aviso a la dueña y en el panel de pedidos; el inventario suma las tallas del mismo producto.
 - Catálogo en PDF (T-121): en Configuración la dueña sube el PDF de su catálogo (hasta 10 MB), elige el nombre que ve el cliente y si se envía al saludar. El bot lo manda por WhatsApp como documento al saludar (si está activado) o cuando el cliente pide "el catálogo". El PDF queda público. Requiere la migración `0031_catalogos_pdf.sql`.
-
-### Nuevo
 - Respaldo diario de la base desde el VPS (T-101): `deploy/respaldo-db.sh` saca una copia con `pg_dump` cada noche y guarda las últimas 14. El despliegue copia el script; la configuración (una sola vez) está en `docs/19-vps.md`.
 
 ### Arreglos

@@ -98,7 +98,7 @@ export interface AgentLeadState {
    * (la IA no tiene que cruzar `servicioId` contra el catálogo ella misma).
    * Vacío/ausente si no hay ítems de pedido cargados todavía.
    */
-  items?: { servicioId: string; nombre: string; cantidad: number; variante?: string }[];
+  items?: { servicioId: string; nombre: string; cantidad: number; variante?: string; nota?: string }[];
 }
 
 /** Contexto completo que necesita la IA para decidir un turno en modo agente. */
