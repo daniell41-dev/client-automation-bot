@@ -533,6 +533,26 @@ export interface IncomingMessage {
    * UN pedido concreto sin escribir su número.
    */
   botonId?: string;
+  /**
+   * T-120: de qué anuncio o publicación viene el cliente, si el canal lo
+   * informa (en WhatsApp, el `referral` de un Click-to-WhatsApp). Solo viene
+   * en el mensaje que abrió el chat desde el anuncio: por eso `Lead.origen`
+   * se guarda la primera vez y no se pisa después.
+   */
+  origen?: OrigenContacto;
+}
+
+/**
+ * T-120: anuncio o publicación que trajo al cliente. Todos los campos menos
+ * `tipo` son opcionales: Meta no garantiza ninguno (un anuncio sin título,
+ * uno lanzado desde Estados), y el bot no debe descartar el mensaje por eso.
+ */
+export interface OrigenContacto {
+  tipo: "anuncio" | "publicacion";
+  id?: string;
+  titulo?: string;
+  texto?: string;
+  url?: string;
 }
 
 /** Mensaje saliente normalizado que un canal debe entregar. */
@@ -636,6 +656,12 @@ export interface Lead {
    */
   noContactar?: boolean;
   notes?: string;
+  /**
+   * T-120: el primer anuncio/publicación por el que llegó. No lo borra el
+   * "empezar de nuevo" ni el reinicio por inactividad: sirve para contar qué
+   * anuncio trae clientes, no para la conversación en curso.
+   */
+  origen?: OrigenContacto;
 }
 
 /** Un turno en el historial de conversación (para memoria de sesión). */

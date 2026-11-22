@@ -99,6 +99,12 @@ export interface AgentLeadState {
    * Vacío/ausente si no hay ítems de pedido cargados todavía.
    */
   items?: { servicioId: string; nombre: string; cantidad: number; variante?: string; nota?: string }[];
+  /**
+   * T-120: de qué anuncio viene, ya en palabras ("anuncio «Jeans clásicos»").
+   * Es contexto para entender qué busca, no una instrucción: va en los datos
+   * del cliente, bajo las mismas reglas de seguridad que lo que él escribe.
+   */
+  origen?: string;
 }
 
 /** Contexto completo que necesita la IA para decidir un turno en modo agente. */

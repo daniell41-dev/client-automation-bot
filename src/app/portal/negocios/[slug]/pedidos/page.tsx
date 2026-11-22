@@ -12,6 +12,7 @@ import { parseBusinessConfig } from "@/core/config-schema";
 import { toPedido } from "@/core/storage/adapters/supabase/pedidos";
 import type { PedidoRow } from "@/core/storage/adapters/supabase/api";
 import { armarPanel } from "@/core/engine/panel-pedidos";
+import { describirOrigen, leerOrigen } from "@/core/engine/origen";
 import { PedidosPanel, type SeñalesPorPedido } from "./pedidos-panel";
 import { PanelEnVivo } from "./en-vivo";
 
@@ -90,6 +91,22 @@ export default async function PedidosPage({ params }: { params: Promise<{ slug: 
       }),
   );
 
+  // T-120: de qué anuncio vino cada pedido. Consulta aparte (y no un join
+  // en las de arriba) para que, si la migración 0030 todavía no se aplicó,
+  // falle solo esto y el panel siga mostrando los pedidos.
+  const origenes: Record<string, string> = {};
+  const leadIds = [...new Set(filas.map((f) => f.lead_id).filter((id): id is string => Boolean(id)))];
+  if (leadIds.length > 0) {
+    const { data: leads } = await supabase.from("leads").select("id, origen").in("id", leadIds);
+    const porLead = new Map(
+      ((leads ?? []) as { id: string; origen: unknown }[]).map((l) => [l.id, leerOrigen(l.origen)]),
+    );
+    for (const f of filas) {
+      const origen = f.lead_id ? porLead.get(f.lead_id) : undefined;
+      if (origen) origenes[f.id] = describirOrigen(origen);
+    }
+  }
+
   return (
     <>
       <PanelEnVivo negocioId={negocio.id} />
@@ -101,6 +118,7 @@ export default async function PedidosPage({ params }: { params: Promise<{ slug: 
         panel={armarPanel(filas.map(toPedido))}
         devoluciones={((devoluciones ?? []) as PedidoRow[]).map(toPedido)}
         señales={señales}
+        origenes={origenes}
       />
     </>
   );

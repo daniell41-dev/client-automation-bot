@@ -6,6 +6,9 @@
  * a un `businessSlug` más arriba en la cadena.
  */
 
+import { leerOrigen } from "@/core/engine/origen";
+import type { OrigenContacto } from "@/core/types";
+
 /** Forma mínima del payload de Meta que nos interesa (lo demás se ignora). */
 interface MetaPayload {
   entry?: MetaEntry[];
@@ -42,6 +45,12 @@ interface MetaMessage {
   interactive?: { type?: string; button_reply?: { id?: string; title?: string } };
   /** T-31: respuesta rápida de una plantilla (el payload lo define quien la manda). */
   button?: { payload?: string; text?: string };
+  /**
+   * T-120: viene cuando el cliente abrió el chat desde un anuncio o una
+   * publicación (Click-to-WhatsApp). Forma tomada de la documentación de
+   * integradores; ver `origenDeReferral` para por qué se lee con desconfianza.
+   */
+  referral?: unknown;
 }
 
 /** Mensaje de WhatsApp ya extraído y normalizado (sin resolver el negocio). */
@@ -71,6 +80,31 @@ export interface ParsedWhatsAppMessage {
   audio?: { mediaId: string; mimeType: string };
   /** T-31: id del botón tocado (ver `IncomingMessage.botonId`). */
   botonId?: string;
+  /** T-120: anuncio o publicación que trajo al cliente (ver `IncomingMessage.origen`). */
+  origen?: OrigenContacto;
+}
+
+/**
+ * T-120: traduce el `referral` de Meta a un `OrigenContacto`. Campos según
+ * la documentación de integradores de Click-to-WhatsApp: `source_type`
+ * ("ad" | "post"), `source_id`, `source_url`, `headline`, `body`.
+ *
+ * Se lee con desconfianza a propósito: Meta no garantiza que venga ni que
+ * traiga todos los campos (un anuncio lanzado desde Estados llega sin
+ * `ctwa_clid`, por ejemplo), y un `referral` raro jamás debe hacer perder el
+ * mensaje del cliente — en el peor caso se pierde el dato del anuncio.
+ */
+export function origenDeReferral(referral: unknown): OrigenContacto | undefined {
+  if (!referral || typeof referral !== "object") return undefined;
+  const r = referral as Record<string, unknown>;
+  const tipo = r.source_type === "ad" ? "anuncio" : r.source_type === "post" ? "publicacion" : null;
+  if (!tipo) {
+    // Un tipo nuevo de Meta: se deja constancia para saber que existe, en
+    // vez de adivinar si es un anuncio.
+    console.log(`[whatsapp/parse] referral con source_type desconocido: ${String(r.source_type)}`);
+    return undefined;
+  }
+  return leerOrigen({ tipo, id: r.source_id, titulo: r.headline, texto: r.body, url: r.source_url });
 }
 
 /** Convierte el timestamp de Meta (segundos unix, string) a ISO 8601. */
@@ -105,6 +139,7 @@ export function parseInbound(payload: unknown): ParsedWhatsAppMessage[] {
 
       for (const message of messages) {
         if (!message.from) continue;
+        const origen = origenDeReferral(message.referral);
 
         if (message.type === "text" && message.text?.body) {
           result.push({
@@ -114,6 +149,7 @@ export function parseInbound(payload: unknown): ParsedWhatsAppMessage[] {
             timestamp: toIso(message.timestamp),
             contactName: nameByWaId.get(message.from),
             messageId: message.id,
+            origen,
           });
           continue;
         }
@@ -126,6 +162,7 @@ export function parseInbound(payload: unknown): ParsedWhatsAppMessage[] {
             timestamp: toIso(message.timestamp),
             contactName: nameByWaId.get(message.from),
             messageId: message.id,
+            origen,
             image: {
               mediaId: message.image.id,
               mimeType: message.image.mime_type ?? "",
@@ -143,6 +180,7 @@ export function parseInbound(payload: unknown): ParsedWhatsAppMessage[] {
             timestamp: toIso(message.timestamp),
             contactName: nameByWaId.get(message.from),
             messageId: message.id,
+            origen,
             audio: { mediaId: message.audio.id, mimeType: message.audio.mime_type ?? "" },
           });
           continue;
@@ -166,6 +204,7 @@ export function parseInbound(payload: unknown): ParsedWhatsAppMessage[] {
               timestamp: toIso(message.timestamp),
               contactName: nameByWaId.get(message.from),
               messageId: message.id,
+              origen,
               botonId: boton.id || undefined,
             });
           }

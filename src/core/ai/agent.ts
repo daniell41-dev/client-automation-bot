@@ -43,6 +43,7 @@ import {
 } from "@/core/engine/intake";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { limpiarDatosCapturados } from "@/core/engine/session-lifecycle";
+import { describirOrigen, registrarOrigen } from "@/core/engine/origen";
 import { modoDelItem } from "@/core/engine/modo-item";
 import {
   agregarAlCarrito,
@@ -142,6 +143,7 @@ function buildAgentInput(
       // solo se está esperando el sí/no de la dueña.
       esperandoAprobacion: lead.stage === "esperando_aprobacion",
       offTopicCount: lead.offTopicCount ?? 0,
+      origen: lead.origen ? describirOrigen(lead.origen) : undefined,
       // T-21: se resuelve el nombre acá (no en el prompt) para que la IA no
       // tenga que cruzar `servicioId` contra el catálogo ella misma.
       items: lead.items?.map((i) => {
@@ -322,6 +324,9 @@ export async function runAgentTurn(
   now: Date,
 ): Promise<RespondResult | null> {
   const lead: Lead = existing ? { ...existing } : createLead(message, now);
+  // T-120: un lead que ya existía (de antes de T-120, o que escribió primero
+  // por su cuenta) también toma el anuncio — y la IA lo ve en ESTE turno.
+  registrarOrigen(lead, message.origen);
   lead.lastInboundAt = message.timestamp;
   lead.updatedAt = now.toISOString();
 

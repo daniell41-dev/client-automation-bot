@@ -135,6 +135,10 @@ function buildDatosConocidos(input: AgentTurnInput): string {
     input.lead.entrega ? `modalidad de entrega: ${input.lead.entrega}` : null,
     input.lead.direccion ? `dirección de entrega: ${input.lead.direccion}` : null,
     buildCarritoTexto(input),
+    // T-120: le dice a la IA qué vio el cliente antes de escribir ("¿tienen
+    // la 32?" se entiende si sabe que viene del anuncio de jeans). Va acá,
+    // entre los datos, y no como una regla: el texto del anuncio no manda.
+    input.lead.origen ? `llegó por: ${input.lead.origen}` : null,
   ].filter((p): p is string => p !== null);
   return partes.length > 0 ? partes.join(", ") : "ninguno todavía";
 }

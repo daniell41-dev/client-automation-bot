@@ -36,6 +36,8 @@ export interface LeadRow {
   /** T-36 (migración 0017): modalidad elegida y dirección de entrega. */
   entrega?: string | null;
   direccion?: string | null;
+  /** T-120 (migración 0030): anuncio que trajo al cliente. Ver `Lead.origen`. */
+  origen?: unknown;
   /** T-106 (migración 0027): el cliente pidió que no le escriban más. */
   no_contactar?: boolean | null;
   /**
