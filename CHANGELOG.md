@@ -9,6 +9,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ### Arreglos
 - Webhook de Instagram (T-108): acepta la firma de Meta con la clave de Instagram o con la clave general de la app (en la primera prueba real Meta firmó con la que no esperábamos) y tolera espacios al pegar la clave.
 
+## [1.5.0] — 2026-11-22
+
 ### Nuevo
 - Detalles del producto (T-123): en el Catálogo, "Detalles del producto" permite agregar talla, color y estilo a la vez (un selector, las opciones y el botón +), con la lista de lo agregado debajo. El bot pregunta cada detalle, anota la combinación ("Talla 30, Color Blanco") y, si el cliente dice solo la talla, le pide solo el color. Los productos que ya tenían tallas siguen funcionando igual.
 
