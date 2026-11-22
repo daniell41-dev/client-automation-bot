@@ -47,16 +47,25 @@ import { describirOrigen, registrarOrigen } from "@/core/engine/origen";
 import { modoDelItem } from "@/core/engine/modo-item";
 import {
   agregarAlCarrito,
+  anotarCambio,
   elegirVariante,
+  esAgregado,
   esDomicilio,
   faltaVariante,
   fijarCantidad,
+  limpiarNota,
   lineasEntrega,
   nombreItem,
   pareceDireccion,
   quitarDelCarrito,
   resumenCarrito,
 } from "@/core/engine/flows/pedido";
+
+/** T-105: respuesta cuando el negocio apagó los cambios en los productos. */
+const SIN_CAMBIOS = "Por ahora preparamos los productos tal como están en el catálogo, no puedo anotar cambios 🙏";
+
+/** T-105: lo que se suma cuando el cliente pidió AGREGAR algo (puede tener costo). */
+const AVISO_AGREGADO = "Lo dejo anotado. Si lo que pidió agregar tiene costo adicional, el negocio se lo confirma 🙌";
 
 /** Cuántos mensajes SEGUIDOS fuera de tema tolera el bot antes de cerrar la charla. */
 const OFF_TOPIC_LIMIT = 3;
@@ -145,6 +154,7 @@ function buildAgentInput(
           nombre: service ? nombreItem(service, i.variante) : i.serviceId,
           cantidad: i.cantidad,
           ...(i.variante !== undefined && { variante: i.variante }),
+          ...(i.nota !== undefined && { nota: i.nota }),
         };
       }),
     },
@@ -474,6 +484,8 @@ export async function runAgentTurn(
       case "fuera_de_contexto":
         sawOffTopic = true;
         break;
+      case "anotar_cambio":
+        break; // T-105: se aplica después, cuando el carrito ya tiene todo lo de este turno
       case "reiniciar":
         break; // ya se aplicó arriba, antes del resto de las acciones
       case "confirmar":
@@ -511,6 +523,34 @@ export async function runAgentTurn(
       lead.serviceId ??= nombrado.id;
       if (lead.state === "nuevo") lead.state = "interesado";
     }
+  }
+
+  // T-105: los cambios a un producto ("sin arroz") se anotan al final, con
+  // el carrito ya armado: en "un bistec sin salsa" la IA puede mandar la nota
+  // antes que la cantidad, o el producto entra recién por la red de T-54.
+  // La nota no toca el precio (el total lo sigue calculando el sistema) y
+  // pasa por el mismo filtro que el texto de la IA (T-98): un "sin costo" o
+  // un "$1.000" no llegan al resumen ni al aviso de la dueña.
+  const aceptaCambios = config.ai?.cambiosEnProductos !== false;
+  let cambioRechazado = false;
+  let cambioAgregado = false;
+  for (const accion of acciones) {
+    if (accion.tipo !== "anotar_cambio") continue;
+    if (!aceptaCambios) {
+      cambioRechazado = true;
+      continue;
+    }
+    if (!lead.items?.some((i) => i.serviceId === accion.servicioId)) continue;
+    const nota = limpiarNota(accion.nota);
+    if (!nota || !revisarRespuestaIA(nota, config).ok) {
+      if (nota) console.warn("[Agent] nota de cambio descartada por el filtro:", JSON.stringify(nota));
+      continue;
+    }
+    const servicio = config.services.find((s) => s.id === accion.servicioId);
+    const variante =
+      servicio && accion.variante !== undefined ? elegirVariante(servicio, accion.variante) : undefined;
+    lead.items = anotarCambio(lead.items, accion.servicioId, nota, variante);
+    if (esAgregado(nota)) cambioAgregado = true;
   }
 
   // T-50: si el cliente nombró la modalidad ("domicilio por favor") y la IA
@@ -646,6 +686,16 @@ export async function runAgentTurn(
   // mientras se espera la respuesta de la dueña, T-21/PR5): una charla
   // informal después de agendar/pedir no debe borrar una cita o un pedido ya
   // en trámite.
+  // T-105: el negocio no acepta cambios. La IA seguramente le dijo al
+  // cliente que lo anotó: se reemplaza su texto (el resumen, si tocaba, se
+  // conserva).
+  if (cambioRechazado && respuestaFinal !== RESPUESTA_SEGURA) {
+    respuestaFinal = mostrarResumen ? `${SIN_CAMBIOS}\n\n${resumenParaConfirmar(lead, config)}` : SIN_CAMBIOS;
+  } else if (cambioAgregado && respuestaFinal !== RESPUESTA_SEGURA) {
+    // Agregar algo puede costar, y ese cobro no lo decide el bot.
+    respuestaFinal = `${respuestaFinal}\n\n${AVISO_AGREGADO}`;
+  }
+
   if (lead.stage !== "datos_completos" && lead.stage !== "esperando_aprobacion") {
     if (sawOffTopic) {
       const nuevoCount = offTopicCountBefore + 1;

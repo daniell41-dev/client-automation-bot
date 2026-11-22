@@ -38,6 +38,7 @@ import { calcularSeñalesPago, type Señal } from "@/core/engine/señales-pago";
 import { destinosDePago, normalizarReferencia, textoCuentasPago } from "@/core/engine/datos-pago";
 import { decidirAccionWompi, type EstadoWompi } from "@/core/engine/pago-wompi";
 import { runAgentTurn } from "@/core/ai/agent";
+import { pideNoContactar } from "@/core/engine/seguimientos";
 import { reformulacionSegura } from "@/core/ai/filtro-respuesta";
 import { isResetRequest } from "@/core/engine/intake";
 import { buildCalendarEvent } from "@/core/engine/calendar-event";
@@ -244,6 +245,7 @@ async function crearPedidoDelCarrito(
             cantidad: item.cantidad,
             precioUnitario: service.price,
             ...(item.variante !== undefined && { variante: item.variante }),
+            ...(item.nota !== undefined && { nota: item.nota }),
           },
         ]
       : [];
@@ -844,6 +846,12 @@ export async function handleIncoming(
       }
     }
   }
+
+  // T-106: el cliente escribió, así que la cuenta de seguimientos vuelve a
+  // cero (máximo 2 por cada silencio suyo). Si pidió que no le escriban, no
+  // recibe más seguimientos automáticos.
+  if (lead.followUpsSent.length) lead.followUpsSent = [];
+  if (pideNoContactar(message.text)) lead.noContactar = true;
 
   await repo.save(lead);
 

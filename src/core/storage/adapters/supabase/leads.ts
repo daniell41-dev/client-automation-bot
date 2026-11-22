@@ -51,6 +51,11 @@ export function toRow(lead: Lead, negocioId: string | undefined): LeadRow {
     // llega antes que la migración sigue guardando los leads sin anuncio.
     ...(lead.origen && { origen: lead.origen }),
     negocio_id: negocioId ?? null,
+    // T-106 (migración 0027): solo se manda cuando es `true`. Si la columna
+    // todavía no existe en la base (migración sin correr el día del
+    // despliegue), un `false` en cada guardado rompería TODOS los mensajes;
+    // así solo falla el caso raro de alguien que pidió que no le escriban.
+    ...(lead.noContactar && { no_contactar: true }),
   };
 }
 
@@ -78,6 +83,7 @@ export function fromRow(row: LeadRow): Lead {
     // `leerOrigen` y no un cast: es un jsonb, y uno mal formado no debe
     // impedir cargar el lead.
     origen: leerOrigen(row.origen),
+    ...(row.no_contactar && { noContactar: true }),
   };
 }
 

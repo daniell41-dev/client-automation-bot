@@ -164,6 +164,8 @@ function TarjetaPedido({
         {pedido.items.map((item) => (
           <li key={`${item.serviceId}-${item.variante ?? ""}`}>
             {item.cantidad}x {item.nombre}
+            {/* T-105: lo que el cliente pidió cambiar, resaltado para quien prepara. */}
+            {item.nota && <span className="ml-1 font-semibold text-warn-ink">({item.nota})</span>}
           </li>
         ))}
       </ul>

@@ -98,7 +98,7 @@ export interface AgentLeadState {
    * (la IA no tiene que cruzar `servicioId` contra el catálogo ella misma).
    * Vacío/ausente si no hay ítems de pedido cargados todavía.
    */
-  items?: { servicioId: string; nombre: string; cantidad: number; variante?: string }[];
+  items?: { servicioId: string; nombre: string; cantidad: number; variante?: string; nota?: string }[];
   /**
    * T-120: de qué anuncio viene, ya en palabras ("anuncio «Jeans clásicos»").
    * Es contexto para entender qué busca, no una instrucción: va en los datos
