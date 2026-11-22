@@ -6,10 +6,12 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Nuevo
+- Detalles del producto (T-123): en el Catálogo, "Detalles del producto" permite agregar talla, color y estilo a la vez (un selector, las opciones y el botón +), con la lista de lo agregado debajo. El bot pregunta cada detalle, anota la combinación ("Talla 30, Color Blanco") y, si el cliente dice solo la talla, le pide solo el color. Los productos que ya tenían tallas siguen funcionando igual.
+
 ## [1.4.0] — 2026-11-22
 
 ### Nuevo
-- Detalles del producto (T-123): en el Catálogo, "Detalles del producto" permite agregar talla, color y estilo a la vez (un selector, las opciones y el botón +), con la lista de lo agregado debajo. El bot pregunta cada detalle, anota la combinación ("Talla 30, Color Blanco") y, si el cliente dice solo la talla, le pide solo el color. Los productos que ya tenían tallas siguen funcionando igual.
 - Comentario → DM en el Instagram de Aurela (T-108): quien comenta ALMUERZO o CITA en un Reel recibe un DM con el enlace a soyaurela.com y una respuesta pública "¡Le escribí por DM!". Un DM por persona cada 24 h, nunca a la propia cuenta ni dentro de hilos. Webhook nuevo `/api/webhook/instagram` con firma obligatoria. Configuración en `docs/21-instagram.md`.
 
 ### Arreglos
