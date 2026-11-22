@@ -17,6 +17,7 @@ import type {
   Lead,
   OutgoingMessage,
   PersonaConfig,
+  Service,
 } from "@/core/types";
 import type { AgentTurnInput, ILLMProvider } from "@/core/ai/provider";
 import { RESPUESTA_SEGURA, revisarRespuestaIA } from "@/core/ai/filtro-respuesta";
@@ -46,10 +47,14 @@ import { describirOrigen, registrarOrigen } from "@/core/engine/origen";
 import { modoDelItem } from "@/core/engine/modo-item";
 import {
   agregarAlCarrito,
+  elegirVariante,
   esDomicilio,
+  faltaVariante,
   fijarCantidad,
   lineasEntrega,
+  nombreItem,
   pareceDireccion,
+  quitarDelCarrito,
   resumenCarrito,
 } from "@/core/engine/flows/pedido";
 
@@ -107,6 +112,8 @@ function buildAgentInput(
       durationMinutes: s.durationMinutes,
       categoria: s.categoria,
       modo: modoDelItem(s, config.catalogo),
+      referencia: s.referencia,
+      variantes: s.variantes,
     })),
     horarios: config.horarios,
     pedidos: config.pedidos?.enabled
@@ -130,11 +137,16 @@ function buildAgentInput(
       origen: lead.origen ? describirOrigen(lead.origen) : undefined,
       // T-21: se resuelve el nombre acá (no en el prompt) para que la IA no
       // tenga que cruzar `servicioId` contra el catálogo ella misma.
-      items: lead.items?.map((i) => ({
-        servicioId: i.serviceId,
-        nombre: config.services.find((s) => s.id === i.serviceId)?.name ?? i.serviceId,
-        cantidad: i.cantidad,
-      })),
+      items: lead.items?.map((i) => {
+        const service = config.services.find((s) => s.id === i.serviceId);
+        return {
+          servicioId: i.serviceId,
+          // T-104: con la talla en el nombre, la IA ve "Jean Ref 102 · Talla 30".
+          nombre: service ? nombreItem(service, i.variante) : i.serviceId,
+          cantidad: i.cantidad,
+          ...(i.variante !== undefined && { variante: i.variante }),
+        };
+      }),
     },
     history,
     message,
@@ -163,9 +175,21 @@ function resumenParaConfirmar(lead: Lead, config: BusinessConfig): string {
 /** T-48: lo próximo que falta para poder cerrar el pedido, en el orden del motor guiado. */
 function preguntaQueFaltaPedido(lead: Lead, config: BusinessConfig): string {
   if (!(lead.items?.length ?? 0)) return "¿Qué le gustaría pedir y cuántas unidades?";
+  const sinVariante = faltaVariante(lead.items ?? [], config.services);
+  if (sinVariante) return preguntaVariante(sinVariante.service);
   if (config.pedidos?.enabled && !lead.entrega) return config.pedidos.pregunta;
   if (esDomicilio(lead.entrega) && !lead.direccion) return ASK_DIRECCION;
   return render(config.messages.askName, { nombre: "", servicio: "" });
+}
+
+/**
+ * T-104: "¿En qué talla quiere el Jean clásico Ref 102? Tenemos: 28, 30, 32."
+ * Lo arma el motor con las opciones reales: la IA no puede ofrecer una talla
+ * que el negocio no tiene.
+ */
+function preguntaVariante(service: Service): string {
+  const v = service.variantes!;
+  return `¿En qué ${v.nombre.toLowerCase()} quiere el ${nombreItem(service)}? Tenemos: ${v.opciones.join(", ")}. Si quiere varias, dígame cuántas de cada una 🙌`;
 }
 
 /**
@@ -203,8 +227,16 @@ function productoNombrado(texto: string, config: BusinessConfig) {
   return availableServices(config.services).find(
     (s) =>
       modoDelItem(s, config.catalogo) === "pedido" &&
-      (t.includes(sinTildes(s.name)) || (s.keywords ?? []).some((k) => k.length >= 4 && t.includes(sinTildes(k)))),
+      (t.includes(sinTildes(s.name)) ||
+        (s.keywords ?? []).some((k) => k.length >= 4 && t.includes(sinTildes(k))) ||
+        // T-104: "mándeme la 102" / "ref 102". La referencia va como palabra
+        // completa: "102" no debe calzar dentro de "1020" ni de un teléfono.
+        (!!s.referencia && new RegExp(`(^|[^\\w])${escaparRegex(sinTildes(s.referencia))}([^\\w]|$)`).test(t))),
   );
+}
+
+function escaparRegex(texto: string): string {
+  return texto.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -344,6 +376,8 @@ export async function runAgentTurn(
   );
 
   let sawOffTopic = false;
+  // T-104: producto al que la IA le quiso anotar una opción que no existe.
+  let varianteRechazada: Service | undefined;
   for (const accion of acciones) {
     switch (accion.tipo) {
       case "elegir_servicio": {
@@ -410,13 +444,29 @@ export async function runAgentTurn(
         );
         const cantidad = Math.round(accion.cantidad);
         if (servicio && modoDelItem(servicio, config.catalogo) === "pedido" && cantidad > 0) {
-          lead.items = fijarCantidad(lead.items, servicio.id, cantidad);
+          // T-104: si el producto tiene opciones, la que mandó la IA tiene
+          // que ser una de ellas. Una talla inexistente no se anota (ni se
+          // cambia a la más parecida): el motor le dice al cliente cuáles hay.
+          // Sin talla todavía, la línea entra igual y el motor la pregunta
+          // antes del resumen (ver `faltaVariante`).
+          let variante: string | undefined;
+          if (servicio.variantes && accion.variante !== undefined) {
+            variante = elegirVariante(servicio, accion.variante);
+            if (variante === undefined) {
+              varianteRechazada = servicio;
+              break;
+            }
+          }
+          lead.items = fijarCantidad(lead.items, servicio.id, cantidad, variante);
           if (lead.state === "nuevo") lead.state = "interesado";
         }
         break;
       }
       case "quitar_producto": {
-        lead.items = lead.items?.filter((i) => i.serviceId !== accion.servicioId);
+        const servicio = config.services.find((s) => s.id === accion.servicioId);
+        const variante =
+          servicio && accion.variante !== undefined ? elegirVariante(servicio, accion.variante) : undefined;
+        lead.items = quitarDelCarrito(lead.items, accion.servicioId, variante);
         if (!lead.items?.length) lead.items = undefined;
         if (lead.serviceId === accion.servicioId) lead.serviceId = lead.items?.[0]?.serviceId;
         break;
@@ -499,6 +549,8 @@ export async function runAgentTurn(
       // domicilio — un pedido a domicilio sin dirección no se puede entregar.
       !!lead.name &&
       (lead.items?.length ?? 0) > 0 &&
+      // T-104: cada producto con tallas tiene que tener su talla elegida.
+      !faltaVariante(lead.items ?? [], config.services) &&
       (!config.pedidos?.enabled || !!lead.entrega) &&
       (!esDomicilio(lead.entrega) || !!lead.direccion)
     : !!lead.name &&
@@ -575,6 +627,10 @@ export async function runAgentTurn(
           ? "Los datos para pagar le llegan apenas confirme su pedido 🙌"
           : RESPUESTA_SEGURA;
     if (mostrarResumen) opciones = PEDIDO_CONFIRM_OPTIONS;
+  } else if (varianteRechazada) {
+    // T-104: la IA anotó una talla que no existe; su texto seguramente la da
+    // por buena. Se reemplaza por las opciones reales.
+    respuestaFinal = `No tenemos esa ${varianteRechazada.variantes!.nombre.toLowerCase()} en el ${nombreItem(varianteRechazada)}. ${preguntaVariante(varianteRechazada)}`;
   } else if (preguntarFaltante) {
     respuestaFinal = preguntaQueFaltaPedido(lead, config);
   } else if (mostrarResumen) {

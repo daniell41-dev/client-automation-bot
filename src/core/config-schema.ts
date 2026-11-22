@@ -29,8 +29,25 @@ export const serviceSchema = z
     reservable: z.boolean().optional(),
     modo: z.enum(["cita", "pedido"]).optional(),
     stock: z.number().int().nonnegative("El stock no puede ser negativo.").optional(),
+    // T-104: referencia del mayorista y opciones (tallas, colores…).
+    referencia: z.string().trim().min(1).max(40, "La referencia es muy larga.").optional(),
+    variantes: z
+      .object({
+        nombre: z.string().trim().min(1, "Escriba cómo se llaman las opciones (p. ej. Talla).").max(30),
+        opciones: z
+          .array(z.string().trim().min(1).max(30))
+          .min(1, "Agregue al menos una opción.")
+          .max(40, "Máximo 40 opciones por producto."),
+      })
+      .optional(),
   })
   .superRefine((item, ctx) => {
+    // T-104: dos opciones iguales ("30" y "30 ", o "M" y "m") harían que el
+    // bot no sepa en cuál anotar el pedido.
+    const opciones = item.variantes?.opciones.map((o) => o.trim().toLowerCase()) ?? [];
+    if (new Set(opciones).size !== opciones.length) {
+      ctx.addIssue({ code: "custom", path: ["variantes", "opciones"], message: "Hay opciones repetidas." });
+    }
     // Un ítem que se agenda SÍ necesita duración: `buildCalendarEvent` calcula
     // el fin del evento con ella y `validarCita` la usa para saber si entra
     // antes del cierre. Sin ella, el evento duraría cero.

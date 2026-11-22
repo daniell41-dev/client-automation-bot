@@ -25,6 +25,20 @@ const inputCls =
  * (T-21): en una tienda, un producto recién agregado no tiene por qué nacer
  * con "30 minutos" — nadie se lo va a sacar si no lo ve.
  */
+/**
+ * T-104: arma `variantes` desde los dos campos del formulario. Sin opciones
+ * no hay variantes (un nombre suelto no significa nada). Sin nombre se usa
+ * "Opción": el bot igual necesita una palabra para preguntar.
+ */
+function armarVariantes(nombre: string, texto: string): Service["variantes"] {
+  const opciones = texto
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+  if (opciones.length === 0) return undefined;
+  return { nombre: nombre.trim() || "Opción", opciones };
+}
+
 function nuevoItem(n: number, conDuracion: boolean): Service {
   return {
     id: `item-${Date.now()}-${n}`,
@@ -63,6 +77,23 @@ export function CatalogoEditor({
   );
   const [search, setSearch] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // T-104: lo que el dueño va escribiendo en "Opciones", tal cual (con la coma
+  // final mientras escribe). Si se guardara solo la lista ya separada, el
+  // campo se "comería" la coma y no se podría escribir la siguiente opción.
+  // Igual con el nombre: escrito antes que las opciones, todavía no hay
+  // `variantes` donde guardarlo.
+  const [opcionesTexto, setOpcionesTexto] = useState<Record<string, { nombre: string; opciones: string }>>({});
+  const textoVariantes = (id: string) => {
+    const guardado = services.find((s) => s.id === id)?.variantes;
+    return (
+      opcionesTexto[id] ?? { nombre: guardado?.nombre ?? "", opciones: guardado?.opciones.join(", ") ?? "" }
+    );
+  };
+  const editarVariantes = (id: string, cambio: Partial<{ nombre: string; opciones: string }>) => {
+    const texto = { ...textoVariantes(id), ...cambio };
+    setOpcionesTexto((prev) => ({ ...prev, [id]: texto }));
+    patchService(id, { variantes: armarVariantes(texto.nombre, texto.opciones) });
+  };
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     guardarConfigParcial,
     {},
@@ -301,6 +332,47 @@ export function CatalogoEditor({
                   />
                 </div>
               )}
+              {/* T-104: referencia del mayorista y opciones (tallas, colores…). Opcionales:
+                  un restaurante los deja vacíos y todo funciona como antes. */}
+              <div>
+                <label className={labelCls}>Referencia (opcional)</label>
+                <input
+                  className={inputCls}
+                  value={selected.referencia ?? ""}
+                  onChange={(e) =>
+                    patchService(selected.id, { referencia: e.target.value.trim() === "" ? undefined : e.target.value })
+                  }
+                  placeholder="Ej. 102"
+                />
+                {fieldErrors.referencia && (
+                  <p className="mt-1 text-xs text-warn-ink">{fieldErrors.referencia}</p>
+                )}
+              </div>
+              <div>
+                <label className={labelCls}>Opciones (opcional)</label>
+                <div className="flex gap-2">
+                  <input
+                    className={`${inputCls} w-28 shrink-0`}
+                    value={textoVariantes(selected.id).nombre}
+                    onChange={(e) => editarVariantes(selected.id, { nombre: e.target.value })}
+                    placeholder="Talla"
+                    aria-label="Nombre de las opciones"
+                  />
+                  <input
+                    className={inputCls}
+                    value={textoVariantes(selected.id).opciones}
+                    onChange={(e) => editarVariantes(selected.id, { opciones: e.target.value })}
+                    placeholder="28, 30, 32, 34"
+                    aria-label="Opciones separadas por coma"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-ink-mid">
+                  Separadas por coma. El bot pregunta cuál quiere el cliente antes de cerrar el pedido.
+                </p>
+                {fieldErrors.variantes && (
+                  <p className="mt-1 text-xs text-warn-ink">{fieldErrors.variantes}</p>
+                )}
+              </div>
               <div className="sm:col-span-2">
                 <label className={labelCls}>Descripción</label>
                 <textarea

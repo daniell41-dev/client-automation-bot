@@ -162,7 +162,7 @@ function TarjetaPedido({
 
       <ul className="mt-2 space-y-0.5 text-sm text-ink">
         {pedido.items.map((item) => (
-          <li key={item.serviceId}>
+          <li key={`${item.serviceId}-${item.variante ?? ""}`}>
             {item.cantidad}x {item.nombre}
           </li>
         ))}

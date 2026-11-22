@@ -46,7 +46,7 @@ import { citaCumplida, cerrarCitaCumplida } from "@/core/engine/appointment-life
 import { pedidoFinalizado, cerrarPedidoFinalizado } from "@/core/engine/pedido-lifecycle";
 import { inactivo, limpiarDatosCapturados, reseteablePorInactividad } from "@/core/engine/session-lifecycle";
 import { describirOrigen, registrarOrigen } from "@/core/engine/origen";
-import { resumenCarrito, totalPedido } from "@/core/engine/flows/pedido";
+import { cantidadesPorProducto, nombreItem, resumenCarrito, totalPedido } from "@/core/engine/flows/pedido";
 import { BOTON_APROBAR, BOTON_RECHAZAR, BOTON_RESTO, interpretarDecisionDueña } from "@/core/engine/approval";
 import { transition } from "@/core/engine/lead-state";
 import { pagoVencido, pedidoPendienteDeDecision, transicionarPedido } from "@/core/engine/pedido-estado";
@@ -237,7 +237,15 @@ async function crearPedidoDelCarrito(
   const items = lead.items.flatMap((item) => {
     const service = config.services.find((s) => s.id === item.serviceId);
     return service
-      ? [{ serviceId: item.serviceId, nombre: service.name, cantidad: item.cantidad, precioUnitario: service.price }]
+      ? [
+          {
+            serviceId: item.serviceId,
+            nombre: nombreItem(service, item.variante),
+            cantidad: item.cantidad,
+            precioUnitario: service.price,
+            ...(item.variante !== undefined && { variante: item.variante }),
+          },
+        ]
       : [];
   });
   try {
@@ -300,10 +308,8 @@ async function devolverStock(
 ): Promise<void> {
   if (!inventory || !items?.length) return;
   try {
-    await inventory.incrementCart(
-      negocio,
-      items.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
-    );
+    // T-104: sumadas por producto (dos tallas del mismo jean son un solo stock).
+    await inventory.incrementCart(negocio, cantidadesPorProducto(items));
   } catch (err) {
     console.error("[Stock] no se pudo devolver el stock de un pedido no concretado:", err);
   }
@@ -771,7 +777,7 @@ export async function handleIncoming(
       if (inventory) {
         const resultado = await inventory.decrementCart(
           negocioParaStock ?? config.slug,
-          lead.items!.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
+          cantidadesPorProducto(lead.items!),
         );
         if (!resultado.ok) {
           stockOk = false;
@@ -1738,7 +1744,7 @@ export async function handleWompiWebhookEvent(
   if (inventory && itemsPedido.length > 0) {
     const resultado = await inventory.decrementCart(
       negocioParaStock ?? config.slug,
-      itemsPedido.map((i) => ({ serviceId: i.serviceId, cantidad: i.cantidad })),
+      cantidadesPorProducto(itemsPedido),
     );
     if (!resultado.ok) {
       const nombres = (resultado.faltantes ?? [])
