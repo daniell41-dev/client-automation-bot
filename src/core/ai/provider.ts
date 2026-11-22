@@ -68,6 +68,8 @@ export interface AgentServiceSummary {
   referencia?: string;
   /** T-104: opciones del producto (tallas, colores…). La IA pregunta cuál y solo usa estas. */
   variantes?: { nombre: string; opciones: string[] };
+  /** T-123: varios detalles (talla, color, estilo). Ver `Service.detalles`. */
+  detalles?: { nombre: string; opciones: string[] }[];
 }
 
 /** Lo que el motor ya sabe del cliente antes de este turno. */
