@@ -64,6 +64,10 @@ export interface AgentServiceSummary {
    * para no romper fixtures/tests de antes de T-21 que arman este objeto a mano.
    */
   modo?: ModoItem;
+  /** T-104: código del producto ("102"); el cliente puede pedirlo así. */
+  referencia?: string;
+  /** T-104: opciones del producto (tallas, colores…). La IA pregunta cuál y solo usa estas. */
+  variantes?: { nombre: string; opciones: string[] };
 }
 
 /** Lo que el motor ya sabe del cliente antes de este turno. */
@@ -94,7 +98,7 @@ export interface AgentLeadState {
    * (la IA no tiene que cruzar `servicioId` contra el catálogo ella misma).
    * Vacío/ausente si no hay ítems de pedido cargados todavía.
    */
-  items?: { servicioId: string; nombre: string; cantidad: number }[];
+  items?: { servicioId: string; nombre: string; cantidad: number; variante?: string }[];
 }
 
 /** Contexto completo que necesita la IA para decidir un turno en modo agente. */

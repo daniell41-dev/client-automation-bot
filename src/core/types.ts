@@ -63,6 +63,23 @@ export interface CartItem {
   /** `Service.id` del producto. */
   serviceId: string;
   cantidad: number;
+  /**
+   * T-104: la opción elegida de `Service.variantes` ("30" si las variantes son
+   * tallas). El mismo producto en dos tallas son DOS líneas del carrito: el
+   * mayorista pide "6 de la 30 y 6 de la 32", y cada talla se prepara aparte.
+   * Ausente en un producto sin variantes, o mientras el cliente no la dijo.
+   */
+  variante?: string;
+}
+
+/**
+ * T-104: las opciones de un producto ("Talla": 28, 30, 32…). El `nombre` lo
+ * escribe el dueño, así sirve igual para "Color", "Tamaño" o "Término de la
+ * carne" sin código por rubro. Todas las opciones valen el mismo precio.
+ */
+export interface VariantesItem {
+  nombre: string;
+  opciones: string[];
 }
 
 /** Un servicio que ofrece el negocio (lo personaliza cada `BusinessConfig`). */
@@ -101,6 +118,14 @@ export interface Service {
    * guardado y dos ventas simultáneas se pisarían.
    */
   stock?: number;
+  /**
+   * T-104: código con el que el negocio y sus clientes nombran el producto
+   * ("102", "JX-55"). En ropa al por mayor se pide por referencia, no por
+   * nombre: "mándeme la 102". El bot la reconoce y la muestra en el pedido.
+   */
+  referencia?: string;
+  /** T-104: si el producto viene en opciones (tallas, colores…), cuáles hay. */
+  variantes?: VariantesItem;
 }
 
 /**

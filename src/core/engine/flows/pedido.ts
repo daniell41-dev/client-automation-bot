@@ -26,35 +26,121 @@ function formatPrice(config: BusinessConfig, price: number): string {
 }
 
 /**
- * Agrega `cantidad` unidades de `serviceId` al carrito. Si el producto ya
- * estaba cargado, SUMA la cantidad en la misma línea en vez de duplicarla:
- * "2 harinas" y después "una más" terminan en una sola fila con 3.
+ * T-104: una línea del carrito es un producto EN una variante. Sin variante
+ * (`undefined`) es otra línea: la de un producto sin opciones, o la que
+ * espera que el cliente diga la talla.
  */
+function mismaLinea(item: CartItem, serviceId: string, variante: string | undefined): boolean {
+  return item.serviceId === serviceId && item.variante === variante;
+}
+
+/** Quita `variante` cuando no hay (así el carrito de un producto sin opciones queda igual que antes de T-104). */
+function linea(serviceId: string, cantidad: number, variante: string | undefined): CartItem {
+  return variante === undefined ? { serviceId, cantidad } : { serviceId, cantidad, variante };
+}
+
 /**
  * T-55: deja la cantidad de un producto en `cantidad` (no la suma). Es lo
  * que significa "guardar_cantidad" en modo agente: en la prueba real el
  * cliente dijo "una bandeja", después "ya te dije que 1", y la suma dejó 2.
+ *
+ * T-104: por variante. Al llegar la talla, la línea del mismo producto que
+ * la esperaba (sin variante) se reemplaza: "6 jeans" y después "de la 30"
+ * son 6 de la 30, no 6 sin talla más 6 de la 30.
  */
-export function fijarCantidad(items: CartItem[] | undefined, serviceId: string, cantidad: number): CartItem[] {
-  const actuales = items ?? [];
-  return actuales.some((i) => i.serviceId === serviceId)
-    ? actuales.map((i) => (i.serviceId === serviceId ? { ...i, cantidad } : i))
-    : [...actuales, { serviceId, cantidad }];
+export function fijarCantidad(
+  items: CartItem[] | undefined,
+  serviceId: string,
+  cantidad: number,
+  variante?: string,
+): CartItem[] {
+  let actuales = items ?? [];
+  if (variante !== undefined) actuales = actuales.filter((i) => !mismaLinea(i, serviceId, undefined));
+  return actuales.some((i) => mismaLinea(i, serviceId, variante))
+    ? actuales.map((i) => (mismaLinea(i, serviceId, variante) ? { ...i, cantidad } : i))
+    : [...actuales, linea(serviceId, cantidad, variante)];
 }
 
+/**
+ * Agrega `cantidad` unidades de `serviceId` al carrito. Si el producto ya
+ * estaba cargado (en la misma variante), SUMA la cantidad en la misma línea
+ * en vez de duplicarla: "2 harinas" y después "una más" terminan en 3.
+ */
 export function agregarAlCarrito(
   items: CartItem[] | undefined,
   serviceId: string,
   cantidad: number,
+  variante?: string,
 ): CartItem[] {
   const actuales = items ?? [];
-  const existente = actuales.find((i) => i.serviceId === serviceId);
-  if (existente) {
+  if (actuales.some((i) => mismaLinea(i, serviceId, variante))) {
     return actuales.map((i) =>
-      i.serviceId === serviceId ? { ...i, cantidad: i.cantidad + cantidad } : i,
+      mismaLinea(i, serviceId, variante) ? { ...i, cantidad: i.cantidad + cantidad } : i,
     );
   }
-  return [...actuales, { serviceId, cantidad }];
+  return [...actuales, linea(serviceId, cantidad, variante)];
+}
+
+/** T-104: saca una variante del producto ("quite la talla 30"), o el producto entero si no se dice cuál. */
+export function quitarDelCarrito(items: CartItem[] | undefined, serviceId: string, variante?: string): CartItem[] {
+  return (items ?? []).filter((i) =>
+    variante === undefined ? i.serviceId !== serviceId : !mismaLinea(i, serviceId, variante),
+  );
+}
+
+/**
+ * T-104: cantidad total por producto, sumando sus variantes. El inventario
+ * lleva stock por producto (no por talla): si se le pasaran dos líneas del
+ * mismo jean, la base revisaría cada una contra el stock completo por
+ * separado y podría dejarlo en negativo.
+ */
+export function cantidadesPorProducto(items: CartItem[]): { serviceId: string; cantidad: number }[] {
+  const porProducto = new Map<string, number>();
+  for (const i of items) porProducto.set(i.serviceId, (porProducto.get(i.serviceId) ?? 0) + i.cantidad);
+  return [...porProducto].map(([serviceId, cantidad]) => ({ serviceId, cantidad }));
+}
+
+const sinTildes = (t: string) =>
+  t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+/**
+ * T-104: cómo se nombra una línea en el resumen, el aviso a la dueña y el
+ * panel: "Jean clásico Ref 102 · Talla 30". La referencia no se repite si el
+ * dueño ya la puso en el nombre.
+ */
+export function nombreItem(service: Service, variante?: string): string {
+  const ref =
+    service.referencia && !sinTildes(service.name).includes(sinTildes(service.referencia))
+      ? ` Ref ${service.referencia}`
+      : "";
+  const opcion = variante ? ` · ${service.variantes?.nombre ?? "Opción"} ${variante}` : "";
+  return `${service.name}${ref}${opcion}`;
+}
+
+/**
+ * T-104: la opción del catálogo que corresponde a lo que dijo el cliente (o
+ * la IA): "30", "talla 30", "Talla: 30" → "30"; "m" → "M". Solo devuelve una
+ * opción que EXISTE: una talla que el negocio no tiene no se anota.
+ */
+export function elegirVariante(service: Service, texto: string): string | undefined {
+  const variantes = service.variantes;
+  if (!variantes) return undefined;
+  const nombre = sinTildes(variantes.nombre);
+  const limpio = sinTildes(texto).replace(new RegExp(`^${nombre.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*:?\\s*`), "");
+  if (!limpio) return undefined;
+  return variantes.opciones.find((o) => sinTildes(o) === limpio);
+}
+
+/** T-104: la primera línea de un producto con opciones a la que todavía le falta elegir cuál. */
+export function faltaVariante(
+  items: CartItem[],
+  services: Service[],
+): { item: CartItem; service: Service } | undefined {
+  for (const item of items) {
+    const service = services.find((s) => s.id === item.serviceId);
+    if (service?.variantes?.opciones.length && item.variante === undefined) return { item, service };
+  }
+  return undefined;
 }
 
 /**
@@ -86,7 +172,7 @@ export function resumenCarrito(
     .map((item) => {
       const service = services.find((s) => s.id === item.serviceId);
       if (!service) return null;
-      return `${item.cantidad}x ${service.name} — ${formatPrice(config, service.price * item.cantidad)}`;
+      return `${item.cantidad}x ${nombreItem(service, item.variante)} — ${formatPrice(config, service.price * item.cantidad)}`;
     })
     .filter((l): l is string => l !== null);
   const domicilio = costoEntrega(config, entrega);

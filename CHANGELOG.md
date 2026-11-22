@@ -7,6 +7,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Nuevo
+- Referencias y tallas en los productos (T-104): en el catálogo cada producto puede tener una referencia ("102") y opciones con el nombre que elija el negocio (tallas, colores, tamaños). El bot pregunta la talla antes de cerrar el pedido, entiende "6 de la 30 y 6 de la 32", no acepta una talla que no existe y reconoce "mándeme la 102". La talla aparece en el resumen, en el aviso a la dueña y en el panel de pedidos; el inventario suma las tallas del mismo producto.
+
+### Nuevo
 - Respaldo diario de la base desde el VPS (T-101): `deploy/respaldo-db.sh` saca una copia con `pg_dump` cada noche y guarda las últimas 14. El despliegue copia el script; la configuración (una sola vez) está en `docs/19-vps.md`.
 
 ### Arreglos

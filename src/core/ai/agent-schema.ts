@@ -31,9 +31,22 @@ const agentActionSchema = z.discriminatedUnion("tipo", [
     tipo: z.literal("guardar_cantidad"),
     servicioId: z.string().min(1),
     cantidad: z.number().positive(),
+    /**
+     * T-104: la opción del producto (talla, color…). `agent.ts` la valida
+     * contra las opciones REALES del producto: una talla que no existe no
+     * se anota.
+     */
+    variante: z.string().min(1).optional(),
   }),
-  /** T-57: el cliente ya no quiere un producto del carrito ("sacá la bandeja"). */
-  z.object({ tipo: z.literal("quitar_producto"), servicioId: z.string().min(1) }),
+  /**
+   * T-57: el cliente ya no quiere un producto del carrito ("sacá la bandeja").
+   * T-104: con `variante`, solo esa talla; sin ella, el producto entero.
+   */
+  z.object({
+    tipo: z.literal("quitar_producto"),
+    servicioId: z.string().min(1),
+    variante: z.string().min(1).optional(),
+  }),
   /** Ya hay nombre + servicio + fecha (+ modalidad si aplica), o nombre + carrito con algo: confirmar la cita/pedido. */
   z.object({ tipo: z.literal("confirmar") }),
   /** El mensaje no tiene nada que ver con el negocio (charla ajena al contexto de venta). */
@@ -74,6 +87,7 @@ const ALIAS_CAMPOS: Record<string, string[]> = {
   modalidad: ["entrega", "opcion", "valor", "value"],
   direccion: ["address", "valor", "value"],
   cantidad: ["qty", "quantity", "unidades", "valor", "value"],
+  variante: ["talla", "size", "color", "opcion", "option", "variant"],
 };
 
 const CAMPOS_POR_TIPO: Record<string, string[]> = {
@@ -82,8 +96,8 @@ const CAMPOS_POR_TIPO: Record<string, string[]> = {
   guardar_fecha: ["fecha"],
   guardar_modalidad: ["modalidad"],
   guardar_direccion: ["direccion"],
-  guardar_cantidad: ["servicioId", "cantidad"],
-  quitar_producto: ["servicioId"],
+  guardar_cantidad: ["servicioId", "cantidad", "variante"],
+  quitar_producto: ["servicioId", "variante"],
 };
 
 /**
@@ -104,6 +118,8 @@ function normalizarAccion(item: unknown): unknown {
   if (typeof accion.cantidad === "string" && /^\d+$/.test(accion.cantidad.trim())) {
     accion.cantidad = Number(accion.cantidad);
   }
+  // T-104: una talla numérica suele llegar como número (`"talla": 30`).
+  if (typeof accion.variante === "number") accion.variante = String(accion.variante);
   return accion;
 }
 
