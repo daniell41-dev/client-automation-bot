@@ -28,6 +28,7 @@ export const dynamic = "force-dynamic";
 
 /** Un solo recordador por proceso: no escribirle a la misma persona dos veces en 24 h. */
 const recordador = new RecordadorDeAutores();
+let firmaAnotada = false;
 
 export async function GET(request: Request): Promise<Response> {
   const params = new URL(request.url).searchParams;
@@ -42,18 +43,40 @@ export async function GET(request: Request): Promise<Response> {
     : new Response("Forbidden", { status: 403 });
 }
 
+/**
+ * Las claves con las que puede venir firmado el aviso. La app de Meta tiene
+ * DOS: la "clave secreta de la aplicación de Instagram" y la clave secreta
+ * general de la app (la que firma los avisos de WhatsApp). La documentación
+ * no deja claro cuál usa Meta para los webhooks de Instagram en una app que
+ * tiene los dos productos, y en la primera prueba real la de Instagram no
+ * coincidió. Se acepta cualquiera de las dos: ambas son secretos de NUESTRA
+ * app, así que un aviso sin firma o firmado por otro sigue rechazado.
+ */
+function clavesDeFirma(): string[] {
+  return [process.env.INSTAGRAM_APP_SECRET, process.env.WHATSAPP_APP_SECRET].filter(
+    (c): c is string => !!c && c.trim().length > 0,
+  ).map((c) => c.trim());
+}
+
 export async function POST(request: Request): Promise<Response> {
-  const appSecret = process.env.INSTAGRAM_APP_SECRET;
-  if (!appSecret) {
+  const claves = clavesDeFirma();
+  if (!process.env.INSTAGRAM_APP_SECRET || claves.length === 0) {
     console.error("[Instagram] INSTAGRAM_APP_SECRET no está configurado: se rechaza el evento.");
     return new Response("Webhook not configured", { status: 503 });
   }
   const rawBody = await request.text();
-  if (!verifySignature(rawBody, request.headers.get("x-hub-signature-256"), appSecret)) {
+  const firma = request.headers.get("x-hub-signature-256");
+  const conCual = claves.findIndex((c) => verifySignature(rawBody, firma, c));
+  if (conCual < 0) {
     // A diferencia del de WhatsApp, se anota: es la causa más común de "no
-    // pasa nada" al configurar (App Secret de Instagram vs. el de la app).
-    console.warn("[Instagram] firma inválida: revise INSTAGRAM_APP_SECRET");
+    // pasa nada" al configurar.
+    console.warn("[Instagram] firma inválida: no coincide con INSTAGRAM_APP_SECRET ni con WHATSAPP_APP_SECRET");
     return new Response("Invalid signature", { status: 401 });
+  }
+  // Una vez, para saber cuál usa Meta y dejar de adivinar.
+  if (!firmaAnotada) {
+    firmaAnotada = true;
+    console.info(`[Instagram] firma válida con ${conCual === 0 ? "INSTAGRAM_APP_SECRET" : "WHATSAPP_APP_SECRET"}`);
   }
   let payload: unknown;
   try {

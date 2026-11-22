@@ -6,6 +6,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Arreglos
+- Webhook de Instagram (T-108): acepta la firma de Meta con la clave de Instagram o con la clave general de la app (en la primera prueba real Meta firmó con la que no esperábamos) y tolera espacios al pegar la clave.
+
 ## [1.5.0] — 2026-11-22
 
 ### Nuevo
