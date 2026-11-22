@@ -1,18 +1,33 @@
 /**
- * Portal · Selección de rubro/negocio.
- * El cliente puede tener varios negocios; acá elige cuál gestionar.
+ * Portal · Inicio de la dueña: primero lo que le toca hacer hoy (sumando
+ * todos sus negocios), después el resumen del día y sus negocios.
+ *
+ * Antes esta pantalla era solo un selector de negocio: para enterarse de un
+ * pago que no cuadraba había que abrir cada negocio. Con un solo negocio ni
+ * siquiera se muestra: se entra directo a su Resumen, que tiene los mismos
+ * pendientes arriba.
  */
 
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
-import { EmptyState, Pill } from "@/components/ui";
+import { EmptyState, Pill, StatCard } from "@/components/ui";
 import { Logo } from "@/components/logo";
 import { RubroTile } from "@/components/rubro-visual";
+import { LeTocaAUsted } from "@/components/le-toca-a-usted";
 import { ArrowRight } from "lucide-react";
 import { signOut } from "@/app/login/actions";
 import { ActionForm } from "@/components/action-form";
 import { crearMiNegocio } from "./primer-negocio/actions";
+import {
+  armarPendientes,
+  fechaLarga,
+  pedidosDeHoy,
+  saludo,
+  totalVendido,
+  type PedidoInicio,
+} from "@/lib/inicio-portal";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +39,14 @@ interface NegocioCard {
   tag: string;
   botActivo: boolean;
   mensajesHoy: number;
+  pedidosHoy: number;
+  pendientes: number;
+  ultimoMensaje: { texto: string; hora: string } | null;
 }
+
+/** Estados en los que un pedido espera algo de la dueña o se cuenta como venta. */
+const FILTRO_PEDIDOS = (desde: string) =>
+  `estado.eq.por_verificar,created_at.gte.${desde},devolucion_estado.in.(pendiente,pidiendo_cuenta)`;
 
 function firstName(email: string): string {
   const raw = email.split("@")[0] ?? "";
@@ -42,7 +64,12 @@ export default async function PortalHome() {
     .eq("owner_id", me!.userId)
     .order("updated_at", { ascending: false });
 
+  // Con un solo negocio, elegir negocio es un paso de más: su Resumen ya
+  // muestra los mismos pendientes arriba.
+  if (negocios?.length === 1) redirect(`/portal/negocios/${negocios[0].slug}`);
+
   const slugs = (negocios ?? []).map((n) => n.slug);
+  const ids = (negocios ?? []).map((n) => n.id);
 
   // T-42: sin negocios, la dueña arma el suyo eligiendo entre los rubros que
   // el admin le asignó al invitarla (la política `rubros_asignados` ya filtra).
@@ -53,26 +80,63 @@ export default async function PortalHome() {
   // Mensajes de hoy por negocio (turnos de las sesiones actualizadas hoy).
   const hoy = new Date();
   hoy.setHours(0, 0, 0, 0);
-  const { data: sesiones } = slugs.length
-    ? await supabase
-        .from("sesiones")
-        .select("business_slug, history")
-        .in("business_slug", slugs)
-        .gte("updated_at", hoy.toISOString())
-    : { data: [] as { business_slug: string; history: unknown }[] };
+  const [{ data: sesiones }, { data: pedidosData }] = slugs.length
+    ? await Promise.all([
+        supabase
+          .from("sesiones")
+          .select("business_slug, history, updated_at")
+          .in("business_slug", slugs)
+          .gte("updated_at", hoy.toISOString())
+          .order("updated_at", { ascending: false }),
+        supabase
+          .from("pedidos")
+          .select("negocio_id, numero, cliente, total, monto_pagado, moneda, estado, created_at, devolucion_estado, comprobantes(*)")
+          .in("negocio_id", ids)
+          .or(FILTRO_PEDIDOS(hoy.toISOString()))
+          .limit(500),
+      ])
+    : [{ data: [] as { business_slug: string; history: unknown; updated_at: string }[] }, { data: [] }];
 
   const mensajesPorNegocio = new Map<string, number>();
+  const ultimoPorNegocio = new Map<string, { texto: string; hora: string }>();
   for (const s of sesiones ?? []) {
-    const turns = Array.isArray(s.history)
-      ? (s.history as { timestamp?: string }[]).filter(
-          (t) => t.timestamp && new Date(t.timestamp) >= hoy,
-        ).length
-      : 0;
+    const turnos = Array.isArray(s.history)
+      ? (s.history as { role?: string; text?: string; timestamp?: string }[])
+      : [];
+    const deHoy = turnos.filter((t) => t.timestamp && new Date(t.timestamp) >= hoy);
     mensajesPorNegocio.set(
       s.business_slug,
-      (mensajesPorNegocio.get(s.business_slug) ?? 0) + turns,
+      (mensajesPorNegocio.get(s.business_slug) ?? 0) + deHoy.length,
     );
+    // Las sesiones vienen de la más reciente a la más vieja: la primera que
+    // aparece por negocio tiene su último mensaje. Se muestra lo que escribió
+    // el cliente, que es lo que le dice a la dueña de qué va la conversación.
+    if (!ultimoPorNegocio.has(s.business_slug)) {
+      const delCliente = [...deHoy].reverse().find((t) => t.role === "user" && t.text);
+      if (delCliente?.text) {
+        ultimoPorNegocio.set(s.business_slug, {
+          texto: delCliente.text,
+          hora: new Intl.DateTimeFormat("es-CO", {
+            hour: "numeric",
+            minute: "2-digit",
+            timeZone: "America/Bogota",
+          }).format(new Date(delCliente.timestamp!)),
+        });
+      }
+    }
   }
+
+  const pedidos = (pedidosData ?? []) as unknown as PedidoInicio[];
+  const negociosInicio = (negocios ?? []).map((n) => ({
+    id: n.id,
+    slug: n.slug,
+    nombre: parseBusinessConfig(n.config)?.name ?? n.slug,
+  }));
+  const pendientes = armarPendientes(pedidos, negociosInicio);
+  const vendidosHoy = pedidosDeHoy(pedidos, hoy);
+  const totalHoy = totalVendido(vendidosHoy);
+  const mensajesHoy = [...mensajesPorNegocio.values()].reduce((a, b) => a + b, 0);
+  const ahora = new Date();
 
   const cards: NegocioCard[] = (negocios ?? []).map((n) => {
     const config = parseBusinessConfig(n.config);
@@ -89,6 +153,15 @@ export default async function PortalHome() {
       tag: categorias[0] ?? config?.services[0]?.name ?? "",
       botActivo: config?.botActivo !== false,
       mensajesHoy: mensajesPorNegocio.get(n.slug) ?? 0,
+      pedidosHoy: vendidosHoy.filter((p) => p.negocio_id === n.id).length,
+      pendientes: pedidos.filter(
+        (p) =>
+          p.negocio_id === n.id &&
+          (p.estado === "por_verificar" ||
+            p.devolucion_estado === "pendiente" ||
+            p.devolucion_estado === "pidiendo_cuenta"),
+      ).length,
+      ultimoMensaje: ultimoPorNegocio.get(n.slug) ?? null,
     };
   });
 
@@ -96,7 +169,7 @@ export default async function PortalHome() {
     <div className="min-h-screen bg-canvas">
       {/* Topbar */}
       <header className="border-b border-line bg-surface">
-        <div className="mx-auto flex max-w-[900px] items-center justify-between px-6 py-3.5">
+        <div className="mx-auto flex max-w-[1120px] items-center justify-between px-6 py-3.5">
           <Link href="/portal">
             <Logo />
           </Link>
@@ -119,17 +192,42 @@ export default async function PortalHome() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[900px] px-6 py-10 fade-up">
-        <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">
-          Sus negocios
-        </p>
-        <h1 className="mt-1 text-[32px] font-extrabold text-ink">
-          Hola, {firstName(me!.email)}
-        </h1>
-        <p className="mt-1 text-[15px] text-ink-mid">
-          Elija el negocio que quiere gestionar. Cada uno tiene su propio bot de
-          WhatsApp.
-        </p>
+      <main className="mx-auto max-w-[1120px] space-y-7 px-6 py-10 fade-up">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.1em] text-primary">
+            {fechaLarga(ahora)}
+          </p>
+          <h1 className="mt-1 font-display text-[32px] font-extrabold leading-tight text-ink">
+            {saludo(ahora)}, {firstName(me!.email)}
+          </h1>
+          <p className="mt-1 text-[15px] text-ink-mid">
+            {cards.length === 0
+              ? "Arranquemos por armar su negocio."
+              : `Hoy Aurela atendió ${mensajesHoy === 1 ? "1 mensaje" : `${mensajesHoy} mensajes`} en sus ${cards.length} negocios. ${
+                  pendientes.length > 0 ? "Esto es lo que necesita de usted:" : "No hay nada pendiente por ahora."
+                }`}
+          </p>
+        </div>
+
+        {cards.length > 0 && <LeTocaAUsted pendientes={pendientes} />}
+
+        {cards.length > 0 && (
+          <section aria-label="Resumen de hoy" className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            <StatCard label="Mensajes hoy" value={String(mensajesHoy)} delta="en todos sus negocios" deltaTone="neutral" />
+            <StatCard
+              label="Pedidos hoy"
+              value={String(vendidosHoy.length)}
+              delta={totalHoy ? `${totalHoy} en total` : undefined}
+              deltaTone="neutral"
+            />
+            <StatCard
+              label="Por revisar"
+              value={String(pendientes.length)}
+              delta={pendientes.length > 0 ? "vea la lista de arriba" : "todo al día"}
+              deltaTone={pendientes.length > 0 ? "neutral" : "success"}
+            />
+          </section>
+        )}
 
         {cards.length === 0 ? (
           <div className="mt-8">
@@ -176,38 +274,66 @@ export default async function PortalHome() {
             )}
           </div>
         ) : (
-          <div className="mt-8 grid gap-4 sm:grid-cols-2">
-            {cards.map((card) => (
-              <Link
-                key={card.id}
-                href={`/portal/negocios/${card.slug}`}
-                className="group rounded-2xl border border-line bg-surface p-5 shadow-card transition-all hover:-translate-y-0.5 hover:border-[#B2CCF4] hover:shadow-lift"
-              >
-                <div className="flex items-start justify-between">
-                  <RubroTile rubroNombre={card.rubro} size="lg" />
-                  <Pill tone={card.botActivo ? "success" : "warn"} dot>
-                    {card.botActivo ? "Bot activo" : "Bot en pausa"}
-                  </Pill>
-                </div>
-                <h2 className="mt-4 text-[17.5px] font-bold text-ink">
-                  {card.nombre}
-                </h2>
-                <p className="mt-0.5 text-sm text-ink-mid">
-                  {card.rubro}
-                  {card.tag ? ` · ${card.tag}` : ""}
-                </p>
-                <div className="mt-5 flex items-center justify-between border-t border-line pt-3.5">
-                  <span className="text-[13px] text-ink-soft">
-                    {card.mensajesHoy} mensajes hoy
-                  </span>
-                  <span className="inline-flex items-center gap-1 text-sm font-bold text-primary">
-                    Abrir
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
+          <section aria-labelledby="sus-negocios" className="space-y-3.5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="sus-negocios" className="text-[17px] font-extrabold text-ink">
+                Sus negocios
+              </h2>
+              <p className="text-[13px] text-ink-mid">
+                Entre a uno para editar su catálogo, citas o respuestas
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {cards.map((card) => (
+                <Link
+                  key={card.id}
+                  href={`/portal/negocios/${card.slug}`}
+                  className="group flex flex-col gap-4 rounded-2xl border border-line bg-surface p-5 shadow-card transition-all hover:-translate-y-0.5 hover:border-primary-border hover:shadow-lift"
+                >
+                  <div className="flex items-start gap-3.5">
+                    <RubroTile rubroNombre={card.rubro} size="lg" />
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate text-base font-extrabold text-ink">{card.nombre}</h3>
+                      <p className="mt-0.5 text-[13px] text-ink-mid">
+                        {card.rubro}
+                        {card.tag ? ` · ${card.tag}` : ""}
+                      </p>
+                    </div>
+                    <Pill tone={card.botActivo ? "success" : "warn"} dot>
+                      {card.botActivo ? "Bot activo" : "Bot en pausa"}
+                    </Pill>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 rounded-xl bg-surface-3 p-3">
+                    <div>
+                      <p className="font-display text-xl font-bold text-ink">{card.mensajesHoy}</p>
+                      <p className="text-xs text-ink-mid">mensajes hoy</p>
+                    </div>
+                    <div>
+                      <p className="font-display text-xl font-bold text-ink">{card.pedidosHoy}</p>
+                      <p className="text-xs text-ink-mid">pedidos hoy</p>
+                    </div>
+                    <div>
+                      <p className={`font-display text-xl font-bold ${card.pendientes > 0 ? "text-gold-ink" : "text-ink"}`}>
+                        {card.pendientes}
+                      </p>
+                      <p className="text-xs text-ink-mid">por revisar</p>
+                    </div>
+                  </div>
+                  <p className="truncate text-[13px] text-ink-mid">
+                    {card.ultimoMensaje
+                      ? `${card.ultimoMensaje.hora} · "${card.ultimoMensaje.texto}"`
+                      : "Sin mensajes de clientes hoy"}
+                  </p>
+                  <div className="flex items-center justify-end border-t border-line pt-3.5">
+                    <span className="inline-flex items-center gap-1 text-sm font-bold text-primary">
+                      Abrir panel
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
         )}
       </main>
     </div>
