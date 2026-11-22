@@ -44,6 +44,7 @@ import {
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { limpiarDatosCapturados } from "@/core/engine/session-lifecycle";
 import { describirOrigen, registrarOrigen } from "@/core/engine/origen";
+import { detallesDe, preguntaDetalles, respuestaDetalleInvalido } from "@/core/engine/detalles";
 import { modoDelItem } from "@/core/engine/modo-item";
 import {
   agregarAlCarrito,
@@ -123,6 +124,8 @@ function buildAgentInput(
       modo: modoDelItem(s, config.catalogo),
       referencia: s.referencia,
       variantes: s.variantes,
+      // T-123: ya resueltos (incluye `variantes` viejas como un solo detalle).
+      ...(detallesDe(s).length > 0 && { detalles: detallesDe(s) }),
     })),
     horarios: config.horarios,
     pedidos: config.pedidos?.enabled
@@ -199,8 +202,8 @@ function preguntaQueFaltaPedido(lead: Lead, config: BusinessConfig): string {
  * que el negocio no tiene.
  */
 function preguntaVariante(service: Service): string {
-  const v = service.variantes!;
-  return `¿En qué ${v.nombre.toLowerCase()} quiere el ${nombreItem(service)}? Tenemos: ${v.opciones.join(", ")}. Si quiere varias, dígame cuántas de cada una 🙌`;
+  // T-123: con varios detalles pregunta todos juntos (ver `detalles.ts`).
+  return preguntaDetalles(service, nombreItem(service));
 }
 
 /**
@@ -388,7 +391,7 @@ export async function runAgentTurn(
 
   let sawOffTopic = false;
   // T-104: producto al que la IA le quiso anotar una opción que no existe.
-  let varianteRechazada: Service | undefined;
+  let varianteRechazada: { servicio: Service; texto: string } | undefined;
   for (const accion of acciones) {
     switch (accion.tipo) {
       case "elegir_servicio": {
@@ -461,10 +464,10 @@ export async function runAgentTurn(
           // Sin talla todavía, la línea entra igual y el motor la pregunta
           // antes del resumen (ver `faltaVariante`).
           let variante: string | undefined;
-          if (servicio.variantes && accion.variante !== undefined) {
+          if (detallesDe(servicio).length > 0 && accion.variante !== undefined) {
             variante = elegirVariante(servicio, accion.variante);
             if (variante === undefined) {
-              varianteRechazada = servicio;
+              varianteRechazada = { servicio, texto: accion.variante };
               break;
             }
           }
@@ -671,7 +674,12 @@ export async function runAgentTurn(
   } else if (varianteRechazada) {
     // T-104: la IA anotó una talla que no existe; su texto seguramente la da
     // por buena. Se reemplaza por las opciones reales.
-    respuestaFinal = `No tenemos esa ${varianteRechazada.variantes!.nombre.toLowerCase()} en el ${nombreItem(varianteRechazada)}. ${preguntaVariante(varianteRechazada)}`;
+    // T-123: con varios detalles, si dijo parte (la talla) se pide solo lo que falta.
+    respuestaFinal = respuestaDetalleInvalido(
+      varianteRechazada.servicio,
+      varianteRechazada.texto,
+      nombreItem(varianteRechazada.servicio),
+    );
   } else if (preguntarFaltante) {
     respuestaFinal = preguntaQueFaltaPedido(lead, config);
   } else if (mostrarResumen) {

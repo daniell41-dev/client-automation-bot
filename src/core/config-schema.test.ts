@@ -373,3 +373,32 @@ describe("parseBusinessConfig — catálogo en PDF (T-121)", () => {
     expect(parseBusinessConfig({ ...esteticaBella, catalogoPdf: { ...catalogoPdf, nombreArchivo: "  " } })).toBeNull();
   });
 });
+
+describe("serviceSchema — detalles (T-123)", () => {
+  const producto = { id: "jean", name: "Jean", description: "", price: 35000, modo: "pedido" as const };
+
+  it("acepta talla y color, y sin detalles sigue igual", () => {
+    expect(
+      serviceSchema.safeParse({
+        ...producto,
+        detalles: [
+          { nombre: "Talla", opciones: ["30", "32"] },
+          { nombre: "Color", opciones: ["Blanco"] },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(serviceSchema.safeParse(producto).success).toBe(true);
+  });
+
+  it("rechaza el mismo detalle dos veces, opciones repetidas o más de 3 detalles", () => {
+    const t = { nombre: "Talla", opciones: ["30"] };
+    expect(serviceSchema.safeParse({ ...producto, detalles: [t, { ...t, nombre: "talla" }] }).success).toBe(false);
+    expect(serviceSchema.safeParse({ ...producto, detalles: [{ nombre: "Color", opciones: ["Azul", "azul"] }] }).success).toBe(false);
+    expect(
+      serviceSchema.safeParse({
+        ...producto,
+        detalles: ["Talla", "Color", "Estilo", "Tamaño"].map((nombre) => ({ nombre, opciones: ["x"] })),
+      }).success,
+    ).toBe(false);
+  });
+});

@@ -8,6 +8,7 @@
 import type { AgentTurnInput } from "@/core/ai/provider";
 import { agentResponseSchema, type AgentResponse } from "@/core/ai/agent-schema";
 import { TRATO_AL_CLIENTE } from "@/core/ai/trato";
+import { detallesParaPrompt } from "@/core/engine/detalles";
 
 /** Formatea un precio según la moneda/locale del negocio (igual criterio que el motor). */
 function formatPrice(input: AgentTurnInput, price: number): string {
@@ -37,9 +38,15 @@ function buildCatalogBlock(input: AgentTurnInput): string {
       // T-104: la referencia permite reconocer "mándeme la 102"; las opciones
       // son las ÚNICAS que la IA puede anotar (el motor descarta otras).
       const ref = s.referencia ? ` Referencia: ${s.referencia}.` : "";
-      const opciones = s.variantes
-        ? ` ${s.variantes.nombre} (opciones): ${s.variantes.opciones.join(", ")}. [TIENE OPCIONES: pregunta cuál y manda "variante" en guardar_cantidad, una acción por cada opción]`
-        : "";
+      // T-123: con varios detalles (talla Y color), "variante" lleva una
+      // opción de cada uno; el motor arma la combinación y rechaza las que no existen.
+      const detalles = s.detalles?.length ? s.detalles : s.variantes ? [s.variantes] : [];
+      const opciones =
+        detalles.length > 1
+          ? ` ${detallesParaPrompt(detalles)} [TIENE VARIOS DETALLES: pregunta cada uno y manda "variante" con UNA opción de CADA detalle juntas (por ejemplo "${detalles.map((d) => d.opciones[0]).join(" ")}"), una acción por cada combinación]`
+          : detalles.length === 1
+            ? ` ${detallesParaPrompt(detalles)} [TIENE OPCIONES: pregunta cuál y manda "variante" en guardar_cantidad, una acción por cada opción]`
+            : "";
       return `- id="${s.id}" | ${s.name}${categoria}: ${s.description}. Precio: ${formatPrice(input, s.price)}.${duracion}${ref}${opciones}${camino}`;
     })
     .join("\n");

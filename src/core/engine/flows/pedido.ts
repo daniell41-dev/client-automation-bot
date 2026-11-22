@@ -6,6 +6,7 @@
  */
 
 import type { BusinessConfig, CartItem, Service } from "@/core/types";
+import { detallesDe, etiquetaVariante, leerDetalles } from "@/core/engine/detalles";
 
 /**
  * Formatea un precio según la moneda/locale del negocio. Duplicado a
@@ -167,7 +168,9 @@ export function nombreItem(service: Service, variante?: string): string {
     service.referencia && !sinTildes(service.name).includes(sinTildes(service.referencia))
       ? ` Ref ${service.referencia}`
       : "";
-  const opcion = variante ? ` · ${service.variantes?.nombre ?? "Opción"} ${variante}` : "";
+  // T-123: con varios detalles la combinación ya viene con sus nombres
+  // ("Talla 30, Color Blanco"); con uno solo se le antepone ("Talla 30").
+  const opcion = variante ? ` · ${etiquetaVariante(service, variante)}` : "";
   return `${service.name}${ref}${opcion}`;
 }
 
@@ -177,12 +180,9 @@ export function nombreItem(service: Service, variante?: string): string {
  * opción que EXISTE: una talla que el negocio no tiene no se anota.
  */
 export function elegirVariante(service: Service, texto: string): string | undefined {
-  const variantes = service.variantes;
-  if (!variantes) return undefined;
-  const nombre = sinTildes(variantes.nombre);
-  const limpio = sinTildes(texto).replace(new RegExp(`^${nombre.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*:?\\s*`), "");
-  if (!limpio) return undefined;
-  return variantes.opciones.find((o) => sinTildes(o) === limpio);
+  // T-123: la lectura vive en `detalles.ts`, que también entiende varios
+  // detalles a la vez ("30 blanco" → "Talla 30, Color Blanco").
+  return leerDetalles(service, texto).variante;
 }
 
 /** T-104: la primera línea de un producto con opciones a la que todavía le falta elegir cuál. */
@@ -192,7 +192,7 @@ export function faltaVariante(
 ): { item: CartItem; service: Service } | undefined {
   for (const item of items) {
     const service = services.find((s) => s.id === item.serviceId);
-    if (service?.variantes?.opciones.length && item.variante === undefined) return { item, service };
+    if (service && detallesDe(service).length > 0 && item.variante === undefined) return { item, service };
   }
   return undefined;
 }
