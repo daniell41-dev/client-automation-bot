@@ -6,6 +6,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Arreglos
+- Manito al pasar el mouse (T-122): botones, interruptores, casillas, selectores y el botón de subir archivo muestran la mano en vez de la flecha, para que se note qué se puede tocar; lo deshabilitado muestra que no se puede usar.
+
 ## [1.3.1] — 2026-11-22
 
 ### Arreglos
