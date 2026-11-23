@@ -6,6 +6,11 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.6.0] — 2026-11-23
+
+### Nuevo
+- Inicio del portal (T-140): al iniciar sesión, la dueña ve primero "Le toca a usted", con los pendientes de todos sus negocios (comprobantes que no cuadran, pedidos por aprobar y devoluciones), cada uno con su botón para resolverlo. Debajo, el resumen del día (mensajes, pedidos con el total vendido, cosas por revisar) y tarjetas de negocio con sus cifras de hoy y el último mensaje de un cliente. Con un solo negocio se entra directo a su Resumen, que muestra los mismos pendientes arriba.
+
 ## [1.5.2] — 2026-11-23
 
 ### Arreglos
