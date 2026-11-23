@@ -108,12 +108,26 @@ export async function procesarComentarios(payload: unknown, deps?: DependenciasC
   const respuestas = deps?.respuestas ?? RESPUESTAS_COMENTARIOS;
   const conRespuestaPublica = process.env.INSTAGRAM_RESPUESTA_PUBLICA !== "false";
 
-  for (const comentario of parseComentarios(payload)) {
+  const comentarios = parseComentarios(payload);
+  // Diagnóstico (T-108): en la primera prueba real "no pasaba nada" y no había
+  // forma de saber si Meta no mandaba el aviso o si llegaba y se descartaba.
+  // Se anota qué llegó y qué se decidió, sin el texto ni el usuario de nadie.
+  if (comentarios.length === 0) {
+    console.info(`[Instagram] aviso sin comentarios reconocibles (${resumirAviso(payload)})`);
+  }
+  for (const comentario of comentarios) {
     try {
       const respuesta = decidirRespuesta(comentario, respuestas);
-      if (!respuesta) continue;
+      if (!respuesta) {
+        const motivo = comentario.esPropio ? "es de la propia cuenta" : comentario.esRespuesta ? "es respuesta en un hilo" : "sin palabra clave";
+        console.info(`[Instagram] comentario ${comentario.id}: no se responde (${motivo})`);
+        continue;
+      }
       // Meta reintenta el webhook si tardamos: el mismo comentario no se contesta dos veces.
-      if (!(await dedupe.claim(`ig-comentario:${comentario.id}`))) continue;
+      if (!(await dedupe.claim(`ig-comentario:${comentario.id}`))) {
+        console.info(`[Instagram] comentario ${comentario.id}: ya se había respondido`);
+        continue;
+      }
       if (!recordador.puedeEscribir(comentario.autorId, deps?.ahora ?? new Date())) {
         console.info(`[Instagram] comentario ${comentario.id}: ya se le escribió hace poco a esa cuenta`);
         continue;
@@ -130,4 +144,24 @@ export async function procesarComentarios(payload: unknown, deps?: DependenciasC
       console.error(`[Instagram] no se pudo responder el comentario ${comentario.id}:`, err);
     }
   }
+}
+
+/**
+ * Forma del aviso, sin datos: `object`, y por entrada los nombres de los
+ * campos ("changes:comments", "messaging"…). Sirve para ver de un vistazo si
+ * Meta mandó algo que el lector no espera.
+ */
+export function resumirAviso(payload: unknown): string {
+  if (typeof payload !== "object" || payload === null) return "no es un objeto";
+  const p = payload as Record<string, unknown>;
+  const entradas = Array.isArray(p.entry) ? p.entry : [];
+  const campos = entradas.map((e) => {
+    if (typeof e !== "object" || e === null) return "?";
+    const en = e as Record<string, unknown>;
+    if (Array.isArray(en.changes)) {
+      return `changes:${en.changes.map((c) => (c && typeof c === "object" ? String((c as Record<string, unknown>).field) : "?")).join("+")}`;
+    }
+    return Object.keys(en).filter((k) => k !== "id" && k !== "time").join("+") || "vacía";
+  });
+  return `object=${String(p.object)} entradas=${entradas.length} [${campos.join(", ")}]`;
 }

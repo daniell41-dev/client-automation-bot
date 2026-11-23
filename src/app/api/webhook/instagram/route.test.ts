@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/server", async (orig) => ({ ...(await orig<object>()), after: vi.fn() }));
 
-const { GET, POST, procesarComentarios } = await import("@/app/api/webhook/instagram/route");
+const { GET, POST, procesarComentarios, resumirAviso } = await import("@/app/api/webhook/instagram/route");
 
 const firmar = (cuerpo: string, secreto: string) =>
   "sha256=" + createHmac("sha256", secreto).update(cuerpo, "utf8").digest("hex");
@@ -122,5 +122,14 @@ describe("procesarComentarios (T-108)", () => {
     cliente.responderPrivado.mockRejectedValueOnce(new Error("Meta caído"));
     await expect(procesarComentarios(comentario("c-17", "ALMUERZO", "a17"), { cliente, dedupe })).resolves.toBeUndefined();
     expect(cliente.responderPublico).not.toHaveBeenCalled();
+  });
+});
+
+describe("resumirAviso (T-108, diagnóstico)", () => {
+  it("dice la forma del aviso sin datos personales", () => {
+    const r = resumirAviso({ object: "instagram", entry: [{ id: "1", time: 1, messaging: [{ sender: { id: "999" } }] }] });
+    expect(r).toBe("object=instagram entradas=1 [messaging]");
+    expect(r).not.toContain("999");
+    expect(resumirAviso(comentario("c", "hola", "a"))).toBe("object=instagram entradas=1 [changes:comments]");
   });
 });
