@@ -11,6 +11,8 @@ import { createUserClient } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { Card, EmptyState, Pill, StatCard } from "@/components/ui";
 import { CheckCircle2, Circle } from "lucide-react";
+import { LeTocaAUsted } from "@/components/le-toca-a-usted";
+import { armarPendientes, type PedidoInicio } from "@/lib/inicio-portal";
 
 export const dynamic = "force-dynamic";
 
@@ -30,13 +32,13 @@ export default async function ResumenPage({
 
   const { data: negocio } = await supabase
     .from("negocios")
-    .select("config, whatsapp_phone_number_id")
+    .select("id, config, whatsapp_phone_number_id")
     .eq("slug", slug)
     .maybeSingle();
   if (!negocio) notFound();
   const config = parseBusinessConfig(negocio.config);
 
-  const [{ data: leads }, { data: sesiones }, { data: conOrigen }] = await Promise.all([
+  const [{ data: leads }, { data: sesiones }, { data: conOrigen }, { data: pedidosPendientes }] = await Promise.all([
     supabase.from("leads").select("state, stage").eq("business_slug", slug),
     supabase
       .from("sesiones")
@@ -47,6 +49,17 @@ export default async function ResumenPage({
     // T-120: consulta aparte de la de arriba para que, sin la migración
     // 0030, falle solo el conteo por anuncio y no los KPIs.
     supabase.from("leads").select("origen").eq("business_slug", slug).not("origen", "is", null),
+    // Lo mismo que "Le toca a usted" del inicio: con un solo negocio la
+    // dueña entra directo acá, así que los pendientes tienen que estar arriba.
+    supabase
+      .from("pedidos")
+      .select("negocio_id, numero, cliente, total, monto_pagado, moneda, estado, created_at, devolucion_estado, comprobantes(*)")
+      .eq("negocio_id", negocio.id)
+      .or("estado.eq.por_verificar,devolucion_estado.in.(pendiente,pidiendo_cuenta)")
+      .limit(200),
+  ]);
+  const pendientes = armarPendientes((pedidosPendientes ?? []) as unknown as PedidoInicio[], [
+    { id: negocio.id, slug, nombre: config?.name ?? slug },
   ]);
   const porAnuncio = contarPorOrigen(((conOrigen ?? []) as { origen: unknown }[]).map((l) => l.origen));
 
@@ -84,6 +97,8 @@ export default async function ResumenPage({
 
   return (
     <div className="mx-auto max-w-[860px] space-y-5 fade-up">
+      <LeTocaAUsted pendientes={pendientes} />
+
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Mensajes hoy" value={String(mensajesHoy)} delta="+ vs. ayer" />
