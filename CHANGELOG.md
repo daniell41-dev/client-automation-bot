@@ -6,6 +6,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.5.2] — 2026-11-23
+
 ### Arreglos
 - Webhook de Instagram (T-108): registra qué pasó con cada comentario (sin palabra clave, propio, en hilo, ya respondido, DM enviado) y la forma de los avisos que no reconoce, sin datos personales, para diagnosticar.
 
