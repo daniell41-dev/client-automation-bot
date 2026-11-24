@@ -25,7 +25,7 @@ import {
   type ActionState,
 } from "@/app/portal/actions";
 import { ActionForm } from "@/components/action-form";
-import { probarSeguimiento } from "./actions";
+import { enviarSeguimientoAhora } from "./actions";
 import {
   OPCIONES_PRIMERO_MIN,
   OPCIONES_SEGUNDO_MIN,
@@ -143,6 +143,7 @@ export function ConfiguracionEditor({
   catalogoPdf,
   initialSeguimientos,
   initialCatalogo,
+  candidatosSeguimiento,
 }: {
   slug: string;
   nombre: string;
@@ -159,6 +160,8 @@ export function ConfiguracionEditor({
   catalogoPdf: BusinessConfig["catalogoPdf"];
   initialSeguimientos: BusinessConfig["seguimientos"];
   initialCatalogo: BusinessConfig["catalogo"];
+  /** T-114: clientes con un pedido a medias a los que se les puede escribir ya. */
+  candidatosSeguimiento: { id: string; etiqueta: string }[];
 }) {
   // T-110: el rubro decide si se ven la referencia y los detalles en el
   // menú; la dueña los puede cambiar aquí (una heladería con sabores).
@@ -448,13 +451,28 @@ export function ConfiguracionEditor({
               Déjelos vacíos para usar los de arriba. Puede usar {"{{nombre}}"} (el nombre del cliente) y{" "}
               {"{{pedido}}"} (lo que dejó en el carrito). Se guardan con el botón de abajo.
             </p>
-            {/* T-112: ver el primer mensaje ya, en su propio WhatsApp, sin esperar 2 horas. */}
-            <ActionForm action={probarSeguimiento} submitLabel="Enviarme una prueba" className="space-y-2 border-t border-line pt-3">
+            {/* T-114 (temporal, para las demos): mandarle el primer mensaje YA a
+                un cliente con un pedido a medias, con el texto del cuadro. */}
+            <ActionForm action={enviarSeguimientoAhora} submitLabel="Enviar ahora" className="space-y-2 border-t border-line pt-3">
               <input type="hidden" name="slug" value={slug} />
               <input type="hidden" name="primero" value={seguimientos.primero} />
+              <label className={labelCls} htmlFor="seg-cliente">Probar con un cliente</label>
+              {candidatosSeguimiento.length > 0 ? (
+                <select id="seg-cliente" name="leadId" className={inputCls} defaultValue={candidatosSeguimiento[0].id}>
+                  {candidatosSeguimiento.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.etiqueta}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-xs text-ink-mid">
+                  Ningún cliente tiene un pedido a medias de las últimas 24 horas. Deje uno sin confirmar desde
+                  WhatsApp y recargue esta página.
+                </p>
+              )}
               <p className="text-xs text-ink-mid">
-                Le mandamos ahora el primer mensaje a su WhatsApp de Notificaciones, con su pedido a medias si tiene
-                uno o con uno de ejemplo. No le llega a ningún cliente.
+                Le llega YA el primer mensaje, con el texto de arriba, sin esperar los minutos elegidos.
               </p>
             </ActionForm>
           </div>
