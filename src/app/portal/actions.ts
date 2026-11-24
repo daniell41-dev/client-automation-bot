@@ -68,6 +68,8 @@ export async function actualizarConfig(
 /** Claves de la config que los editores del portal pueden modificar. */
 const PATCH_KEYS = [
   "services",
+  // T-110: los interruptores de referencia y detalles (Configuración).
+  "catalogo",
   "horarios",
   "ai",
   "direccion",
@@ -77,6 +79,9 @@ const PATCH_KEYS = [
   "notifyPhoneNumber",
   "pagos",
   "avisos",
+  // T-111: lo manda la tarjeta "Seguimiento automático" (T-106). Sin esta
+  // clave el portal decía "guardada" y el cambio se perdía en silencio.
+  "seguimientos",
 ] as const;
 
 /**

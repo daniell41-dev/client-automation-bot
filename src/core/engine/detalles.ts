@@ -129,3 +129,43 @@ export function etiquetaVariante(service: Service, variante: string): string {
 export function detallesParaPrompt(detalles: VariantesItem[]): string {
   return detalles.map((d) => `${d.nombre} (opciones): ${d.opciones.join(", ")}.`).join(" ");
 }
+
+const dicho = (opcion: string, texto: string) =>
+  new RegExp(`(^|[^a-z0-9])${escapar(doblar(opcion))}([^a-z0-9]|$)`).test(doblar(texto));
+
+/** "otra igual", "la misma", "también": el cliente pide repetir lo de antes. */
+const REPITE = /\b(igual(es)?|mism[oa]s?|tambien)\b/;
+
+/**
+ * T-109: de una combinación que mandó la IA, las opciones que el cliente NO
+ * dijo para esa línea (vacío = se puede anotar). En la prueba real, tras "2
+ * de la 30 en azul", el cliente escribió "y 1 de la 32" y la IA anotó "32
+ * Azul": arrastró el color. Para un mayorista eso es un pedido mal armado,
+ * así que el motor no se fía y pregunta.
+ *
+ * Una opción cuenta como dicha si:
+ * - está en el mensaje actual;
+ * - el cliente pidió repetir ("otra igual", "también");
+ * - la línea ya existe en el carrito (solo cambia la cantidad);
+ * - la dijo en un mensaje anterior y ninguna línea del producto la usa
+ *   todavía ("quiero el azul" … "la 30"). Si ya la usa otra línea, es
+ *   justamente el arrastre que se quiere evitar.
+ * Solo aplica con varios detalles: con uno solo la IA no tiene qué arrastrar.
+ */
+export function opcionesNoDichas(
+  service: Service,
+  variante: string,
+  mensaje: string,
+  mensajesAnteriores: string[],
+  variantesEnCarrito: string[],
+): { nombre: string; opcion: string }[] {
+  if (detallesDe(service).length < 2) return [];
+  if (variantesEnCarrito.includes(variante) || REPITE.test(doblar(mensaje))) return [];
+  const { encontrados } = leerDetalles(service, variante);
+  const antes = mensajesAnteriores.join("\n");
+  return encontrados.filter(
+    (e) =>
+      !dicho(e.opcion, mensaje) &&
+      !(dicho(e.opcion, antes) && !variantesEnCarrito.some((v) => dicho(e.opcion, v))),
+  );
+}

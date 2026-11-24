@@ -126,6 +126,7 @@ export function ConfiguracionEditor({
   initialAvisos,
   catalogoPdf,
   initialSeguimientos,
+  initialCatalogo,
 }: {
   slug: string;
   nombre: string;
@@ -141,7 +142,12 @@ export function ConfiguracionEditor({
   /** T-121: se guarda aparte (sube un archivo), igual que el QR. */
   catalogoPdf: BusinessConfig["catalogoPdf"];
   initialSeguimientos: BusinessConfig["seguimientos"];
+  initialCatalogo: BusinessConfig["catalogo"];
 }) {
+  // T-110: el rubro decide si se ven la referencia y los detalles en el
+  // menú; la dueña los puede cambiar aquí (una heladería con sabores).
+  const [campoReferencia, setCampoReferencia] = useState(initialCatalogo?.campos?.referencia === true);
+  const [campoDetalles, setCampoDetalles] = useState(initialCatalogo?.campos?.detalles === true);
   // T-106: apagado por defecto. Los textos vacíos usan los del sistema.
   const [seguimientos, setSeguimientos] = useState({
     activo: initialSeguimientos?.activo ?? false,
@@ -191,6 +197,12 @@ export function ConfiguracionEditor({
     direccion: direccion || undefined,
     notifyPhoneNumber: notifyPhoneNumber.trim() || undefined,
     avisos: { modo: modoAviso, cadaMinutos: minutosResumen },
+    // Se copia el bloque entero: `guardarConfigParcial` reemplaza la clave y
+    // no se deben perder la etiqueta, el modo ni los otros campos del rubro.
+    catalogo: {
+      ...initialCatalogo,
+      campos: { ...initialCatalogo?.campos, referencia: campoReferencia, detalles: campoDetalles },
+    },
     seguimientos: {
       activo: seguimientos.activo,
       primero: seguimientos.primero.trim() || undefined,
@@ -283,6 +295,26 @@ export function ConfiguracionEditor({
             />
           </div>
         </ActionForm>
+      </Card>
+
+      {/* T-110: referencia y detalles en el menú */}
+      <Card
+        title="Referencias, tallas y colores"
+        subtitle="Actívelo si sus clientes piden por código («la 102») o eligen talla, color o sabor. Aparece en cada producto de su menú y el bot pregunta lo que falte antes de cerrar el pedido."
+      >
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-ink">Referencia o código del producto</span>
+            <Toggle checked={campoReferencia} onChange={setCampoReferencia} label="Referencia del producto" />
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm font-semibold text-ink">Tallas, colores u otras opciones</span>
+            <Toggle checked={campoDetalles} onChange={setCampoDetalles} label="Detalles del producto" />
+          </div>
+          <p className="text-xs text-ink-soft">
+            Si los apaga, un producto que ya tiene referencia o tallas las conserva. Se guarda con el botón de abajo.
+          </p>
+        </div>
       </Card>
 
       {/* T-106: seguimiento automático de pedidos a medias */}

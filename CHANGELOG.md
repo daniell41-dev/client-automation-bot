@@ -6,6 +6,17 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.7.0] — 2026-11-24
+
+### Nuevo
+- Referencias y tallas según el rubro (T-110): el restaurante y los rubros de citas ya no ven «Referencia» ni «Detalles del producto» en el menú; el rubro nuevo **Ropa / Mayorista** los trae encendidos, y la dueña puede activarlos en Configuración → «Referencias, tallas y colores». Un producto que ya tenía tallas o referencia las conserva. Para crear el rubro en la base: `pnpm rubros:nuevos --aplicar`.
+- Editar los detalles de un producto (T-124): cada talla, color o estilo agregado tiene un lápiz que carga sus opciones en el formulario para cambiarlas y guardarlas con ✓ (o cancelar).
+
+### Arreglos
+- Seguimiento automático (T-111): encenderlo en Configuración ahora sí se guarda; antes el portal decía "guardada" pero el cambio se descartaba.
+- Pedido con talla y color (T-109): si el cliente dice "y 1 de la 32" sin color, el bot ya no copia el color de la línea anterior; pregunta solo el color que falta.
+- Selects del portal y del back office (T-124): flecha propia y borde suave al pasar el mouse, en vez de la flecha del sistema con el cuadro azul de Windows.
+
 ## [1.6.0] — 2026-11-23
 
 ### Nuevo

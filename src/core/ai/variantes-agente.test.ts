@@ -211,3 +211,91 @@ describe("T-123: varios detalles en modo agente", () => {
     expect(r!.messages[0].text).toContain("talla y color");
   });
 });
+
+// T-109: en la prueba real, "2 de la 30 en azul" y después "y 1 de la 32"
+// terminó anotado como "32 Azul" sin preguntar: la IA arrastró el color de
+// la línea anterior. Con varios detalles, el motor solo acepta una opción que
+// el cliente dijo para ESA línea.
+describe("T-109: no asumir un detalle que el cliente no dijo", () => {
+  const configDetalles: BusinessConfig = {
+    ...config,
+    services: [
+      {
+        id: "jean-102",
+        name: "Jean clásico",
+        description: "Denim",
+        price: 35000,
+        modo: "pedido",
+        referencia: "102",
+        detalles: [
+          { nombre: "Talla", opciones: ["28", "30", "32"] },
+          { nombre: "Color", opciones: ["Azul", "Negro"] },
+        ],
+      },
+    ],
+  };
+  const conAzul = {
+    id: "l1",
+    businessSlug: "jeans",
+    contact: "573000000001",
+    channel: "mock",
+    state: "interesado",
+    stage: "carrito_abierto",
+    serviceId: "jean-102",
+    items: [{ serviceId: "jean-102", cantidad: 2, variante: "Talla 30, Color Azul" }],
+    followUpsSent: [],
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString(),
+  } as unknown as Lead;
+  const historial = [
+    { role: "user" as const, text: "2 de la 30 en azul", timestamp: now.toISOString() },
+    { role: "assistant" as const, text: "¡Listo! ¿Domicilio o recoge?", timestamp: now.toISOString() },
+  ];
+  const turnoH = (texto: string, r: AgentResponse, lead: Lead | null, history = historial) =>
+    runAgentTurn(lead, msg(texto), configDetalles, ia(r), persona, history, now);
+
+  it("«y 1 de la 32» no hereda el color de la otra línea: pregunta solo el color", async () => {
+    const r = await turnoH("Y 1 de la 32", {
+      respuesta: "¡Perfecto! Le sumamos 1 en Azul talla 32.",
+      acciones: [{ tipo: "guardar_cantidad", servicioId: "jean-102", cantidad: 1, variante: "32 Azul" }],
+    }, conAzul);
+    expect(r!.lead.items).toEqual([{ serviceId: "jean-102", cantidad: 2, variante: "Talla 30, Color Azul" }]);
+    expect(r!.messages[0].text).toContain("Talla 32");
+    expect(r!.messages[0].text).toContain("¿qué color quiere?");
+  });
+
+  it("si lo dice en el mensaje («y 1 de la 32 en negro») se anota", async () => {
+    const r = await turnoH("y 1 de la 32 en negro", {
+      respuesta: "¡Listo!",
+      acciones: [{ tipo: "guardar_cantidad", servicioId: "jean-102", cantidad: 1, variante: "32 Negro" }],
+    }, conAzul);
+    expect(r!.lead.items).toContainEqual({ serviceId: "jean-102", cantidad: 1, variante: "Talla 32, Color Negro" });
+  });
+
+  it("«otra igual pero en 32» sí repite el color", async () => {
+    const r = await turnoH("otra igual pero en 32", {
+      respuesta: "¡Listo!",
+      acciones: [{ tipo: "guardar_cantidad", servicioId: "jean-102", cantidad: 1, variante: "32 Azul" }],
+    }, conAzul);
+    expect(r!.lead.items).toContainEqual({ serviceId: "jean-102", cantidad: 1, variante: "Talla 32, Color Azul" });
+  });
+
+  it("cambiar la cantidad de una línea que ya está no pide repetir todo", async () => {
+    const r = await turnoH("mejor que sean 3", {
+      respuesta: "¡Listo, 3!",
+      acciones: [{ tipo: "guardar_cantidad", servicioId: "jean-102", cantidad: 3, variante: "30 Azul" }],
+    }, conAzul);
+    expect(r!.lead.items).toEqual([{ serviceId: "jean-102", cantidad: 3, variante: "Talla 30, Color Azul" }]);
+  });
+
+  it("el color dicho en un mensaje anterior, todavía sin usar, vale («azul» … «la 30»)", async () => {
+    const r = await turnoH("la 30, 2 unidades", {
+      respuesta: "¡Listo!",
+      acciones: [{ tipo: "guardar_cantidad", servicioId: "jean-102", cantidad: 2, variante: "30 Azul" }],
+    }, null, [
+      { role: "user", text: "quiero el jean azul", timestamp: now.toISOString() },
+      { role: "assistant", text: "¿Qué talla?", timestamp: now.toISOString() },
+    ]);
+    expect(r!.lead.items).toEqual([{ serviceId: "jean-102", cantidad: 2, variante: "Talla 30, Color Azul" }]);
+  });
+});
