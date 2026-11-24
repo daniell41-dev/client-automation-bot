@@ -1,33 +1,38 @@
 "use server";
 
 /**
- * T-112: "Enviarme una prueba" del seguimiento automático. Manda YA el
- * primer mensaje al WhatsApp de Notificaciones de la dueña, para que vea
- * cómo queda sin esperar 2 horas ni escribirle a un cliente real. El texto
- * lo arma el core (`textoDePrueba`); aquí solo se verifican permisos y se
- * envía.
+ * T-114 (temporal, para las demostraciones con Sabores del Sur): "Enviar
+ * ahora" del seguimiento automático. Le manda YA el primer mensaje a un
+ * cliente con un pedido a medias, para que vea cómo llega sin esperar los
+ * minutos configurados. Reemplaza al "Enviarme una prueba" de T-112, que le
+ * escribía a la dueña: en una demo el que tiene que recibirlo es el cliente.
  *
- * Solo al número de Notificaciones YA GUARDADO, nunca a uno escrito en el
- * formulario: si no, el botón serviría para escribirle a cualquier número
- * desde la línea del negocio.
+ * Qué se manda y a quién se le puede escribir lo decide el core
+ * (`seguimientoAhora`); aquí solo se verifican permisos, se envía y se anota.
  */
 
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { resolveBusinessBySlug } from "@/businesses/resolve";
-import { textoDePrueba } from "@/core/engine/seguimientos";
+import { seguimientoAhora } from "@/core/engine/seguimientos";
 import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
-import { createLeadRepository, createWhatsAppUsageRepository } from "@/core/storage/factory";
+import {
+  createLeadRepository,
+  createSessionRepository,
+  createWhatsAppUsageRepository,
+} from "@/core/storage/factory";
 import type { ActionState } from "@/components/action-form";
 
-/** Una prueba cada 30 s por negocio: un doble clic no debe mandar dos mensajes. */
+/** Un envío cada 30 s por cliente: un doble clic no debe mandarle dos mensajes. */
 const ESPERA_MS = 30_000;
-const ultimaPrueba = new Map<string, number>();
+const ultimoEnvio = new Map<string, number>();
 
-export async function probarSeguimiento(_prev: ActionState, formData: FormData): Promise<ActionState> {
+export async function enviarSeguimientoAhora(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getUserRole();
   if (!me) return { error: "No autorizado." };
   const slug = String(formData.get("slug") ?? "");
+  const leadId = String(formData.get("leadId") ?? "");
   if (!slug) return { error: "Falta el negocio." };
+  if (!leadId) return { error: "Elija a qué cliente mandárselo." };
 
   // El permiso: si la dueña no puede leer el negocio con SU sesión (RLS), no es suyo.
   const supabase = await createUserClient();
@@ -36,41 +41,46 @@ export async function probarSeguimiento(_prev: ActionState, formData: FormData):
 
   const resolved = await resolveBusinessBySlug(slug);
   const config = resolved?.config;
-  const destino = config?.notifyPhoneNumber?.replace(/\D/g, "");
-  if (!config || !destino) {
-    return { error: "Primero guarde su número de WhatsApp en «Notificaciones» (más abajo)." };
-  }
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  if (!accessToken || !resolved.whatsappPhoneNumberId) {
+  if (!config || !accessToken || !resolved.whatsappPhoneNumberId) {
     return { error: "Este negocio todavía no tiene WhatsApp conectado." };
   }
 
-  const ahora = Date.now();
-  if (ahora - (ultimaPrueba.get(slug) ?? 0) < ESPERA_MS) {
-    return { error: "Ya se mandó una prueba hace un momento. Espere unos segundos." };
-  }
-  ultimaPrueba.set(slug, ahora);
+  const repo = createLeadRepository(config, resolved.negocioId);
+  const lead = await repo.getById(leadId);
+  // El id viene del formulario: se confirma que el cliente es de ESTE negocio.
+  if (!lead || lead.businessSlug !== config.slug) return { error: "Cliente no encontrado." };
 
-  // El texto que está en el cuadro aunque no se haya guardado: es lo que la dueña quiere ver.
-  const plantilla = String(formData.get("primero") ?? "");
-  const lead = await createLeadRepository(config, resolved.negocioId)
-    .findByContact(config.slug, destino)
-    .catch(() => null);
-  const texto = textoDePrueba(plantilla, lead, config);
+  const ahora = new Date();
+  const decision = seguimientoAhora(lead, config, String(formData.get("primero") ?? ""), ahora);
+  if (!decision) {
+    return { error: "A este cliente ya no se le puede escribir (pasaron 24 h, ya compró o pidió que no le escriban)." };
+  }
+  if (ahora.getTime() - (ultimoEnvio.get(leadId) ?? 0) < ESPERA_MS) {
+    return { error: "Ya se le mandó hace un momento. Espere unos segundos." };
+  }
+  ultimoEnvio.set(leadId, ahora.getTime());
 
   try {
     await new WhatsAppChannel({
       phoneNumberId: resolved.whatsappPhoneNumberId,
       accessToken,
       medidor: { negocio: resolved.negocioId ?? config.slug, repo: createWhatsAppUsageRepository() },
-    }).send({ to: destino, text: texto });
+    }).send({ to: lead.contact, text: decision.texto });
   } catch (err) {
-    console.error("[Seguimientos] la prueba no salió:", err);
-    return { error: "WhatsApp no aceptó el mensaje. Revise el número de Notificaciones e intente de nuevo." };
+    console.error("[Seguimientos] el envío a mano no salió:", err);
+    return { error: "WhatsApp no aceptó el mensaje. Intente de nuevo en un momento." };
   }
-  // Meta acepta el envío aunque la ventana de 24 h esté cerrada y lo descarta
-  // después, así que aquí no se puede saber: se le dice qué hacer si no llega.
-  return {
-    ok: "Prueba enviada a su WhatsApp. Si no le llega en un minuto, escríbale cualquier cosa al bot desde ese número y vuelva a intentar.",
-  };
+
+  // Ya salió: lo que sigue no debe convertirse en "falló" (se reenviaría).
+  try {
+    await repo.save(decision.lead);
+    const sesiones = createSessionRepository(config, resolved.negocioId);
+    const sesion = await sesiones.getOrCreate(config.slug, lead.contact, lead.channel);
+    sesion.history.push({ role: "assistant", text: decision.texto, timestamp: ahora.toISOString() });
+    await sesiones.save(sesion);
+  } catch (err) {
+    console.error("[Seguimientos] se envió a mano pero no se pudo anotar:", err);
+  }
+  return { ok: "Enviado al cliente. Ya debería verlo en su WhatsApp." };
 }

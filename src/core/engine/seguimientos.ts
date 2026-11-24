@@ -31,6 +31,7 @@
 import type { BusinessConfig, DiaAtencion, FollowUpThreshold, Lead } from "@/core/types";
 import { needsFollowUp } from "@/core/engine/lead-state";
 import { nombreItem } from "@/core/engine/flows/pedido";
+import { etiquetaVariante } from "@/core/engine/detalles";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 
 /**
@@ -93,14 +94,27 @@ export interface SeguimientoDecidido {
   texto: string;
 }
 
+/**
+ * ¿Se le puede escribir un seguimiento a este cliente? Tiene algo pendiente,
+ * no pidió que no le escriban y sigue dentro de la ventana de 24 h. Lo
+ * comparten el automático y el envío a mano (T-114).
+ */
+function puedeRecibirSeguimiento(lead: Lead, now: Date): boolean {
+  if (lead.noContactar) return false;
+  if (!needsFollowUp(lead.state) || !ETAPAS_PENDIENTES.has(lead.stage)) return false;
+  if (!lead.items?.length && !lead.serviceId) return false;
+  const minutos = minutosDesdeElCliente(lead, now);
+  return minutos >= 0 && minutos < VENTANA_MIN;
+}
+
+function minutosDesdeElCliente(lead: Lead, now: Date): number {
+  return (now.getTime() - new Date(lead.lastInboundAt).getTime()) / 60000;
+}
+
 export function decidirSeguimiento(lead: Lead, config: BusinessConfig, now: Date): SeguimientoDecidido | null {
   const cfg = config.seguimientos;
-  if (!cfg?.activo || lead.noContactar) return null;
-  if (!needsFollowUp(lead.state) || !ETAPAS_PENDIENTES.has(lead.stage)) return null;
-  if (!lead.items?.length && !lead.serviceId) return null;
-
-  const minutos = (now.getTime() - new Date(lead.lastInboundAt).getTime()) / 60000;
-  if (!(minutos >= 0) || minutos >= VENTANA_MIN) return null;
+  if (!cfg?.activo || !puedeRecibirSeguimiento(lead, now)) return null;
+  const minutos = minutosDesdeElCliente(lead, now);
 
   // El más avanzado que ya venció y no se mandó. Si el cron estuvo caído y
   // vencieron los dos, sale solo el segundo: dos mensajes seguidos es spam.
@@ -135,33 +149,62 @@ function armarTexto(plantilla: string, lead: Lead, config: BusinessConfig): stri
 }
 
 /**
- * T-112: el primer mensaje armado YA, para el botón "Enviarme una prueba" de
- * Configuración: la dueña ve cómo queda sin esperar 2 horas ni escribirle a
- * un cliente real. Si su propio número tiene algo a medias se usa eso (lo
- * más parecido a lo real); si no, un pedido de ejemplo con el primer
- * producto disponible, para que `{{pedido}}` no quede vacío.
+ * T-114 (temporal, para las demostraciones): los clientes a los que se les
+ * puede mandar el seguimiento a mano desde Configuración. Los más recientes
+ * primero, que es a quien se busca en una demo.
  */
-export function textoDePrueba(plantilla: string | undefined, lead: Lead | null, config: BusinessConfig): string {
-  const texto = plantilla?.trim() || SEGUIMIENTO_PRIMERO_DEFAULT;
-  if (lead && (lead.items?.length || lead.serviceId)) return armarTexto(texto, lead, config);
-  const producto = config.services.find((s) => s.disponible !== false) ?? config.services[0];
-  const ejemplo = {
-    name: "Carlos",
-    items: producto ? [{ serviceId: producto.id, cantidad: 2 }] : [],
-  } as unknown as Lead;
-  return armarTexto(texto, ejemplo, config);
+export function candidatosSeguimiento(leads: Lead[], _config: BusinessConfig, now: Date): Lead[] {
+  return leads
+    .filter((l) => puedeRecibirSeguimiento(l, now))
+    .sort((a, b) => new Date(b.lastInboundAt).getTime() - new Date(a.lastInboundAt).getTime());
+}
+
+/**
+ * T-114: el primer mensaje, YA, a un cliente con algo pendiente. Usa el texto
+ * del cuadro aunque no esté guardado (es lo que se quiere mostrar) y no mira
+ * si el automático está encendido ni la hora: lo pide una persona. Queda
+ * marcado como primer seguimiento para que el automático no lo repita; el
+ * segundo sale a su hora. `null` si a ese cliente no se le puede escribir.
+ */
+export function seguimientoAhora(
+  lead: Lead,
+  config: BusinessConfig,
+  plantilla: string | undefined,
+  now: Date,
+): { texto: string; lead: Lead } | null {
+  if (!puedeRecibirSeguimiento(lead, now)) return null;
+  const primero = SEGUIMIENTOS[0].umbral;
+  return {
+    texto: armarTexto(plantilla?.trim() || SEGUIMIENTO_PRIMERO_DEFAULT, lead, config),
+    lead: { ...lead, followUpsSent: [...new Set([...lead.followUpsSent, primero])] },
+  };
 }
 
 /** Lo que el cliente dejó a medias, en palabras: el carrito, o el producto/servicio que eligió. */
 export function describirPedido(lead: Lead, config: BusinessConfig): string {
-  const partes = (lead.items ?? []).flatMap((item) => {
-    const service = config.services.find((s) => s.id === item.serviceId);
-    return service ? [`${item.cantidad} ${nombreItem(service, item.variante)}`] : [];
-  });
-  if (partes.length) {
-    return partes.length === 1 ? partes[0] : `${partes.slice(0, -1).join(", ")} y ${partes.at(-1)}`;
+  // T-114: varias combinaciones del mismo producto se agrupan ("Jean Ref 102
+  // (2 en Talla 30 y 1 en Talla 32)"): repetir el nombre en cada línea hacía
+  // un mensaje largo que se leía como lista de bodega.
+  const porProducto = new Map<string, NonNullable<Lead["items"]>>();
+  for (const item of lead.items ?? []) {
+    porProducto.set(item.serviceId, [...(porProducto.get(item.serviceId) ?? []), item]);
   }
+  const partes = [...porProducto.entries()].flatMap(([serviceId, items]) => {
+    const service = config.services.find((s) => s.id === serviceId);
+    if (!service) return [];
+    if (items.length === 1) return [`${items[0].cantidad} ${nombreItem(service, items[0].variante)}`];
+    const lineas = items.map((i) =>
+      i.variante !== undefined ? `${i.cantidad} en ${etiquetaVariante(service, i.variante)}` : `${i.cantidad}`,
+    );
+    return [`${nombreItem(service)} (${enLista(lineas)})`];
+  });
+  if (partes.length) return enLista(partes);
   return config.services.find((s) => s.id === lead.serviceId)?.name ?? "lo que me preguntó";
+}
+
+/** "a", "a y b", "a, b y c". */
+function enLista(partes: string[]): string {
+  return partes.length === 1 ? partes[0] : `${partes.slice(0, -1).join(", ")} y ${partes.at(-1)}`;
 }
 
 /** ¿Es buena hora para escribirle al cliente, en la hora del negocio? */
