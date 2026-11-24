@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { decidirSeguimiento, esBuenaHora, pideNoContactar, textoDePrueba } from "@/core/engine/seguimientos";
+import {
+  candidatosSeguimiento,
+  decidirSeguimiento,
+  describirPedido,
+  esBuenaHora,
+  pideNoContactar,
+  seguimientoAhora,
+} from "@/core/engine/seguimientos";
 import type { BusinessConfig, Lead } from "@/core/types";
 import { parseBusinessConfig } from "@/core/config-schema";
 
@@ -191,26 +198,53 @@ describe("T-106: procesarSeguimientos", () => {
   });
 });
 
-// T-112: el botón "Enviarme una prueba" de Configuración.
-describe("textoDePrueba", () => {
-  it("con un pedido a medias del número de la dueña, usa su nombre y su carrito", () => {
-    expect(textoDePrueba(undefined, lead(), config)).toBe(
-      "Hola Carlos 👋 ¿Seguimos con su pedido de 6 Jean clásico Ref 102 · Talla 30 y 1 Correa? Si quiere, se lo dejo listo 🙌",
+// T-114: "Enviar ahora" desde Configuración, a un cliente con un pedido a
+// medias (temporal, para las demostraciones).
+describe("T-114: candidatos y envío manual", () => {
+  const ahora = masTarde(1);
+
+  it("lista solo los clientes con algo pendiente, dentro de la ventana y que no pidieron que no les escriban", () => {
+    const candidatos = candidatosSeguimiento(
+      [
+        lead({ id: "ok" }),
+        lead({ id: "solo-saludo", stage: "menu_enviado", items: [], serviceId: undefined }),
+        lead({ id: "no-contactar", noContactar: true }),
+        lead({ id: "viejo", lastInboundAt: masTarde(-24).toISOString() }),
+        lead({ id: "ya-compro", stage: "esperando_aprobacion" }),
+      ],
+      config,
+      ahora,
     );
+    expect(candidatos.map((l) => l.id)).toEqual(["ok"]);
   });
 
-  it("sin pedido propio, arma uno de ejemplo con el primer producto", () => {
-    expect(textoDePrueba("Hola{{nombre}}, ¿retomamos {{pedido}}?", null, config)).toBe(
-      "Hola Carlos, ¿retomamos 2 Jean clásico Ref 102?",
-    );
-    // Un lead sin carrito (solo saludó) también cae al ejemplo.
-    expect(textoDePrueba(undefined, lead({ items: [], serviceId: undefined, name: "Ana" }), config)).toContain(
-      "2 Jean clásico Ref 102",
-    );
+  it("arma el primer mensaje con el texto del cuadro y marca el primero como enviado", () => {
+    const r = seguimientoAhora(lead(), config, "Hola{{nombre}}, ¿retomamos {{pedido}}?", ahora);
+    expect(r?.texto).toBe("Hola Carlos, ¿retomamos 6 Jean clásico Ref 102 · Talla 30 y 1 Correa?");
+    expect(r?.lead.followUpsSent).toEqual(["2h"]);
   });
 
-  it("un texto vacío usa el del sistema", () => {
-    expect(textoDePrueba("   ", null, config)).toContain("¿Seguimos con su pedido de");
+  it("con el cuadro vacío usa el del sistema; a quien no es candidato no se le manda", () => {
+    expect(seguimientoAhora(lead(), config, "  ", ahora)?.texto).toContain("¿Seguimos con su pedido de");
+    expect(seguimientoAhora(lead({ noContactar: true }), config, "", ahora)).toBeNull();
+  });
+
+  it("funciona aunque el seguimiento automático esté apagado (es un envío a mano)", () => {
+    const apagado = { ...config, seguimientos: { activo: false } } as BusinessConfig;
+    expect(seguimientoAhora(lead(), apagado, "", ahora)).not.toBeNull();
+  });
+});
+
+describe("T-114: el pedido agrupado por producto", () => {
+  it("varias combinaciones del mismo producto se dicen una sola vez", () => {
+    const l = lead({
+      items: [
+        { serviceId: "jean", cantidad: 2, variante: "30" },
+        { serviceId: "jean", cantidad: 1, variante: "32" },
+        { serviceId: "correa", cantidad: 1 },
+      ],
+    });
+    expect(describirPedido(l, config)).toBe("Jean clásico Ref 102 (2 en Talla 30 y 1 en Talla 32) y 1 Correa");
   });
 });
 
