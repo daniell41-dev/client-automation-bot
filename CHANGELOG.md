@@ -6,6 +6,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.7.3] — 2026-11-24
+
 ### Cambiado
 - Probar el seguimiento con un cliente (T-114, temporal para las demostraciones): «Enviarme una prueba» se reemplaza por «Enviar ahora», que le manda ya el primer mensaje a un cliente con un pedido a medias de las últimas 24 h (con el texto del cuadro), queda en su conversación y el automático no lo repite.
 - El pedido en el mensaje de seguimiento se agrupa por producto: «Jean Ref 102 (2 en Talla 30 y 1 en Talla 32)» en vez de repetir el nombre en cada línea.
