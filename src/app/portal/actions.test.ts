@@ -312,3 +312,31 @@ describe("guardarConfigParcial — seguimiento automático", () => {
     });
   });
 });
+
+// T-110: los interruptores de referencia y detalles viajan en `catalogo`.
+describe("guardarConfigParcial — campos del catálogo", () => {
+  it("guarda los interruptores sin perder la etiqueta ni los otros campos del rubro", async () => {
+    const conCatalogo = {
+      ...esteticaBella,
+      catalogo: { etiqueta: { singular: "Plato", plural: "Menú" }, campos: { stock: true } },
+    };
+    const { client, updatedWith } = fakeSupabaseGuardable(conCatalogo);
+    createUserClientMock.mockResolvedValue(client);
+
+    const result = await guardarConfigParcial(
+      {},
+      formData({
+        slug: "estetica-bella",
+        patch: JSON.stringify({
+          catalogo: { ...conCatalogo.catalogo, campos: { stock: true, referencia: false, detalles: true } },
+        }),
+      }),
+    );
+
+    expect(result.ok).toBeTruthy();
+    expect((updatedWith() as { catalogo?: unknown }).catalogo).toEqual({
+      etiqueta: { singular: "Plato", plural: "Menú" },
+      campos: { stock: true, referencia: false, detalles: true },
+    });
+  });
+});

@@ -68,6 +68,8 @@ export async function actualizarConfig(
 /** Claves de la config que los editores del portal pueden modificar. */
 const PATCH_KEYS = [
   "services",
+  // T-110: los interruptores de referencia y detalles (Configuración).
+  "catalogo",
   "horarios",
   "ai",
   "direccion",

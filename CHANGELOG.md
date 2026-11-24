@@ -7,6 +7,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Nuevo
+- Referencias y tallas según el rubro (T-110): el restaurante y los rubros de citas ya no ven «Referencia» ni «Detalles del producto» en el menú; el rubro nuevo **Ropa / Mayorista** los trae encendidos, y la dueña puede activarlos en Configuración → «Referencias, tallas y colores». Un producto que ya tenía tallas o referencia las conserva. Para crear el rubro en la base: `pnpm rubros:nuevos --aplicar`.
 - Editar los detalles de un producto (T-124): cada talla, color o estilo agregado tiene un lápiz que carga sus opciones en el formulario para cambiarlas y guardarlas con ✓ (o cancelar).
 
 ### Arreglos

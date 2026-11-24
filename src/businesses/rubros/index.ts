@@ -125,9 +125,72 @@ const restaurante: BusinessConfig = {
   ai: { enabled: true, knowledge: "Restaurante con domicilios. Pagos por Nequi o Bre-B con comprobante." },
 };
 
+/**
+ * T-110: mayorista de ropa (el primer cliente real: jeans al por mayor). Vende
+ * como el restaurante (pedido, domicilio o recoger, comprobante), pero sus
+ * clientes piden por referencia ("la 102") y eligen talla y color: es el
+ * único rubro que trae esos dos campos encendidos.
+ */
+const ropa: BusinessConfig = {
+  ...BASE,
+  slug: "ropa",
+  name: "Ropa al por mayor",
+  rubro: "Ropa / Mayorista",
+  catalogo: {
+    etiqueta: { singular: "Producto", plural: "Catálogo" },
+    modoPorDefecto: "pedido",
+    campos: { duracion: false, stock: true, categoria: true, referencia: true, detalles: true },
+    stockMinimo: 6,
+  },
+  services: [
+    {
+      id: "jean-clasico",
+      name: "Jean clásico",
+      description: "Denim rígido, bota recta.",
+      price: 35000,
+      referencia: "102",
+      categoria: "Jeans",
+      detalles: [
+        { nombre: "Talla", opciones: ["28", "30", "32", "34"] },
+        { nombre: "Color", opciones: ["Azul", "Negro"] },
+      ],
+    },
+    {
+      id: "camiseta-basica",
+      name: "Camiseta básica",
+      description: "Algodón, cuello redondo.",
+      price: 12000,
+      referencia: "201",
+      categoria: "Camisetas",
+      detalles: [{ nombre: "Talla", opciones: ["S", "M", "L", "XL"] }],
+    },
+  ],
+  messages: {
+    welcome: "¡Hola! Bienvenido 👖 ¿Qué referencia le interesa?",
+    askName: "¡Con gusto! ¿A nombre de quién va el pedido?",
+    askDate: "¿Para qué día lo necesita?",
+    askConfirm: "¿Le confirmo el pedido, {{nombre}}?",
+    serviceInfo: "{{servicio}}: {{descripcion}} — {{precio}}.",
+    captured: "¡Listo {{nombre}}! Su pedido quedó registrado.",
+    fallback: "Disculpe, no le entendí 😅 ¿Qué referencia le interesa?",
+  },
+  pedidos: {
+    enabled: true,
+    pregunta: "¿Se lo enviamos o lo recoge en la bodega?",
+    opciones: ["Envío", "Recoger en la bodega"],
+  },
+  pagos: { requiereComprobante: true },
+  horarios: [
+    { dow: 0, abierto: false, tramos: [] },
+    ...[1, 2, 3, 4, 5, 6].map((dow) => ({ dow, abierto: true, tramos: [{ desde: "08:00", hasta: "18:00" }] })),
+  ],
+  ai: { enabled: true, knowledge: "Venta de ropa al por mayor. Pagos por Nequi o Bre-B con comprobante." },
+};
+
 export const RUBROS_BASE: RubroBase[] = [
   { slug: "estetica", nombre: "Belleza / Estética", descripcion: "Salones de belleza: faciales, uñas, pestañas y depilación.", template: belleza },
   { slug: "peluqueria", nombre: "Peluquería / Barbería", descripcion: "Cortes, tintes y barba, con cita previa.", template: peluqueria },
   { slug: "masajes", nombre: "Masajes / Spa", descripcion: "Masajes y tratamientos de spa, con cita previa.", template: masajes },
   { slug: "restaurante", nombre: "Restaurante", descripcion: "Pedidos para domicilio o para recoger, con pago verificado y código de retiro.", template: restaurante },
+  { slug: "ropa", nombre: "Ropa / Mayorista", descripcion: "Ventas por referencia, con tallas y colores, para envío o para recoger.", template: ropa },
 ];

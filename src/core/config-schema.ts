@@ -106,6 +106,8 @@ const catalogoSchema = z.object({
       duracion: z.boolean().optional(),
       stock: z.boolean().optional(),
       categoria: z.boolean().optional(),
+      referencia: z.boolean().optional(),
+      detalles: z.boolean().optional(),
     })
     .optional(),
   // T-22.2: entero no negativo — 0 es válido (avisar recién cuando se agota).

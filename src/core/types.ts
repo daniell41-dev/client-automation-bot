@@ -164,6 +164,10 @@ export interface CatalogoConfig {
     duracion?: boolean;
     stock?: boolean;
     categoria?: boolean;
+    /** T-110: código del producto ("la 102"). Sin declarar = oculto (ver `catalogo-campos.ts`). */
+    referencia?: boolean;
+    /** T-110: tallas, colores, estilos. Sin declarar = oculto. */
+    detalles?: boolean;
   };
   /**
    * T-22.2: unidades o menos a partir de las cuales se le avisa al dueño que
