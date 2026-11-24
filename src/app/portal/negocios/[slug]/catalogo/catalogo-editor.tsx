@@ -9,6 +9,7 @@
 import { useActionState, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { Check, Pencil, Plus, X } from "lucide-react";
+import { mostrarDetalles, mostrarReferencia } from "@/core/catalogo-campos";
 import { detallesDe, preguntaDetalles } from "@/core/engine/detalles";
 import type { CatalogoConfig, Service } from "@/core/types";
 import { servicesSchema } from "@/core/config-schema";
@@ -366,8 +367,9 @@ export function CatalogoEditor({
                   />
                 </div>
               )}
-              {/* T-104: referencia del mayorista y opciones (tallas, colores…). Opcionales:
-                  un restaurante los deja vacíos y todo funciona como antes. */}
+              {/* T-104: referencia del mayorista y opciones (tallas, colores…).
+                  T-110: solo en los rubros que los usan (o si la dueña los encendió). */}
+              {mostrarReferencia(catalogo, selected) && (
               <div>
                 <label className={labelCls}>Referencia (opcional)</label>
                 <input
@@ -383,10 +385,12 @@ export function CatalogoEditor({
                   <p className="mt-1 text-xs text-warn-ink">{fieldErrors.referencia}</p>
                 )}
               </div>
+              )}
               {/* T-123: "Agregar detalles". Un mini formulario (qué detalle, sus
                   opciones y el +) y abajo la lista de lo agregado. Reemplaza los
                   dos campos de T-104/T-107, que solo permitían una lista: un jean
                   viene en talla Y en color. */}
+              {mostrarDetalles(catalogo, selected) && (
               <div className="sm:col-span-2 rounded-xl border border-line p-3">
                 <p className="text-sm font-semibold text-ink">Detalles del producto (opcional)</p>
                 <p className="mb-3 text-xs text-ink-mid">
@@ -515,6 +519,7 @@ export function CatalogoEditor({
                   <p className="mt-1 text-xs text-warn-ink">{fieldErrors.detalles || fieldErrors.variantes}</p>
                 )}
               </div>
+              )}
               <div className="sm:col-span-2">
                 <label className={labelCls}>Descripción</label>
                 <textarea

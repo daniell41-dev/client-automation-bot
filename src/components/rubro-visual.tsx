@@ -35,7 +35,7 @@ const FAMILIES: { match: RegExp; visual: RubroVisual }[] = [
     visual: { bg: "bg-rubro-salud-bg", ink: "text-rubro-salud-ink", Icon: HeartPulse },
   },
   {
-    match: /comercio|tienda|minorista|retail|almacen/i,
+    match: /comercio|tienda|minorista|mayorista|retail|almacen|ropa/i,
     visual: { bg: "bg-rubro-comercio-bg", ink: "text-rubro-comercio-ink", Icon: ShoppingBag },
   },
 ];
@@ -172,6 +172,9 @@ export function camposDelNegocio(
   if (camposConf?.duracion !== false) campos.push("Duración");
   if (camposConf?.categoria !== false) campos.push("Categoría");
   if (camposConf?.stock) campos.push("Stock");
+  // T-110: apagados si el rubro no los declara (ver `core/catalogo-campos.ts`).
+  if (camposConf?.referencia) campos.push("Referencia");
+  if (camposConf?.detalles) campos.push("Tallas y colores");
   campos.push("Disponible");
   if (config?.ai) campos.push("IA + reglas");
   return campos;

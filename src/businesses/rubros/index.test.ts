@@ -4,18 +4,18 @@ import { parseBusinessConfig } from "@/core/config-schema";
 import { modoDelItem } from "@/core/engine/modo-item";
 
 describe("rubros base (T-40)", () => {
-  it("son los cuatro del plan", () => {
-    expect(RUBROS_BASE.map((r) => r.slug)).toEqual(["estetica", "peluqueria", "masajes", "restaurante"]);
+  it("son los del plan (T-110 suma ropa al por mayor)", () => {
+    expect(RUBROS_BASE.map((r) => r.slug)).toEqual(["estetica", "peluqueria", "masajes", "restaurante", "ropa"]);
   });
 
   it.each(RUBROS_BASE)("$nombre pasa el schema (regla 5 de AGENTS.md)", (rubro) => {
     expect(parseBusinessConfig(JSON.parse(JSON.stringify(rubro.template)))).not.toBeNull();
   });
 
-  it("belleza, peluquería y masajes agendan; el restaurante vende", () => {
+  it("belleza, peluquería y masajes agendan; el restaurante y la ropa venden", () => {
     for (const rubro of RUBROS_BASE) {
       const modos = new Set(rubro.template.services.map((s) => modoDelItem(s, rubro.template.catalogo)));
-      expect([...modos]).toEqual([rubro.slug === "restaurante" ? "pedido" : "cita"]);
+      expect([...modos]).toEqual([["restaurante", "ropa"].includes(rubro.slug) ? "pedido" : "cita"]);
     }
   });
 
@@ -27,5 +27,14 @@ describe("rubros base (T-40)", () => {
 
   it("ninguna plantilla nace con el bot encendido", () => {
     expect(RUBROS_BASE.every((r) => r.template.botActivo === false)).toBe(true);
+  });
+
+  it("T-110: solo la ropa trae referencia y detalles encendidos", () => {
+    for (const rubro of RUBROS_BASE) {
+      const campos = rubro.template.catalogo?.campos;
+      const esperado = rubro.slug === "ropa";
+      expect(campos?.referencia === true).toBe(esperado);
+      expect(campos?.detalles === true).toBe(esperado);
+    }
   });
 });
