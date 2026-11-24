@@ -462,7 +462,17 @@ export interface BusinessConfig {
    * `primero` y `segundo` reemplazan los textos por defecto; admiten
    * `{{nombre}}` y `{{pedido}}`.
    */
-  seguimientos?: { activo: boolean; primero?: string; segundo?: string };
+  seguimientos?: {
+    activo: boolean;
+    primero?: string;
+    segundo?: string;
+    /** T-113: minutos hasta el primero (30, 60, 120, 240). Default 120. */
+    primeroMinutos?: number;
+    /** T-113: minutos hasta el segundo (480…1380), o 0 para no mandarlo. Default 1200. */
+    segundoMinutos?: number;
+    /** T-113: días (0 = domingo … 6 = sábado) en que no se escribe. */
+    diasSinEnvio?: number[];
+  };
   /**
    * WhatsApp personal de la dueña/o (E.164, ej. "573001234567"). Si está
    * configurado, el bot le avisa por WhatsApp cuando se confirma una cita o

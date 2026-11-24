@@ -16,7 +16,8 @@
  * - Solo con algo PENDIENTE: un carrito o un producto elegido sin cerrar.
  *   Nunca a quien ya compró, a quien espera la respuesta de la dueña (no es
  *   culpa del cliente), ni a quien solo saludó.
- * - Máximo 2 por cada silencio del cliente (a las 2 h y a las 20 h). Si el
+ * - Máximo 2 por cada silencio del cliente (por defecto a las 2 h y a las
+ *   20 h; T-113: la dueña elige otros tiempos y días sin envíos). Si el
  *   cliente responde, `handle.ts` reinicia la cuenta.
  * - Dentro de la ventana de 24 h, con margen: después Meta no deja mandar
  *   texto libre.
@@ -32,11 +33,30 @@ import { needsFollowUp } from "@/core/engine/lead-state";
 import { nombreItem } from "@/core/engine/flows/pedido";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 
-/** Los dos seguimientos, en orden. */
+/**
+ * Los dos seguimientos, en orden, con sus tiempos por defecto. `umbral` es
+ * solo el nombre con el que se marca en `lead.followUpsSent` ("2h" = el
+ * primero, "20h" = el segundo): no se cambia aunque la dueña elija otros
+ * tiempos, para que los leads ya marcados se sigan leyendo bien.
+ */
 export const SEGUIMIENTOS: readonly { umbral: FollowUpThreshold; minutos: number }[] = [
   { umbral: "2h", minutos: 120 },
   { umbral: "20h", minutos: 20 * 60 },
 ];
+
+// T-113: los tiempos elegibles viven aparte para que `config-schema.ts` los
+// use sin importar todo el motor.
+export { OPCIONES_PRIMERO_MIN, OPCIONES_SEGUNDO_MIN } from "@/core/engine/seguimientos-opciones";
+
+/** Los seguimientos con los tiempos de ESTE negocio (sin el segundo si lo apagó). */
+function tiemposDelNegocio(cfg: NonNullable<BusinessConfig["seguimientos"]>) {
+  const [primero, segundo] = SEGUIMIENTOS;
+  const segundoMin = cfg.segundoMinutos ?? segundo.minutos;
+  return [
+    { umbral: primero.umbral, minutos: cfg.primeroMinutos ?? primero.minutos },
+    ...(segundoMin > 0 ? [{ umbral: segundo.umbral, minutos: segundoMin }] : []),
+  ];
+}
 
 /** Media hora antes de que cierre la ventana de 24 h de WhatsApp. */
 const VENTANA_MIN = 23 * 60 + 30;
@@ -84,11 +104,14 @@ export function decidirSeguimiento(lead: Lead, config: BusinessConfig, now: Date
 
   // El más avanzado que ya venció y no se mandó. Si el cron estuvo caído y
   // vencieron los dos, sale solo el segundo: dos mensajes seguidos es spam.
-  const vencidos = SEGUIMIENTOS.filter((s) => minutos >= s.minutos);
+  const vencidos = tiemposDelNegocio(cfg).filter((s) => minutos >= s.minutos);
   const siguiente = vencidos.at(-1);
   if (!siguiente || lead.followUpsSent.includes(siguiente.umbral)) return null;
 
   if (!esBuenaHora(config, now)) return null;
+  // T-113: un día que la dueña marcó sin envíos (p. ej. el domingo, que
+  // descansa) se espera, igual que de noche.
+  if (cfg.diasSinEnvio?.includes(horaLocal(now, config.timezone ?? DEFAULT_TIMEZONE).dow)) return null;
 
   const plantilla =
     siguiente.umbral === "2h"

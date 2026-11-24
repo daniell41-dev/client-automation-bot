@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { decidirSeguimiento, esBuenaHora, pideNoContactar, textoDePrueba } from "@/core/engine/seguimientos";
 import type { BusinessConfig, Lead } from "@/core/types";
+import { parseBusinessConfig } from "@/core/config-schema";
 
 const config = {
   slug: "jeans",
@@ -210,5 +211,58 @@ describe("textoDePrueba", () => {
 
   it("un texto vacío usa el del sistema", () => {
     expect(textoDePrueba("   ", null, config)).toContain("¿Seguimos con su pedido de");
+  });
+});
+
+// T-113: la dueña elige cuándo sale cada mensaje (dentro de la ventana de
+// 24 h) y qué días no se escribe.
+describe("T-113: tiempos y días elegidos por el negocio", () => {
+  const con = (s: Partial<NonNullable<BusinessConfig["seguimientos"]>>) =>
+    ({ ...config, seguimientos: { activo: true, ...s } }) as BusinessConfig;
+
+  it("el primero a los 30 minutos", () => {
+    const c = con({ primeroMinutos: 30 });
+    expect(decidirSeguimiento(lead(), c, masTarde(0.4))).toBeNull();
+    expect(decidirSeguimiento(lead(), c, masTarde(0.6))?.umbral).toBe("2h");
+  });
+
+  it("el segundo a las 8 horas", () => {
+    const c = con({ segundoMinutos: 480 });
+    expect(decidirSeguimiento(lead({ followUpsSent: ["2h"] }), c, masTarde(7.5))).toBeNull();
+    expect(decidirSeguimiento(lead({ followUpsSent: ["2h"] }), c, masTarde(8.2))?.umbral).toBe("20h");
+  });
+
+  it("con el segundo apagado, solo sale uno", () => {
+    const c = con({ segundoMinutos: 0 });
+    expect(decidirSeguimiento(lead({ followUpsSent: ["2h"] }), c, masTarde(22.2))).toBeNull();
+  });
+
+  it("un día sin envíos (domingo) no escribe aunque sea buena hora", () => {
+    const c = con({ diasSinEnvio: [0] });
+    expect(decidirSeguimiento(lead(), c, masTarde(2.1))).toBeNull(); // domingo 12:06
+    expect(decidirSeguimiento(lead(), c, masTarde(22.2))).not.toBeNull(); // lunes 8:12
+  });
+
+  it("sin elegir nada, sigue igual que antes (2 h y 20 h, todos los días)", () => {
+    expect(decidirSeguimiento(lead(), config, masTarde(2.1))?.umbral).toBe("2h");
+  });
+});
+
+describe("T-113: el esquema solo acepta tiempos dentro de la ventana", () => {
+  const m = ["welcome", "askName", "askDate", "askConfirm", "serviceInfo", "captured", "fallback"];
+  const base = {
+    ...config,
+    messages: Object.fromEntries(m.map((k) => [k, "x"])),
+    followUps: [],
+  } as unknown as Record<string, unknown>;
+  const valida = (s: Record<string, unknown>) =>
+    parseBusinessConfig({ ...base, seguimientos: { activo: true, ...s } }) !== null;
+
+  it("acepta las opciones de la pantalla y rechaza las demás", () => {
+    expect(valida({ primeroMinutos: 30, segundoMinutos: 1380, diasSinEnvio: [0, 6] })).toBe(true);
+    expect(valida({ segundoMinutos: 0 })).toBe(true);
+    expect(valida({ primeroMinutos: 45 })).toBe(false);
+    expect(valida({ segundoMinutos: 48 * 60 })).toBe(false);
+    expect(valida({ diasSinEnvio: [7] })).toBe(false);
   });
 });
