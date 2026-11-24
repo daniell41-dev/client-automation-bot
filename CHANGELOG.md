@@ -6,6 +6,11 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.7.1] — 2026-11-24
+
+### Nuevo
+- Probar el seguimiento automático (T-112): botón «Enviarme una prueba» en Configuración que manda ya el primer mensaje al WhatsApp de Notificaciones de la dueña (con su pedido a medias o uno de ejemplo), sin esperar 2 horas ni escribirle a un cliente.
+
 ## [1.7.0] — 2026-11-24
 
 ### Nuevo
