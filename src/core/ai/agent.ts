@@ -44,7 +44,13 @@ import {
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { limpiarDatosCapturados } from "@/core/engine/session-lifecycle";
 import { describirOrigen, registrarOrigen } from "@/core/engine/origen";
-import { detallesDe, preguntaDetalles, respuestaDetalleInvalido } from "@/core/engine/detalles";
+import {
+  detallesDe,
+  leerDetalles,
+  opcionesNoDichas,
+  preguntaDetalles,
+  respuestaDetalleInvalido,
+} from "@/core/engine/detalles";
 import { modoDelItem } from "@/core/engine/modo-item";
 import {
   agregarAlCarrito,
@@ -468,6 +474,25 @@ export async function runAgentTurn(
             variante = elegirVariante(servicio, accion.variante);
             if (variante === undefined) {
               varianteRechazada = { servicio, texto: accion.variante };
+              break;
+            }
+            // T-109: una opción que el cliente no dijo (la IA la arrastró de
+            // otra línea) no se anota: se pregunta solo esa, con lo que sí dijo.
+            const enCarrito = (lead.items ?? [])
+              .filter((i) => i.serviceId === servicio.id && i.variante !== undefined)
+              .map((i) => i.variante as string);
+            const noDichas = opcionesNoDichas(
+              servicio,
+              variante,
+              message.text,
+              history.filter((t) => t.role === "user").slice(-4).map((t) => t.text),
+              enCarrito,
+            );
+            if (noDichas.length > 0) {
+              const dichas = leerDetalles(servicio, variante).encontrados.filter(
+                (e) => !noDichas.some((n) => n.nombre === e.nombre),
+              );
+              varianteRechazada = { servicio, texto: dichas.map((e) => e.opcion).join(" ") };
               break;
             }
           }

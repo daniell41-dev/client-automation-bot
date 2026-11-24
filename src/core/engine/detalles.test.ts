@@ -3,6 +3,7 @@ import {
   detallesDe,
   etiquetaVariante,
   leerDetalles,
+  opcionesNoDichas,
   preguntaDetalles,
   respuestaDetalleInvalido,
 } from "@/core/engine/detalles";
@@ -77,5 +78,37 @@ describe("preguntas y etiquetas (T-123)", () => {
   it("la etiqueta del resumen no repite el nombre del detalle", () => {
     expect(etiquetaVariante(soloTallaViejo, "30")).toBe("Talla 30");
     expect(etiquetaVariante(conTallaYColor, "Talla 30, Color Blanco")).toBe("Talla 30, Color Blanco");
+  });
+});
+
+describe("T-109: opcionesNoDichas", () => {
+  const jean = {
+    id: "j",
+    name: "Jean",
+    description: "",
+    price: 1,
+    detalles: [
+      { nombre: "Talla", opciones: ["30", "32"] },
+      { nombre: "Color", opciones: ["Azul", "Negro"] },
+    ],
+  } as Service;
+  const enCarrito = ["Talla 30, Color Azul"];
+
+  it("el color arrastrado de otra línea no cuenta como dicho", () => {
+    expect(opcionesNoDichas(jean, "Talla 32, Color Azul", "y 1 de la 32", ["2 de la 30 en azul"], enCarrito)).toEqual([
+      { nombre: "Color", opcion: "Azul" },
+    ]);
+  });
+  it("dicho en el mensaje, con «igual» o en una línea que ya existe, vale", () => {
+    expect(opcionesNoDichas(jean, "Talla 32, Color Negro", "1 de la 32 negro", [], enCarrito)).toEqual([]);
+    expect(opcionesNoDichas(jean, "Talla 32, Color Azul", "otra igual en 32", [], enCarrito)).toEqual([]);
+    expect(opcionesNoDichas(jean, "Talla 30, Color Azul", "mejor 3", [], enCarrito)).toEqual([]);
+  });
+  it("dicho antes y sin usar todavía, vale", () => {
+    expect(opcionesNoDichas(jean, "Talla 30, Color Azul", "la 30", ["el azul"], [])).toEqual([]);
+  });
+  it("con un solo detalle no aplica", () => {
+    const uno = { ...jean, detalles: [jean.detalles![0]] } as Service;
+    expect(opcionesNoDichas(uno, "30", "uno más", [], [])).toEqual([]);
   });
 });
