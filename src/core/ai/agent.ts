@@ -44,6 +44,7 @@ import {
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { limpiarDatosCapturados } from "@/core/engine/session-lifecycle";
 import { describirOrigen, registrarOrigen } from "@/core/engine/origen";
+import { prometeCierre } from "@/core/ai/promete-cierre";
 import {
   detallesDe,
   leerDetalles,
@@ -710,10 +711,28 @@ export async function runAgentTurn(
   } else if (mostrarResumen) {
     // Si la IA creyó que ya cerraba (declaró "confirmar"), su texto promete
     // algo que no pasó: se reemplaza. Si no, se le suma el resumen.
-    respuestaFinal = confirmarPedido
-      ? resumenParaConfirmar(lead, config)
-      : `${aiResult.respuesta}\n\n${resumenParaConfirmar(lead, config)}`;
+    // T-115: lo mismo si, sin declararlo, escribió "listo para recoger" o
+    // "ya quedó confirmado": el cliente lo lee como hecho y no confirma.
+    respuestaFinal =
+      confirmarPedido || prometeCierre(aiResult.respuesta)
+        ? resumenParaConfirmar(lead, config)
+        : `${aiResult.respuesta}\n\n${resumenParaConfirmar(lead, config)}`;
     opciones = PEDIDO_CONFIRM_OPTIONS;
+  } else if (
+    esPedido &&
+    !wasAlreadyConfirmed &&
+    !wasAwaitingApproval &&
+    lead.stage !== "esperando_aprobacion" &&
+    prometeCierre(aiResult.respuesta)
+  ) {
+    // T-115: pedido abierto (sin confirmar) y la IA lo da por hecho en una
+    // respuesta suelta: se vuelve a lo que de verdad falta.
+    if (listoParaConfirmar) {
+      respuestaFinal = resumenParaConfirmar(lead, config);
+      opciones = PEDIDO_CONFIRM_OPTIONS;
+    } else {
+      respuestaFinal = preguntaQueFaltaPedido(lead, config);
+    }
   }
 
   // El conteo de "fuera de tema" no aplica una vez que ya se confirmó (ni
