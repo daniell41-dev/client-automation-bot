@@ -6,9 +6,9 @@
  * A <1080px el teléfono se apila debajo del editor.
  */
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Plus, X } from "lucide-react";
+import { Check, Pencil, Plus, X } from "lucide-react";
 import { detallesDe, preguntaDetalles } from "@/core/engine/detalles";
 import type { CatalogoConfig, Service } from "@/core/types";
 import { servicesSchema } from "@/core/config-schema";
@@ -88,24 +88,43 @@ export function CatalogoEditor({
   // T-123: el mini formulario de "Agregar detalles" (qué detalle y sus
   // opciones) antes de tocar el +. Lo agregado vive en `Service.detalles`.
   const [borrador, setBorrador] = useState({ tipo: TIPOS_DETALLE[0], opciones: "" });
+  // T-124: el detalle que se está editando (se carga en el mismo mini
+  // formulario). Guarda también el producto: si la dueña cambia de producto a
+  // mitad de una edición, no se debe guardar en el otro.
+  const [editando, setEditando] = useState<{ serviceId: string; nombre: string } | null>(null);
+  const opcionesRef = useRef<HTMLInputElement>(null);
+  const siguienteLibre = (detalles: { nombre: string }[]) =>
+    TIPOS_DETALLE.find((t) => !detalles.some((d) => d.nombre === t)) ?? TIPOS_DETALLE[0];
   const agregarDetalle = (service: Service) => {
     const opciones = separarOpciones(borrador.opciones);
     if (opciones.length === 0) return;
     const actuales = detallesDe(service);
-    // El mismo detalle otra vez reemplaza sus opciones en vez de duplicarlo.
-    const existe = actuales.some((d) => d.nombre === borrador.tipo);
+    // Editando, se reemplaza ESE detalle en su lugar. Si no, el mismo detalle
+    // otra vez reemplaza sus opciones en vez de duplicarlo.
+    const nombre = editando?.serviceId === service.id ? editando.nombre : borrador.tipo;
+    const existe = actuales.some((d) => d.nombre === nombre);
     const detalles = existe
-      ? actuales.map((d) => (d.nombre === borrador.tipo ? { nombre: d.nombre, opciones } : d))
-      : [...actuales, { nombre: borrador.tipo, opciones }];
+      ? actuales.map((d) => (d.nombre === nombre ? { nombre: d.nombre, opciones } : d))
+      : [...actuales, { nombre, opciones }];
     // `variantes` (T-104) se pasa a `detalles` al primer cambio: un solo lugar.
     patchService(service.id, { detalles, variantes: undefined });
-    const libre = TIPOS_DETALLE.find((t) => !detalles.some((d) => d.nombre === t));
-    setBorrador({ tipo: libre ?? borrador.tipo, opciones: "" });
+    setEditando(null);
+    setBorrador({ tipo: siguienteLibre(detalles), opciones: "" });
     if (fieldErrors.detalles) setFieldErrors((prev) => ({ ...prev, detalles: "" }));
+  };
+  const editarDetalle = (service: Service, detalle: { nombre: string; opciones: string[] }) => {
+    setEditando({ serviceId: service.id, nombre: detalle.nombre });
+    setBorrador({ tipo: detalle.nombre, opciones: detalle.opciones.join(", ") });
+    opcionesRef.current?.focus();
+  };
+  const cancelarEdicion = (service: Service) => {
+    setEditando(null);
+    setBorrador({ tipo: siguienteLibre(detallesDe(service)), opciones: "" });
   };
   const quitarDetalle = (service: Service, nombre: string) => {
     const detalles = detallesDe(service).filter((d) => d.nombre !== nombre);
     patchService(service.id, { detalles: detalles.length > 0 ? detalles : undefined, variantes: undefined });
+    if (editando?.serviceId === service.id && editando.nombre === nombre) cancelarEdicion({ ...service, detalles });
   };
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     guardarConfigParcial,
@@ -128,6 +147,8 @@ export function CatalogoEditor({
       `${s.name} ${s.categoria ?? ""}`.toLowerCase().includes(search.toLowerCase()),
   );
   const selected = services.find((s) => s.id === selectedId) ?? null;
+  // T-124: el detalle en edición, solo si es de ESTE producto.
+  const enEdicion = editando && selected && editando.serviceId === selected.id ? editando.nombre : null;
 
   const patchService = (id: string, patch: Partial<Service>) =>
     setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -375,13 +396,16 @@ export function CatalogoEditor({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                   <div className="sm:w-40">
                     <label className={labelCls} htmlFor="detalle-tipo">Detalle</label>
+                    {/* Editando no se cambia de detalle: guardaría las opciones en otro. */}
                     <select
                       id="detalle-tipo"
                       className={inputCls}
                       value={borrador.tipo}
+                      disabled={enEdicion !== null}
                       onChange={(e) => setBorrador((b) => ({ ...b, tipo: e.target.value }))}
                     >
-                      {TIPOS_DETALLE.map((t) => (
+                      {/* Un producto viejo puede tener otro nombre ("Tamaño"): se muestra para editarlo. */}
+                      {(enEdicion && !TIPOS_DETALLE.includes(enEdicion) ? [...TIPOS_DETALLE, enEdicion] : TIPOS_DETALLE).map((t) => (
                         <option key={t} value={t}>
                           {t}
                         </option>
@@ -392,6 +416,7 @@ export function CatalogoEditor({
                     <label className={labelCls} htmlFor="detalle-opciones">Opciones</label>
                     <input
                       id="detalle-opciones"
+                      ref={opcionesRef}
                       className={inputCls}
                       value={borrador.opciones}
                       onChange={(e) => setBorrador((b) => ({ ...b, opciones: e.target.value }))}
@@ -410,25 +435,42 @@ export function CatalogoEditor({
                     onClick={() => agregarDetalle(selected)}
                     disabled={
                       separarOpciones(borrador.opciones).length === 0 ||
-                      (detallesDe(selected).length >= 3 && !detallesDe(selected).some((d) => d.nombre === borrador.tipo))
+                      (enEdicion === null &&
+                        detallesDe(selected).length >= 3 &&
+                        !detallesDe(selected).some((d) => d.nombre === borrador.tipo))
                     }
-                    aria-label="Agregar detalle"
-                    title="Agregar detalle"
+                    aria-label={enEdicion ? `Guardar cambios de ${enEdicion}` : "Agregar detalle"}
+                    title={enEdicion ? `Guardar cambios de ${enEdicion}` : "Agregar detalle"}
                     className="flex h-[42px] w-full shrink-0 items-center justify-center rounded-[10px] bg-primary text-white transition-colors hover:bg-primary-hover disabled:opacity-40 sm:w-[42px]"
                   >
-                    <Plus className="h-5 w-5" />
+                    {enEdicion ? <Check className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
                   </button>
                 </div>
-                <p className="mt-1 text-xs text-ink-mid">
-                  Opciones separadas por coma. Si agrega un detalle que ya está, se reemplazan sus opciones.
-                </p>
+                {enEdicion ? (
+                  <p className="mt-1 text-xs text-ink-mid">
+                    Editando <span className="font-semibold text-ink">{enEdicion}</span>: cambie las opciones y toque ✓.{" "}
+                    <button
+                      type="button"
+                      onClick={() => cancelarEdicion(selected)}
+                      className="font-semibold text-primary underline-offset-2 hover:underline"
+                    >
+                      Cancelar
+                    </button>
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-ink-mid">
+                    Opciones separadas por coma. Si agrega un detalle que ya está, se reemplazan sus opciones.
+                  </p>
+                )}
 
                 {detallesDe(selected).length > 0 && (
                   <ul className="mt-3 space-y-2">
                     {detallesDe(selected).map((d) => (
                       <li
                         key={d.nombre}
-                        className="flex items-start justify-between gap-3 rounded-lg border border-line bg-surface-2 px-3 py-2"
+                        className={`flex items-start justify-between gap-3 rounded-lg border bg-surface-2 px-3 py-2 ${
+                          enEdicion === d.nombre ? "border-primary ring-2 ring-primary/15" : "border-line"
+                        }`}
                       >
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-ink">{d.nombre}</p>
@@ -440,15 +482,26 @@ export function CatalogoEditor({
                             ))}
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => quitarDetalle(selected, d.nombre)}
-                          aria-label={`Quitar ${d.nombre}`}
-                          title={`Quitar ${d.nombre}`}
-                          className="shrink-0 rounded-md p-1 text-ink-mid transition-colors hover:bg-warn-bg hover:text-warn-ink"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => editarDetalle(selected, d)}
+                            aria-label={`Editar ${d.nombre}`}
+                            title={`Editar ${d.nombre}`}
+                            className="rounded-md p-1 text-ink-mid transition-colors hover:bg-primary-tint hover:text-primary"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => quitarDetalle(selected, d.nombre)}
+                            aria-label={`Quitar ${d.nombre}`}
+                            title={`Quitar ${d.nombre}`}
+                            className="rounded-md p-1 text-ink-mid transition-colors hover:bg-warn-bg hover:text-warn-ink"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
