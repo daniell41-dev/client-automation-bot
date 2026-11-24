@@ -288,3 +288,27 @@ describe("actualizarWompi", () => {
     expect(result.error).toBe("No autorizado.");
   });
 });
+
+// T-111: la tarjeta "Seguimiento automático" (T-106) mandaba `seguimientos`
+// en el patch, pero la clave no estaba en PATCH_KEYS: el portal decía
+// "Configuración guardada" y el cambio se descartaba en silencio.
+describe("guardarConfigParcial — seguimiento automático", () => {
+  it("guarda el seguimiento encendido con sus textos", async () => {
+    const { client, updatedWith } = fakeSupabaseGuardable(esteticaBella);
+    createUserClientMock.mockResolvedValue(client);
+
+    const result = await guardarConfigParcial(
+      {},
+      formData({
+        slug: "estetica-bella",
+        patch: JSON.stringify({ seguimientos: { activo: true, primero: "¿Seguimos, {{nombre}}?" } }),
+      }),
+    );
+
+    expect(result.ok).toBeTruthy();
+    expect((updatedWith() as { seguimientos?: unknown }).seguimientos).toEqual({
+      activo: true,
+      primero: "¿Seguimos, {{nombre}}?",
+    });
+  });
+});
