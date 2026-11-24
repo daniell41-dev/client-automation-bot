@@ -11,6 +11,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 - Editar los detalles de un producto (T-124): cada talla, color o estilo agregado tiene un lápiz que carga sus opciones en el formulario para cambiarlas y guardarlas con ✓ (o cancelar).
 
 ### Arreglos
+- Seguimiento automático (T-111): encenderlo en Configuración ahora sí se guarda; antes el portal decía "guardada" pero el cambio se descartaba.
 - Pedido con talla y color (T-109): si el cliente dice "y 1 de la 32" sin color, el bot ya no copia el color de la línea anterior; pregunta solo el color que falta.
 - Selects del portal y del back office (T-124): flecha propia y borde suave al pasar el mouse, en vez de la flecha del sistema con el cuadro azul de Windows.
 

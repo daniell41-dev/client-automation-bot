@@ -79,6 +79,9 @@ const PATCH_KEYS = [
   "notifyPhoneNumber",
   "pagos",
   "avisos",
+  // T-111: lo manda la tarjeta "Seguimiento automático" (T-106). Sin esta
+  // clave el portal decía "guardada" y el cambio se perdía en silencio.
+  "seguimientos",
 ] as const;
 
 /**
