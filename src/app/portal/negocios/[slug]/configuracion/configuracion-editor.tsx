@@ -25,6 +25,7 @@ import {
   type ActionState,
 } from "@/app/portal/actions";
 import { ActionForm } from "@/components/action-form";
+import { probarSeguimiento } from "./actions";
 import { SEGUIMIENTO_PRIMERO_DEFAULT, SEGUIMIENTO_SEGUNDO_DEFAULT } from "@/core/engine/seguimientos";
 import { Card, Pill, Segmented, Toggle } from "@/components/ui";
 
@@ -358,6 +359,15 @@ export function ConfiguracionEditor({
               Déjelos vacíos para usar los de arriba. Puede usar {"{{nombre}}"} (el nombre del cliente) y{" "}
               {"{{pedido}}"} (lo que dejó en el carrito). Se guardan con el botón de abajo.
             </p>
+            {/* T-112: ver el primer mensaje ya, en su propio WhatsApp, sin esperar 2 horas. */}
+            <ActionForm action={probarSeguimiento} submitLabel="Enviarme una prueba" className="space-y-2 border-t border-line pt-3">
+              <input type="hidden" name="slug" value={slug} />
+              <input type="hidden" name="primero" value={seguimientos.primero} />
+              <p className="text-xs text-ink-mid">
+                Le mandamos ahora el primer mensaje a su WhatsApp de Notificaciones, con su pedido a medias si tiene
+                uno o con uno de ejemplo. No le llega a ningún cliente.
+              </p>
+            </ActionForm>
           </div>
         )}
       </Card>

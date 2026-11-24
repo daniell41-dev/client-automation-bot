@@ -111,6 +111,24 @@ function armarTexto(plantilla: string, lead: Lead, config: BusinessConfig): stri
     .trim();
 }
 
+/**
+ * T-112: el primer mensaje armado YA, para el botón "Enviarme una prueba" de
+ * Configuración: la dueña ve cómo queda sin esperar 2 horas ni escribirle a
+ * un cliente real. Si su propio número tiene algo a medias se usa eso (lo
+ * más parecido a lo real); si no, un pedido de ejemplo con el primer
+ * producto disponible, para que `{{pedido}}` no quede vacío.
+ */
+export function textoDePrueba(plantilla: string | undefined, lead: Lead | null, config: BusinessConfig): string {
+  const texto = plantilla?.trim() || SEGUIMIENTO_PRIMERO_DEFAULT;
+  if (lead && (lead.items?.length || lead.serviceId)) return armarTexto(texto, lead, config);
+  const producto = config.services.find((s) => s.disponible !== false) ?? config.services[0];
+  const ejemplo = {
+    name: "Carlos",
+    items: producto ? [{ serviceId: producto.id, cantidad: 2 }] : [],
+  } as unknown as Lead;
+  return armarTexto(texto, ejemplo, config);
+}
+
 /** Lo que el cliente dejó a medias, en palabras: el carrito, o el producto/servicio que eligió. */
 export function describirPedido(lead: Lead, config: BusinessConfig): string {
   const partes = (lead.items ?? []).flatMap((item) => {

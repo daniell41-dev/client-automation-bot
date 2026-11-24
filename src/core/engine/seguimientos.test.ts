@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decidirSeguimiento, esBuenaHora, pideNoContactar } from "@/core/engine/seguimientos";
+import { decidirSeguimiento, esBuenaHora, pideNoContactar, textoDePrueba } from "@/core/engine/seguimientos";
 import type { BusinessConfig, Lead } from "@/core/types";
 
 const config = {
@@ -187,5 +187,28 @@ describe("T-106: procesarSeguimientos", () => {
     const n = await procesarSeguimientos([lead({ id: "falla" }), lead({ id: "ok" })], config, masTarde(2.1), deps);
     expect(n).toBe(1);
     expect(guardados.map((l) => l.id)).toEqual(["ok"]);
+  });
+});
+
+// T-112: el botón "Enviarme una prueba" de Configuración.
+describe("textoDePrueba", () => {
+  it("con un pedido a medias del número de la dueña, usa su nombre y su carrito", () => {
+    expect(textoDePrueba(undefined, lead(), config)).toBe(
+      "Hola Carlos 👋 ¿Seguimos con su pedido de 6 Jean clásico Ref 102 · Talla 30 y 1 Correa? Si quiere, se lo dejo listo 🙌",
+    );
+  });
+
+  it("sin pedido propio, arma uno de ejemplo con el primer producto", () => {
+    expect(textoDePrueba("Hola{{nombre}}, ¿retomamos {{pedido}}?", null, config)).toBe(
+      "Hola Carlos, ¿retomamos 2 Jean clásico Ref 102?",
+    );
+    // Un lead sin carrito (solo saludó) también cae al ejemplo.
+    expect(textoDePrueba(undefined, lead({ items: [], serviceId: undefined, name: "Ana" }), config)).toContain(
+      "2 Jean clásico Ref 102",
+    );
+  });
+
+  it("un texto vacío usa el del sistema", () => {
+    expect(textoDePrueba("   ", null, config)).toContain("¿Seguimos con su pedido de");
   });
 });
