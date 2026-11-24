@@ -6,6 +6,11 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.7.4] — 2026-11-24
+
+### Arreglos
+- El bot ya no dice «su pedido está listo para recoger» (ni «ya quedó confirmado», «va en camino») antes de que el cliente confirme (T-115): ese texto se descarta y se muestra el resumen con «¿Confirma su pedido?».
+
 ## [1.7.3] — 2026-11-24
 
 ### Cambiado
