@@ -26,10 +26,25 @@ import {
 } from "@/app/portal/actions";
 import { ActionForm } from "@/components/action-form";
 import { probarSeguimiento } from "./actions";
-import { SEGUIMIENTO_PRIMERO_DEFAULT, SEGUIMIENTO_SEGUNDO_DEFAULT } from "@/core/engine/seguimientos";
+import {
+  OPCIONES_PRIMERO_MIN,
+  OPCIONES_SEGUNDO_MIN,
+  SEGUIMIENTO_PRIMERO_DEFAULT,
+  SEGUIMIENTO_SEGUNDO_DEFAULT,
+} from "@/core/engine/seguimientos";
 import { Card, Pill, Segmented, Toggle } from "@/components/ui";
 
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
+
+/** T-113: en el orden de `Date.getDay()` (0 = domingo), igual que `diasSinEnvio`. */
+const DIAS_SEMANA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+/** 30 → "30 minutos", 60 → "1 hora", 1200 → "20 horas". */
+function textoTiempo(minutos: number): string {
+  if (minutos < 60) return `${minutos} minutos`;
+  const horas = minutos / 60;
+  return horas === 1 ? "1 hora" : `${horas} horas`;
+}
 const inputCls =
   "input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft";
 
@@ -154,6 +169,10 @@ export function ConfiguracionEditor({
     activo: initialSeguimientos?.activo ?? false,
     primero: initialSeguimientos?.primero ?? "",
     segundo: initialSeguimientos?.segundo ?? "",
+    // T-113: sin elegir = los tiempos de siempre (2 h y 20 h), todos los días.
+    primeroMinutos: initialSeguimientos?.primeroMinutos ?? 120,
+    segundoMinutos: initialSeguimientos?.segundoMinutos ?? 1200,
+    diasSinEnvio: initialSeguimientos?.diasSinEnvio ?? [],
   });
   const [direccion, setDireccion] = useState(direccionInicial);
   const [notifyPhoneNumber, setNotifyPhoneNumber] = useState(notifyPhoneNumberInicial);
@@ -208,6 +227,9 @@ export function ConfiguracionEditor({
       activo: seguimientos.activo,
       primero: seguimientos.primero.trim() || undefined,
       segundo: seguimientos.segundo.trim() || undefined,
+      primeroMinutos: seguimientos.primeroMinutos,
+      segundoMinutos: seguimientos.segundoMinutos,
+      diasSinEnvio: seguimientos.diasSinEnvio.length ? seguimientos.diasSinEnvio : undefined,
     },
     personas: { ...personas, whatsapp: nuevaPersona },
     ai,
@@ -321,7 +343,7 @@ export function ConfiguracionEditor({
       {/* T-106: seguimiento automático de pedidos a medias */}
       <Card
         title="Seguimiento automático"
-        subtitle="Si un cliente deja un pedido a medias, el bot le escribe para retomarlo: a las 2 horas y, si sigue sin responder, al día siguiente. Nunca más de dos veces, solo en su horario de atención, y nunca a quien pidió que no le escriban."
+        subtitle="Si un cliente deja un pedido a medias, el bot le escribe para retomarlo, en los tiempos que usted elija. Nunca más de dos veces, solo en su horario de atención, y nunca a quien pidió que no le escriban."
       >
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm font-semibold text-ink">Retomar pedidos a medias</span>
@@ -333,8 +355,75 @@ export function ConfiguracionEditor({
         </div>
         {seguimientos.activo && (
           <div className="mt-4 space-y-3">
+            {/* T-113: cuándo sale cada mensaje y qué días no. Solo opciones
+                dentro de la ventana de 24 h de WhatsApp. */}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className={labelCls} htmlFor="seg-primero-min">Primer mensaje</label>
+                <select
+                  id="seg-primero-min"
+                  className={inputCls}
+                  value={seguimientos.primeroMinutos}
+                  onChange={(e) => setSeguimientos((prev) => ({ ...prev, primeroMinutos: Number(e.target.value) }))}
+                >
+                  {OPCIONES_PRIMERO_MIN.map((m) => (
+                    <option key={m} value={m}>
+                      {textoTiempo(m)} después
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls} htmlFor="seg-segundo-min">Segundo mensaje</label>
+                <select
+                  id="seg-segundo-min"
+                  className={inputCls}
+                  value={seguimientos.segundoMinutos}
+                  onChange={(e) => setSeguimientos((prev) => ({ ...prev, segundoMinutos: Number(e.target.value) }))}
+                >
+                  {OPCIONES_SEGUNDO_MIN.map((m) => (
+                    <option key={m} value={m}>
+                      {m === 0 ? "No mandar segundo mensaje" : `${textoTiempo(m)} después`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div>
-              <label className={labelCls}>Primer mensaje (a las 2 horas)</label>
+              <p className={labelCls}>Días en que no se escribe</p>
+              <div className="flex flex-wrap gap-2">
+                {DIAS_SEMANA.map((nombre, dow) => {
+                  const pausado = seguimientos.diasSinEnvio.includes(dow);
+                  return (
+                    <button
+                      key={nombre}
+                      type="button"
+                      aria-pressed={pausado}
+                      onClick={() =>
+                        setSeguimientos((prev) => ({
+                          ...prev,
+                          diasSinEnvio: pausado
+                            ? prev.diasSinEnvio.filter((d) => d !== dow)
+                            : [...prev.diasSinEnvio, dow].sort(),
+                        }))
+                      }
+                      className={`rounded-full border px-3 py-1 text-sm ${
+                        pausado ? "border-warn-ink bg-warn-bg text-warn-ink line-through" : "border-line text-ink"
+                      }`}
+                    >
+                      {nombre}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1 text-xs text-ink-soft">
+                Toque un día para pausarlo. Además, nunca se escribe fuera de su horario de atención. WhatsApp solo
+                permite escribirle gratis al cliente hasta 24 horas después de su último mensaje; por eso no hay
+                tiempos más largos.
+              </p>
+            </div>
+            <div>
+              <label className={labelCls}>Texto del primer mensaje</label>
               <textarea
                 className={inputCls}
                 rows={2}
@@ -345,7 +434,7 @@ export function ConfiguracionEditor({
               />
             </div>
             <div>
-              <label className={labelCls}>Segundo mensaje (al día siguiente)</label>
+              <label className={labelCls}>Texto del segundo mensaje</label>
               <textarea
                 className={inputCls}
                 rows={2}

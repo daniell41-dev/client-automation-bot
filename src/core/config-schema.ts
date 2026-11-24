@@ -8,6 +8,7 @@
 
 import { z } from "zod";
 import type { BusinessConfig } from "@/core/types";
+import { OPCIONES_PRIMERO_MIN, OPCIONES_SEGUNDO_MIN } from "@/core/engine/seguimientos-opciones";
 
 /**
  * Exportado (T-12): el editor de Catálogo del portal valida el mismo objeto
@@ -265,6 +266,16 @@ export const businessConfigSchema = z.object({
       activo: z.boolean(),
       primero: z.string().max(500, "El mensaje es muy largo.").optional(),
       segundo: z.string().max(500, "El mensaje es muy largo.").optional(),
+      // T-113: solo las opciones de la pantalla, todas dentro de la ventana de 24 h.
+      primeroMinutos: z
+        .number()
+        .refine((n) => (OPCIONES_PRIMERO_MIN as readonly number[]).includes(n), "Tiempo no permitido.")
+        .optional(),
+      segundoMinutos: z
+        .number()
+        .refine((n) => (OPCIONES_SEGUNDO_MIN as readonly number[]).includes(n), "Tiempo no permitido.")
+        .optional(),
+      diasSinEnvio: z.array(z.number().int().min(0).max(6)).max(7).optional(),
     })
     .optional(),
   notifyPhoneNumber: z.string().optional(),
