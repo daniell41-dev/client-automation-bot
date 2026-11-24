@@ -6,6 +6,11 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.7.2] — 2026-11-24
+
+### Nuevo
+- Tiempos del seguimiento automático (T-113): la dueña elige en Configuración cuándo sale el primer mensaje (30 min, 1, 2 o 4 horas) y el segundo (8, 12, 20 o 23 horas, o ninguno), y qué días no se escribe. Todo dentro de la ventana gratis de 24 h de WhatsApp; sin elegir nada sigue igual (2 h y 20 h).
+
 ## [1.7.1] — 2026-11-24
 
 ### Nuevo
