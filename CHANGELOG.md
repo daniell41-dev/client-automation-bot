@@ -6,6 +6,13 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.8.0] — 2026-11-25
+
+### Nuevo
+- Pantalla «Importar productos» (T-117): desde Menú → Importar, la dueña sube la exportación de Tienda Nube, la plantilla de Aurela (descargable ahí mismo) o su propio CSV (con emparejamiento de columnas). Ve una vista previa (nuevos, actualizados, sin cambios y filas con error) antes de guardar, elige si usar el precio promocional, y puede deshacer la última importación.
+- Importador de productos en el core (T-116): lee CSV de Excel o de Tienda Nube (formato reconocido solo), junta las filas de cada talla en un producto, actualiza por referencia sin duplicar, informa errores por número de fila y nunca carga columnas no mapeadas (como el Costo). La pantalla para usarlo llega en la T-117.
+- Buscador de productos antes de la IA para catálogos grandes (T-118): con más de 40 productos, el asistente ya no recibe el catálogo entero en cada mensaje sino solo lo que coincide con lo que pidió el cliente (por referencia, categoría, color o palabras), más su carrito y lo que acaba de mostrarle, y la lista de categorías. Con los 116 jeans del primer mayorista, cada mensaje baja de ~23.000 a 2.200–3.600 tokens. Si no encuentra nada, el asistente no niega que exista: pide la referencia o la categoría, y la búsqueda queda en el registro.
+
 ## [1.7.4] — 2026-11-24
 
 ### Arreglos

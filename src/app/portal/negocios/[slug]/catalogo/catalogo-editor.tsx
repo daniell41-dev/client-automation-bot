@@ -8,7 +8,8 @@
 
 import { useActionState, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Check, Pencil, Plus, X } from "lucide-react";
+import Link from "next/link";
+import { Check, FileUp, Pencil, Plus, X } from "lucide-react";
 import { mostrarDetalles, mostrarReferencia } from "@/core/catalogo-campos";
 import { detallesDe, preguntaDetalles } from "@/core/engine/detalles";
 import type { CatalogoConfig, Service } from "@/core/types";
@@ -219,6 +220,14 @@ export function CatalogoEditor({
             <Plus className="h-4 w-4" />
             Agregar
           </button>
+          {/* T-117: carga masiva desde un archivo, en su propia pantalla. */}
+          <Link
+            href={`/portal/negocios/${slug}/catalogo/importar`}
+            className="inline-flex items-center gap-1.5 rounded-[10px] border border-line px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-surface-3"
+          >
+            <FileUp className="h-4 w-4" />
+            Importar
+          </Link>
         </div>
 
         {/* Lista de ítems */}

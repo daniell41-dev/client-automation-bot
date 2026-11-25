@@ -302,6 +302,14 @@ export const businessConfigSchema = z.object({
       enviarAlSaludar: z.boolean(),
     })
     .optional(),
+  // T-117: el catálogo como estaba antes de la última importación, para
+  // poder deshacerla. Uno solo (el último): no es un historial.
+  respaldoCatalogo: z
+    .object({
+      fecha: z.string(),
+      services: z.array(serviceSchema),
+    })
+    .optional(),
   // Almacenamiento propio del negocio (multi-tenant sin Supabase).
   storage: z
     .object({

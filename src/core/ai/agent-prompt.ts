@@ -52,6 +52,30 @@ function buildCatalogBlock(input: AgentTurnInput): string {
     .join("\n");
 }
 
+/**
+ * T-118: con el catálogo completo, "los ÚNICOS que existen". Con uno grande,
+ * la IA ve solo una parte y tiene que saberlo: si lo que pide el cliente no
+ * está en la lista, puede existir igual, así que no debe negarlo sino pedirle
+ * un dato para buscar (referencia, categoría, color).
+ */
+function buildCatalogHeader(input: AgentTurnInput): string {
+  const parcial = input.catalogoParcial;
+  if (!parcial) {
+    return "Catálogo de servicios (los ÚNICOS que existen — nunca inventes otro, otro precio ni otra duración):";
+  }
+  const categorias = parcial.categorias.length
+    ? ` Categorías: ${parcial.categorias.map((c) => `${c.nombre} (${c.cantidad})`).join(", ")}.`
+    : "";
+  const sinResultados = parcial.sinResultados
+    ? " Para el último mensaje del cliente NO se encontró ningún producto que coincida: no digas que no existe; pregúntale la referencia, la categoría o el color, o muéstrale las categorías."
+    : "";
+  const vacio = input.services.length === 0
+    ? " Todavía no hay productos a la vista: orienta al cliente con las categorías y pregúntale qué busca (referencia, categoría o color)."
+    : "";
+  return `Este negocio tiene ${parcial.total} productos. Abajo ves SOLO los que coinciden con lo que pidió el cliente, los de su carrito y los que le acabas de mostrar. Nunca inventes otro producto ni otro precio; si lo que pide no está abajo, puede existir: pídele la referencia, la categoría o el color.${categorias}${sinResultados}${vacio}
+Productos a la vista:`;
+}
+
 /** Nombre del día en español a partir de `dow` (0 = domingo … 6 = sábado). */
 const NOMBRES_DIA = [
   "Domingo",
@@ -228,7 +252,7 @@ ${REGLAS_SEGURIDAD}
 
 Sé breve: máximo 2 o 3 frases, con tono de mensaje de WhatsApp real, no de folleto. Sin markdown ni listas largas, salvo que el cliente pida el menú completo.
 
-Catálogo de servicios (los ÚNICOS que existen — nunca inventes otro, otro precio ni otra duración):
+${buildCatalogHeader(input)}
 ${buildCatalogBlock(input)}${buildHorariosBlock(input)}${buildPedidosBlock(input)}${buildKnowledgeBlock(input)}${buildReglasBlock(input)}${buildCatalogoPdfBlock(input)}
 
 Datos que ya tienes de este cliente: ${buildDatosConocidos(input)}.${buildConfirmadoBlock(input)}${buildEsperandoAprobacionBlock(input)}${buildOffTopicNote(input)}
