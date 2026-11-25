@@ -6,6 +6,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Arreglos
+- Portal (T-125): se quita la campana de notificaciones de arriba a la derecha. Tenía un punto naranja fijo y no abría nada, así que parecía que había avisos sin leer.
+
 ## [1.8.0] — 2026-11-25
 
 ### Nuevo
