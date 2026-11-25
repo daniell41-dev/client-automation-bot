@@ -6,6 +6,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Nuevo
+- Importador de productos en el core (T-116): lee CSV de Excel o de Tienda Nube (formato reconocido solo), junta las filas de cada talla en un producto, actualiza por referencia sin duplicar, informa errores por número de fila y nunca carga columnas no mapeadas (como el Costo). La pantalla para usarlo llega en la T-117.
+
 ## [1.7.4] — 2026-11-24
 
 ### Arreglos
