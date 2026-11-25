@@ -128,6 +128,17 @@ export interface AgentTurnInput {
   reglas?: QuickRule[];
   /** SOLO los servicios disponibles — la IA no debe ofrecer los que no. */
   services: AgentServiceSummary[];
+  /**
+   * T-118: en un catálogo grande, `services` trae solo lo que el buscador
+   * encontró (más carrito y lo recién mostrado). Esto le dice a la IA que hay
+   * más, por qué categorías orientar al cliente y si la búsqueda no encontró
+   * nada (para que no diga "no lo tenemos" a ciegas).
+   */
+  catalogoParcial?: {
+    total: number;
+    categorias: { nombre: string; cantidad: number }[];
+    sinResultados: boolean;
+  };
   horarios?: DiaAtencion[];
   /**
    * ISO 8601 del momento actual (T-20) — sin esto la IA no tiene forma de
