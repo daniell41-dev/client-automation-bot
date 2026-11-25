@@ -22,7 +22,7 @@ vi.mock("@/lib/supabase/server", () => ({
 // (como acá, en Vitest) lanza "static generation store missing".
 vi.mock("next/cache", () => ({ revalidatePath: revalidatePathMock }));
 
-import { actualizarWompi, guardarConfigParcial } from "@/app/portal/actions";
+import { actualizarWompi, deshacerImportacion, guardarConfigParcial, importarProductos } from "@/app/portal/actions";
 
 function formData(fields: Record<string, string>): FormData {
   const fd = new FormData();
@@ -338,5 +338,60 @@ describe("guardarConfigParcial — campos del catálogo", () => {
       etiqueta: { singular: "Plato", plural: "Menú" },
       campos: { stock: true, referencia: false, detalles: true },
     });
+  });
+});
+
+// T-117: importar productos y deshacer. El navegador manda los productos ya
+// leídos; el servidor los vuelve a validar, los combina con el catálogo de la
+// base y guarda el anterior para poder deshacer.
+describe("importarProductos / deshacerImportacion", () => {
+  const conCatalogo = {
+    ...esteticaBella,
+    services: [
+      ...esteticaBella.services,
+      { id: "jean-1", name: "Jean viejo", description: "", price: 30000, modo: "pedido", referencia: "B203" },
+    ],
+  };
+  const importados = [
+    { id: "ref-b203", name: "Jean bota campana", description: "", price: 99900, modo: "pedido", referencia: "B203" },
+    { id: "ref-b204", name: "Jean skinny", description: "", price: 99900, modo: "pedido", referencia: "B204" },
+  ];
+
+  it("combina por referencia, guarda el respaldo y valida todo", async () => {
+    const { client, updatedWith } = fakeSupabaseGuardable(conCatalogo);
+    createUserClientMock.mockResolvedValue(client);
+    const r = await importarProductos({}, formData({ slug: "estetica-bella", productos: JSON.stringify(importados) }));
+    expect(r.ok).toContain("1 nuevos, 1 actualizados");
+    const guardado = updatedWith() as { services: { id: string; name: string }[]; respaldoCatalogo: { services: unknown[] } };
+    expect(guardado.services.find((s) => s.id === "jean-1")?.name).toBe("Jean bota campana");
+    expect(guardado.services.some((s) => s.id === "ref-b204")).toBe(true);
+    expect(guardado.respaldoCatalogo.services).toEqual(conCatalogo.services);
+  });
+
+  it("productos inválidos (sin precio) no se guardan", async () => {
+    const { client, updatedWith } = fakeSupabaseGuardable(conCatalogo);
+    createUserClientMock.mockResolvedValue(client);
+    const r = await importarProductos({}, formData({ slug: "estetica-bella", productos: JSON.stringify([{ id: "x", name: "X", description: "" }]) }));
+    expect(r.error).toBeTruthy();
+    expect(updatedWith()).toBeUndefined();
+  });
+
+  it("deshacer vuelve al catálogo anterior y borra el respaldo", async () => {
+    const conRespaldo = { ...conCatalogo, services: importados, respaldoCatalogo: { fecha: "2026-11-25T00:00:00.000Z", services: conCatalogo.services } };
+    const { client, updatedWith } = fakeSupabaseGuardable(conRespaldo);
+    createUserClientMock.mockResolvedValue(client);
+    const r = await deshacerImportacion({}, formData({ slug: "estetica-bella" }));
+    expect(r.ok).toBeTruthy();
+    const guardado = updatedWith() as { services: unknown[]; respaldoCatalogo?: unknown };
+    expect(guardado.services).toEqual(conCatalogo.services);
+    expect(guardado.respaldoCatalogo).toBeUndefined();
+  });
+
+  it("sin importación previa, deshacer avisa y no escribe", async () => {
+    const { client, updatedWith } = fakeSupabaseGuardable(conCatalogo);
+    createUserClientMock.mockResolvedValue(client);
+    const r = await deshacerImportacion({}, formData({ slug: "estetica-bella" }));
+    expect(r.error).toContain("No hay ninguna importación");
+    expect(updatedWith()).toBeUndefined();
   });
 });

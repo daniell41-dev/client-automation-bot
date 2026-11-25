@@ -508,6 +508,12 @@ export interface BusinessConfig {
    * él, igual se manda cuando el cliente pide "el catálogo".
    */
   catalogoPdf?: { url: string; nombreArchivo: string; enviarAlSaludar: boolean };
+  /**
+   * T-117: el catálogo como estaba antes de la última importación masiva,
+   * para el botón "Deshacer". Solo el último; lo borra deshacer o un nuevo
+   * respaldo lo reemplaza.
+   */
+  respaldoCatalogo?: { fecha: string; services: Service[] };
 }
 
 /** Evento de calendario normalizado, independiente del proveedor (Google, etc.). */

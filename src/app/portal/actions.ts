@@ -14,7 +14,8 @@ import { revalidatePath } from "next/cache";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { errorLlaveWompi, type CampoWompi } from "@/core/payments/wompi-llaves";
-import { motivoConfigInvalida, parseBusinessConfig } from "@/core/config-schema";
+import { motivoConfigInvalida, parseBusinessConfig, servicesSchema } from "@/core/config-schema";
+import { combinarCatalogo, MAX_FILAS_IMPORTACION } from "@/core/catalogo/importar";
 import { invalidateBusinessCache } from "@/businesses/business-cache";
 import { cerrarCitaCumplida } from "@/core/engine/appointment-lifecycle";
 import { fromRow, toRow } from "@/core/storage/adapters/supabase/leads";
@@ -150,6 +151,96 @@ export async function guardarConfigParcial(
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`, "layout");
   return { ok: "Guardado. El bot ya responde con estos cambios." };
+}
+
+/**
+ * T-117: guarda una importación masiva de productos (pantalla "Importar
+ * productos"). El navegador ya leyó el archivo y mandó los productos; aquí
+ * NO se confía en eso: se validan otra vez con `servicesSchema`, se combinan
+ * con el catálogo ACTUAL de la base (no con el que vio la dueña, que pudo
+ * cambiar) y la config entera pasa por Zod antes de escribir (regla 5).
+ * Antes de cambiar nada se guarda el catálogo anterior para poder deshacer.
+ */
+export async function importarProductos(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const me = await getUserRole();
+  if (!me) return { error: "No autorizado." };
+  const slug = String(formData.get("slug") ?? "");
+  if (!slug) return { error: "Falta el negocio." };
+
+  let crudos: unknown;
+  try {
+    crudos = JSON.parse(String(formData.get("productos") ?? ""));
+  } catch {
+    return { error: "Los productos no llegaron bien. Vuelva a cargar el archivo." };
+  }
+  const importados = servicesSchema.safeParse(crudos);
+  if (!importados.success) return { error: "El archivo no trae productos válidos para importar." };
+  if (importados.data.length > MAX_FILAS_IMPORTACION) {
+    return { error: `Máximo ${MAX_FILAS_IMPORTACION} productos por importación.` };
+  }
+
+  const supabase = await createUserClient();
+  const { data: negocio } = await supabase.from("negocios").select("config").eq("slug", slug).maybeSingle();
+  const actual = parseBusinessConfig(negocio?.config);
+  if (!actual) return { error: "Negocio no encontrado o config inválida." };
+
+  const { catalogo, resumen } = combinarCatalogo(actual.services, importados.data);
+  const config = parseBusinessConfig({
+    ...actual,
+    services: catalogo,
+    respaldoCatalogo: { fecha: new Date().toISOString(), services: actual.services },
+  });
+  if (!config) return { error: "No se pudo importar: el catálogo resultante no es válido." };
+  config.slug = slug;
+
+  const { data, error } = await supabase
+    .from("negocios")
+    .update({ config, updated_at: new Date().toISOString() })
+    .eq("slug", slug)
+    .select("id");
+  if (error) return { error: `No se pudo importar: ${error.message}` };
+  if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
+
+  await sincronizarStock(data[0].id, config.services).catch((err) => {
+    console.error("[inventario] no se pudo sincronizar el stock tras importar:", err);
+  });
+  invalidateBusinessCache();
+  revalidatePath(`/portal/negocios/${slug}`, "layout");
+  return {
+    ok: `Listo: ${resumen.nuevos} nuevos, ${resumen.actualizados} actualizados y ${resumen.sinCambios} sin cambios. El asistente ya los ofrece.`,
+  };
+}
+
+/** T-117: vuelve el catálogo a como estaba antes de la última importación. */
+export async function deshacerImportacion(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const me = await getUserRole();
+  if (!me) return { error: "No autorizado." };
+  const slug = String(formData.get("slug") ?? "");
+  const supabase = await createUserClient();
+  const { data: negocio } = await supabase.from("negocios").select("config").eq("slug", slug).maybeSingle();
+  const actual = parseBusinessConfig(negocio?.config);
+  if (!actual) return { error: "Negocio no encontrado o config inválida." };
+  if (!actual.respaldoCatalogo) return { error: "No hay ninguna importación para deshacer." };
+
+  const config = parseBusinessConfig({ ...actual, services: actual.respaldoCatalogo.services, respaldoCatalogo: undefined });
+  if (!config) return { error: "No se pudo deshacer: el catálogo guardado no es válido." };
+  config.slug = slug;
+  delete config.respaldoCatalogo;
+
+  const { data, error } = await supabase
+    .from("negocios")
+    .update({ config, updated_at: new Date().toISOString() })
+    .eq("slug", slug)
+    .select("id");
+  if (error) return { error: `No se pudo deshacer: ${error.message}` };
+  if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
+
+  await sincronizarStock(data[0].id, config.services).catch((err) => {
+    console.error("[inventario] no se pudo sincronizar el stock al deshacer:", err);
+  });
+  invalidateBusinessCache();
+  revalidatePath(`/portal/negocios/${slug}`, "layout");
+  return { ok: "Listo: el catálogo volvió a como estaba antes de importar." };
 }
 
 /**
