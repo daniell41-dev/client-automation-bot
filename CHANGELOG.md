@@ -7,6 +7,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Arreglos
+- Botones de guardar (T-126): en el portal y el back office, "Guardar cambios" y los botones de los formularios (Guardar conexión, Guardar credenciales, Subir QR, Guardar catálogo…) quedan a la derecha del recuadro. En el celular el "Guardar cambios" sigue ocupando todo el ancho.
 - Portal (T-125): se quita la campana de notificaciones de arriba a la derecha. Tenía un punto naranja fijo y no abría nada, así que parecía que había avisos sin leer.
 
 ## [1.8.0] — 2026-11-25
