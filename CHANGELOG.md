@@ -6,6 +6,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Nuevo
+- Buscador de productos antes de la IA para catálogos grandes (T-118): con más de 40 productos, el asistente ya no recibe el catálogo entero en cada mensaje sino solo lo que coincide con lo que pidió el cliente (por referencia, categoría, color o palabras), más su carrito y lo que acaba de mostrarle, y la lista de categorías. Con los 116 jeans del primer mayorista, cada mensaje baja de ~23.000 a 2.200–3.600 tokens. Si no encuentra nada, el asistente no niega que exista: pide la referencia o la categoría, y la búsqueda queda en el registro.
+
 ## [1.7.4] — 2026-11-24
 
 ### Arreglos

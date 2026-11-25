@@ -8,7 +8,7 @@ import { prometeCierre } from "@/core/ai/promete-cierre";
 import { runAgentTurn } from "@/core/ai/agent";
 import type { AgentResponse } from "@/core/ai/agent-schema";
 import type { ILLMProvider } from "@/core/ai/provider";
-import type { BusinessConfig, IncomingMessage, Lead, PersonaConfig } from "@/core/types";
+import type { BusinessConfig, IncomingMessage, PersonaConfig } from "@/core/types";
 
 describe("prometeCierre", () => {
   it.each([

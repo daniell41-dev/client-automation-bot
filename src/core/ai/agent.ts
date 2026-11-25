@@ -45,6 +45,7 @@ import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { limpiarDatosCapturados } from "@/core/engine/session-lifecycle";
 import { describirOrigen, registrarOrigen } from "@/core/engine/origen";
 import { prometeCierre } from "@/core/ai/promete-cierre";
+import { buscarProductos, recortarDescripcion, UMBRAL_CATALOGO_GRANDE } from "@/core/catalogo/buscar";
 import {
   detallesDe,
   leerDetalles,
@@ -113,6 +114,18 @@ function buildAgentInput(
   message: string,
   now: Date,
 ): AgentTurnInput {
+  // T-118: con un catálogo grande la IA ve solo lo que el buscador encontró
+  // para este mensaje (más el carrito y lo recién mostrado), no los cientos.
+  const disponibles = availableServices(config.services);
+  const busqueda =
+    disponibles.length > UMBRAL_CATALOGO_GRANDE
+      ? buscarProductos(disponibles, {
+          mensaje: message,
+          anterioresCliente: history.filter((t) => t.role === "user").map((t) => t.text),
+          anterioresAsistente: history.filter((t) => t.role === "assistant").map((t) => t.text),
+          enCarrito: lead.items?.map((i) => i.serviceId),
+        })
+      : null;
   return {
     businessName: config.name,
     rubro: config.rubro,
@@ -121,10 +134,12 @@ function buildAgentInput(
     persona,
     knowledge: config.ai?.knowledge,
     reglas: config.ai?.reglas,
-    services: availableServices(config.services).map((s) => ({
+    services: (busqueda?.productos ?? disponibles).map((s) => ({
       id: s.id,
       name: s.name,
-      description: s.description,
+      // Con el catálogo recortado también se recortan las descripciones de
+      // marketing: a la IA le sirve saber qué es, no el folleto entero.
+      description: busqueda ? recortarDescripcion(s.description) : s.description,
       price: s.price,
       durationMinutes: s.durationMinutes,
       categoria: s.categoria,
@@ -134,6 +149,13 @@ function buildAgentInput(
       // T-123: ya resueltos (incluye `variantes` viejas como un solo detalle).
       ...(detallesDe(s).length > 0 && { detalles: detallesDe(s) }),
     })),
+    ...(busqueda && {
+      catalogoParcial: {
+        total: disponibles.length,
+        categorias: busqueda.categorias,
+        sinResultados: busqueda.sinResultados,
+      },
+    }),
     horarios: config.horarios,
     pedidos: config.pedidos?.enabled
       ? {
@@ -356,6 +378,11 @@ export async function runAgentTurn(
   const offTopicCountBefore = lead.offTopicCount ?? 0;
 
   const input = buildAgentInput(lead, config, persona, history, message.text, now);
+  // T-118: lo que el buscador no encontró queda en el registro, para ver qué
+  // se le escapa (sin el teléfono del cliente: solo el negocio y la búsqueda).
+  if (input.catalogoParcial?.sinResultados) {
+    console.log(`[Catalogo] búsqueda sin resultados en ${config.slug}: "${message.text.slice(0, 80)}"`);
+  }
 
   let aiResult;
   try {
