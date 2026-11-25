@@ -6,6 +6,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.8.0] — 2026-11-25
+
 ### Nuevo
 - Pantalla «Importar productos» (T-117): desde Menú → Importar, la dueña sube la exportación de Tienda Nube, la plantilla de Aurela (descargable ahí mismo) o su propio CSV (con emparejamiento de columnas). Ve una vista previa (nuevos, actualizados, sin cambios y filas con error) antes de guardar, elige si usar el precio promocional, y puede deshacer la última importación.
 - Importador de productos en el core (T-116): lee CSV de Excel o de Tienda Nube (formato reconocido solo), junta las filas de cada talla en un producto, actualiza por referencia sin duplicar, informa errores por número de fila y nunca carga columnas no mapeadas (como el Costo). La pantalla para usarlo llega en la T-117.
