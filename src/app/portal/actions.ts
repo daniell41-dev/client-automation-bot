@@ -83,6 +83,8 @@ const PATCH_KEYS = [
   // T-111: lo manda la tarjeta "Seguimiento automático" (T-106). Sin esta
   // clave el portal decía "guardada" y el cambio se perdía en silencio.
   "seguimientos",
+  // Resumen del día por WhatsApp a la dueña (tarjeta de Notificaciones).
+  "resumenDiario",
 ] as const;
 
 /**

@@ -139,6 +139,14 @@ export interface SupabaseDb {
   /** T-106: los negocios con WhatsApp conectado (los únicos a los que el cron les puede mandar seguimientos). */
   listNegociosConWhatsapp(): Promise<NegocioRow[]>;
   /**
+   * Resumen del día: reclama el envío de HOY para un negocio. `true` la
+   * primera vez, `false` si ya se mandó (migración 0028, mismo patrón atómico
+   * que `claimMessage`).
+   */
+  reclamarResumenDiario(negocioId: string, fecha: string): Promise<boolean>;
+  /** Pedidos de un negocio creados desde un instante (para las ventas del día). */
+  selectPedidosDesde(negocioId: string, desde: string): Promise<PedidoRow[]>;
+  /**
    * Reclama un `message.id` de WhatsApp. `true` la primera vez, `false` si ya
    * estaba reclamado. Atómico vía la restricción `unique` de la tabla
    * `mensajes_procesados` (migración 0004): el INSERT gana o pierde la
@@ -358,6 +366,23 @@ class RealSupabaseDb implements SupabaseDb {
       .maybeSingle();
     if (error) throw error;
     return (data as NegocioRow | null) ?? null;
+  }
+
+  async reclamarResumenDiario(negocioId: string, fecha: string): Promise<boolean> {
+    const { error } = await this.client.from("resumenes_diarios").insert({ negocio_id: negocioId, fecha });
+    if (!error) return true;
+    if (error.code === "23505") return false; // ya estaba: hoy ya se mandó
+    throw error;
+  }
+
+  async selectPedidosDesde(negocioId: string, desde: string): Promise<PedidoRow[]> {
+    const { data, error } = await this.client
+      .from("pedidos")
+      .select("*")
+      .eq("negocio_id", negocioId)
+      .gte("created_at", desde);
+    if (error) throw error;
+    return (data as PedidoRow[] | null) ?? [];
   }
 
   async listNegociosConWhatsapp(): Promise<NegocioRow[]> {

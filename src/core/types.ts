@@ -462,6 +462,11 @@ export interface BusinessConfig {
    * `primero` y `segundo` reemplazan los textos por defecto; admiten
    * `{{nombre}}` y `{{pedido}}`.
    */
+  /**
+   * Resumen del día por WhatsApp a la dueña al cierre: cuánto vendió, lo más
+   * pedido y lo que espera su respuesta. Apagado por defecto.
+   */
+  resumenDiario?: { activo: boolean };
   seguimientos?: {
     activo: boolean;
     primero?: string;

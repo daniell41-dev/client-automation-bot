@@ -395,3 +395,15 @@ describe("importarProductos / deshacerImportacion", () => {
     expect(updatedWith()).toBeUndefined();
   });
 });
+
+// Resumen del día: el interruptor de Configuración tiene que guardarse (mismo
+// error que T-111 si la clave no está en PATCH_KEYS).
+describe("guardarConfigParcial — resumen del día", () => {
+  it("guarda el interruptor", async () => {
+    const { client, updatedWith } = fakeSupabaseGuardable(esteticaBella);
+    createUserClientMock.mockResolvedValue(client);
+    const r = await guardarConfigParcial({}, formData({ slug: "estetica-bella", patch: JSON.stringify({ resumenDiario: { activo: true } }) }));
+    expect(r.ok).toBeTruthy();
+    expect((updatedWith() as { resumenDiario?: unknown }).resumenDiario).toEqual({ activo: true });
+  });
+});

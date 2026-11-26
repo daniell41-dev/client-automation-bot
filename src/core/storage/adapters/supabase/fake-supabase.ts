@@ -148,6 +148,17 @@ export function makeFakeSupabaseDb(): FakeSupabaseDb {
       return negocios.filter((n) => n.whatsapp_phone_number_id);
     },
 
+    async reclamarResumenDiario(negocioId, fecha) {
+      const clave = `resumen:${negocioId}:${fecha}`;
+      if (mensajesProcesados.has(clave)) return false;
+      mensajesProcesados.add(clave);
+      return true;
+    },
+
+    async selectPedidosDesde(negocioId, desde) {
+      return pedidos.filter((p) => p.negocio_id === negocioId && p.created_at >= desde);
+    },
+
     async claimMessage(messageId) {
       if (mensajesProcesados.has(messageId)) return false;
       mensajesProcesados.add(messageId);
