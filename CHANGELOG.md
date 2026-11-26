@@ -7,6 +7,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Nuevo
+- Textos de las páginas legales en `src/textos/es.json` (T-137): privacidad, términos, eliminar mis datos y el bloque del responsable. Los datos de contacto siguen en `src/lib/legal.ts`. Lo que se ve no cambia.
 - Textos de login, recuperar y definir contraseña, la demo, las pantallas de error y los componentes comunes (guardar, eliminar, tabla vacía) en `src/textos/es.json` (T-135). Lo que se ve no cambia.
 - Textos de Citas y Pedidos en `src/textos/es.json` (T-133): el editor de Citas (servicios, modalidad de entrega, horarios, reservas, vista previa) y el panel de Pedidos. Lo que se ve no cambia.
 - Textos del back office en `src/textos/es.json` (T-134): menú, negocios, usuarios, rubros, asignaciones, leads, el formulario de configuración y los títulos de pestaña. Lo que se ve no cambia.

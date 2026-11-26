@@ -8,51 +8,41 @@ import Link from "next/link";
 import { PaginaLegal } from "@/components/pagina-legal";
 import { BloqueResponsable } from "@/components/bloque-responsable";
 import { CONTACTO_LEGAL } from "@/lib/legal";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (legal.eliminarDatos). */
+const tt = textos.legal.eliminarDatos;
 
 export const metadata = {
-  title: "Eliminar mis datos",
-  description: "Cómo pedir que Aurela borre sus datos personales.",
+  title: tt.eliminarMisDatos,
+  description: tt.comoPedirQueAurela,
 };
 
 export default function EliminarDatosPage() {
   return (
-    <PaginaLegal titulo="Cómo pedir que borremos sus datos">
-      <p>
-        Puede pedir en cualquier momento que borremos sus datos personales, sea usted cliente de un negocio que
-        usa Aurela o la dueña o el dueño de un negocio.
-      </p>
+    <PaginaLegal titulo={tt.comoPedirQueBorremos}>
+      <p>{tt.puedePedirEnCualquier}</p>
 
-      <h2>Pasos</h2>
+      <h2>{tt.pasos}</h2>
       <ol>
-        <li>
-          Escríbanos a <a href={`mailto:${CONTACTO_LEGAL.correo}`}>{CONTACTO_LEGAL.correo}</a> o por WhatsApp a{" "}
-          {CONTACTO_LEGAL.telefonos.join(" o ")}, con el asunto <strong>&quot;Eliminar mis datos&quot;</strong>.
+        <li>{tt.escribanosA}<a href={`mailto:${CONTACTO_LEGAL.correo}`}>{CONTACTO_LEGAL.correo}</a>{tt.oPorWhatsappA}{" "}
+          {CONTACTO_LEGAL.telefonos.join(tt.o)}{tt.conElAsunto}<strong>{tt.eliminarMisDatos2}</strong>.
         </li>
-        <li>
-          Indique su nombre y el número de WhatsApp con el que habló. Si es cliente, díganos también el nombre del
-          negocio.
-        </li>
-        <li>
-          Para confirmar que es usted, le escribiremos a ese mismo número de WhatsApp. Así nadie puede pedir el
-          borrado de los datos de otra persona.
-        </li>
-        <li>Borramos sus datos y le confirmamos por el mismo medio en máximo 15 días hábiles.</li>
+        <li>{tt.indiqueSuNombreY}</li>
+        <li>{tt.paraConfirmarQueEs}</li>
+        <li>{tt.borramosSusDatosY}</li>
       </ol>
 
-      <h2>Qué se borra</h2>
+      <h2>{tt.queSeBorra}</h2>
       <ul>
-        <li>Clientes: su nombre, número, conversaciones, direcciones, comprobantes de pago y cuentas de devolución.</li>
-        <li>Negocios: la cuenta del portal y todos los datos del negocio y de sus clientes.</li>
+        <li>{tt.clientesSuNombreNumero}</li>
+        <li>{tt.negociosLaCuentaDel}</li>
       </ul>
-      <p>
-        Podemos conservar lo que una ley nos obligue a guardar, por ejemplo registros contables de pagos, solo
-        durante el tiempo exigido y sin usarlo para nada más.
-      </p>
+      <p>{tt.podemosConservarLoQue}</p>
 
-      <h2>Responsables</h2>
+      <h2>{tt.responsables}</h2>
       <BloqueResponsable />
-      <p>
-        Más detalles en la <Link href="/privacidad">política de privacidad</Link>.
+      <p>{tt.masDetallesEnLa}<Link href="/privacidad">{tt.politicaDePrivacidad}</Link>.
       </p>
     </PaginaLegal>
   );
