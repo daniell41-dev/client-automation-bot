@@ -7,7 +7,7 @@ const validoCrear = {
   owner_id: "user-1",
   rubro_id: "rubro-1",
   whatsapp_phone_number_id: "",
-  plan: "free" as const,
+  plan: "plus" as const,
 };
 
 describe("crearNegocioSchema", () => {
@@ -52,8 +52,12 @@ describe("crearNegocioSchema", () => {
     expect(crearNegocioSchema.safeParse(sinWhatsapp).success).toBe(true);
   });
 
-  it("rechaza un plan que no sea free/pro", () => {
-    expect(crearNegocioSchema.safeParse({ ...validoCrear, plan: "premium" }).success).toBe(false);
+  // T-127: los tres planes de `core/planes.ts`; "free" era la etiqueta vieja.
+  it("acepta Plus, Pro y Premium y rechaza cualquier otro plan", () => {
+    for (const plan of ["plus", "pro", "premium"]) {
+      expect(crearNegocioSchema.safeParse({ ...validoCrear, plan }).success).toBe(true);
+    }
+    expect(crearNegocioSchema.safeParse({ ...validoCrear, plan: "free" }).success).toBe(false);
   });
 });
 

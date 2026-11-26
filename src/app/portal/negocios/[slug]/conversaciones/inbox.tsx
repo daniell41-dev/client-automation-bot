@@ -59,7 +59,7 @@ export function ConversacionesInbox({
       <div className="mx-auto max-w-[720px] fade-up">
         <EmptyState
           title="Aún no hay conversaciones."
-          subtitle="Cuando sus clientes escriban al bot por WhatsApp, los chats van a aparecer aquí."
+          subtitle="Cuando sus clientes escriban al asistente por WhatsApp, los chats van a aparecer aquí."
         />
       </div>
     );
@@ -102,7 +102,7 @@ export function ConversacionesInbox({
                       {c.contact}
                     </span>
                     <Pill tone={last?.role === "assistant" ? "success" : "info"}>
-                      {last?.role === "assistant" ? "Bot" : "Cliente"}
+                      {last?.role === "assistant" ? "Asistente" : "Cliente"}
                     </Pill>
                   </span>
                   <span className="block truncate text-[13px] text-ink-soft">
@@ -149,7 +149,7 @@ export function ConversacionesInbox({
                 <span className="block text-xs text-success-ink">en línea</span>
               </span>
               <Pill tone={botActivo ? "success" : "warn"} dot>
-                {botActivo ? "Bot respondiendo" : "Bot en pausa"}
+                {botActivo ? "Asistente respondiendo" : "Asistente en pausa"}
               </Pill>
               <button
                 type="button"

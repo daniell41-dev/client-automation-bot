@@ -50,7 +50,7 @@ export default async function DemoPage() {
           </h1>
           <p className="mt-2 max-w-xl text-[15px] text-ink-mid">
             Este es un negocio de ejemplo configurado en la plataforma. Puede
-            probar el bot como si fuera un cliente escribiéndole por WhatsApp.
+            probar el asistente como si fuera un cliente escribiéndole por WhatsApp.
           </p>
         </div>
 
@@ -75,7 +75,7 @@ export default async function DemoPage() {
                   <div className="flex items-center gap-2">
                     <h2 className="text-[17px] font-bold text-ink">{config.name}</h2>
                     <Pill tone="success" dot>
-                      Bot activo
+                      Asistente activo
                     </Pill>
                   </div>
                   <p className="mt-0.5 text-sm text-ink-mid">
@@ -125,7 +125,7 @@ export default async function DemoPage() {
                 href="/demo/chat"
                 className="inline-flex items-center gap-2 rounded-[10px] bg-primary px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-primary-hover"
               >
-                Probar el bot
+                Probar el asistente
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>

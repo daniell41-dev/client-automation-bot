@@ -6,6 +6,16 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.10.0] — 2026-11-26
+
+### Nuevo
+- Textos de pantalla en un solo archivo (T-130): `src/textos/es.json` reúne los textos del menú del portal y de Configuración (las demás pantallas se pasan en las próximas tareas). Lo que se ve no cambia, salvo el grupo del menú "Gestión del bot", que ahora dice "Gestión del asistente".
+- Planes Plus, Pro y Premium (T-127): cada negocio tiene su plan en una columna propia (migración `0032_planes.sql`), que solo el admin puede cambiar desde el back office; todos empiezan en Plus. Todavía no limitan ninguna función: queda la base para asignarlas (`src/core/planes.ts`).
+
+### Arreglos
+- "Asistente virtual" en vez de "bot" (T-129): el portal, el back office, la demo y la landing hablan del asistente ("Asistente activo", "Nombre del asistente", "El asistente virtual"…). No cambia nada del código interno ni de lo que responde el asistente.
+- Configuración (T-128): se esconde la tarjeta "Pagos con Wompi" mientras no se use. Las llaves guardadas no se borran y se puede volver a mostrar cambiando `MOSTRAR_WOMPI` en `src/config/portal-scope.ts`.
+
 ## [1.9.0] — 2026-11-26
 
 ### Nuevo

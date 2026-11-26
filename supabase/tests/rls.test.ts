@@ -61,6 +61,10 @@ async function queryAs<T extends Record<string, unknown> = Record<string, unknow
     if (userId) {
       await client.query("select set_config('request.jwt.claim.sub', $1, false)", [userId]);
     }
+    // Como PostgREST: toda request por la API lleva el rol en el JWT (T-127).
+    await client.query("select set_config('request.jwt.claim.role', $1, false)", [
+      userId ? "authenticated" : "anon",
+    ]);
     const result = await client.query(sql, params);
     return result.rows as T[];
   } finally {
@@ -74,6 +78,7 @@ const RUBRO_A = randomUUID();
 const RUBRO_B = randomUUID();
 const LEAD_A = randomUUID();
 const LEAD_B = randomUUID();
+const ADMIN = randomUUID();
 
 describe.skipIf(!TEST_DATABASE_URL)("RLS: rubros, negocios y leads (supabase/migrations)", () => {
   let releaseLock: () => Promise<void>;
@@ -98,13 +103,16 @@ describe.skipIf(!TEST_DATABASE_URL)("RLS: rubros, negocios y leads (supabase/mig
     await adminQuery(readSql(MIGRATIONS_DIR, "0006_negocio_id_fk.sql"));
     await adminQuery(readSql(MIGRATIONS_DIR, "0007_cita_fechas.sql"));
     await adminQuery(readSql(MIGRATIONS_DIR, "0008_leads_own_update.sql"));
+    // T-127: solo depende de `negocios` y de `is_admin()` (0001).
+    await adminQuery(readSql(MIGRATIONS_DIR, "0032_planes.sql"));
     await adminQuery(readSql(__dirname, "01-grants.sql"));
 
     // Dos clientes; cada uno con SOLO su propio rubro asignado.
     await adminQuery(
-      `insert into auth.users (id, email) values ($1, 'a@test.local'), ($2, 'b@test.local')`,
-      [CLIENTE_A, CLIENTE_B],
+      `insert into auth.users (id, email) values ($1, 'a@test.local'), ($2, 'b@test.local'), ($3, 'admin@test.local')`,
+      [CLIENTE_A, CLIENTE_B, ADMIN],
     );
+    await adminQuery(`update public.profiles set role = 'admin' where id = $1`, [ADMIN]);
     await adminQuery(
       `insert into public.rubros (id, slug, nombre, template) values
          ($1, 'rls-rubro-a', 'Rubro A', '{}'::jsonb),
@@ -207,6 +215,47 @@ describe.skipIf(!TEST_DATABASE_URL)("RLS: rubros, negocios y leads (supabase/mig
       );
       expect(rows).toHaveLength(1);
       expect(rows[0].state).toBe("recurrente");
+    });
+  });
+
+  describe("plan del negocio (0032, T-127)", () => {
+    it("la dueña NO puede subirse el plan llamando a la API con su sesión", async () => {
+      await expect(
+        queryAs(CLIENTE_A, "update public.negocios set plan = 'premium' where slug = 'rls-negocio-a'"),
+      ).rejects.toThrow(/Solo el administrador/);
+    });
+
+    it("la dueña sí puede seguir guardando el resto de su negocio (el config)", async () => {
+      const rows = await queryAs(
+        CLIENTE_A,
+        `update public.negocios set config = '{"name":"A"}'::jsonb where slug = 'rls-negocio-a' returning plan`,
+      );
+      expect(rows).toHaveLength(1);
+      expect(rows[0].plan).toBe("plus");
+    });
+
+    it("un negocio que crea la dueña nace en Plus aunque mande otro plan", async () => {
+      const rows = await queryAs(
+        CLIENTE_A,
+        `insert into public.negocios (owner_id, rubro_id, slug, config, plan)
+         values ($1, $2, 'rls-negocio-plan', '{}'::jsonb, 'premium') returning plan`,
+        [CLIENTE_A, RUBRO_A],
+      );
+      expect(rows[0].plan).toBe("plus");
+    });
+
+    it("el admin sí cambia el plan", async () => {
+      const rows = await queryAs(
+        ADMIN,
+        "update public.negocios set plan = 'premium' where slug = 'rls-negocio-b' returning plan",
+      );
+      expect(rows[0].plan).toBe("premium");
+    });
+
+    it("un plan que no existe lo rechaza la base", async () => {
+      await expect(
+        queryAs(ADMIN, "update public.negocios set plan = 'gold' where slug = 'rls-negocio-b'"),
+      ).rejects.toThrow();
     });
   });
 });

@@ -5,7 +5,7 @@ import { Seccion } from "@/components/landing/seccion";
 const GARANTIAS = [
   "Ningún pedido pasa sin resumen: el cliente ve el total y confirma.",
   "Ningún pedido se despacha sin su aprobación.",
-  "Ve todas las conversaciones desde el celular y puede pausar el bot.",
+  "Ve todas las conversaciones desde el celular y puede pausar el asistente.",
   "No inventa precios ni cuentas de pago.",
 ];
 

@@ -19,6 +19,8 @@ import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Card, Pill } from "@/components/ui";
 import { RubroTile, camposDelNegocio, tipoCitas } from "@/components/rubro-visual";
 import { ArrowLeft } from "lucide-react";
+import { PillPlan } from "@/components/pill-plan";
+import { planDe } from "@/core/planes";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +49,10 @@ export default async function DetalleNegocioPage({
   ]);
 
   if (!negocio) notFound();
+  // T-127: el plan en consulta aparte: sin la migración 0032 falla solo esto
+  // (se ve Plus) y no la página del negocio.
+  const { data: filaPlan } = await supabase.from("negocios").select("plan").eq("id", id).maybeSingle();
+  const plan = planDe(filaPlan?.plan);
 
   const config = parseBusinessConfig(negocio.config);
   if (!config) {
@@ -96,9 +102,7 @@ export default async function DetalleNegocioPage({
               <Pill tone={activo ? "success" : "warn"} dot>
                 {activo ? "Activo" : "Pausado"}
               </Pill>
-              <Pill tone={config.plan === "pro" ? "info" : "neutral"}>
-                {config.plan === "pro" ? "Pro" : "Free"}
-              </Pill>
+              <PillPlan plan={plan} />
             </div>
           </div>
         </div>
@@ -109,7 +113,7 @@ export default async function DetalleNegocioPage({
             type="submit"
             className="rounded-[10px] border border-line px-4 py-2 text-sm font-bold text-ink hover:bg-surface-2"
           >
-            {activo ? "Pausar bot" : "Activar bot"}
+            {activo ? "Pausar asistente" : "Activar asistente"}
           </button>
         </form>
       </header>
@@ -133,7 +137,7 @@ export default async function DetalleNegocioPage({
           nombre={config.name}
           ownerId={negocio.owner_id}
           whatsappId={negocio.whatsapp_phone_number_id ?? ""}
-          plan={config.plan ?? "free"}
+          plan={plan}
           clientes={clientes ?? []}
         />
       </Card>

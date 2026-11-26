@@ -55,7 +55,7 @@ export function PhonePreview({
         <span className="leading-tight">
           <span className="block text-[13.5px] font-semibold">{botName}</span>
           <span className="block text-[11px] text-white/80">
-            {online ? "en línea" : "bot en pausa"}
+            {online ? "en línea" : "asistente en pausa"}
           </span>
         </span>
       </div>

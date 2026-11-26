@@ -221,7 +221,7 @@ const followUpSchema = z.object({
 
 /** Exportado (T-12): el editor de Configuración valida el nombre del bot con este mismo schema. */
 export const personaSchema = z.object({
-  name: z.string().min(1, "El nombre del bot es obligatorio."),
+  name: z.string().min(1, "El nombre del asistente es obligatorio."),
   tone: z.string(),
   language: z.string(),
 });
@@ -252,7 +252,6 @@ export const businessConfigSchema = z.object({
   timezone: z.string().optional(),
   direccion: z.string().optional(),
   botActivo: z.boolean().optional(),
-  plan: z.enum(["free", "pro"]).optional(),
   // T-20: `.catch(undefined)` en vez de invalidar el config entero — un
   // horario mal formado (o en el formato viejo de texto libre, pre-T-20)
   // nunca debe tumbar al negocio al registry estático. Sin horarios

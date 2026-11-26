@@ -10,6 +10,8 @@ import { Card, Pill, StatCard } from "@/components/ui";
 import { RubroTile, camposDelNegocio } from "@/components/rubro-visual";
 import { mesDeUso } from "@/core/storage/whatsapp-usage-repository";
 import { NuevoNegocioForm } from "./nuevo-negocio-form";
+import { PillPlan } from "@/components/pill-plan";
+import { PLAN_POR_DEFECTO, planDe } from "@/core/planes";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +52,10 @@ export default async function NegociosPage() {
         .select("negocio_id, recibidos, enviados, plantillas")
         .eq("mes", mesDeUso(new Date())),
     ]);
+  // T-127: el plan en consulta aparte: sin la migración 0032 falla solo esto
+  // (todos se ven como Plus) y no el listado entero.
+  const { data: planes } = await supabase.from("negocios").select("id, plan");
+  const planPorNegocio = new Map((planes ?? []).map((p) => [p.id as string, planDe(p.plan)]));
 
   const rows = (negocios ?? []) as unknown as NegocioRow[];
   const leadsPorNegocio = new Map<string, number>();
@@ -124,9 +130,7 @@ export default async function NegociosPage() {
               {leadsPorNegocio.get(row.slug) ?? 0}
             </span>,
             <UsoWhatsapp key="w" uso={usoPorNegocio.get(row.id)} sinTabla={Boolean(usoRes.error)} />,
-            <Pill key="p" tone={config?.plan === "pro" ? "info" : "neutral"}>
-              {config?.plan === "pro" ? "Pro" : "Free"}
-            </Pill>,
+            <PillPlan key="p" plan={planPorNegocio.get(row.id) ?? PLAN_POR_DEFECTO} />,
           ],
         }))}
       />

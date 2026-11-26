@@ -10,6 +10,7 @@
 
 import { z } from "zod";
 import { SLUG_RE } from "@/core/config-schema";
+import { PLANES } from "@/core/planes";
 
 export const crearNegocioSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio."),
@@ -17,7 +18,8 @@ export const crearNegocioSchema = z.object({
   owner_id: z.string().min(1, "Elija un cliente dueño."),
   rubro_id: z.string().min(1, "Elija un rubro."),
   whatsapp_phone_number_id: z.string().optional(),
-  plan: z.enum(["free", "pro"]),
+  // T-127: los tres planes de `core/planes.ts` (columna `negocios.plan`).
+  plan: z.enum(PLANES),
 });
 
 export const actualizarNegocioSchema = z.object({
@@ -25,5 +27,5 @@ export const actualizarNegocioSchema = z.object({
   nombre: z.string().min(1, "El nombre es obligatorio."),
   owner_id: z.string().min(1, "Elija un cliente dueño."),
   whatsapp_phone_number_id: z.string().optional(),
-  plan: z.enum(["free", "pro"]),
+  plan: z.enum(PLANES),
 });
