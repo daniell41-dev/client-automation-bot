@@ -336,7 +336,9 @@
       "respuestas": "Respuestas",
       "configuracion": "Configuración",
       "catalogo": "Catálogo",
-      "importar": "Importar productos"
+      "importar": "Importar productos",
+      "citas": "Citas",
+      "pedidos": "Pedidos"
     },
     "pendientes": {
       "noCuadra": {
@@ -513,6 +515,79 @@
         "sinCitas": "Sin citas"
       }
     },
-    "asistentePorDefecto": "Asistente"
+    "asistentePorDefecto": "Asistente",
+    "citas": {
+      "cerrando": "Cerrando…",
+      "marcarAtendida": "Marcar atendida",
+      "serviciosReservables": "Servicios reservables",
+      "elAsistenteSoloOfrece": "El asistente solo ofrece citas para lo que esté activo.",
+      "sePideNoSe": "Se pide, no se reserva",
+      "modalidadDePedido": "Modalidad de pedido",
+      "paraNegociosDondeEl": "Para negocios donde el cliente puede retirar o consumir en el local (p. ej. restaurantes).",
+      "preguntarModalidadDeEntrega": "Preguntar modalidad de entrega",
+      "preguntaDelAsistente": "Pregunta del asistente",
+      "vaARecogerSu": "¿Va a recoger su pedido o prefiere comer en el local?",
+      "opciones2A4": "Opciones (2 a 4)",
+      "retirarEnElLocal": "Retirar en el local",
+      "quitarOpcion": "Quitar opción",
+      "agregarOpcion": "Agregar opción",
+      "costoDelDomicilio": "Costo del domicilio",
+      "t0SinCosto": "0 = sin costo",
+      "seSumaAlTotal": "Se suma al total cuando el cliente elige domicilio. Vacío o 0: no se cobra aparte.",
+      "horariosDeAtencion": "Horarios de atención",
+      "elAsistenteNoAcepta": "El asistente no acepta citas fuera de estos horarios.",
+      "cerrado": "Cerrado",
+      "agregarTramoPEj": "Agregar tramo (p. ej. corte de mediodía)",
+      "proximasReservas": "Próximas reservas",
+      "sinReservasPorAhora": "Sin reservas por ahora.",
+      "lasCitasQueConfirme": "Las citas que confirme el asistente van a aparecer aquí.",
+      "confirmada": "Confirmada",
+      "citasPasadasSinCerrar": "Citas pasadas sin cerrar",
+      "elAsistenteLasCierra": "El asistente las cierra solo cuando el cliente vuelve a escribir. Si no, ciérrelas aquí.",
+      "guardando": "Guardando…",
+      "guardarCambios": "Guardar cambios",
+      "quitarTramoDe": "Quitar tramo de {dia}",
+      "clientePorDefecto": "Cliente",
+      "servicioPorDefecto": "Servicio",
+      "dias": {
+        "0": "Domingo",
+        "1": "Lunes",
+        "2": "Martes",
+        "3": "Miércoles",
+        "4": "Jueves",
+        "5": "Viernes",
+        "6": "Sábado"
+      },
+      "vistaPrevia": {
+        "quieroPedido": "Hola, quiero hacer un pedido",
+        "conGusto": "¡Con gusto! ¿Cuál le gustaría?",
+        "queSeLeAntoja": "Cuénteme qué se le antoja 😊",
+        "productoEjemplo": "Bandeja paisa",
+        "preguntaEntrega": "¿Lo recoge o lo enviamos a domicilio?",
+        "quieroCita": "Hola, quiero reservar una cita",
+        "paraCual": "¡Claro! ¿Para cuál de estos servicios?",
+        "sinCitas": "Por ahora no tenemos citas disponibles 🙏"
+      }
+    },
+    "pedidos": {
+      "antesDeAprobarRevise": "👀 Antes de aprobar, revise en la app de su banco que la plata llegó.",
+      "aprobar": "Aprobar #",
+      "rechazar": "Rechazar",
+      "marcarListo": "Marcar listo",
+      "codigoQueMuestraEl": "Código que muestra el cliente",
+      "entregar": "Entregar",
+      "devolver": "Devolver ",
+      "esperandoQueElCliente": "Esperando que el cliente mande su cuenta por WhatsApp.",
+      "devuelvaElDineroSolo": "👀 Devuelva el dinero solo si la plata le llegó: revíselo en la app de su banco.",
+      "yaDevolvi": "Ya devolví",
+      "x": "x ",
+      "llegoPor": "📣 Llegó por: ",
+      "sinComprobante": "Sin comprobante",
+      "verFotoDelComprobante": "🧾 Ver foto del comprobante",
+      "pedidos": "Pedidos",
+      "apruebePrepareYEntregue": "Apruebe, prepare y entregue. La comida se entrega solo contra el código de retiro del cliente.",
+      "devoluciones": "💸 Devoluciones",
+      "nadaPorAqui": "Nada por aquí."
+    }
   }
 }

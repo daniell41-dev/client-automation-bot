@@ -9,17 +9,10 @@
  */
 
 import type { DiaAtencion } from "@/core/types";
+import { textos } from "@/textos";
 
 /** Nombre del día en español a partir de `dow` (0 = domingo … 6 = sábado). */
-export const NOMBRES_DIA: Record<number, string> = {
-  0: "Domingo",
-  1: "Lunes",
-  2: "Martes",
-  3: "Miércoles",
-  4: "Jueves",
-  5: "Viernes",
-  6: "Sábado",
-};
+export const NOMBRES_DIA: Record<number, string> = textos.portal.citas.dias;
 
 /** Orden de exhibición en el editor: lunes primero, domingo último. */
 export const ORDEN_SEMANA = [1, 2, 3, 4, 5, 6, 0];
