@@ -12,6 +12,10 @@
 import { useActionState, useState } from "react";
 import type { BusinessConfig, CatalogoConfig, Service } from "@/core/types";
 import { esCita } from "@/core/engine/modo-item";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (backoffice.formularioConfig). */
+const tt = textos.backoffice.formularioConfig;
 
 export interface ConfigActionState {
   error?: string;
@@ -23,23 +27,9 @@ type ConfigAction = (
   formData: FormData,
 ) => Promise<ConfigActionState>;
 
-const MESSAGE_LABELS: Record<keyof BusinessConfig["messages"], string> = {
-  welcome: "Bienvenida (saludo + menú)",
-  askName: "Pedir nombre",
-  askDate: "Pedir fecha",
-  askConfirm: "Pedir confirmación de la cita",
-  serviceInfo: "Info de un servicio",
-  captured: "Cita agendada (mensaje final)",
-  fallback: "No entendí (fallback)",
-  citaVigente: "Recordatorio de cita vigente (ya confirmó, escribe de nuevo)",
-  askCantidad: "Pedir cuánto quiere de un producto",
-  askConfirmPedido: "Pedir confirmación del pedido (cierre, después del detalle)",
-  esperandoAprobacion: "Pedido en revisión (mientras la dueña acepta o rechaza)",
-  pedidoConfirmado: "Pedido aceptado por la dueña (mensaje final)",
-  pedidoRechazado: "Pedido rechazado por la dueña",
-  pedidoVigente: "Recordatorio de pedido vigente (ya confirmó, escribe de nuevo)",
-  pedirComprobante: "Pedir el comprobante de pago (solo si el negocio lo requiere)",
-};
+// El tipo exige una etiqueta por cada mensaje: si se agrega uno a BusinessConfig y falta
+// en es.json, tsc lo marca acá en vez de mostrar una etiqueta vacía.
+const MESSAGE_LABELS: Record<keyof BusinessConfig["messages"], string> = tt.mensajes;
 
 const inputCls =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-500 focus:outline-none";
@@ -55,7 +45,7 @@ export function ConfigForm({
   action,
   fieldName = "config",
   hidden = {},
-  submitLabel = "Guardar",
+  submitLabel = tt.guardar,
 }: {
   initial: BusinessConfig;
   action: ConfigAction;
@@ -130,10 +120,10 @@ export function ConfigForm({
 
       {/* Datos generales */}
       <section className={sectionCls}>
-        <h2 className="mb-4 text-sm font-semibold text-slate-800">Datos generales</h2>
+        <h2 className="mb-4 text-sm font-semibold text-slate-800">{tt.datosGenerales}</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelCls}>Nombre del negocio</label>
+            <label className={labelCls}>{tt.nombreDelNegocio}</label>
             <input
               className={inputCls}
               value={config.name}
@@ -141,21 +131,21 @@ export function ConfigForm({
             />
           </div>
           <div>
-            <label className={labelCls}>Moneda</label>
+            <label className={labelCls}>{tt.moneda}</label>
             <input
               className={inputCls}
               value={config.currency}
               onChange={(e) => set("currency", e.target.value)}
-              placeholder="COP"
+              placeholder={tt.cop}
             />
           </div>
           <div>
-            <label className={labelCls}>Link de agenda (opcional)</label>
+            <label className={labelCls}>{tt.linkDeAgendaOpcional}</label>
             <input
               className={inputCls}
               value={config.bookingUrl ?? ""}
               onChange={(e) => set("bookingUrl", e.target.value || undefined)}
-              placeholder="https://calendly.com/…"
+              placeholder={tt.httpsCalendlyCom}
             />
           </div>
         </div>
@@ -163,14 +153,11 @@ export function ConfigForm({
 
       {/* Catálogo de este rubro (T-21) */}
       <section className={sectionCls}>
-        <h2 className="mb-1 text-sm font-semibold text-slate-800">Catálogo de este rubro</h2>
-        <p className="mb-4 text-xs text-slate-500">
-          Qué persigue el asistente con los ítems de este rubro. Sin tocar nada aquí, se
-          comporta como una cita (igual que antes de esto existir).
-        </p>
+        <h2 className="mb-1 text-sm font-semibold text-slate-800">{tt.catalogoDeEsteRubro}</h2>
+        <p className="mb-4 text-xs text-slate-500">{tt.quePersigueElAsistente}</p>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelCls}>Cómo se llama UN ítem (singular)</label>
+            <label className={labelCls}>{tt.comoSeLlamaUn}</label>
             <input
               className={inputCls}
               value={config.catalogo?.etiqueta?.singular ?? ""}
@@ -182,11 +169,11 @@ export function ConfigForm({
                   },
                 })
               }
-              placeholder="Servicio / Producto / Plato / Repuesto"
+              placeholder={tt.servicioProductoPlatoRepuesto}
             />
           </div>
           <div>
-            <label className={labelCls}>Cómo se llaman VARIOS ítems (plural)</label>
+            <label className={labelCls}>{tt.comoSeLlamanVarios}</label>
             <input
               className={inputCls}
               value={config.catalogo?.etiqueta?.plural ?? ""}
@@ -198,11 +185,11 @@ export function ConfigForm({
                   },
                 })
               }
-              placeholder="Servicios / Productos / Platos / Repuestos"
+              placeholder={tt.serviciosProductosPlatosRepuestos}
             />
           </div>
           <div>
-            <label className={labelCls}>Camino por defecto de un ítem nuevo</label>
+            <label className={labelCls}>{tt.caminoPorDefectoDe}</label>
             <select
               className={inputCls}
               value={config.catalogo?.modoPorDefecto ?? "cita"}
@@ -210,13 +197,10 @@ export function ConfigForm({
                 setCatalogo({ modoPorDefecto: e.target.value === "pedido" ? "pedido" : "cita" })
               }
             >
-              <option value="cita">Se agenda (cita)</option>
-              <option value="pedido">Se vende (pedido)</option>
+              <option value="cita">{tt.seAgendaCita}</option>
+              <option value="pedido">{tt.seVendePedido}</option>
             </select>
-            <p className="mt-1 text-xs text-slate-500">
-              Cada ítem puede anular esto con su propio &quot;Camino&quot; más abajo — un
-              taller mecánico agenda el service y vende el repuesto a la vez.
-            </p>
+            <p className="mt-1 text-xs text-slate-500">{tt.cadaItemPuedeAnular}</p>
           </div>
           <div className="flex flex-col justify-end gap-2 pb-1">
             <label className="flex items-center gap-2 text-sm text-slate-700">
@@ -224,24 +208,20 @@ export function ConfigForm({
                 type="checkbox"
                 checked={config.catalogo?.campos?.duracion !== false}
                 onChange={(e) => setCatalogoCampos({ duracion: e.target.checked })}
-              />
-              Mostrar Duración en el editor de catálogo
-            </label>
+              />{tt.mostrarDuracionEnEl}</label>
             <label className="flex items-center gap-2 text-sm text-slate-700">
               <input
                 type="checkbox"
                 checked={config.catalogo?.campos?.stock === true}
                 onChange={(e) => setCatalogoCampos({ stock: e.target.checked })}
-              />
-              Mostrar Stock en el editor de catálogo
-            </label>
+              />{tt.mostrarStockEnEl}</label>
           </div>
           {/* T-22.2: solo tiene sentido un umbral de aviso si este rubro
               muestra el campo Stock — sin stock que trackear, no hay nada
               que cruce ningún umbral. */}
           {config.catalogo?.campos?.stock === true && (
             <div>
-              <label className={labelCls}>Avisar cuando el stock llegue a (o menos de)</label>
+              <label className={labelCls}>{tt.avisarCuandoElStock}</label>
               <input
                 className={inputCls}
                 type="number"
@@ -253,9 +233,7 @@ export function ConfigForm({
                   })
                 }
               />
-              <p className="mt-1 text-xs text-slate-500">
-                Una sola alerta por producto por día, aunque se venda varias veces.
-              </p>
+              <p className="mt-1 text-xs text-slate-500">{tt.unaSolaAlertaPor}</p>
             </div>
           )}
         </div>
@@ -264,30 +242,28 @@ export function ConfigForm({
       {/* Servicios */}
       <section className={sectionCls}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-800">Servicios</h2>
+          <h2 className="text-sm font-semibold text-slate-800">{tt.servicios}</h2>
           <button
             type="button"
             onClick={() => set("services", [...config.services, emptyService()])}
             className="rounded-lg border border-slate-300 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50"
-          >
-            + Agregar servicio
-          </button>
+          >{tt.agregarServicio}</button>
         </div>
         <div className="space-y-4">
           {config.services.map((service, i) => (
             <div key={i} className="rounded-lg border border-slate-200 p-4">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <label className={labelCls}>Id (kebab-case)</label>
+                  <label className={labelCls}>{tt.idKebabCase}</label>
                   <input
                     className={inputCls}
                     value={service.id}
                     onChange={(e) => setService(i, { id: e.target.value })}
-                    placeholder="limpieza-facial"
+                    placeholder={tt.limpiezaFacial}
                   />
                 </div>
                 <div>
-                  <label className={labelCls}>Nombre</label>
+                  <label className={labelCls}>{tt.nombre}</label>
                   <input
                     className={inputCls}
                     value={service.name}
@@ -295,7 +271,7 @@ export function ConfigForm({
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className={labelCls}>Descripción</label>
+                  <label className={labelCls}>{tt.descripcion}</label>
                   <textarea
                     className={inputCls}
                     rows={2}
@@ -304,7 +280,7 @@ export function ConfigForm({
                   />
                 </div>
                 <div>
-                  <label className={labelCls}>Precio</label>
+                  <label className={labelCls}>{tt.precio}</label>
                   <input
                     className={inputCls}
                     type="number"
@@ -314,7 +290,7 @@ export function ConfigForm({
                   />
                 </div>
                 <div>
-                  <label className={labelCls}>Camino de este ítem</label>
+                  <label className={labelCls}>{tt.caminoDeEsteItem}</label>
                   <select
                     className={inputCls}
                     value={service.modo ?? ""}
@@ -324,9 +300,9 @@ export function ConfigForm({
                       })
                     }
                   >
-                    <option value="">Automático (según el rubro)</option>
-                    <option value="cita">Se agenda (cita)</option>
-                    <option value="pedido">Se vende (pedido)</option>
+                    <option value="">{tt.automaticoSegunElRubro}</option>
+                    <option value="cita">{tt.seAgendaCita}</option>
+                    <option value="pedido">{tt.seVendePedido}</option>
                   </select>
                 </div>
                 {/* T-21: la Duración solo tiene sentido para un ítem que se
@@ -334,7 +310,7 @@ export function ConfigForm({
                     tienda sin poder cargar su catálogo. */}
                 {esCita(service, config.catalogo) && (
                   <div>
-                    <label className={labelCls}>Duración (minutos)</label>
+                    <label className={labelCls}>{tt.duracionMinutos}</label>
                     <input
                       className={inputCls}
                       type="number"
@@ -351,7 +327,7 @@ export function ConfigForm({
                 )}
                 {!esCita(service, config.catalogo) && (
                   <div>
-                    <label className={labelCls}>Stock</label>
+                    <label className={labelCls}>{tt.stock}</label>
                     <input
                       className={inputCls}
                       type="number"
@@ -362,14 +338,12 @@ export function ConfigForm({
                           stock: e.target.value === "" ? undefined : Number(e.target.value),
                         })
                       }
-                      placeholder="Unidades disponibles"
+                      placeholder={tt.unidadesDisponibles}
                     />
                   </div>
                 )}
                 <div className="sm:col-span-2">
-                  <label className={labelCls}>
-                    Palabras clave (separadas por coma)
-                  </label>
+                  <label className={labelCls}>{tt.palabrasClaveSeparadasPor}</label>
                   <input
                     className={inputCls}
                     value={(service.keywords ?? []).join(", ")}
@@ -390,9 +364,7 @@ export function ConfigForm({
                   set("services", config.services.filter((_, j) => j !== i))
                 }
                 className="mt-3 text-xs text-red-600 hover:underline"
-              >
-                Quitar servicio
-              </button>
+              >{tt.quitarServicio}</button>
             </div>
           ))}
         </div>
@@ -400,10 +372,8 @@ export function ConfigForm({
 
       {/* Mensajes */}
       <section className={sectionCls}>
-        <h2 className="mb-1 text-sm font-semibold text-slate-800">Mensajes del asistente</h2>
-        <p className="mb-4 text-xs text-slate-500">
-          Variables: {"{{nombre}} {{servicio}} {{fecha}} {{negocio}} {{agenda}}"} — en
-          &quot;Info de un servicio&quot; además {"{{descripcion}} {{precio}} {{duracion}}"}.
+        <h2 className="mb-1 text-sm font-semibold text-slate-800">{tt.mensajesDelAsistente}</h2>
+        <p className="mb-4 text-xs text-slate-500">{tt.variables}{tt.nombreServicioFechaNegocio}{tt.enInfoDeUn}{tt.descripcionPrecioDuracion}.
         </p>
         <div className="space-y-3">
           {(Object.keys(MESSAGE_LABELS) as (keyof BusinessConfig["messages"])[])
@@ -428,39 +398,35 @@ export function ConfigForm({
 
       {/* Persona de la IA */}
       <section className={sectionCls}>
-        <h2 className="mb-1 text-sm font-semibold text-slate-800">
-          Persona del asistente (WhatsApp)
-        </h2>
-        <p className="mb-4 text-xs text-slate-500">
-          Si dejas el nombre vacío, el asistente responde con las plantillas directas (sin IA).
-        </p>
+        <h2 className="mb-1 text-sm font-semibold text-slate-800">{tt.personaDelAsistenteWhatsapp}</h2>
+        <p className="mb-4 text-xs text-slate-500">{tt.siDejasElNombre}</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className={labelCls}>Nombre</label>
+            <label className={labelCls}>{tt.nombre}</label>
             <input
               className={inputCls}
               value={persona.name}
               onChange={(e) => setPersona({ name: e.target.value })}
-              placeholder="Isabella"
+              placeholder={tt.isabella}
             />
           </div>
           <div>
-            <label className={labelCls}>Idioma</label>
+            <label className={labelCls}>{tt.idioma}</label>
             <input
               className={inputCls}
               value={persona.language}
               onChange={(e) => setPersona({ language: e.target.value })}
-              placeholder="español colombiano informal"
+              placeholder={tt.espanolColombianoInformal}
             />
           </div>
           <div className="sm:col-span-2">
-            <label className={labelCls}>Tono</label>
+            <label className={labelCls}>{tt.tono}</label>
             <textarea
               className={inputCls}
               rows={2}
               value={persona.tone}
               onChange={(e) => setPersona({ tone: e.target.value })}
-              placeholder="Cálida y cercana, emojis con moderación…"
+              placeholder={tt.calidaYCercanaEmojis}
             />
           </div>
         </div>
@@ -480,7 +446,7 @@ export function ConfigForm({
           disabled={pending}
           className="rounded-lg bg-slate-800 px-5 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
         >
-          {pending ? "Guardando…" : submitLabel}
+          {pending ? tt.guardando : submitLabel}
         </button>
       </div>
     </form>

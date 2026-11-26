@@ -10,6 +10,10 @@ import { ActionForm } from "@/components/action-form";
 import { ConfigForm } from "@/components/config-form";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { plantilla } from "@/businesses/_template/config";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (backoffice.rubro). */
+const tt = textos.backoffice.rubro;
 
 export const dynamic = "force-dynamic";
 
@@ -42,23 +46,22 @@ export default async function EditarRubroPage({
   return (
     <div className="mx-auto max-w-[860px] space-y-6 fade-up">
       <header>
-        <h1 className="text-[22px] font-extrabold text-ink">
-          Rubro: {rubro.nombre}
+        <h1 className="text-[22px] font-extrabold text-ink">{tt.rubro}{rubro.nombre}
         </h1>
-        <p className="text-sm text-ink-soft">slug: {rubro.slug}</p>
+        <p className="text-sm text-ink-soft">{tt.slug}{rubro.slug}</p>
       </header>
 
       <section className="rounded-2xl border border-line bg-surface p-5 shadow-card">
-        <h2 className="mb-4 text-[15px] font-bold text-ink">Datos del rubro</h2>
-        <ActionForm action={actualizarRubroMeta} submitLabel="Guardar datos">
+        <h2 className="mb-4 text-[15px] font-bold text-ink">{tt.datosDelRubro}</h2>
+        <ActionForm action={actualizarRubroMeta} submitLabel={tt.guardarDatos}>
           <input type="hidden" name="id" value={rubro.id} />
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className={labelCls}>Nombre</label>
+              <label className={labelCls}>{tt.nombre}</label>
               <input name="nombre" required defaultValue={rubro.nombre} className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Descripción</label>
+              <label className={labelCls}>{tt.descripcion}</label>
               <input
                 name="descripcion"
                 defaultValue={rubro.descripcion ?? ""}
@@ -70,15 +73,13 @@ export default async function EditarRubroPage({
       </section>
 
       <section>
-        <h2 className="mb-3 text-[15px] font-bold text-ink">
-          Plantilla del asistente (lo que hereda cada negocio creado desde este rubro)
-        </h2>
+        <h2 className="mb-3 text-[15px] font-bold text-ink">{tt.plantillaDelAsistenteLo}</h2>
         <ConfigForm
           initial={template}
           action={actualizarRubroTemplate}
           fieldName="template"
           hidden={{ id: rubro.id }}
-          submitLabel="Guardar plantilla"
+          submitLabel={tt.guardarPlantilla}
         />
       </section>
     </div>
@@ -86,4 +87,4 @@ export default async function EditarRubroPage({
 }
 
 // T-71: el nombre de la pestaña ("Rubro · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Rubro" };
+export const metadata = { title: textos.backoffice.titulosPestana.rubro };

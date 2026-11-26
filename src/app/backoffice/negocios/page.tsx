@@ -12,6 +12,10 @@ import { mesDeUso } from "@/core/storage/whatsapp-usage-repository";
 import { NuevoNegocioForm } from "./nuevo-negocio-form";
 import { PillPlan } from "@/components/pill-plan";
 import { PLAN_POR_DEFECTO, planDe } from "@/core/planes";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (backoffice.negocios). */
+const tt = textos.backoffice.negocios;
 
 export const dynamic = "force-dynamic";
 
@@ -87,23 +91,23 @@ export default async function NegociosPage() {
   return (
     <div className="mx-auto max-w-[980px] space-y-5 fade-up">
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <StatCard label="Negocios activos" value={String(activos)} />
-        <StatCard label="Clientes" value={String(clientes?.length ?? 0)} />
-        <StatCard label="Rubros" value={String(rubros?.length ?? 0)} />
-        <StatCard label="Leads hoy" value={String(leadsHoyRes.count ?? 0)} />
-        <StatCard label="WhatsApp enviados (mes)" value={usoRes.error ? "—" : String(mensajesMes)} />
+        <StatCard label={tt.negociosActivos} value={String(activos)} />
+        <StatCard label={tt.clientes} value={String(clientes?.length ?? 0)} />
+        <StatCard label={tt.rubros} value={String(rubros?.length ?? 0)} />
+        <StatCard label={tt.leadsHoy} value={String(leadsHoyRes.count ?? 0)} />
+        <StatCard label={tt.whatsappEnviadosMes} value={usoRes.error ? "—" : String(mensajesMes)} />
       </div>
 
       <Card
-        title="Nuevo negocio"
-        subtitle="Elija el cliente dueño y el rubro que le da su plantilla base. Nace en pausa."
+        title={tt.nuevoNegocio}
+        subtitle={tt.elijaElClienteDueno}
       >
         <NuevoNegocioForm rubros={rubroOptions} clientes={clienteOptions} />
       </Card>
 
       <DataTable
-        headers={["Negocio", "Rubro", "Cliente", "Estado", "Leads", "WhatsApp (mes)", "Plan"]}
-        emptyText="Todavía no hay negocios creados."
+        headers={tt.encabezados}
+        emptyText={tt.sinNegocios}
         rows={parsed.map(({ row, config }) => ({
           key: row.id,
           cells: [
@@ -124,7 +128,7 @@ export default async function NegociosPage() {
               {row.profiles?.email ?? "—"}
             </span>,
             <Pill key="e" tone={config?.botActivo !== false ? "success" : "warn"} dot>
-              {config?.botActivo !== false ? "Activo" : "Pausado"}
+              {config?.botActivo !== false ? tt.activo : tt.pausado}
             </Pill>,
             <span key="l" className="font-display font-bold text-ink">
               {leadsPorNegocio.get(row.slug) ?? 0}
@@ -135,9 +139,7 @@ export default async function NegociosPage() {
         }))}
       />
 
-      <p className="text-xs text-ink-soft">
-        Haga clic en un negocio para editarlo, pausarlo/activarlo o eliminarlo.
-      </p>
+      <p className="text-xs text-ink-soft">{tt.hagaClicEnUn}</p>
     </div>
   );
 }
@@ -156,15 +158,14 @@ function UsoWhatsapp({
 }) {
   if (sinTabla) return <span className="text-ink-soft">—</span>;
   return (
-    <span className="text-ink-mid" title="Enviados · plantillas · recibidos este mes">
+    <span className="text-ink-mid" title={tt.enviadosPlantillasRecibidosEste}>
       <span className="font-display font-bold text-ink">{(uso?.enviados ?? 0) + (uso?.plantillas ?? 0)}</span>
       {" "}
       <span className="text-xs">
-        ({uso?.plantillas ?? 0} plant. · {uso?.recibidos ?? 0} recib.)
-      </span>
+        ({uso?.plantillas ?? 0}{tt.plant}{uso?.recibidos ?? 0}{tt.recib}</span>
     </span>
   );
 }
 
 // T-71: el nombre de la pestaña ("Negocios · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Negocios" };
+export const metadata = { title: textos.backoffice.titulosPestana.negocios };

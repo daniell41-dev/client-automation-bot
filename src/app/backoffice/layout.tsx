@@ -5,11 +5,12 @@
  */
 
 import { redirect } from "next/navigation";
+import { textos } from "@/textos";
 import { getUserRole } from "@/lib/supabase/server";
 import { BackofficeShell } from "@/components/backoffice-shell";
 import { signOut } from "@/app/login/actions";
 
-export const metadata = { title: "Back office" };
+export const metadata = { title: textos.backoffice.titulosPestana.backOffice };
 
 export default async function BackofficeLayout({
   children,

@@ -21,6 +21,10 @@ import { RubroTile, camposDelNegocio, tipoCitas } from "@/components/rubro-visua
 import { ArrowLeft } from "lucide-react";
 import { PillPlan } from "@/components/pill-plan";
 import { planDe } from "@/core/planes";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (backoffice.negocio). */
+const tt = textos.backoffice.negocio;
 
 export const dynamic = "force-dynamic";
 
@@ -61,19 +65,16 @@ export default async function DetalleNegocioPage({
     return (
       <div className="mx-auto max-w-[760px] space-y-5 fade-up">
         <VolverLink />
-        <Card title={negocio.slug} subtitle="La configuración guardada no es válida.">
-          <p className="text-sm text-ink-mid">
-            Contacte a soporte técnico antes de reactivarlo, o elimínelo si fue una
-            prueba.
-          </p>
+        <Card title={negocio.slug} subtitle={tt.laConfiguracionGuardadaNo}>
+          <p className="text-sm text-ink-mid">{tt.contacteASoporteTecnico}</p>
           <div className="mt-4">
             <ConfirmDeleteButton
               action={eliminarNegocio}
               hiddenFields={{ id: negocio.id }}
-              title="¿Eliminar este negocio?"
-              description="No se puede deshacer. Se borran también sus leads y sesiones."
-              confirmLabel="Sí, eliminar negocio"
-              triggerLabel="Eliminar negocio"
+              title={tt.eliminarEsteNegocio}
+              description={tt.noSePuedeDeshacer}
+              confirmLabel={tt.siEliminarNegocio}
+              triggerLabel={tt.eliminarNegocio}
             />
           </div>
         </Card>
@@ -96,11 +97,11 @@ export default async function DetalleNegocioPage({
           <div>
             <h1 className="text-[20px] font-extrabold text-ink">{config.name}</h1>
             <p className="text-sm text-ink-mid">
-              {rubro?.nombre ?? "—"} · slug: {negocio.slug}
+              {rubro?.nombre ?? "—"}{tt.slug}{negocio.slug}
             </p>
             <div className="mt-1.5 flex gap-2">
               <Pill tone={activo ? "success" : "warn"} dot>
-                {activo ? "Activo" : "Pausado"}
+                {activo ? tt.activo : tt.pausado}
               </Pill>
               <PillPlan plan={plan} />
             </div>
@@ -113,12 +114,12 @@ export default async function DetalleNegocioPage({
             type="submit"
             className="rounded-[10px] border border-line px-4 py-2 text-sm font-bold text-ink hover:bg-surface-2"
           >
-            {activo ? "Pausar asistente" : "Activar asistente"}
+            {activo ? tt.pausarAsistente : tt.activarAsistente}
           </button>
         </form>
       </header>
 
-      <Card title="Plantilla heredada" subtitle={`Citas: ${citas}`}>
+      <Card title={tt.plantillaHeredada} subtitle={`Citas: ${citas}`}>
         <div className="flex flex-wrap gap-1.5">
           {campos.map((campo) => (
             <span
@@ -131,7 +132,7 @@ export default async function DetalleNegocioPage({
         </div>
       </Card>
 
-      <Card title="Datos del negocio">
+      <Card title={tt.datosDelNegocio}>
         <EditarNegocioForm
           negocioId={negocio.id}
           nombre={config.name}
@@ -142,14 +143,14 @@ export default async function DetalleNegocioPage({
         />
       </Card>
 
-      <Card title="Zona de riesgo" subtitle="No se puede deshacer.">
+      <Card title={tt.zonaDeRiesgo} subtitle={tt.noSePuedeDeshacer2}>
         <ConfirmDeleteButton
           action={eliminarNegocio}
           hiddenFields={{ id: negocio.id }}
           title={`¿Eliminar "${config.name}"?`}
-          description="No se puede deshacer. Se borran también sus leads y sesiones."
-          confirmLabel="Sí, eliminar negocio"
-          triggerLabel="Eliminar negocio"
+          description={tt.noSePuedeDeshacer}
+          confirmLabel={tt.siEliminarNegocio}
+          triggerLabel={tt.eliminarNegocio}
         />
       </Card>
     </div>
@@ -162,11 +163,9 @@ function VolverLink() {
       href="/backoffice/negocios"
       className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-mid hover:text-ink"
     >
-      <ArrowLeft className="h-4 w-4" />
-      Volver a Negocios
-    </Link>
+      <ArrowLeft className="h-4 w-4" />{tt.volverANegocios}</Link>
   );
 }
 
 // T-71: el nombre de la pestaña ("Negocio · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Negocio" };
+export const metadata = { title: textos.backoffice.titulosPestana.negocio };
