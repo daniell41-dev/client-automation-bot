@@ -6,6 +6,10 @@
  */
 
 import { useActionState } from "react";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (comun.formulario). */
+const tt = textos.comun.formulario;
 
 export interface ActionState {
   error?: string;
@@ -17,7 +21,7 @@ type Action = (prev: ActionState, formData: FormData) => Promise<ActionState>;
 export function ActionForm({
   action,
   children,
-  submitLabel = "Guardar",
+  submitLabel = tt.guardar,
   className,
   onSubmit,
 }: {
@@ -62,7 +66,7 @@ export function ActionForm({
           disabled={pending}
           className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
         >
-          {pending ? "Guardando…" : submitLabel}
+          {pending ? tt.guardando : submitLabel}
         </button>
       </div>
     </form>
