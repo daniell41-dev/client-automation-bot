@@ -45,6 +45,7 @@ import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { limpiarDatosCapturados } from "@/core/engine/session-lifecycle";
 import { describirOrigen, registrarOrigen } from "@/core/engine/origen";
 import { prometeCierre } from "@/core/ai/promete-cierre";
+import { quitarTratamientoAdivinado } from "@/core/ai/trato";
 import { buscarProductos, recortarDescripcion, UMBRAL_CATALOGO_GRANDE } from "@/core/catalogo/buscar";
 import {
   detallesDe,
@@ -740,8 +741,10 @@ export async function runAgentTurn(
     // algo que no pasó: se reemplaza. Si no, se le suma el resumen.
     // T-115: lo mismo si, sin declararlo, escribió "listo para recoger" o
     // "ya quedó confirmado": el cliente lo lee como hecho y no confirma.
+    // T-115b: si su texto trae otra pregunta ("¿me regala su nombre
+    // completo?"), el cliente tendría dos preguntas a la vez: va solo el resumen.
     respuestaFinal =
-      confirmarPedido || prometeCierre(aiResult.respuesta)
+      confirmarPedido || prometeCierre(aiResult.respuesta) || aiResult.respuesta.includes("?")
         ? resumenParaConfirmar(lead, config)
         : `${aiResult.respuesta}\n\n${resumenParaConfirmar(lead, config)}`;
     opciones = PEDIDO_CONFIRM_OPTIONS;
@@ -801,7 +804,12 @@ export async function runAgentTurn(
   );
 
   const messages: OutgoingMessage[] = [
-    { to: message.from, text: respuestaFinal, ...(opciones ? { options: opciones } : {}) },
+    {
+      to: message.from,
+      // T-115b: "don/doña Valero" → "Valero" (la IA no sabe el género).
+      text: quitarTratamientoAdivinado(respuestaFinal),
+      ...(opciones ? { options: opciones } : {}),
+    },
   ];
   return { lead, messages };
 }

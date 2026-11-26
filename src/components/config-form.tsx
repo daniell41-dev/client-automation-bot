@@ -473,13 +473,16 @@ export function ConfigForm({
         <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">{state.ok}</p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-lg bg-slate-800 px-5 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
-      >
-        {pending ? "Guardando…" : submitLabel}
-      </button>
+      {/* T-126: guardar va a la derecha, igual que en `ActionForm`. */}
+      <div className="flex justify-end">
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-lg bg-slate-800 px-5 py-2 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50"
+        >
+          {pending ? "Guardando…" : submitLabel}
+        </button>
+      </div>
     </form>
   );
 }

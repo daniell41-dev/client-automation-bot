@@ -16,6 +16,10 @@ const PROMESAS = [
   /\b(ya )?(se lo|se la|lo|la) (enviamos|despachamos|mandamos|estamos preparando|preparamos)\b/,
   /\b(va|esta|sale) en camino\b/,
   /\bya esta con la duena\b/,
+  // T-115b: "se lo reservamos", "le apartamos 2 unidades", "le estaremos
+  // esperando": nada está apartado hasta que la dueña aprueba.
+  /\b(se lo|se la|se los|se las|le|les) (reservamos|apartamos|guardamos|separamos)\b/,
+  /\b(le|lo|la|los|las) (estaremos|estamos) esperando\b/,
 ];
 
 export function prometeCierre(texto: string): boolean {

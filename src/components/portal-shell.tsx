@@ -12,7 +12,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Bell,
   CalendarDays,
   ChevronsUpDown,
   LayoutGrid,
@@ -291,11 +290,9 @@ export function PortalShell({
               </button>
             </form>
 
-            <span className="relative text-ink-mid">
-              <Bell className="h-5 w-5" />
-              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-warn ring-2 ring-surface" />
-            </span>
-
+            {/* T-125: aquí iba una campana con un punto naranja fijo, del diseño
+                original. No abría nada ni avisaba de nada real, así que la dueña
+                creía tener avisos sin leer. Vuelve cuando haya notificaciones. */}
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
               {userEmail.slice(0, 2).toUpperCase()}
             </span>

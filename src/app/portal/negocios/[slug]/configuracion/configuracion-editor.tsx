@@ -914,13 +914,16 @@ export function ConfiguracionEditor({
             {state.ok}
           </p>
         )}
-        <button
-          type="submit"
-          disabled={pending}
-          className="w-full rounded-[10px] bg-primary py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-50 sm:w-auto sm:px-8"
-        >
-          {pending ? "Guardando…" : "Guardar cambios"}
-        </button>
+        {/* T-126: guardar va a la derecha, como cierre del formulario. */}
+        <div className="flex sm:justify-end">
+          <button
+            type="submit"
+            disabled={pending}
+            className="w-full rounded-[10px] bg-primary py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-50 sm:w-auto sm:px-8"
+          >
+            {pending ? "Guardando…" : "Guardar cambios"}
+          </button>
+        </div>
       </form>
     </div>
   );

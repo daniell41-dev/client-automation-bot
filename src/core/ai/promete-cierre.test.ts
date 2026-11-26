@@ -17,6 +17,10 @@ describe("prometeCierre", () => {
     "Su pedido quedó registrado, ya se lo enviamos.",
     "¡Perfecto! Ya va en camino.",
     "Su pedido ya está con la dueña.",
+    // T-115b: segunda prueba real, con otras palabras.
+    "¡Excelente! Se lo reservamos para recoger en el local.",
+    "Cuando llegue, ¡le estaremos esperando con su plato!",
+    "¡Excelente elección! Le apartamos 2 unidades del Jean.",
   ])("«%s» da por hecho el pedido", (texto) => {
     expect(prometeCierre(texto)).toBe(true);
   });
@@ -93,6 +97,40 @@ describe("T-115: el motor no deja pasar un «listo» antes de confirmar", () => 
     expect(texto).not.toContain("listo para recoger");
     expect(texto).toContain("2x Correa");
     expect(r!.lead.stage).toBe("esperando_confirmacion");
+  });
+
+  it("si el texto de la IA trae otra pregunta, va solo el resumen (una pregunta a la vez)", async () => {
+    const r = await runAgentTurn(
+      null,
+      msg("Soy Valero, 2 correas"),
+      config,
+      ia({
+        respuesta: "¡Gracias, Valero! ¿Me regala su nombre completo o está bien solo Valero?",
+        acciones: [
+          { tipo: "guardar_nombre", nombre: "Valero" },
+          { tipo: "guardar_cantidad", servicioId: "correa", cantidad: 2 },
+        ],
+      }),
+      persona,
+      [],
+      now,
+    );
+    const texto = r!.messages[0].text;
+    expect(texto).not.toContain("nombre completo");
+    expect(texto.trim().endsWith("¿Confirma su pedido?")).toBe(true);
+  });
+
+  it("nunca sale «don/doña»: se deja solo el nombre", async () => {
+    const r = await runAgentTurn(
+      null,
+      msg("Valero"),
+      config,
+      ia({ respuesta: "¡Muchas gracias, don/doña Valero! ✨", acciones: [{ tipo: "guardar_nombre", nombre: "Valero" }] }),
+      persona,
+      [],
+      now,
+    );
+    expect(r!.messages[0].text).toContain("¡Muchas gracias, Valero! ✨");
   });
 
   it("un texto normal se conserva antes del resumen", async () => {
