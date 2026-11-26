@@ -7,24 +7,28 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { ACTUALIZADO } from "@/lib/legal";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (legal.marco). */
+const tt = textos.legal.marco;
 
 export function PaginaLegal({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <main className="min-h-screen bg-canvas">
       <header className="border-b border-line bg-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
-          <Link href="/" aria-label="Ir al inicio">
+          <Link href="/" aria-label={tt.irAlInicio}>
             <Logo />
           </Link>
           <nav className="flex gap-4 text-sm font-semibold text-ink-mid">
-            <Link href="/privacidad" className="hover:text-primary">Privacidad</Link>
-            <Link href="/terminos" className="hover:text-primary">Términos</Link>
+            <Link href="/privacidad" className="hover:text-primary">{tt.privacidad}</Link>
+            <Link href="/terminos" className="hover:text-primary">{tt.terminos}</Link>
           </nav>
         </div>
       </header>
       <article className="prosa-legal mx-auto max-w-3xl px-6 py-10 sm:py-14">
         <h1>{titulo}</h1>
-        <p className="actualizado">Última actualización: {ACTUALIZADO}</p>
+        <p className="actualizado">{tt.ultimaActualizacion}{ACTUALIZADO}</p>
         {children}
       </article>
     </main>

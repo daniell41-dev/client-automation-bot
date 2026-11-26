@@ -9,6 +9,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { textos } from "@/textos";
 import Home, { metadata } from "@/app/page";
 import { SUBTITULO_HERO } from "@/components/landing/hero";
 import { jsonLd } from "@/components/landing/datos-estructurados";
@@ -18,6 +19,12 @@ import { Cierre } from "@/components/landing/cierre";
 import { RESPONSABLE } from "@/app/landing-config";
 import { MENSAJE_CODIGO } from "@/components/landing/telefono-animado";
 import { mensajeCodigoRetiro } from "@/core/engine/codigo-retiro";
+
+/**
+ * T-137: el texto de los Términos vive en es.json; se junta todo para buscar
+ * frases enteras como antes se buscaban en el page.tsx.
+ */
+const textoTerminos = () => Object.values(textos.legal.terminos).join("\n");
 
 const html = renderToStaticMarkup(createElement(Home));
 /** Texto visible en una línea: sin etiquetas, sin el JSON-LD y con los saltos de línea como espacios. */
@@ -311,7 +318,7 @@ describe("landing (T-80)", () => {
     });
 
     it("la garantía y «sin permanencia» dicen lo mismo que los Términos", () => {
-      const terminos = readFileSync(join(__dirname, "terminos", "page.tsx"), "utf8");
+      const terminos = textoTerminos();
       expect(terminos).toContain("Los primeros 14 días son de prueba gratis, sin obligación de continuar.");
       expect(terminos).toContain("No hay permanencia mínima.");
     });
@@ -362,7 +369,7 @@ describe("landing (T-80)", () => {
     });
 
     it("no inventa nada: los valores salen de lo que dicen los Términos", () => {
-      const terminos = readFileSync(join(__dirname, "terminos", "page.tsx"), "utf8");
+      const terminos = textoTerminos();
       expect(terminos).toContain("No hay permanencia mínima.");
       expect(terminos).toContain("Los primeros 14 días son de prueba gratis");
     });
