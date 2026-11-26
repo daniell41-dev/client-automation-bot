@@ -1,3 +1,5 @@
+import { textos } from "@/textos";
+
 /**
  * Tabla del design system: header gris en uppercase, filas con hover suave.
  * Presentacional: recibe headers y filas ya renderizadas.
@@ -6,7 +8,7 @@
 export function DataTable({
   headers,
   rows,
-  emptyText = "Sin datos todavía.",
+  emptyText = textos.comun.tabla.sinDatos,
 }: {
   headers: string[];
   /** Cada fila = celdas ya renderizadas (mismo largo que headers). */

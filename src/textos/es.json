@@ -3,7 +3,25 @@
     "guardando": "Guardando…",
     "guardarCambios": "Guardar cambios",
     "ningunArchivoElegido": "Ninguna elegida",
-    "elegirImagen": "Elegir imagen"
+    "elegirImagen": "Elegir imagen",
+    "formulario": {
+      "guardando": "Guardando…",
+      "guardar": "Guardar"
+    },
+    "confirmarEliminar": {
+      "cerrar": "Cerrar",
+      "cancelar": "Cancelar",
+      "eliminando": "Eliminando…",
+      "eliminar": "Eliminar",
+      "siEliminar": "Sí, eliminar",
+      "listo": "Listo."
+    },
+    "logo": {
+      "aurela": "Aurela"
+    },
+    "tabla": {
+      "sinDatos": "Sin datos todavía."
+    }
   },
   "portal": {
     "menu": {
@@ -861,6 +879,139 @@
       "rubros": "Rubros",
       "usuarios": "Usuarios"
     }
+  },
+  "login": {
+    "formulario": {
+      "correoElectronico": "Correo electrónico",
+      "nombreCorreoCom": "nombre@correo.com",
+      "contrasena": "Contraseña",
+      "ocultarContrasena": "Ocultar contraseña",
+      "mostrarContrasena": "Mostrar contraseña",
+      "elLinkVencioO": "El link venció o ya se usó. Pida uno nuevo con \"¿Olvidó su contraseña?\".",
+      "entrando": "Entrando…",
+      "ingresar": "Ingresar",
+      "olvidoSuContrasena": "¿Olvidó su contraseña?"
+    },
+    "pagina": {
+      "irAlInicioDe": "Ir al inicio de Aurela",
+      "suNegocioVendePor": "Su negocio vende por WhatsApp las 24 horas.",
+      "volverAlInicio": "Volver al inicio",
+      "holaDeNuevo": "Hola de nuevo 👋",
+      "ingreseParaVerSus": "Ingrese para ver sus pedidos y gestionar su negocio.",
+      "conexionSeguraSusDatos": "Conexión segura. Sus datos y los de sus clientes están protegidos.",
+      "aurelaCucutaColombia": " Aurela · Cúcuta, Colombia ·",
+      "privacidad": "Privacidad",
+      "terminos": "Términos"
+    },
+    "recuperar": {
+      "irAlInicioDe": "Ir al inicio de Aurela",
+      "olvidoSuContrasena": "¿Olvidó su contraseña?",
+      "leEnviamosUnLink": "Le enviamos un link a su correo para definir una nueva.",
+      "enviarLink": "Enviar link",
+      "correoElectronico": "Correo electrónico",
+      "nombreCorreoCom": "nombre@correo.com",
+      "volverAlLogin": "← Volver al login"
+    },
+    "portada": {
+      "saboresDelSur": "Sabores del Sur",
+      "enLinea": "en línea",
+      "irAlInicioDe": "Ir al inicio de Aurela",
+      "suAsistenteDeVentas": "Su asistente de ventas en WhatsApp",
+      "suNegocioVendePor": "Su negocio vende por WhatsApp",
+      "las24Horas": "las 24 horas.",
+      "aurelaRespondeArmaEl": "Aurela responde, arma el pedido con el total, revisa el comprobante y le avisa para que solo tenga que aprobar.",
+      "pedido12Nuevo": "Pedido #12 nuevo",
+      "t33000ToqueAprobar": "$33.000 · Toque Aprobar",
+      "pagoVerificado": "Pago verificado",
+      "chat": [
+        "Hola! Me das una bandeja paisa a domicilio?",
+        "¡Claro! 🍽️\n1x Bandeja paisa — $28.000\nDomicilio — $5.000\nTotal: $33.000\n¿Confirma su pedido?",
+        "Sí 🙌 ya le mando el comprobante",
+        "Pedido #12 confirmado ✅\nCódigo de retiro: 4821"
+      ],
+      "beneficios": {
+        "atiende": {
+          "titulo": "24/7",
+          "texto": "Atiende mientras usted duerme"
+        },
+        "pagos": {
+          "titulo": "Pagos revisados",
+          "texto": "Alerta si algo no cuadra"
+        },
+        "voz": {
+          "titulo": "Notas de voz",
+          "texto": "Entiende audios"
+        }
+      }
+    }
+  },
+  "cuenta": {
+    "contrasena": {
+      "definaSuContrasena": "Defina su contraseña",
+      "esLaQueVas": "Es la que vas a usar para entrar a Aurela con ",
+      "guardarYEntrar": "Guardar y entrar",
+      "contrasenaNueva": "Contraseña nueva",
+      "repitala": "Repítala"
+    }
+  },
+  "demo": {
+    "inicio": {
+      "iniciarSesion": "Iniciar sesión",
+      "demo": "Demo",
+      "asiSeVeUn": "Así se ve un negocio en Aurela",
+      "esteEsUnNegocio": "Este es un negocio de ejemplo configurado en la plataforma. Puede probar el asistente como si fuera un cliente escribiéndole por WhatsApp.",
+      "aunNoHayNegocio": "Aún no hay negocio de demostración.",
+      "ejecuteElSeedPnpm": "Ejecute el seed: pnpm seed:supabase",
+      "supabaseNoEstaConfigurado": "Supabase no está configurado en este entorno.",
+      "asistenteActivo": "Asistente activo",
+      "negocioDeEjemplo": "Negocio de ejemplo",
+      "probarElAsistente": "Probar el asistente"
+    },
+    "chat": {
+      "elAsistenteEstaEscribiendo": "El asistente está escribiendo…",
+      "escribaUnMensaje": "Escriba un mensaje…",
+      "enviar": "Enviar",
+      "empezarUnaConversacionNueva": "Empezar una conversación nueva",
+      "elAsistenteRecuerdaSu": "El asistente recuerda su nombre y su cita entre mensajes. Use este botón para probar desde cero, como un cliente que escribe por primera vez.",
+      "paraEmpezar": "Escriba \"Hola\" para empezar 👋"
+    },
+    "paginaChat": {
+      "volverALaDemo": "Volver a la demo",
+      "pruebeElAsistente": "Pruebe el asistente",
+      "escribaleComoSiFuera": "Escríbale como si fuera un cliente por WhatsApp."
+    }
+  },
+  "errores": {
+    "general": {
+      "algoSalioMal": "Algo salió mal",
+      "noPudimosCargarEsta": "No pudimos cargar esta pantalla. Suele ser algo pasajero: pruebe de nuevo en unos segundos. Sus pedidos y sus datos están bien.",
+      "intentarDeNuevo": "Intentar de nuevo",
+      "irAMisNegocios": "Ir a mis negocios",
+      "ups": "Ups",
+      "codigoDelError": "Código del error: {codigo}"
+    },
+    "global": {
+      "algoSalioMalAurela": "Algo salió mal · Aurela",
+      "aurela": "Aurela",
+      "algoSalioMal": "Algo salió mal",
+      "noPudimosCargarAurela": "No pudimos cargar Aurela. Pruebe de nuevo en unos segundos; sus pedidos y sus datos están bien.",
+      "intentarDeNuevo": "Intentar de nuevo",
+      "codigoDelError": "Código del error: "
+    },
+    "noEncontrada": {
+      "noEncontramosEstaPagina": "No encontramos esta página",
+      "puedeQueElEnlace": "Puede que el enlace esté mal escrito o que la página ya no exista. Si buscaba uno de sus negocios, entre desde su lista.",
+      "irAMisNegocios": "Ir a mis negocios",
+      "irAlInicio": "Ir al inicio"
+    }
+  },
+  "titulosPestana": {
+    "iniciarSesion": "Iniciar sesión",
+    "recuperarContrasena": "Recuperar contraseña",
+    "definaSuContrasena": "Defina su contraseña",
+    "demo": "Demo",
+    "demoChat": "Demo del chat",
+    "noEncontrada": "Página no encontrada"
   },
   "landing": {
     "botonWhatsapp": {

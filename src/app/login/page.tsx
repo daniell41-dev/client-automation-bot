@@ -11,8 +11,12 @@ import { ArrowLeft, Lock } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { LoginForm } from "./login-form";
 import { LoginHero } from "./hero";
+import { textos } from "@/textos";
 
-export const metadata = { title: "Iniciar sesión" };
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (login.pagina). */
+const tt = textos.login.pagina;
+
+export const metadata = { title: textos.titulosPestana.iniciarSesion };
 
 export default function LoginPage() {
   return (
@@ -38,12 +42,10 @@ export default function LoginPage() {
             }}
           />
           <div className="relative">
-            <Link href="/" aria-label="Ir al inicio de Aurela" className="inline-block">
+            <Link href="/" aria-label={tt.irAlInicioDe} className="inline-block">
               <Logo variant="dark" />
             </Link>
-            <p className="mt-4 font-display text-2xl font-extrabold leading-tight text-white">
-              Su negocio vende por WhatsApp las 24 horas.
-            </p>
+            <p className="mt-4 font-display text-2xl font-extrabold leading-tight text-white">{tt.suNegocioVendePor}</p>
           </div>
         </div>
 
@@ -55,25 +57,21 @@ export default function LoginPage() {
               href="/"
               className="-ml-1 mb-4 inline-flex min-h-12 items-center gap-1.5 px-1 text-sm font-semibold text-ink-mid hover:text-primary"
             >
-              <ArrowLeft className="h-4 w-4" aria-hidden />
-              Volver al inicio
-            </Link>
-            <h2 className="font-display text-[28px] font-extrabold text-ink">Hola de nuevo 👋</h2>
-            <p className="mt-1 text-sm text-ink-mid">Ingrese para ver sus pedidos y gestionar su negocio.</p>
+              <ArrowLeft className="h-4 w-4" aria-hidden />{tt.volverAlInicio}</Link>
+            <h2 className="font-display text-[28px] font-extrabold text-ink">{tt.holaDeNuevo}</h2>
+            <p className="mt-1 text-sm text-ink-mid">{tt.ingreseParaVerSus}</p>
             <Suspense>
               <LoginForm />
             </Suspense>
             <p className="mt-8 text-center text-xs leading-relaxed text-ink-soft">
-              <Lock className="mr-1 inline h-3.5 w-3.5 -translate-y-px" />
-              Conexión segura. Sus datos y los de sus clientes están protegidos.
-            </p>
+              <Lock className="mr-1 inline h-3.5 w-3.5 -translate-y-px" />{tt.conexionSeguraSusDatos}</p>
           </div>
         </div>
 
         <p className="relative pb-6 text-center text-xs text-ink-faint">
-          © {new Date().getFullYear()} Aurela · Cúcuta, Colombia ·{" "}
-          <Link href="/privacidad" className="hover:text-ink-mid">Privacidad</Link> ·{" "}
-          <Link href="/terminos" className="hover:text-ink-mid">Términos</Link>
+          © {new Date().getFullYear()}{tt.aurelaCucutaColombia}{" "}
+          <Link href="/privacidad" className="hover:text-ink-mid">{tt.privacidad}</Link> ·{" "}
+          <Link href="/terminos" className="hover:text-ink-mid">{tt.terminos}</Link>
         </p>
       </section>
     </main>

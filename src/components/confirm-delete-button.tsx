@@ -12,6 +12,10 @@
 
 import { useActionState, useEffect, useRef } from "react";
 import { useToast } from "@/components/toast";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (comun.confirmarEliminar). */
+const tt = textos.comun.confirmarEliminar;
 
 interface ActionState {
   error?: string;
@@ -26,9 +30,9 @@ export function ConfirmDeleteButton({
   title,
   description,
   blockedReason,
-  triggerLabel = "Eliminar",
+  triggerLabel = tt.eliminar,
   triggerClassName = "text-sm font-semibold text-warn-ink hover:underline",
-  confirmLabel = "Sí, eliminar",
+  confirmLabel = tt.siEliminar,
   successMessage,
 }: {
   action: DeleteAction;
@@ -63,7 +67,7 @@ export function ConfirmDeleteButton({
         notify("error", state.error);
       } else {
         dialogRef.current?.close();
-        notify("success", state.ok ?? successMessage ?? "Listo.");
+        notify("success", state.ok ?? successMessage ?? tt.listo);
       }
     }
     wasPending.current = pending;
@@ -99,7 +103,7 @@ export function ConfirmDeleteButton({
               onClick={() => dialogRef.current?.close()}
               className="rounded-[10px] border border-line px-4 py-2 text-sm font-bold text-ink hover:bg-surface-2"
             >
-              {blockedReason ? "Cerrar" : "Cancelar"}
+              {blockedReason ? tt.cerrar : tt.cancelar}
             </button>
             {!blockedReason && (
               <button
@@ -107,7 +111,7 @@ export function ConfirmDeleteButton({
                 disabled={pending}
                 className="rounded-[10px] bg-warn-ink px-4 py-2 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               >
-                {pending ? "Eliminando…" : confirmLabel}
+                {pending ? tt.eliminando : confirmLabel}
               </button>
             )}
           </div>
