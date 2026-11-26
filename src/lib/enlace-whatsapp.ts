@@ -9,13 +9,19 @@
  * `landing-config.ts`), así se testea sin tocar variables de entorno.
  */
 
+import { textos } from "@/textos";
+
+// T-138: los textos viven en es.json; las claves de origen ("barra-movil") se
+// quedan acá porque son las que usan los componentes y los tests.
+const tw = textos.landing.whatsapp;
+
 export const MENSAJES_WHATSAPP = {
-  hero: "Hola, vi la página de Aurela y quiero saber cómo funcionaría en mi negocio.",
-  precios: "Hola, quiero saber el precio y los cupos para instalar Aurela en mi negocio.",
-  "barra-movil": "Hola, estoy viendo la página de Aurela desde el celular y quiero más información.",
-  cierre: "Hola, quiero ver Aurela funcionando con mi negocio.",
+  hero: tw.mensajes.hero,
+  precios: tw.mensajes.precios,
+  "barra-movil": tw.mensajes.barraMovil,
+  cierre: tw.mensajes.cierre,
   // T-83: el botón de la sección del comprobante anotado.
-  comprobante: "Hola, quiero saber cómo Aurela revisa los comprobantes.",
+  comprobante: tw.mensajes.comprobante,
 } as const;
 
 export type OrigenWhatsApp = keyof typeof MENSAJES_WHATSAPP;
@@ -27,11 +33,11 @@ export type OrigenWhatsApp = keyof typeof MENSAJES_WHATSAPP;
  * genérica, porque acompaña toda la página. Cortos: caben en una línea a 320 px.
  */
 export const ETIQUETAS_WHATSAPP: Record<OrigenWhatsApp, string> = {
-  hero: "Probarlo en mi negocio",
-  precios: "Pedir instalación gratis",
-  "barra-movil": "Escríbanos por WhatsApp",
-  cierre: "Quiero verlo funcionando",
-  comprobante: "Ver cómo revisa los pagos",
+  hero: tw.etiquetas.hero,
+  precios: tw.etiquetas.precios,
+  "barra-movil": tw.etiquetas.barraMovil,
+  cierre: tw.etiquetas.cierre,
+  comprobante: tw.etiquetas.comprobante,
 };
 
 /** Sin número válido el botón no puede quedar muerto: la demo es lo siguiente mejor. */

@@ -83,7 +83,7 @@ export default async function DemoPage() {
               <table className="w-full border-collapse text-left text-sm">
                 <thead>
                   <tr className="bg-surface-3">
-                    {["Servicio", "Duración", "Precio"].map((h) => (
+                    {tt.encabezados.map((h) => (
                       <th
                         key={h}
                         className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.08em] text-ink-soft"

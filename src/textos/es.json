@@ -21,7 +21,9 @@
     },
     "tabla": {
       "sinDatos": "Sin datos todavía."
-    }
+    },
+    "sinNombre": "Sin nombre",
+    "negocio": "Negocio"
   },
   "portal": {
     "menu": {
@@ -965,7 +967,12 @@
       "supabaseNoEstaConfigurado": "Supabase no está configurado en este entorno.",
       "asistenteActivo": "Asistente activo",
       "negocioDeEjemplo": "Negocio de ejemplo",
-      "probarElAsistente": "Probar el asistente"
+      "probarElAsistente": "Probar el asistente",
+      "encabezados": [
+        "Servicio",
+        "Duración",
+        "Precio"
+      ]
     },
     "chat": {
       "elAsistenteEstaEscribiendo": "El asistente está escribiendo…",
@@ -973,7 +980,8 @@
       "enviar": "Enviar",
       "empezarUnaConversacionNueva": "Empezar una conversación nueva",
       "elAsistenteRecuerdaSu": "El asistente recuerda su nombre y su cita entre mensajes. Use este botón para probar desde cero, como un cliente que escribe por primera vez.",
-      "paraEmpezar": "Escriba \"Hola\" para empezar 👋"
+      "paraEmpezar": "Escriba \"Hola\" para empezar 👋",
+      "noPudeResponder": "⚠️ No pude responder; intente de nuevo."
     },
     "paginaChat": {
       "volverALaDemo": "Volver a la demo",
@@ -1011,7 +1019,9 @@
     "definaSuContrasena": "Defina su contraseña",
     "demo": "Demo",
     "demoChat": "Demo del chat",
-    "noEncontrada": "Página no encontrada"
+    "noEncontrada": "Página no encontrada",
+    "admin": "Admin",
+    "portal": "Portal"
   },
   "landing": {
     "botonWhatsapp": {
@@ -1225,6 +1235,22 @@
       "alMesInstalacionGratis": "al mes · Instalación gratis",
       "pedidosCitasYRevision": "Pedidos, citas y revisión de pagos por WhatsApp",
       "alt": "Aurela: {titulo}"
+    },
+    "whatsapp": {
+      "mensajes": {
+        "hero": "Hola, vi la página de Aurela y quiero saber cómo funcionaría en mi negocio.",
+        "precios": "Hola, quiero saber el precio y los cupos para instalar Aurela en mi negocio.",
+        "barraMovil": "Hola, estoy viendo la página de Aurela desde el celular y quiero más información.",
+        "cierre": "Hola, quiero ver Aurela funcionando con mi negocio.",
+        "comprobante": "Hola, quiero saber cómo Aurela revisa los comprobantes."
+      },
+      "etiquetas": {
+        "hero": "Probarlo en mi negocio",
+        "precios": "Pedir instalación gratis",
+        "barraMovil": "Escríbanos por WhatsApp",
+        "cierre": "Quiero verlo funcionando",
+        "comprobante": "Ver cómo revisa los pagos"
+      }
     }
   },
   "sitio": {
