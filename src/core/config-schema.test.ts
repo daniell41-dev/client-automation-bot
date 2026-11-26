@@ -226,11 +226,11 @@ describe("personaSchema (exportado para el editor de Configuración)", () => {
     ).toBe(true);
   });
 
-  it("rechaza el nombre del bot vacío, con el mensaje que el editor muestra", () => {
+  it("rechaza el nombre del asistente vacío, con el mensaje que el editor muestra", () => {
     const result = personaSchema.safeParse({ name: "", tone: "cálida", language: "es" });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.issues[0].message).toBe("El nombre del bot es obligatorio.");
+      expect(result.error.issues[0].message).toBe("El nombre del asistente es obligatorio.");
     }
   });
 });

@@ -113,7 +113,7 @@ export default async function DetalleNegocioPage({
             type="submit"
             className="rounded-[10px] border border-line px-4 py-2 text-sm font-bold text-ink hover:bg-surface-2"
           >
-            {activo ? "Pausar bot" : "Activar bot"}
+            {activo ? "Pausar asistente" : "Activar asistente"}
           </button>
         </form>
       </header>

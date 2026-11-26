@@ -63,7 +63,7 @@ export async function actualizarConfig(
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`);
   revalidatePath(`/portal/negocios/${slug}/editar`);
-  return { ok: "Configuración guardada. El bot ya responde con estos cambios." };
+  return { ok: "Configuración guardada. El asistente ya responde con estos cambios." };
 }
 
 /** Claves de la config que los editores del portal pueden modificar. */
@@ -152,7 +152,7 @@ export async function guardarConfigParcial(
 
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`, "layout");
-  return { ok: "Guardado. El bot ya responde con estos cambios." };
+  return { ok: "Guardado. El asistente ya responde con estos cambios." };
 }
 
 /**
@@ -477,7 +477,7 @@ async function guardarQr(
 
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}/configuracion`);
-  return { ok: qrUrl ? "QR guardado. El bot lo envía junto con sus cuentas." : "QR quitado." };
+  return { ok: qrUrl ? "QR guardado. El asistente lo envía junto con sus cuentas." : "QR quitado." };
 }
 
 export async function subirQrPago(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -627,5 +627,5 @@ export async function quitarCatalogoPdf(_prev: ActionState, formData: FormData):
 
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}/configuracion`);
-  return { ok: "Catálogo quitado. El bot ya no lo envía." };
+  return { ok: "Catálogo quitado. El asistente ya no lo envía." };
 }

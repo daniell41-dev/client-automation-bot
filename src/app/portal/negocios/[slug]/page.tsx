@@ -119,7 +119,7 @@ export default async function ResumenPage({
           delta={citas > 0 ? `${citas} en total` : undefined}
         />
         <StatCard
-          label="Resueltas por el bot"
+          label="Resueltas por el asistente"
           value={`${pctResueltas}%`}
           delta="sin intervención"
         />
@@ -139,7 +139,7 @@ export default async function ResumenPage({
 
       {/* Completá tu bot */}
       <Card
-        title="Complete su bot"
+        title="Complete su asistente virtual"
         subtitle="Cuanto más completes, mejor responde a sus clientes."
         action={
           <span className="font-display text-sm font-bold text-primary">
@@ -169,7 +169,7 @@ export default async function ResumenPage({
         </ul>
         {!negocio.whatsapp_phone_number_id && (
           <p className="mt-3 text-[13px] text-ink-soft">
-            El bot queda apagado hasta que el administrador conecte su número de
+            El asistente queda apagado hasta que el administrador conecte su número de
             WhatsApp. Mientras tanto puede dejar todo listo.
           </p>
         )}
@@ -207,7 +207,7 @@ export default async function ResumenPage({
         {recientes.length === 0 ? (
           <EmptyState
             title="Aún no hay conversaciones."
-            subtitle="Cuando sus clientes escriban al bot, van a aparecer aquí."
+            subtitle="Cuando sus clientes escriban al asistente, van a aparecer aquí."
           />
         ) : (
           <ul className="divide-y divide-line">
@@ -224,7 +224,7 @@ export default async function ResumenPage({
                         {s.contact}
                       </span>
                       <Pill tone={last?.role === "assistant" ? "success" : "info"}>
-                        {last?.role === "assistant" ? "Bot" : "Cliente"}
+                        {last?.role === "assistant" ? "Asistente" : "Cliente"}
                       </Pill>
                     </span>
                     <span className="block truncate text-[13px] text-ink-soft">

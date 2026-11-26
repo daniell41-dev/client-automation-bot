@@ -165,7 +165,7 @@ export function ConfigForm({
       <section className={sectionCls}>
         <h2 className="mb-1 text-sm font-semibold text-slate-800">Catálogo de este rubro</h2>
         <p className="mb-4 text-xs text-slate-500">
-          Qué persigue el bot con los ítems de este rubro. Sin tocar nada aquí, se
+          Qué persigue el asistente con los ítems de este rubro. Sin tocar nada aquí, se
           comporta como una cita (igual que antes de esto existir).
         </p>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -400,7 +400,7 @@ export function ConfigForm({
 
       {/* Mensajes */}
       <section className={sectionCls}>
-        <h2 className="mb-1 text-sm font-semibold text-slate-800">Mensajes del bot</h2>
+        <h2 className="mb-1 text-sm font-semibold text-slate-800">Mensajes del asistente</h2>
         <p className="mb-4 text-xs text-slate-500">
           Variables: {"{{nombre}} {{servicio}} {{fecha}} {{negocio}} {{agenda}}"} — en
           &quot;Info de un servicio&quot; además {"{{descripcion}} {{precio}} {{duracion}}"}.
@@ -429,10 +429,10 @@ export function ConfigForm({
       {/* Persona de la IA */}
       <section className={sectionCls}>
         <h2 className="mb-1 text-sm font-semibold text-slate-800">
-          Persona del bot (WhatsApp)
+          Persona del asistente (WhatsApp)
         </h2>
         <p className="mb-4 text-xs text-slate-500">
-          Si dejas el nombre vacío, el bot responde con las plantillas directas (sin IA).
+          Si dejas el nombre vacío, el asistente responde con las plantillas directas (sin IA).
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>

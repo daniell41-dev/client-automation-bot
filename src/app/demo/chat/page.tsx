@@ -41,7 +41,7 @@ export default async function DemoChatPage() {
       </header>
 
       <main className="flex flex-1 flex-col items-center px-6 py-8 fade-up">
-        <h1 className="text-[22px] font-extrabold text-ink">Pruebe el bot</h1>
+        <h1 className="text-[22px] font-extrabold text-ink">Pruebe el asistente</h1>
         <p className="mb-6 mt-1 text-sm text-ink-mid">
           Escríbale como si fuera un cliente por WhatsApp.
         </p>
