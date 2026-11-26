@@ -34,17 +34,21 @@ import {
   SEGUIMIENTO_SEGUNDO_DEFAULT,
 } from "@/core/engine/seguimientos";
 import { Card, Pill, Segmented, Toggle } from "@/components/ui";
+import { formato, textos } from "@/textos";
 
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
 
+/** T-130: los textos de esta pantalla viven en `src/textos/es.json`. */
+const tc = textos.portal.configuracion;
+
 /** T-113: en el orden de `Date.getDay()` (0 = domingo), igual que `diasSinEnvio`. */
-const DIAS_SEMANA = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const DIAS_SEMANA = tc.diasSemana;
 
 /** 30 → "30 minutos", 60 → "1 hora", 1200 → "20 horas". */
 function textoTiempo(minutos: number): string {
-  if (minutos < 60) return `${minutos} minutos`;
+  if (minutos < 60) return formato(tc.tiempo.minutos, { n: minutos });
   const horas = minutos / 60;
-  return horas === 1 ? "1 hora" : `${horas} horas`;
+  return horas === 1 ? tc.tiempo.unaHora : formato(tc.tiempo.horas, { n: horas });
 }
 const inputCls =
   "input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft";
@@ -78,10 +82,10 @@ const ENTIDADES = [
 ];
 
 const TIPOS_CUENTA: { value: TipoCuentaPago; label: string }[] = [
-  { value: "billetera", label: "Celular (Nequi, Daviplata)" },
-  { value: "ahorros", label: "Cuenta de ahorros" },
-  { value: "corriente", label: "Cuenta corriente" },
-  { value: "llave", label: "Llave Bre-B" },
+  { value: "billetera", label: tc.tiposCuenta.billetera },
+  { value: "ahorros", label: tc.tiposCuenta.ahorros },
+  { value: "corriente", label: tc.tiposCuenta.corriente },
+  { value: "llave", label: tc.tiposCuenta.llave },
 ];
 
 const CUENTA_VACIA: CuentaPago = { entidad: "", tipo: "billetera", numero: "", titular: "" };
@@ -106,7 +110,7 @@ function tonoActual(tone: string): Tono {
 function SelectorImagen({
   name,
   accept = "image/png,image/jpeg,image/webp",
-  etiqueta = "Elegir imagen",
+  etiqueta = textos.comun.elegirImagen,
 }: {
   name: string;
   /** T-121: el mismo selector sirve para el PDF del catálogo. */
@@ -124,7 +128,7 @@ function SelectorImagen({
         onChange={(e) => setArchivo(e.target.files?.[0]?.name ?? null)}
       />
       <span className="shrink-0 font-semibold text-primary">{etiqueta}</span>
-      <span className="min-w-0 truncate text-ink-soft">{archivo ?? "Ninguna elegida"}</span>
+      <span className="min-w-0 truncate text-ink-soft">{archivo ?? textos.comun.ningunArchivoElegido}</span>
     </label>
   );
 }
@@ -279,10 +283,10 @@ export function ConfiguracionEditor({
   return (
     <div className="mx-auto max-w-[720px] space-y-4 fade-up">
       {/* Datos del negocio */}
-      <Card title="Datos del negocio">
+      <Card title={tc.datosNegocio.titulo}>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <label className={labelCls}>Nombre</label>
+            <label className={labelCls}>{tc.datosNegocio.nombre}</label>
             <input
               className={`${inputCls} bg-surface-3 text-ink-mid`}
               value={nombre}
@@ -290,18 +294,18 @@ export function ConfiguracionEditor({
             />
           </div>
           <div>
-            <label className={labelCls}>Rubro</label>
+            <label className={labelCls}>{tc.datosNegocio.rubro}</label>
             <div className="pt-1.5">
               <Pill tone="info">{rubro}</Pill>
             </div>
           </div>
           <div>
-            <label className={labelCls}>Dirección</label>
+            <label className={labelCls}>{tc.datosNegocio.direccion}</label>
             <input
               className={inputCls}
               value={direccion}
               onChange={(e) => setDireccion(e.target.value)}
-              placeholder="San Martín 480, Centro"
+              placeholder={tc.datosNegocio.direccionEjemplo}
             />
           </div>
         </div>
@@ -309,10 +313,10 @@ export function ConfiguracionEditor({
 
       {/* WhatsApp conectado (action propia: columna, no config) */}
       <Card
-        title="WhatsApp conectado"
-        subtitle="Phone number ID del número en Meta (docs/05-whatsapp-setup.md)."
+        title={tc.whatsapp.titulo}
+        subtitle={tc.whatsapp.subtitulo}
       >
-        <ActionForm action={actualizarWhatsapp} submitLabel="Guardar conexión">
+        <ActionForm action={actualizarWhatsapp} submitLabel={tc.whatsapp.guardar}>
           <input type="hidden" name="slug" value={slug} />
           <div className="relative max-w-sm">
             {whatsappId && (
@@ -322,7 +326,7 @@ export function ConfiguracionEditor({
               name="whatsapp_phone_number_id"
               defaultValue={whatsappId}
               className={`${inputCls} ${whatsappId ? "border-success bg-success-bg pl-8" : ""}`}
-              placeholder="123456789012345"
+              placeholder={tc.whatsapp.ejemplo}
             />
           </div>
         </ActionForm>
@@ -330,35 +334,33 @@ export function ConfiguracionEditor({
 
       {/* T-110: referencia y detalles en el menú */}
       <Card
-        title="Referencias, tallas y colores"
-        subtitle="Actívelo si sus clientes piden por código («la 102») o eligen talla, color o sabor. Aparece en cada producto de su menú y el asistente pregunta lo que falte antes de cerrar el pedido."
+        title={tc.referencias.titulo}
+        subtitle={tc.referencias.subtitulo}
       >
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold text-ink">Referencia o código del producto</span>
-            <Toggle checked={campoReferencia} onChange={setCampoReferencia} label="Referencia del producto" />
+            <span className="text-sm font-semibold text-ink">{tc.referencias.referencia}</span>
+            <Toggle checked={campoReferencia} onChange={setCampoReferencia} label={tc.referencias.referenciaInterruptor} />
           </div>
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold text-ink">Tallas, colores u otras opciones</span>
-            <Toggle checked={campoDetalles} onChange={setCampoDetalles} label="Detalles del producto" />
+            <span className="text-sm font-semibold text-ink">{tc.referencias.detalles}</span>
+            <Toggle checked={campoDetalles} onChange={setCampoDetalles} label={tc.referencias.detallesInterruptor} />
           </div>
-          <p className="text-xs text-ink-soft">
-            Si los apaga, un producto que ya tiene referencia o tallas las conserva. Se guarda con el botón de abajo.
-          </p>
+          <p className="text-xs text-ink-soft">{tc.referencias.ayuda}</p>
         </div>
       </Card>
 
       {/* T-106: seguimiento automático de pedidos a medias */}
       <Card
-        title="Seguimiento automático"
-        subtitle="Si un cliente deja un pedido a medias, el asistente le escribe para retomarlo, en los tiempos que usted elija. Nunca más de dos veces, solo en su horario de atención, y nunca a quien pidió que no le escriban."
+        title={tc.seguimiento.titulo}
+        subtitle={tc.seguimiento.subtitulo}
       >
         <div className="flex items-center justify-between gap-3">
-          <span className="text-sm font-semibold text-ink">Retomar pedidos a medias</span>
+          <span className="text-sm font-semibold text-ink">{tc.seguimiento.retomar}</span>
           <Toggle
             checked={seguimientos.activo}
             onChange={(next) => setSeguimientos((prev) => ({ ...prev, activo: next }))}
-            label="Seguimiento automático activado"
+            label={tc.seguimiento.interruptor}
           />
         </div>
         {seguimientos.activo && (
@@ -367,7 +369,7 @@ export function ConfiguracionEditor({
                 dentro de la ventana de 24 h de WhatsApp. */}
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className={labelCls} htmlFor="seg-primero-min">Primer mensaje</label>
+                <label className={labelCls} htmlFor="seg-primero-min">{tc.seguimiento.primerMensaje}</label>
                 <select
                   id="seg-primero-min"
                   className={inputCls}
@@ -376,13 +378,13 @@ export function ConfiguracionEditor({
                 >
                   {OPCIONES_PRIMERO_MIN.map((m) => (
                     <option key={m} value={m}>
-                      {textoTiempo(m)} después
+                      {formato(tc.tiempo.despues, { tiempo: textoTiempo(m) })}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className={labelCls} htmlFor="seg-segundo-min">Segundo mensaje</label>
+                <label className={labelCls} htmlFor="seg-segundo-min">{tc.seguimiento.segundoMensaje}</label>
                 <select
                   id="seg-segundo-min"
                   className={inputCls}
@@ -391,14 +393,14 @@ export function ConfiguracionEditor({
                 >
                   {OPCIONES_SEGUNDO_MIN.map((m) => (
                     <option key={m} value={m}>
-                      {m === 0 ? "No mandar segundo mensaje" : `${textoTiempo(m)} después`}
+                      {m === 0 ? tc.seguimiento.sinSegundo : formato(tc.tiempo.despues, { tiempo: textoTiempo(m) })}
                     </option>
                   ))}
                 </select>
               </div>
             </div>
             <div>
-              <p className={labelCls}>Días en que no se escribe</p>
+              <p className={labelCls}>{tc.seguimiento.diasSinEnvio}</p>
               <div className="flex flex-wrap gap-2">
                 {DIAS_SEMANA.map((nombre, dow) => {
                   const pausado = seguimientos.diasSinEnvio.includes(dow);
@@ -424,14 +426,10 @@ export function ConfiguracionEditor({
                   );
                 })}
               </div>
-              <p className="mt-1 text-xs text-ink-soft">
-                Toque un día para pausarlo. Además, nunca se escribe fuera de su horario de atención. WhatsApp solo
-                permite escribirle gratis al cliente hasta 24 horas después de su último mensaje; por eso no hay
-                tiempos más largos.
-              </p>
+              <p className="mt-1 text-xs text-ink-soft">{tc.seguimiento.ayudaDias}</p>
             </div>
             <div>
-              <label className={labelCls}>Texto del primer mensaje</label>
+              <label className={labelCls}>{tc.seguimiento.textoPrimero}</label>
               <textarea
                 className={inputCls}
                 rows={2}
@@ -442,7 +440,7 @@ export function ConfiguracionEditor({
               />
             </div>
             <div>
-              <label className={labelCls}>Texto del segundo mensaje</label>
+              <label className={labelCls}>{tc.seguimiento.textoSegundo}</label>
               <textarea
                 className={inputCls}
                 rows={2}
@@ -452,16 +450,13 @@ export function ConfiguracionEditor({
                 placeholder={SEGUIMIENTO_SEGUNDO_DEFAULT}
               />
             </div>
-            <p className="text-xs text-ink-soft">
-              Déjelos vacíos para usar los de arriba. Puede usar {"{{nombre}}"} (el nombre del cliente) y{" "}
-              {"{{pedido}}"} (lo que dejó en el carrito). Se guardan con el botón de abajo.
-            </p>
+            <p className="text-xs text-ink-soft">{tc.seguimiento.ayudaTextos}</p>
             {/* T-114 (temporal, para las demos): mandarle el primer mensaje YA a
                 un cliente con un pedido a medias, con el texto del cuadro. */}
-            <ActionForm action={enviarSeguimientoAhora} submitLabel="Enviar ahora" className="space-y-2 border-t border-line pt-3">
+            <ActionForm action={enviarSeguimientoAhora} submitLabel={tc.seguimiento.enviarAhora} className="space-y-2 border-t border-line pt-3">
               <input type="hidden" name="slug" value={slug} />
               <input type="hidden" name="primero" value={seguimientos.primero} />
-              <label className={labelCls} htmlFor="seg-cliente">Probar con un cliente</label>
+              <label className={labelCls} htmlFor="seg-cliente">{tc.seguimiento.probarConCliente}</label>
               {candidatosSeguimiento.length > 0 ? (
                 <select id="seg-cliente" name="leadId" className={inputCls} defaultValue={candidatosSeguimiento[0].id}>
                   {candidatosSeguimiento.map((c) => (
@@ -471,14 +466,9 @@ export function ConfiguracionEditor({
                   ))}
                 </select>
               ) : (
-                <p className="text-xs text-ink-mid">
-                  Ningún cliente tiene un pedido a medias de las últimas 24 horas. Deje uno sin confirmar desde
-                  WhatsApp y recargue esta página.
-                </p>
+                <p className="text-xs text-ink-mid">{tc.seguimiento.sinCandidatos}</p>
               )}
-              <p className="text-xs text-ink-mid">
-                Le llega YA el primer mensaje, con el texto de arriba, sin esperar los minutos elegidos.
-              </p>
+              <p className="text-xs text-ink-mid">{tc.seguimiento.ayudaEnviarAhora}</p>
             </ActionForm>
           </div>
         )}
@@ -486,35 +476,29 @@ export function ConfiguracionEditor({
 
       {/* Notificaciones */}
       <Card
-        title="Notificaciones"
-        subtitle="Su WhatsApp personal: le avisamos ahí cuando el asistente confirme una cita o un pedido."
+        title={tc.notificaciones.titulo}
+        subtitle={tc.notificaciones.subtitulo}
       >
         <div className="max-w-sm">
-          <label className={labelCls}>Su número de WhatsApp</label>
+          <label className={labelCls}>{tc.notificaciones.numero}</label>
           <input
             className={inputCls}
             value={notifyPhoneNumber}
             onChange={(e) => setNotifyPhoneNumber(e.target.value)}
-            placeholder="573001234567"
+            placeholder={tc.notificaciones.numeroEjemplo}
           />
-          <p className="mt-1.5 text-xs text-ink-soft">
-            Formato internacional sin espacios ni + (ej. 573001234567). Déjelo
-            vacío para no recibir avisos.
-          </p>
+          <p className="mt-1.5 text-xs text-ink-soft">{tc.notificaciones.ayudaNumero}</p>
         </div>
         {/* Resumen del día al cierre (core/engine/ventas-del-dia.ts). */}
         <div className="mt-5 flex items-center justify-between gap-3 rounded-xl border border-line p-3">
           <span className="text-sm text-ink">
-            <span className="font-semibold">Resumen del día por WhatsApp</span>
-            <span className="block text-xs text-ink-mid">
-              Al cierre de su horario le llega cuánto vendió hoy, lo más pedido y lo que espera su respuesta. Los
-              días sin pedidos no le llega nada.
-            </span>
+            <span className="font-semibold">{tc.notificaciones.resumenDiario}</span>
+            <span className="block text-xs text-ink-mid">{tc.notificaciones.ayudaResumenDiario}</span>
           </span>
-          <Toggle checked={resumenDiario} onChange={setResumenDiario} label="Resumen del día por WhatsApp" />
+          <Toggle checked={resumenDiario} onChange={setResumenDiario} label={tc.notificaciones.resumenDiario} />
         </div>
         <fieldset className="mt-5 space-y-2">
-          <legend className={labelCls}>Avisos de pedidos</legend>
+          <legend className={labelCls}>{tc.notificaciones.avisosPedidos}</legend>
           <label className="flex items-start gap-2 text-sm text-ink">
             <input
               type="radio"
@@ -524,7 +508,8 @@ export function ConfiguracionEditor({
               className="mt-1"
             />
             <span>
-              <b>Uno por pedido</b>, con botones para aprobar. Para pocos pedidos al día.
+              <b>{tc.notificaciones.unoPorPedido}</b>
+              {tc.notificaciones.unoPorPedidoDetalle}
             </span>
           </label>
           <label className="flex items-start gap-2 text-sm text-ink">
@@ -536,21 +521,21 @@ export function ConfiguracionEditor({
               className="mt-1"
             />
             <span>
-              <b>Solo un resumen</b> cada{" "}
+              <b>{tc.notificaciones.soloResumen}</b>
+              {tc.notificaciones.cada}{" "}
               <select
-                aria-label="Minutos entre resúmenes"
+                aria-label={tc.notificaciones.minutosEntreResumenes}
                 value={minutosResumen}
                 onChange={(e) => setMinutosResumen(Number(e.target.value))}
                 className="input-nexo px-2 py-1 text-sm"
               >
                 {[5, 10, 15, 30, 60].map((m) => (
                   <option key={m} value={m}>
-                    {m} min
+                    {formato(tc.notificaciones.minutos, { n: m })}
                   </option>
                 ))}
               </select>{" "}
-              y los pedidos en el panel. Para días de muchos pedidos. Un comprobante
-              sospechoso igual le avisa al instante.
+              {tc.notificaciones.soloResumenDetalle}
             </span>
           </label>
         </fieldset>
@@ -560,16 +545,16 @@ export function ConfiguracionEditor({
           país y sin cuenta de comercio. El bot le da estos datos al cliente y
           le pide la foto; la plata la verifica la dueña en su app del banco. */}
       <Card
-        title="Cobro con comprobante"
-        subtitle="El cliente paga a cualquiera de sus cuentas y envía la foto; usted aprueba el pedido después de ver la plata en la app de su banco."
+        title={tc.cobro.titulo}
+        subtitle={tc.cobro.subtitulo}
       >
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold text-ink">Pedir comprobante antes de aprobar</span>
+            <span className="text-sm font-semibold text-ink">{tc.cobro.pedirComprobante}</span>
             <Toggle
               checked={requiereComprobante}
               onChange={setRequiereComprobante}
-              label="Pedir comprobante"
+              label={tc.cobro.pedirComprobanteInterruptor}
             />
           </div>
           <div className="space-y-3">
@@ -577,18 +562,18 @@ export function ConfiguracionEditor({
               <div key={i} className="rounded-xl border border-line p-3.5">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <label className={labelCls} htmlFor={`cuenta-entidad-${i}`}>Banco o billetera</label>
+                    <label className={labelCls} htmlFor={`cuenta-entidad-${i}`}>{tc.cobro.banco}</label>
                     <input
                       id={`cuenta-entidad-${i}`}
                       list="entidades-pago"
                       className={inputCls}
                       value={cuenta.entidad}
                       onChange={(e) => cambiarCuenta(i, "entidad", e.target.value)}
-                      placeholder="Nequi, Bancolombia…"
+                      placeholder={tc.cobro.bancoEjemplo}
                     />
                   </div>
                   <div>
-                    <label className={labelCls} htmlFor={`cuenta-tipo-${i}`}>Tipo</label>
+                    <label className={labelCls} htmlFor={`cuenta-tipo-${i}`}>{tc.cobro.tipo}</label>
                     <select
                       id={`cuenta-tipo-${i}`}
                       className={inputCls}
@@ -602,34 +587,34 @@ export function ConfiguracionEditor({
                   </div>
                   <div>
                     <label className={labelCls} htmlFor={`cuenta-numero-${i}`}>
-                      {cuenta.tipo === "llave" ? "Llave" : cuenta.tipo === "billetera" ? "Número de celular" : "Número de cuenta"}
+                      {cuenta.tipo === "llave" ? tc.cobro.llave : cuenta.tipo === "billetera" ? tc.cobro.numeroCelular : tc.cobro.numeroCuenta}
                     </label>
                     <input
                       id={`cuenta-numero-${i}`}
                       className={inputCls}
                       value={cuenta.numero}
                       onChange={(e) => cambiarCuenta(i, "numero", e.target.value)}
-                      placeholder={cuenta.tipo === "llave" ? "@minegocio" : cuenta.tipo === "billetera" ? "300 123 4567" : "123-456789-01"}
+                      placeholder={cuenta.tipo === "llave" ? tc.cobro.llaveEjemplo : cuenta.tipo === "billetera" ? tc.cobro.celularEjemplo : tc.cobro.cuentaEjemplo}
                     />
                   </div>
                   <div>
-                    <label className={labelCls} htmlFor={`cuenta-titular-${i}`}>A nombre de</label>
+                    <label className={labelCls} htmlFor={`cuenta-titular-${i}`}>{tc.cobro.titular}</label>
                     <input
                       id={`cuenta-titular-${i}`}
                       className={inputCls}
                       value={cuenta.titular ?? ""}
                       onChange={(e) => cambiarCuenta(i, "titular", e.target.value)}
-                      placeholder="Nombre que ve el cliente al transferir"
+                      placeholder={tc.cobro.titularEjemplo}
                     />
                   </div>
                   <div>
-                    <label className={labelCls} htmlFor={`cuenta-doc-${i}`}>Cédula o NIT (opcional)</label>
+                    <label className={labelCls} htmlFor={`cuenta-doc-${i}`}>{tc.cobro.documento}</label>
                     <input
                       id={`cuenta-doc-${i}`}
                       className={inputCls}
                       value={cuenta.documento ?? ""}
                       onChange={(e) => cambiarCuenta(i, "documento", e.target.value)}
-                      placeholder="CC 1.090.000.000"
+                      placeholder={tc.cobro.documentoEjemplo}
                     />
                   </div>
                   <div className="flex items-end justify-end">
@@ -639,7 +624,7 @@ export function ConfiguracionEditor({
                         onClick={() => setCuentas((cs) => cs.filter((_, j) => j !== i))}
                         className="rounded-[10px] px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
                       >
-                        Quitar cuenta
+                        {tc.cobro.quitarCuenta}
                       </button>
                     )}
                   </div>
@@ -657,33 +642,26 @@ export function ConfiguracionEditor({
                 onClick={() => setCuentas((cs) => [...cs, CUENTA_VACIA])}
                 className="rounded-[10px] bg-primary-tint px-3.5 py-2 text-sm font-bold text-primary hover:bg-primary hover:text-white"
               >
-                + Agregar otra cuenta
+                {tc.cobro.agregarCuenta}
               </button>
             )}
           </div>
-          <p className="text-xs text-ink-soft">
-            El asistente le manda todas estas cuentas al cliente al confirmar el pedido, con el número,
-            el tipo y a nombre de quién está. Si el comprobante dice que se pagó a otra cuenta,
-            le avisa. Se guarda con el botón &quot;Guardar cambios&quot; de más abajo.
-          </p>
+          <p className="text-xs text-ink-soft">{tc.cobro.ayudaCuentas}</p>
 
           {/* El QR se guarda aparte (sube un archivo), igual que las llaves de Wompi. */}
           <div className="border-t border-line pt-4">
-            <p className="text-sm font-semibold text-ink">Código QR de pago (opcional)</p>
-            <p className="mt-0.5 text-xs text-ink-soft">
-              La captura del QR de su Nequi, Bancolombia o Bre-B. El asistente la envía como imagen
-              después de las cuentas. PNG, JPG o WEBP, hasta 2 MB.
-            </p>
+            <p className="text-sm font-semibold text-ink">{tc.cobro.qrTitulo}</p>
+            <p className="mt-0.5 text-xs text-ink-soft">{tc.cobro.qrAyuda}</p>
             {initialPagos?.qrUrl && (
               <div className="mt-3 flex items-center gap-4">
                 {/* eslint-disable-next-line @next/next/no-img-element -- imagen de Storage, sin optimizar a propósito */}
-                <img src={initialPagos.qrUrl} alt="QR de pago actual" className="h-28 w-28 rounded-lg border border-line object-contain" />
-                <ActionForm action={quitarQrPago} submitLabel="Quitar QR">
+                <img src={initialPagos.qrUrl} alt={tc.cobro.qrActual} className="h-28 w-28 rounded-lg border border-line object-contain" />
+                <ActionForm action={quitarQrPago} submitLabel={tc.cobro.quitarQr}>
                   <input type="hidden" name="slug" value={slug} />
                 </ActionForm>
               </div>
             )}
-            <ActionForm action={subirQrPago} submitLabel={initialPagos?.qrUrl ? "Cambiar QR" : "Subir QR"} className="mt-3 space-y-3">
+            <ActionForm action={subirQrPago} submitLabel={initialPagos?.qrUrl ? tc.cobro.cambiarQr : tc.cobro.subirQr} className="mt-3 space-y-3">
               <input type="hidden" name="slug" value={slug} />
               <SelectorImagen name="qr" />
             </ActionForm>
@@ -693,7 +671,7 @@ export function ConfiguracionEditor({
 
       {/* T-121: catálogo en PDF. Se guarda con su propio botón (sube un
           archivo), como el QR; el "Guardar cambios" de abajo no lo toca. */}
-      <Card title="Catálogo en PDF" subtitle="Opcional. El asistente se lo manda al cliente por WhatsApp.">
+      <Card title={tc.catalogoPdf.titulo} subtitle={tc.catalogoPdf.subtitulo}>
         <div className="space-y-3">
           {catalogoPdf && (
             <div className="flex flex-wrap items-center gap-3">
@@ -706,38 +684,35 @@ export function ConfiguracionEditor({
                 📄 {catalogoPdf.nombreArchivo}
               </a>
               <Pill tone={catalogoPdf.enviarAlSaludar ? "success" : "neutral"}>
-                {catalogoPdf.enviarAlSaludar ? "Se envía al saludar" : "Solo si lo piden"}
+                {catalogoPdf.enviarAlSaludar ? tc.catalogoPdf.seEnviaAlSaludar : tc.catalogoPdf.soloSiLoPiden}
               </Pill>
-              <ActionForm action={quitarCatalogoPdf} submitLabel="Quitar catálogo">
+              <ActionForm action={quitarCatalogoPdf} submitLabel={tc.catalogoPdf.quitar}>
                 <input type="hidden" name="slug" value={slug} />
               </ActionForm>
             </div>
           )}
           <ActionForm
             action={guardarCatalogoPdf}
-            submitLabel={catalogoPdf ? "Guardar catálogo" : "Subir catálogo"}
+            submitLabel={catalogoPdf ? tc.catalogoPdf.guardar : tc.catalogoPdf.subir}
             className="space-y-3"
           >
             <input type="hidden" name="slug" value={slug} />
             <SelectorImagen
               name="catalogo"
               accept="application/pdf"
-              etiqueta={catalogoPdf ? "Cambiar PDF" : "Elegir PDF"}
+              etiqueta={catalogoPdf ? tc.catalogoPdf.cambiarPdf : tc.catalogoPdf.elegirPdf}
             />
-            <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-xs text-warn-ink">
-              ⚠️ El PDF queda público: cualquiera con el link lo puede abrir. No suba
-              documentos privados, solo su catálogo. Solo PDF, hasta 10 MB.
-            </p>
+            <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-xs text-warn-ink">{tc.catalogoPdf.avisoPublico}</p>
             <div className="max-w-sm">
               <label className={labelCls} htmlFor="catalogo-nombre">
-                Nombre que ve el cliente
+                {tc.catalogoPdf.nombreVisible}
               </label>
               <input
                 id="catalogo-nombre"
                 name="nombreArchivo"
                 maxLength={120}
                 defaultValue={catalogoPdf?.nombreArchivo ?? ""}
-                placeholder="Catálogo Jeans 2026.pdf"
+                placeholder={tc.catalogoPdf.nombreEjemplo}
                 className={inputCls}
               />
             </div>
@@ -748,11 +723,9 @@ export function ConfiguracionEditor({
                 defaultChecked={catalogoPdf?.enviarAlSaludar ?? false}
                 className="h-4 w-4 accent-primary"
               />
-              Enviar el catálogo al saludar
+              {tc.catalogoPdf.enviarAlSaludar}
             </label>
-            <p className="text-xs text-ink-soft">
-              Apagado, el asistente igual lo manda cuando el cliente pide &quot;el catálogo&quot;.
-            </p>
+            <p className="text-xs text-ink-soft">{tc.catalogoPdf.ayudaApagado}</p>
           </ActionForm>
         </div>
       </Card>
@@ -764,34 +737,31 @@ export function ConfiguracionEditor({
               países (ej. Venezuela) queda el camino de comprobante manual, que no
               depende de esta pantalla. */}
           <Card
-            title="Pagos con Wompi"
-            subtitle="Tarjeta y PSE en Colombia, verificado automáticamente al pagar."
+            title={tc.wompi.titulo}
+            subtitle={tc.wompi.subtitulo}
           >
             <div className="space-y-4">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-ink">Activar pagos con Wompi</span>
-                <Toggle checked={wompiEnabled} onChange={setWompiEnabled} label="Wompi activado" />
+                <span className="text-sm font-semibold text-ink">{tc.wompi.activar}</span>
+                <Toggle checked={wompiEnabled} onChange={setWompiEnabled} label={tc.wompi.interruptor} />
               </div>
               <div className="max-w-sm">
-                <label className={labelCls}>URL de redirección (opcional)</label>
+                <label className={labelCls}>{tc.wompi.redireccion}</label>
                 <input
                   className={inputCls}
                   value={wompiRedirectUrl}
                   onChange={(e) => setWompiRedirectUrl(e.target.value)}
-                  placeholder="https://tusitio.com/gracias"
+                  placeholder={tc.wompi.redireccionEjemplo}
                 />
-                <p className="mt-1.5 text-xs text-ink-soft">
-                  A dónde vuelve el cliente después de pagar. Este cambio se guarda con el
-                  botón &quot;Guardar cambios&quot; de más abajo.
-                </p>
+                <p className="mt-1.5 text-xs text-ink-soft">{tc.wompi.ayudaRedireccion}</p>
               </div>
 
               <div className="border-t border-line pt-4">
-                <ActionForm action={actualizarWompi} submitLabel="Guardar credenciales">
+                <ActionForm action={actualizarWompi} submitLabel={tc.wompi.guardarCredenciales}>
                   <input type="hidden" name="slug" value={slug} />
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="sm:col-span-2">
-                      <label className={labelCls}>Llave pública</label>
+                      <label className={labelCls}>{tc.wompi.llavePublica}</label>
                       <input
                         name="public_key"
                         className={inputCls}
@@ -802,7 +772,7 @@ export function ConfiguracionEditor({
                       />
                     </div>
                     <div>
-                      <label className={labelCls}>Secreto de integridad</label>
+                      <label className={labelCls}>{tc.wompi.secretoIntegridad}</label>
                       <input
                         name="integrity_secret"
                         type="password"
@@ -816,7 +786,7 @@ export function ConfiguracionEditor({
                       />
                     </div>
                     <div>
-                      <label className={labelCls}>Secreto de eventos</label>
+                      <label className={labelCls}>{tc.wompi.secretoEventos}</label>
                       <input
                         name="events_secret"
                         type="password"
@@ -830,11 +800,7 @@ export function ConfiguracionEditor({
                       />
                     </div>
                   </div>
-                  <p className="text-xs text-ink-soft">
-                    Las tres llaves están en su panel de Wompi (Configuración → Llaves de la
-                    API). Por seguridad nunca se muestran aquí una vez guardadas — deje en
-                    blanco la que no quiera cambiar.
-                  </p>
+                  <p className="text-xs text-ink-soft">{tc.wompi.ayudaLlaves}</p>
                 </ActionForm>
               </div>
             </div>
@@ -843,10 +809,10 @@ export function ConfiguracionEditor({
       )}
 
       {/* El bot */}
-      <Card title="El asistente virtual">
+      <Card title={tc.asistente.titulo}>
         <div className="space-y-4">
           <div className="max-w-sm">
-            <label className={labelCls}>Nombre del asistente</label>
+            <label className={labelCls}>{tc.asistente.nombre}</label>
             <input
               className={`${inputCls} ${botNameError ? "border-warn-ink" : ""}`}
               value={botName}
@@ -854,19 +820,19 @@ export function ConfiguracionEditor({
                 setBotName(e.target.value);
                 if (botNameError) setBotNameError(undefined);
               }}
-              placeholder="Asistente"
+              placeholder={tc.asistente.nombreEjemplo}
             />
             {botNameError && (
               <p className="mt-1 text-xs text-warn-ink">{botNameError}</p>
             )}
           </div>
           <div>
-            <label className={labelCls}>Tono de las respuestas</label>
+            <label className={labelCls}>{tc.asistente.tono}</label>
             <Segmented<Tono>
               options={[
-                { value: "cercano", label: "Cercano" },
-                { value: "neutral", label: "Neutral" },
-                { value: "formal", label: "Formal" },
+                { value: "cercano", label: tc.asistente.tonos.cercano },
+                { value: "neutral", label: tc.asistente.tonos.neutral },
+                { value: "formal", label: tc.asistente.tonos.formal },
               ]}
               value={tono}
               onChange={setTono}
@@ -882,39 +848,33 @@ export function ConfiguracionEditor({
                 <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-primary-tint text-primary">
                   <Sparkles className="h-4 w-4" />
                 </span>
-                <span className="text-sm font-semibold text-ink">Cerebro con IA</span>
+                <span className="text-sm font-semibold text-ink">{tc.asistente.cerebroIa}</span>
               </span>
               <Toggle
                 checked={ai.enabled}
                 onChange={(next) => setAi((prev) => ({ ...prev, enabled: next }))}
-                label="IA activada"
+                label={tc.asistente.iaInterruptor}
               />
             </div>
-            <label className={labelCls}>Información del negocio</label>
+            <label className={labelCls}>{tc.asistente.informacion}</label>
             <textarea
               className={inputCls}
               rows={4}
               value={ai.knowledge ?? ""}
               onChange={(e) => setAi((prev) => ({ ...prev, knowledge: e.target.value }))}
-              placeholder="Horarios especiales, medios de pago, dirección, políticas de cambio… lo que el asistente necesita saber para responder lo que no está en el catálogo."
+              placeholder={tc.asistente.informacionEjemplo}
             />
-            <p className="mt-1.5 text-xs text-ink-soft">
-              Con esto el asistente responde preguntas que no están en el catálogo (medios
-              de pago, horarios especiales, etc.).
-            </p>
+            <p className="mt-1.5 text-xs text-ink-soft">{tc.asistente.ayudaInformacion}</p>
             {/* T-105: "sin arroz, sin salsa". Encendido por defecto (undefined = sí). */}
             <div className="mt-4 flex items-start justify-between gap-3">
               <span>
-                <span className="block text-sm font-semibold text-ink">Aceptar cambios en los productos</span>
-                <span className="block text-xs text-ink-soft">
-                  El cliente puede pedir “sin arroz” o “sin salsa”: el asistente lo anota en el pedido y usted lo
-                  ve en el aviso y en el panel. No cambia el precio.
-                </span>
+                <span className="block text-sm font-semibold text-ink">{tc.asistente.cambiosProductos}</span>
+                <span className="block text-xs text-ink-soft">{tc.asistente.ayudaCambiosProductos}</span>
               </span>
               <Toggle
                 checked={ai.cambiosEnProductos !== false}
                 onChange={(next) => setAi((prev) => ({ ...prev, cambiosEnProductos: next }))}
-                label="Aceptar cambios en los productos"
+                label={tc.asistente.cambiosProductos}
               />
             </div>
           </div>
@@ -942,7 +902,7 @@ export function ConfiguracionEditor({
             disabled={pending}
             className="w-full rounded-[10px] bg-primary py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-50 sm:w-auto sm:px-8"
           >
-            {pending ? "Guardando…" : "Guardar cambios"}
+            {pending ? textos.comun.guardando : textos.comun.guardarCambios}
           </button>
         </div>
       </form>

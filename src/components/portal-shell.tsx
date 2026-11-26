@@ -27,6 +27,7 @@ import { RubroTile, catalogLabel } from "@/components/rubro-visual";
 import { Pill } from "@/components/ui";
 import { seccionVisible, type PortalSeccion } from "@/config/portal-scope";
 import type { CatalogoConfig } from "@/core/types";
+import { formato, textos } from "@/textos";
 
 export interface ShellNegocio {
   slug: string;
@@ -39,17 +40,17 @@ export interface ShellNegocio {
   vendePedidos?: boolean;
 }
 
+const tx = textos.portal.menu;
+
 /**
  * T-73: en la barra de abajo del celular entran hasta 6 accesos en 320 px.
  * Con los nombres largos, "Citas y reservas" se partía en dos líneas y
- * "Configuración" tocaba el borde.
+ * "Configuración" tocaba el borde. T-130: por sección, no por etiqueta.
  */
-const ETIQUETA_CORTA: Record<string, string> = {
-  "Citas y reservas": "Citas",
-  "Respuestas y flujos": "Respuestas",
-  Conversaciones: "Chats",
-  "Configuración": "Ajustes",
-};
+const ETIQUETA_CORTA: Partial<Record<PortalSeccion, string>> = tx.seccionesCortas;
+
+/** T-130: los dos grupos del menú lateral, con su título del JSON de textos. */
+const GRUPOS = ["gestion", "atencion"] as const;
 
 export function PortalShell({
   negocio,
@@ -77,54 +78,54 @@ export function PortalShell({
     href: string;
     label: string;
     Icon: typeof LayoutGrid;
-    group: "GESTIÓN DEL BOT" | "ATENCIÓN";
+    group: (typeof GRUPOS)[number];
     seccion: PortalSeccion;
   }[] = [
-    { href: base, label: "Resumen", Icon: LayoutGrid, group: "GESTIÓN DEL BOT", seccion: "resumen" },
+    { href: base, label: tx.secciones.resumen, Icon: LayoutGrid, group: "gestion", seccion: "resumen" },
     {
       href: `${base}/catalogo`,
       label: catalogLabel(negocio.rubro, negocio.catalogo),
       Icon: ShoppingBag,
-      group: "GESTIÓN DEL BOT",
+      group: "gestion",
       seccion: "catalogo",
     },
     ...(negocio.vendePedidos
       ? [
           {
             href: `${base}/pedidos`,
-            label: "Pedidos",
+            label: tx.secciones.pedidos,
             Icon: ClipboardList,
-            group: "ATENCIÓN" as const,
+            group: "atencion" as const,
             seccion: "pedidos" as const,
           },
         ]
       : []),
     {
       href: `${base}/citas`,
-      label: "Citas y reservas",
+      label: tx.secciones.citas,
       Icon: CalendarDays,
-      group: "GESTIÓN DEL BOT",
+      group: "gestion",
       seccion: "citas",
     },
     {
       href: `${base}/respuestas`,
-      label: "Respuestas y flujos",
+      label: tx.secciones.respuestas,
       Icon: MessageCircle,
-      group: "GESTIÓN DEL BOT",
+      group: "gestion",
       seccion: "respuestas",
     },
     {
       href: `${base}/conversaciones`,
-      label: "Conversaciones",
+      label: tx.secciones.conversaciones,
       Icon: MessagesSquare,
-      group: "ATENCIÓN",
+      group: "atencion",
       seccion: "conversaciones",
     },
     {
       href: `${base}/configuracion`,
-      label: "Configuración",
+      label: tx.secciones.configuracion,
       Icon: SlidersHorizontal,
-      group: "ATENCIÓN",
+      group: "atencion",
       seccion: "configuracion",
     },
   ];
@@ -137,13 +138,10 @@ export function PortalShell({
 
   const current = nav.find((item) => isActive(item.href));
 
-  const subtitles: Record<string, string> = {
-    Resumen: `Panorama del asistente virtual en ${negocio.nombre}`,
-    [catalogLabel(negocio.rubro, negocio.catalogo)]: "Lo que el asistente puede ofrecer y vender por WhatsApp",
-    "Citas y reservas": "Turnos y reservas que el asistente agenda automáticamente",
-    "Respuestas y flujos": "Cómo responde el asistente: IA entrenada + reglas de respaldo",
-    Conversaciones: "Chats de sus clientes en tiempo real",
-    Configuración: "Datos del negocio, horarios y asistente",
+  // T-130: por sección (antes por etiqueta, que se rompía si cambiaba el texto).
+  const subtitles: Partial<Record<PortalSeccion, string>> = {
+    ...tx.subtitulos,
+    resumen: formato(tx.subtitulos.resumen, { negocio: negocio.nombre }),
   };
 
   // Tab bar móvil (T-16): antes tenía 4 accesos fijos del handoff (2 a
@@ -205,7 +203,7 @@ export function PortalShell({
                 onClick={() => setSwitcherOpen(false)}
                 className="block border-t border-line px-3 py-2.5 text-sm font-semibold text-primary hover:bg-surface-3"
               >
-                Ver todos los rubros
+                {tx.verTodosLosRubros}
               </Link>
             </div>
           )}
@@ -213,10 +211,10 @@ export function PortalShell({
 
         {/* Navegación */}
         <nav className="flex-1 overflow-y-auto px-3 py-4">
-          {(["GESTIÓN DEL BOT", "ATENCIÓN"] as const).map((group) => (
+          {GRUPOS.map((group) => (
             <div key={group} className="mb-4">
               <p className="px-2.5 pb-1.5 text-[10.5px] font-bold uppercase tracking-[0.1em] text-ink-soft">
-                {group}
+                {tx.grupos[group]}
               </p>
               {nav
                 .filter((item) => item.group === group)
@@ -247,12 +245,12 @@ export function PortalShell({
             <span className="block truncate text-sm font-semibold text-ink">
               {userEmail}
             </span>
-            <span className="block text-xs text-ink-soft">Dueña/o</span>
+            <span className="block text-xs text-ink-soft">{tx.rolDuena}</span>
           </span>
           <form action={signOutAction}>
             <button
               type="submit"
-              aria-label="Cerrar sesión"
+              aria-label={tx.cerrarSesion}
               className="text-ink-soft transition-colors hover:text-ink"
             >
               <LogOut className="h-[18px] w-[18px]" />
@@ -267,10 +265,10 @@ export function PortalShell({
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-line bg-surface px-5">
           <div className="min-w-0 leading-tight">
             <h1 className="truncate text-[17px] font-extrabold text-ink">
-              {current?.label ?? "Panel"}
+              {current?.label ?? tx.panel}
             </h1>
             <p className="hidden truncate text-xs text-ink-soft sm:block">
-              {subtitles[current?.label ?? ""] ?? negocio.nombre}
+              {(current && subtitles[current.seccion]) ?? negocio.nombre}
             </p>
           </div>
 
@@ -283,9 +281,9 @@ export function PortalShell({
                 name="next"
                 value={(!negocio.botActivo).toString()}
               />
-              <button type="submit" title="Pausar / activar el asistente">
+              <button type="submit" title={tx.pausarActivar}>
                 <Pill tone={negocio.botActivo ? "success" : "warn"} dot>
-                  {negocio.botActivo ? "Asistente activo" : "Asistente en pausa"}
+                  {negocio.botActivo ? tx.asistenteActivo : tx.asistenteEnPausa}
                 </Pill>
               </button>
             </form>
@@ -307,7 +305,7 @@ export function PortalShell({
 
       {/* ── Tab bar móvil ── */}
       <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface md:hidden">
-        {mobileTabs.map(({ href, label, Icon }) => (
+        {mobileTabs.map(({ href, label, Icon, seccion }) => (
           <Link
             key={href}
             href={href}
@@ -316,7 +314,7 @@ export function PortalShell({
             }`}
           >
             <Icon className="h-5 w-5" />
-            <span className="max-w-full truncate px-0.5">{ETIQUETA_CORTA[label] ?? label}</span>
+            <span className="max-w-full truncate px-0.5">{ETIQUETA_CORTA[seccion] ?? label}</span>
           </Link>
         ))}
       </nav>
