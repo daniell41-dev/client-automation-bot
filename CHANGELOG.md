@@ -9,6 +9,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ### Nuevo
 - Planes Plus, Pro y Premium (T-127): cada negocio tiene su plan en una columna propia (migración `0032_planes.sql`), que solo el admin puede cambiar desde el back office; todos empiezan en Plus. Todavía no limitan ninguna función: queda la base para asignarlas (`src/core/planes.ts`).
 
+### Arreglos
+- Configuración (T-128): se esconde la tarjeta "Pagos con Wompi" mientras no se use. Las llaves guardadas no se borran y se puede volver a mostrar cambiando `MOSTRAR_WOMPI` en `src/config/portal-scope.ts`.
+
 ## [1.9.0] — 2026-11-26
 
 ### Nuevo
