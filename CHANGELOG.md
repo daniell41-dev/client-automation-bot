@@ -6,6 +6,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Arreglos
+- Configuración (T-128): se esconde la tarjeta "Pagos con Wompi" mientras no se use. Las llaves guardadas no se borran y se puede volver a mostrar cambiando `MOSTRAR_WOMPI` en `src/config/portal-scope.ts`.
+
 ## [1.9.0] — 2026-11-26
 
 ### Nuevo

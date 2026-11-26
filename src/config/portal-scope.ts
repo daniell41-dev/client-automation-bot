@@ -26,3 +26,11 @@ export const PORTAL_SECCIONES_OCULTAS: readonly PortalSeccion[] = ["respuestas",
 export function seccionVisible(seccion: PortalSeccion): boolean {
   return !PORTAL_SECCIONES_OCULTAS.includes(seccion);
 }
+
+/**
+ * T-128: la tarjeta "Pagos con Wompi" de Configuración se esconde mientras
+ * Wompi no se use (ningún negocio cobra con él todavía y confundía a la
+ * dueña). El código, la acción de guardar las llaves y el webhook siguen en
+ * el repo: para volver a mostrarla basta con poner `true` acá.
+ */
+export const MOSTRAR_WOMPI = false;
