@@ -7,6 +7,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Nuevo
+- Textos de pantalla en un solo archivo (T-130): `src/textos/es.json` reúne los textos del menú del portal y de Configuración (las demás pantallas se pasan en las próximas tareas). Lo que se ve no cambia, salvo el grupo del menú "Gestión del bot", que ahora dice "Gestión del asistente".
 - Planes Plus, Pro y Premium (T-127): cada negocio tiene su plan en una columna propia (migración `0032_planes.sql`), que solo el admin puede cambiar desde el back office; todos empiezan en Plus. Todavía no limitan ninguna función: queda la base para asignarlas (`src/core/planes.ts`).
 
 ### Arreglos
