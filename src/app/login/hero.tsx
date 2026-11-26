@@ -20,8 +20,13 @@ const tt = textos.login.portada;
 
 type Burbuja = { de: "cliente" | "bot"; texto: string; hora: string };
 
-// El JSON no sabe que `de` es "cliente" | "bot": el cast lo fija acá, donde se usa.
-const CHAT = tt.chat as Burbuja[];
+// En el JSON van solo los mensajes; quién habla y la hora son datos de la maqueta.
+const CHAT: Burbuja[] = [
+  { de: "cliente", texto: tt.chat[0], hora: "12:01" },
+  { de: "bot", texto: tt.chat[1], hora: "12:01" },
+  { de: "cliente", texto: tt.chat[2], hora: "12:02" },
+  { de: "bot", texto: tt.chat[3], hora: "12:04" },
+];
 
 const BENEFICIOS = [
   { icono: Clock3, ...tt.beneficios.atiende },

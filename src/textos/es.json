@@ -924,26 +924,10 @@
       "t33000ToqueAprobar": "$33.000 · Toque Aprobar",
       "pagoVerificado": "Pago verificado",
       "chat": [
-        {
-          "de": "cliente",
-          "texto": "Hola! Me das una bandeja paisa a domicilio?",
-          "hora": "12:01"
-        },
-        {
-          "de": "bot",
-          "texto": "¡Claro! 🍽️\n1x Bandeja paisa — $28.000\nDomicilio — $5.000\nTotal: $33.000\n¿Confirma su pedido?",
-          "hora": "12:01"
-        },
-        {
-          "de": "cliente",
-          "texto": "Sí 🙌 ya le mando el comprobante",
-          "hora": "12:02"
-        },
-        {
-          "de": "bot",
-          "texto": "Pedido #12 confirmado ✅\nCódigo de retiro: 4821",
-          "hora": "12:04"
-        }
+        "Hola! Me das una bandeja paisa a domicilio?",
+        "¡Claro! 🍽️\n1x Bandeja paisa — $28.000\nDomicilio — $5.000\nTotal: $33.000\n¿Confirma su pedido?",
+        "Sí 🙌 ya le mando el comprobante",
+        "Pedido #12 confirmado ✅\nCódigo de retiro: 4821"
       ],
       "beneficios": {
         "atiende": {
