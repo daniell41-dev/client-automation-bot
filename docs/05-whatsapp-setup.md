@@ -381,3 +381,23 @@ usando esto":
 - [ ] Mensaje de prueba crea lead y recibe respuesta
 - [ ] Plantilla `aviso_pedido_aprobacion` aprobada en Meta y su nombre en
       `WHATSAPP_TEMPLATE_APROBACION` (§7)
+
+## 8. Resumen del día a la dueña (opcional)
+
+Al cierre de su horario (o a las 9 p. m. si no tiene horarios) la dueña puede
+recibir por WhatsApp cuánto vendió hoy, lo más pedido y lo que espera su
+respuesta. Se enciende en **Configuración → Notificaciones → Resumen del día
+por WhatsApp**. Lo manda el mismo cron de cada 15 minutos de los seguimientos
+(`/api/cron/seguimientos`); no hay que agregar otro.
+
+Como es un mensaje que inicia el negocio, fuera de la ventana de 24 h Meta solo
+lo entrega como **plantilla aprobada**:
+
+- **Nombre**: `resumen_diario` (el mismo que pongas en `WHATSAPP_TEMPLATE_RESUMEN`)
+- **Categoría**: Utilidad · **Idioma**: Español
+- **Cuerpo**: `Hola, este es su cierre del día en Aurela: {{1}} Gracias por vender con nosotros.` (un solo parámetro, en medio del texto: Meta no aprueba plantillas que empiezan o terminan con un parámetro; el resumen va en una línea, separado por « · »)
+
+Sin la variable, va como texto libre y solo llega si la dueña le escribió al
+número del negocio en las últimas 24 horas. Necesita la migración
+`0028_resumenes_diarios.sql` (evita mandar el mismo resumen varias veces).
+

@@ -7,6 +7,8 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Nuevo
+- Ventas del día y resumen al cierre (T-151): el Inicio y el Resumen de cada negocio muestran «Vendido hoy» contando solo los pedidos aprobados, listos o entregados (antes sumaba también los que esperaban respuesta), con lo más pedido y cuántos faltan por aprobar. Si la dueña lo enciende en Configuración → Notificaciones, al cierre de su horario le llega por WhatsApp el resumen del día (una vez por día, nunca en días sin pedidos). Requiere la migración `0028_resumenes_diarios.sql`; con la plantilla `WHATSAPP_TEMPLATE_RESUMEN` llega aunque no haya escrito en 24 h.
+- El «hoy» del portal ahora es el día de Colombia: antes empezaba a las 7 p. m. del día anterior (hora del servidor).
 - Menú con muchos productos (T-150): la lista tiene su propio scroll (barra en el morado de Aurela) y el editor queda siempre debajo, a la vista; al tocar un producto la página baja sola hasta él. Cada fila muestra la referencia ("B536 · Overol Mono · $143.000"), el buscador también encuentra por referencia y arriba se ve cuántos productos hay.
 
 ## [1.8.1] — 2026-11-26

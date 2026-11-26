@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
 import { procesarSeguimientos } from "@/core/engine/seguimientos";
+import { procesarResumenDiario, type PedidoVenta } from "@/core/engine/ventas-del-dia";
 import { createSupabaseDb } from "@/core/storage/adapters/supabase/api";
 import {
   createLeadRepository,
@@ -93,5 +94,45 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json({ ok: true, negocios, enviados });
+  // Resumen del día a la dueña: el mismo cron de cada 15 minutos (así no hay
+  // que agregar otro en el VPS). Qué y cuándo lo decide
+  // `core/engine/ventas-del-dia.ts`; aquí solo la base y el canal.
+  let resumenes = 0;
+  const plantillaResumen = process.env.WHATSAPP_TEMPLATE_RESUMEN;
+  for (const fila of await db.listNegociosConWhatsapp()) {
+    const config = parseBusinessConfig(fila.config);
+    if (!config?.resumenDiario?.activo || !fila.whatsapp_phone_number_id || !fila.id) continue;
+    const negocioId = fila.id;
+    const phoneNumberId = fila.whatsapp_phone_number_id;
+    try {
+      const salio = await procesarResumenDiario(config, ahora, {
+        reclamar: (fecha) => db.reclamarResumenDiario(negocioId, fecha),
+        // `items` es jsonb (unknown en el tipo de la fila); ventasDelDia lo lee con cuidado.
+        pedidosDesde: async (desde) => (await db.selectPedidosDesde(negocioId, desde.toISOString())) as unknown as PedidoVenta[],
+        enviar: async (texto) => {
+          // Con plantilla aprobada (WHATSAPP_TEMPLATE_RESUMEN) llega siempre;
+          // sin ella, solo si la dueña le escribió al número en las últimas 24 h.
+          await new WhatsAppChannel({
+            phoneNumberId,
+            accessToken,
+            medidor: { negocio: negocioId, repo: usoWhatsapp },
+            ...(plantillaResumen && {
+              plantilla: { nombre: plantillaResumen, idioma: process.env.WHATSAPP_TEMPLATE_IDIOMA ?? "es" },
+              forzarPlantilla: true,
+            }),
+          }).send({
+            to: config.notifyPhoneNumber!,
+            text: texto,
+            // Los parámetros de plantilla no admiten saltos de línea.
+            plantillaParams: [texto.replace(/\n+/g, " · ")],
+          });
+        },
+      });
+      if (salio) resumenes++;
+    } catch (err) {
+      console.error(`[Resumen] falló el negocio ${config.slug}:`, err);
+    }
+  }
+
+  return NextResponse.json({ ok: true, negocios, enviados, resumenes });
 }
