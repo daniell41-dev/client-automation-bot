@@ -1013,6 +1013,226 @@
     "demoChat": "Demo del chat",
     "noEncontrada": "Página no encontrada"
   },
+  "landing": {
+    "botonWhatsapp": {
+      "porWhatsapp": " por WhatsApp"
+    },
+    "chat": {
+      "comprobante": "Comprobante"
+    },
+    "cierre": {
+      "quiereVerloFuncionandoCon": "¿Quiere verlo funcionando con su negocio?",
+      "leResponde": "Le responde "
+    },
+    "comanda": {
+      "llegaUnaNotaDe": "Llega una nota de voz",
+      "totalConfirmado45000": "Total confirmado: $45.000",
+      "pagoVerificado45000": "Pago verificado: $45.000",
+      "pedidoAprobadoPorUsted": "Pedido aprobado por usted"
+    },
+    "comoFunciona": {
+      "suClienteEscribeO": "Su cliente escribe o manda una nota de voz.",
+      "aurelaArmaElPedido": "Aurela arma el pedido con sus precios y el cliente confirma el total.",
+      "suPedido2xHamburguesa": "Su pedido:\n2x Hamburguesa sencilla $36.000\n1x Gaseosa $4.000\nDomicilio $5.000\nTotal: $45.000\n¿Confirma su pedido?",
+      "confirmo": "Confirmo",
+      "aurelaRevisaElComprobante": "Aurela revisa el comprobante: monto, cuenta, referencia y fecha. Si algo no cuadra, le avisa.",
+      "pagoVerificado45000": "Pago verificado: $45.000, igual al pedido.",
+      "ustedApruebaConUn": "Usted aprueba con un botón y el cliente recibe su número de pedido.",
+      "aprobar": "Aprobar",
+      "pedido": "Pedido ",
+      "aprobado": " aprobado",
+      "asiFunciona": "Así funciona"
+    },
+    "comprobante": {
+      "monto": "Monto",
+      "montoEsElTotal": "Monto: ¿es el total del pedido?",
+      "destino": "Destino",
+      "cuentaLlegoALa": "Cuenta: ¿llegó a la de su negocio?",
+      "referencia": "Referencia",
+      "referenciaYaSeLa": "Referencia: ¿ya se la habían mandado?",
+      "fecha": "Fecha",
+      "fechaEsDeHoy": "Fecha: ¿es de hoy?",
+      "hace12Dias": "Hace 12 días",
+      "leAvisamosAntesDe": "Le avisamos antes de que despache un pedido mal pagado.",
+      "aurelaLeeCadaComprobante": "Aurela lee cada comprobante que le mandan y le avisa si algo no cuadra. La decisión siempre es suya.",
+      "revisando": "Revisando…",
+      "transferenciaExitosa": "Transferencia exitosa",
+      "ejemplo": "Ejemplo",
+      "revisado": "Revisado"
+    },
+    "control": {
+      "ningunPedidoPasaSin": "Ningún pedido pasa sin resumen: el cliente ve el total y confirma.",
+      "ningunPedidoSeDespacha": "Ningún pedido se despacha sin su aprobación.",
+      "veTodasLasConversaciones": "Ve todas las conversaciones desde el celular y puede pausar el asistente.",
+      "noInventaPreciosNi": "No inventa precios ni cuentas de pago.",
+      "ustedTieneElControl": "Usted tiene el control"
+    },
+    "encabezado": {
+      "aurelaInicio": "Aurela, inicio",
+      "verLaDemo": "Ver la demo",
+      "entrar": "Entrar"
+    },
+    "hero": {
+      "suWhatsappTomaPedidos": "Su WhatsApp toma pedidos aunque usted esté en la cocina.",
+      "aurelaRespondeASus": "Aurela responde a sus clientes a cualquier hora, arma el pedido con el total, revisa el comprobante de pago y usted aprueba con un botón. Se lo instalamos aquí en Cúcuta.",
+      "instalacionGratis": "Instalación gratis",
+      "t14DiasDePrueba": "14 días de prueba",
+      "sinPermanencia": "Sin permanencia",
+      "pruebeLaDemo": "Pruebe la demo",
+      "videoDeUnPedido": "Video de un pedido por WhatsApp atendido por Aurela"
+    },
+    "instalacion": {
+      "comoEsLaInstalacion": "Cómo es la instalación",
+      "pasos": [
+        "Usted nos pasa su menú o servicios, precios y horarios.",
+        "Nosotros cargamos todo y conectamos el WhatsApp del negocio.",
+        "Hacemos un pedido de prueba juntos y le enseñamos a aprobar."
+      ]
+    },
+    "negociosPestanas": {
+      "tiposDeNegocio": "Tipos de negocio"
+    },
+    "negocios": {
+      "restaurantes": "Restaurantes",
+      "restaurantesYComidas": "Restaurantes y comidas",
+      "pedidosADomicilioO": "Pedidos a domicilio o para recoger, con código de retiro.",
+      "buenas2Hamburguesas": "Buenas, 2 hamburguesas",
+      "hamburguesaSencillaCarneQueso": "Hamburguesa sencilla: Carne, queso y papas. — $ 18.000.\n\n¡Con gusto! ¿A nombre de quién va el pedido?",
+      "laura": "Laura",
+      "cuantasUnidadesDeHamburguesa": "¿Cuántas unidades de Hamburguesa sencilla quiere, Laura?",
+      "t2xHamburguesaSencilla36": "2x Hamburguesa sencilla — $ 36.000\nTotal: $ 36.000\n\n¿Quiere agregar algo más a su pedido?",
+      "barberiasYEstetica": "Barberías y estética",
+      "barberiasSalonesYEstetica": "Barberías, salones y estética",
+      "citasAgendadasMientrasUsted": "Citas agendadas mientras usted atiende.",
+      "tieneTurnoHoyA": "¿Tiene turno hoy a las 5?",
+      "holaGraciasPorEscribirnos": "¡Hola! Gracias por escribirnos ✂️ ¿Qué servicio le interesa?",
+      "corteCaballero": "Corte caballero",
+      "corteCaballeroCorteCon": "Corte caballero: Corte con máquina y tijera.\nDuración: 30 minutos.\nPrecio: $ 20.000.\n\n¡Perfecto! ¿Cuál es su nombre? 😊",
+      "andres": "Andrés",
+      "leConfirmoSuCita": "¿Le confirmo su cita de Corte caballero para hoy a las 5, Andrés?",
+      "siConfirmar": "Sí, confirmar",
+      "listoAndresSuCita": "¡Listo Andrés! ✨ Su cita de Corte caballero para hoy a las 5 quedó agendada. Lo esperamos.",
+      "tiendas": "Tiendas",
+      "pedidosConInventarioNo": "Pedidos con inventario: no vende lo que ya no tiene.",
+      "tienenCargadorTipoC": "¿Tienen cargador tipo C?",
+      "cargadorTipoCCargador": "Cargador tipo C: Cargador rápido USB tipo C. — $ 25.000.\n\n¡Con gusto! ¿A nombre de quién va el pedido?",
+      "cuantasUnidadesDeCargador": "¿Cuántas unidades de Cargador tipo C quiere, Laura?",
+      "paraQueNegocios": "Para qué negocios",
+      "respuestasRapidas": {
+        "restaurante": [
+          "No, eso es todo"
+        ],
+        "barberiaServicios": [
+          "Corte dama",
+          "Corte caballero",
+          "Tinte"
+        ],
+        "barberiaConfirmar": [
+          "Sí, confirmar",
+          "Cambiar fecha"
+        ]
+      }
+    },
+    "perdidas": {
+      "todaviaTienenDomicilio": "¿Todavía tienen domicilio?",
+      "hola": "¿Hola?",
+      "yaPediEnOtro": "Ya pedí en otro lado.",
+      "elClienteQueEscribio": "El cliente que escribió de noche y le compró a otro.",
+      "elTotalMalSumado": "El total mal sumado en plena hora pico.",
+      "elComprobanteQueYa": "El comprobante que ya le habían mandado antes.",
+      "loQueSePierde": "Lo que se pierde cuando nadie responde",
+      "mensajesDeUnCliente": "Mensajes de un cliente sin responder",
+      "vistoPorUltimaVez": "Visto por última vez: nadie."
+    },
+    "pie": {
+      "aurelaCucutaColombia": " Aurela · Cúcuta, Colombia",
+      "privacidad": "Privacidad",
+      "terminos": "Términos",
+      "eliminarMisDatos": "Eliminar mis datos",
+      "entrarAlPortal": "Entrar al portal",
+      "instagram": "Instagram"
+    },
+    "precio": {
+      "instalacionGratisEnSu": "Instalación gratis en su negocio",
+      "t14DiasDePrueba": "14 días de prueba",
+      "sinPermanencia": "Sin permanencia",
+      "t0Meses": "0 meses",
+      "pedidosConTotalConfirmado": "Pedidos con total confirmado",
+      "revisionDeComprobantes": "Revisión de comprobantes",
+      "pedidosPorNotaDe": "Pedidos por nota de voz",
+      "citas": "Citas",
+      "panelDePedidosEn": "Panel de pedidos en el celular",
+      "soportePorWhatsapp": "Soporte por WhatsApp",
+      "siEnLos14": "Si en los 14 días no le sirve, lo desinstalamos y no paga nada.",
+      "instalamosPocosNegociosAl": "Instalamos pocos negocios al mes porque lo hacemos en persona. Pregúntenos por los cupos.",
+      "preguntarPorLosCupos": "Preguntar por los cupos",
+      "suCuenta": "Su cuenta",
+      "desde": "Desde",
+      "alMes": "al mes",
+      "incluye": "Incluye"
+    },
+    "preguntas": {
+      "necesitoCambiarDeNumero": "¿Necesito cambiar de número?",
+      "noTieneQueComprar": "No tiene que comprar nada. Puede usar una línea nueva o la del negocio; lo único es que ese número queda dedicado a atender a sus clientes desde Aurela y ya no se usa en la app de WhatsApp del celular. En la visita le explicamos las dos opciones y elegimos juntos la que mejor le quede.",
+      "quePasaConLos": "¿Qué pasa con los datos de mis clientes?",
+      "losTratamosSegunLa": "Los tratamos según la Ley 1581 de 2012. Puede leer nuestra",
+      "politicaDePrivacidad": "política de privacidad",
+      "puedoResponderYoCuando": "¿Puedo responder yo cuando quiera?",
+      "claroUstedVeTodas": "Claro. Usted ve todas las conversaciones desde el celular y, cuando quiera atender personalmente, pausa las respuestas automáticas y escribe usted.",
+      "funcionaConNequiY": "¿Funciona con Nequi y transferencias?",
+      "siAurelaLeEnvia": "Sí. Aurela le envía al cliente sus datos de pago y revisa el comprobante que le mandan.",
+      "cuantoTardaLaInstalacion": "¿Cuánto tarda la instalación?",
+      "siYaTieneListo": "Si ya tiene listo su menú con precios y el número que va a usar, en unos 30 minutos lo dejamos funcionando. Si le falta algo, lo preparamos con usted sin afán.",
+      "preguntasFrecuentes": "Preguntas frecuentes"
+    },
+    "responsable": {
+      "visitaParaInstalarlo": "visita para instalarlo",
+      "diasDePrueba": "días de prueba",
+      "contratosDePermanencia": "contratos de permanencia",
+      "detrasDeAurelaHay": "Detrás de Aurela hay una persona de Cúcuta.",
+      "voyASuNegocio": ". Voy a su negocio, lo instalo con usted y le dejo mi WhatsApp para lo que necesite.",
+      "fotoDe": "Foto de {nombre}"
+    },
+    "telefonoAnimado": {
+      "domicilio": "Domicilio",
+      "ejemploDeUnPedido": "Ejemplo de un pedido por WhatsApp a las 10:47 p. m.: el cliente manda una nota de voz, Aurela responde con el resumen y el total de $45.000, el cliente confirma y envía el comprobante por $45.000, Aurela verifica el pago, a la dueña le llega el pedido #128 para aprobar con un botón y el cliente recibe su código de retiro.",
+      "s": "S",
+      "suNegocio": "Su negocio",
+      "enLinea": "en línea",
+      "escribiendo": "escribiendo…",
+      "t1047PM": "10:47 p. m.",
+      "hoy": "HOY",
+      "suPedido2xHamburguesa": "Su pedido:\n2x Hamburguesa sencilla $36.000\n1x Gaseosa $4.000\nDomicilio $5.000\nTotal: $45.000\n¿Confirma su pedido?",
+      "confirmo": "Confirmo",
+      "pagoVerificado": "Pago verificado:",
+      "igualAlPedido": ", igual al pedido.",
+      "escribaUnMensaje": "Escriba un mensaje…",
+      "paraUsted": "Para usted",
+      "pedido": "Pedido ",
+      "pagoVerificado2": " · Pago verificado",
+      "aprobar": "Aprobar",
+      "rechazar": "Rechazar"
+    },
+    "testimonios": {
+      "testimonios": "Testimonios"
+    },
+    "pagina": {
+      "aurelaPedidosCitasY": "Aurela · Pedidos, citas y pagos por WhatsApp en Cúcuta"
+    },
+    "imagenCompartir": {
+      "aurela": "Aurela",
+      "desde": "Desde",
+      "alMesInstalacionGratis": "al mes · Instalación gratis",
+      "pedidosCitasYRevision": "Pedidos, citas y revisión de pagos por WhatsApp",
+      "alt": "Aurela: {titulo}"
+    }
+  },
+  "sitio": {
+    "nombre": "Aurela",
+    "titulo": "Aurela — Su negocio vende por WhatsApp las 24 horas",
+    "plantillaTitulo": "%s · Aurela",
+    "descripcion": "Aurela responde el WhatsApp de su negocio, arma el pedido con el total, revisa el comprobante y le avisa para aprobar."
+  },
   "legal": {
     "privacidad": {
       "politicaDePrivacidad": "Política de privacidad",

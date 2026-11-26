@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { ToastProvider } from "@/components/toast";
+import { textos } from "@/textos";
 import "./globals.css";
 
 // Tipografía del design system "Aurela": Plus Jakarta Sans para UI,
@@ -32,21 +33,20 @@ const sora = localFont({
  */
 const SITIO = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "http://localhost:3000";
 
-const DESCRIPCION =
-  "Aurela responde el WhatsApp de su negocio, arma el pedido con el total, revisa el comprobante y le avisa para aprobar.";
+const DESCRIPCION = textos.sitio.descripcion;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITIO),
   // "Pedidos · Aurela": la dueña suele tener varias pestañas abiertas, y el
   // nombre de la sección es lo que la ayuda a encontrar la que busca.
-  title: { default: "Aurela — Su negocio vende por WhatsApp las 24 horas", template: "%s · Aurela" },
+  title: { default: textos.sitio.titulo, template: textos.sitio.plantillaTitulo },
   description: DESCRIPCION,
-  applicationName: "Aurela",
+  applicationName: textos.sitio.nombre,
   openGraph: {
     type: "website",
     locale: "es_CO",
-    siteName: "Aurela",
-    title: "Aurela — Su negocio vende por WhatsApp las 24 horas",
+    siteName: textos.sitio.nombre,
+    title: textos.sitio.titulo,
     description: DESCRIPCION,
   },
   twitter: { card: "summary_large_image" },

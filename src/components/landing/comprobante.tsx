@@ -29,6 +29,10 @@
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { BotonWhatsApp } from "@/components/landing/boton-whatsapp";
 import { Seccion } from "@/components/landing/seccion";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.comprobante). */
+const tt = textos.landing.comprobante;
 
 /** Hace 12 días, a la hora del negocio. La página se genera al compilar: con el tiempo queda aún más vieja, que es justo el punto. */
 function fechaDeHace12Dias(): string {
@@ -42,45 +46,43 @@ function fechaDeHace12Dias(): string {
  */
 const FILAS = [
   {
-    etiqueta: "Monto",
+    etiqueta: tt.monto,
     // El mismo total del pedido #128 del hero: el monto pasa y lo que falla es la fecha.
     valor: () => "$45.000",
     grande: true,
-    anotacion: "Monto: ¿es el total del pedido?",
+    anotacion: tt.montoEsElTotal,
     filaDato: "row-start-3 lg:row-start-2",
     filaAnotacion: "row-start-2 lg:row-start-2",
   },
   {
-    etiqueta: "Destino",
+    etiqueta: tt.destino,
     valor: () => "300 000 0000",
-    anotacion: "Cuenta: ¿llegó a la de su negocio?",
+    anotacion: tt.cuentaLlegoALa,
     filaDato: "row-start-5 lg:row-start-3",
     filaAnotacion: "row-start-4 lg:row-start-3",
   },
   {
-    etiqueta: "Referencia",
+    etiqueta: tt.referencia,
     valor: () => "M4471902",
-    anotacion: "Referencia: ¿ya se la habían mandado?",
+    anotacion: tt.referenciaYaSeLa,
     filaDato: "row-start-7 lg:row-start-4",
     filaAnotacion: "row-start-6 lg:row-start-4",
   },
   {
-    etiqueta: "Fecha",
+    etiqueta: tt.fecha,
     valor: () => `${fechaDeHace12Dias()} · 7:15 p. m.`,
-    anotacion: "Fecha: ¿es de hoy?",
+    anotacion: tt.fechaEsDeHoy,
     filaDato: "row-start-9 lg:row-start-5",
     // La única que no pasa: un comprobante de hace 12 días no es el de hoy.
-    alerta: "Hace 12 días",
+    alerta: tt.hace12Dias,
     filaAnotacion: "row-start-8 lg:row-start-5",
   },
 ];
 
 export function Comprobante() {
   return (
-    <Seccion id="comprobante" titulo="Le avisamos antes de que despache un pedido mal pagado." oscura>
-      <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-white/75 sm:text-[17px]">
-        Aurela lee cada comprobante que le mandan y le avisa si algo no cuadra. La decisión siempre es suya.
-      </p>
+    <Seccion id="comprobante" titulo={tt.leAvisamosAntesDe} oscura>
+      <p className="mt-4 max-w-2xl text-[16px] leading-relaxed text-white/75 sm:text-[17px]">{tt.aurelaLeeCadaComprobante}</p>
 
       <div className="escaneo-alcance mt-10 grid grid-cols-1 grid-rows-[repeat(10,auto)] lg:grid-cols-[340px_64px_minmax(0,1fr)] lg:grid-rows-[repeat(6,auto)]">
         {/* Fondo de la tarjeta, con el único borde con brillo azul de la página. */}
@@ -106,19 +108,15 @@ export function Comprobante() {
           <div className="escaneo-linea absolute inset-0">
             <span className="absolute inset-x-0 bottom-full h-16 bg-gradient-to-b from-transparent to-primary-light/15" />
             <span className="absolute inset-x-5 top-0 h-[3px] -translate-y-1/2 rounded-full bg-primary-light/80 shadow-[0_0_14px_3px_rgba(168,93,179,0.45)]" />
-            <span className="absolute right-5 top-0 -translate-y-1/2 rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold text-white shadow-card">
-              Revisando…
-            </span>
+            <span className="absolute right-5 top-0 -translate-y-1/2 rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold text-white shadow-card">{tt.revisando}</span>
           </div>
         </div>
 
         {/* Encabezado tipo captura de transferencia: sin logos ni nombres de bancos. */}
         <div className="relative z-[1] col-start-1 row-start-1 flex items-center justify-between gap-3 border-b border-line px-5 pb-4 pt-5">
           <span className="flex items-center gap-2 text-[14px] font-bold text-ink">
-            <CheckCircle2 className="h-5 w-5 text-success" aria-hidden />
-            Transferencia exitosa
-          </span>
-          <span className="rounded-md bg-surface-2 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-ink-mid">Ejemplo</span>
+            <CheckCircle2 className="h-5 w-5 text-success" aria-hidden />{tt.transferenciaExitosa}</span>
+          <span className="rounded-md bg-surface-2 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-ink-mid">{tt.ejemplo}</span>
         </div>
 
         {FILAS.map((f, i) => (
@@ -133,7 +131,7 @@ export function Comprobante() {
                     {f.alerta}
                   </span>
                 ) : (
-                  <CheckCircle2 className={`escaneo-marca escaneo-marca-${i + 1} h-5 w-5 shrink-0 text-success`} aria-label="Revisado" />
+                  <CheckCircle2 className={`escaneo-marca escaneo-marca-${i + 1} h-5 w-5 shrink-0 text-success`} aria-label={tt.revisado} />
                 )}
               </p>
             </div>

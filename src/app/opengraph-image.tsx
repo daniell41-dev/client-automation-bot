@@ -17,8 +17,12 @@ import { join } from "node:path";
 import { ImageResponse } from "next/og";
 import { PRECIO_DESDE } from "@/app/landing-config";
 import { TITULO_HERO } from "@/components/landing/hero";
+import { formato, textos } from "@/textos";
 
-export const alt = `Aurela: ${TITULO_HERO}`;
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.imagenCompartir). */
+const tt = textos.landing.imagenCompartir;
+
+export const alt = formato(tt.alt, { titulo: TITULO_HERO });
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -67,7 +71,7 @@ export default async function Image() {
               <path d={BURBUJA} fill="#ffffff" />
             </svg>
           </div>
-          <span style={{ fontSize: 40, fontWeight: 800 }}>Aurela</span>
+          <span style={{ fontSize: 40, fontWeight: 800 }}>{tt.aurela}</span>
         </div>
 
         <div style={{ display: "flex", fontSize: 76, fontWeight: 800, lineHeight: 1.06, letterSpacing: -1.5, maxWidth: 1000 }}>
@@ -76,14 +80,12 @@ export default async function Image() {
 
         {PRECIO_DESDE ? (
           <div style={{ display: "flex", alignItems: "baseline", gap: 14, fontSize: 34, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>
-            <span>Desde</span>
+            <span>{tt.desde}</span>
             <span style={{ fontFamily: "Sora", fontSize: 52, color: "#ffffff" }}>{PRECIO_DESDE}</span>
-            <span>al mes · Instalación gratis</span>
+            <span>{tt.alMesInstalacionGratis}</span>
           </div>
         ) : (
-          <div style={{ display: "flex", fontSize: 34, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>
-            Pedidos, citas y revisión de pagos por WhatsApp
-          </div>
+          <div style={{ display: "flex", fontSize: 34, fontWeight: 700, color: "rgba(255,255,255,0.8)" }}>{tt.pedidosCitasYRevision}</div>
         )}
       </div>
     ),
