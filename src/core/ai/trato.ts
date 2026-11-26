@@ -16,4 +16,19 @@
  * ese queda prohibido siempre.
  */
 export const TRATO_AL_CLIENTE =
-  "Escríbele al cliente en español de Colombia y trátalo de usted, salvo que el tono del negocio indique otra cosa. Nunca uses voseo (vos, tenés, querés, confirmás).";
+  "Escríbele al cliente en español de Colombia y trátalo de usted, salvo que el tono del negocio indique otra cosa. Nunca uses voseo (vos, tenés, querés, confirmás). No adivines si es hombre o mujer: llámalo solo por su nombre, sin «don», «doña», «señor» ni «señora».";
+
+/**
+ * T-115b: en una prueba real la IA escribió "¡Muchas gracias, don/doña
+ * Valero!": como no sabe el género, puso las dos opciones, y se lee como un
+ * formulario. La regla del prompt lo pide, pero no se confía solo en eso
+ * (mismo criterio que los precios, T-98): las formas con barra o paréntesis
+ * se quitan del texto y queda solo el nombre. Un "Don Pedro" de verdad no se
+ * toca; solo las formas que delatan que adivinó.
+ */
+const TRATAMIENTO_ADIVINADO =
+  /\b(?:don\s*\/\s*doña|doña\s*\/\s*don|señor\s*\(a\)|señor\s*\/\s*señora|señora\s*\/\s*señor|sr\.?\s*\/\s*sra\.?|sra\.?\s*\/\s*sr\.?)(?=\s)\s*/gi;
+
+export function quitarTratamientoAdivinado(texto: string): string {
+  return texto.replace(TRATAMIENTO_ADIVINADO, "");
+}
