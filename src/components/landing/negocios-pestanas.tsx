@@ -16,6 +16,10 @@
  */
 
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.negociosPestanas). */
+const tt = textos.landing.negociosPestanas;
 
 export interface Pestana {
   id: string;
@@ -55,7 +59,7 @@ export function NegociosPestanas({ pestanas }: { pestanas: Pestana[] }) {
 
   return (
     <div className="mt-8">
-      <div role="tablist" aria-label="Tipos de negocio" className="grid grid-cols-3 border-b border-line-2 sm:flex sm:gap-1">
+      <div role="tablist" aria-label={tt.tiposDeNegocio} className="grid grid-cols-3 border-b border-line-2 sm:flex sm:gap-1">
         {pestanas.map((p, i) => {
           const seleccionada = i === activa;
           return (

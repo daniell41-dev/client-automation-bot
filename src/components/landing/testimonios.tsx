@@ -1,11 +1,15 @@
 import { TESTIMONIOS } from "@/app/landing-config";
 import { Seccion } from "@/components/landing/seccion";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.testimonios). */
+const tt = textos.landing.testimonios;
 
 /** T-80: solo aparece con testimonios reales cargados en `landing-config.ts`. Vacío = no hay sección. */
 export function Testimonios() {
   if (TESTIMONIOS.length === 0) return null;
   return (
-    <Seccion id="testimonios" titulo="Testimonios">
+    <Seccion id="testimonios" titulo={tt.testimonios}>
       <ul className="mt-8 grid gap-4 sm:grid-cols-2">
         {TESTIMONIOS.map((t) => (
           <li key={t.nombre + t.negocio} className="rounded-2xl border border-line bg-surface p-5 shadow-card">

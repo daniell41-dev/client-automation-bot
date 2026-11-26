@@ -10,6 +10,10 @@ import { BotonWhatsApp } from "@/components/landing/boton-whatsapp";
 import { responsableVisible } from "@/components/landing/responsable";
 import { Seccion } from "@/components/landing/seccion";
 import { existeEnPublic } from "@/lib/archivo-publico";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.cierre). */
+const tt = textos.landing.cierre;
 
 export function Cierre({
   responsable = RESPONSABLE,
@@ -23,9 +27,7 @@ export function Cierre({
   return (
     <Seccion id="cierre" oscura>
       <div className="mx-auto max-w-2xl text-center">
-        <h2 id="cierre-titulo" className="text-[28px] font-extrabold leading-tight text-white sm:text-[38px]">
-          ¿Quiere verlo funcionando con su negocio?
-        </h2>
+        <h2 id="cierre-titulo" className="text-[28px] font-extrabold leading-tight text-white sm:text-[38px]">{tt.quiereVerloFuncionandoCon}</h2>
         <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <BotonWhatsApp origen="cierre" className="w-full sm:w-auto" />
           {conPersona && (
@@ -36,8 +38,7 @@ export function Cierre({
                 width={96}
                 height={96}
                 className="h-12 w-12 rounded-full object-cover ring-2 ring-white/20"
-              />
-              Le responde {responsable.nombre}.
+              />{tt.leResponde}{responsable.nombre}.
             </p>
           )}
         </div>
