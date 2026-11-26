@@ -55,7 +55,6 @@ const belleza: BusinessConfig = {
   name: "Estética",
   rubro: "Belleza / Estética",
   direccion: undefined,
-  plan: undefined,
 };
 
 const peluqueria: BusinessConfig = {
