@@ -5,6 +5,10 @@ import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signIn, type LoginState } from "./actions";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (login.formulario). */
+const tt = textos.login.formulario;
 
 /**
  * Formulario de login: correo, contraseña, entrar. Nada más.
@@ -47,24 +51,20 @@ export function LoginForm() {
       <input type="hidden" name="next" value={next} />
 
       <div>
-        <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink">
-          Correo electrónico
-        </label>
+        <label htmlFor="email" className="mb-1.5 block text-sm font-semibold text-ink">{tt.correoElectronico}</label>
         <input
           id="email"
           name="email"
           type="email"
           required
           autoComplete="email"
-          placeholder="nombre@correo.com"
+          placeholder={tt.nombreCorreoCom}
           className="input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft"
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-ink">
-          Contraseña
-        </label>
+        <label htmlFor="password" className="mb-1.5 block text-sm font-semibold text-ink">{tt.contrasena}</label>
         <div className="relative">
           <input
             id="password"
@@ -78,7 +78,7 @@ export function LoginForm() {
           <button
             type="button"
             onClick={() => setVerClave((v) => !v)}
-            aria-label={verClave ? "Ocultar contraseña" : "Mostrar contraseña"}
+            aria-label={verClave ? tt.ocultarContrasena : tt.mostrarContrasena}
             className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-ink-soft transition-colors hover:text-ink"
           >
             {verClave ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -87,9 +87,7 @@ export function LoginForm() {
       </div>
 
       {linkVencido && !state.error && (
-        <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-sm text-warn-ink">
-          El link venció o ya se usó. Pida uno nuevo con &quot;¿Olvidó su contraseña?&quot;.
-        </p>
+        <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-sm text-warn-ink">{tt.elLinkVencioO}</p>
       )}
 
       {state.error && (
@@ -103,12 +101,10 @@ export function LoginForm() {
         disabled={pending}
         className="w-full rounded-[10px] bg-primary py-3 text-sm font-bold text-white shadow-[0_8px_20px_-8px_rgba(107,36,117,.7)] transition-all hover:-translate-y-px hover:bg-primary-hover disabled:translate-y-0 disabled:opacity-50"
       >
-        {pending ? "Entrando…" : "Ingresar"}
+        {pending ? tt.entrando : tt.ingresar}
       </button>
 
-      <Link href="/login/recuperar" className="block text-center text-sm font-semibold text-primary hover:underline">
-        ¿Olvidó su contraseña?
-      </Link>
+      <Link href="/login/recuperar" className="block text-center text-sm font-semibold text-primary hover:underline">{tt.olvidoSuContrasena}</Link>
     </form>
   );
 }

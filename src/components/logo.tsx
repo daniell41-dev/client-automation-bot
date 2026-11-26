@@ -1,3 +1,7 @@
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (comun.logo). */
+const tt = textos.comun.logo;
 /**
  * Logo: mark "burbuja-corona" de Aurela (dirección C del design system) + wordmark.
  * El mark va como SVG inline y no como <img> para que la burbuja tome el
@@ -50,9 +54,7 @@ export function Logo({
           className={`block font-display text-[17px] font-extrabold tracking-[-0.02em] ${
             variant === "dark" ? "text-white" : "text-ink"
           }`}
-        >
-          Aurela
-        </span>
+        >{tt.aurela}</span>
         {caption && (
           <span className="block text-[9px] font-bold uppercase tracking-[0.14em] text-ink-soft">
             {caption}

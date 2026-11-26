@@ -8,6 +8,10 @@ import { createAnonClient } from "@/lib/supabase/anon";
 import { Logo } from "@/components/logo";
 import { DemoChat } from "./demo-chat";
 import { ArrowLeft } from "lucide-react";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (demo.paginaChat). */
+const tt = textos.demo.paginaChat;
 
 export const dynamic = "force-dynamic";
 
@@ -34,17 +38,13 @@ export default async function DemoChatPage() {
             href="/demo"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-mid hover:text-ink"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Volver a la demo
-          </Link>
+            <ArrowLeft className="h-4 w-4" />{tt.volverALaDemo}</Link>
         </div>
       </header>
 
       <main className="flex flex-1 flex-col items-center px-6 py-8 fade-up">
-        <h1 className="text-[22px] font-extrabold text-ink">Pruebe el asistente</h1>
-        <p className="mb-6 mt-1 text-sm text-ink-mid">
-          Escríbale como si fuera un cliente por WhatsApp.
-        </p>
+        <h1 className="text-[22px] font-extrabold text-ink">{tt.pruebeElAsistente}</h1>
+        <p className="mb-6 mt-1 text-sm text-ink-mid">{tt.escribaleComoSiFuera}</p>
         <DemoChat businessSlug={slug} />
       </main>
     </div>
@@ -52,4 +52,4 @@ export default async function DemoChatPage() {
 }
 
 // T-71: el nombre de la pestaña ("Demo del chat · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Demo del chat" };
+export const metadata = { title: textos.titulosPestana.demoChat };
