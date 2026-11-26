@@ -143,11 +143,24 @@ export function CatalogoEditor({
     [locale, currency],
   );
 
+  // T-150: también por referencia ("B536"): con 116 jeans de nombres casi
+  // iguales, la referencia es lo que la dueña conoce.
   const visibles = services.filter(
     (s) =>
       !search.trim() ||
-      `${s.name} ${s.categoria ?? ""}`.toLowerCase().includes(search.toLowerCase()),
+      `${s.name} ${s.categoria ?? ""} ${s.referencia ?? ""}`.toLowerCase().includes(search.trim().toLowerCase()),
   );
+
+  // T-150: con muchos productos el editor queda debajo de la lista; al elegir
+  // uno, la página baja sola hasta él (sin animación si la persona la desactivó).
+  const editorRef = useRef<HTMLDivElement>(null);
+  const elegir = (id: string) => {
+    setSelectedId(id);
+    requestAnimationFrame(() => {
+      const sinMovimiento = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      editorRef.current?.scrollIntoView({ behavior: sinMovimiento ? "auto" : "smooth", block: "start" });
+    });
+  };
   const selected = services.find((s) => s.id === selectedId) ?? null;
   // T-124: el detalle en edición, solo si es de ESTE producto.
   const enEdicion = editando && selected && editando.serviceId === selected.id ? editando.nombre : null;
@@ -230,6 +243,15 @@ export function CatalogoEditor({
           </Link>
         </div>
 
+        {/* T-150: cuántos hay (y cuántos coinciden con la búsqueda). */}
+        {services.length > 0 && (
+          <p className="text-xs font-semibold text-ink-mid" aria-live="polite">
+            {search.trim()
+              ? `${visibles.length} de ${services.length} ${services.length === 1 ? "producto" : "productos"}`
+              : `${services.length} ${services.length === 1 ? "producto" : "productos"}`}
+          </p>
+        )}
+
         {/* Lista de ítems */}
         {visibles.length === 0 ? (
           <EmptyState
@@ -237,7 +259,9 @@ export function CatalogoEditor({
             subtitle={search ? undefined : `Agregue su primer ${itemLabel.toLowerCase()}.`}
           />
         ) : (
-          <div className="space-y-2">
+          // T-150: la lista tiene su propio scroll (alto máximo de una pantalla)
+          // para que el editor quede siempre cerca, haya 5 o 500 productos.
+          <div className="scroll-aurela max-h-[min(62vh,560px)] space-y-2 overflow-y-auto pr-1">
             {visibles.map((s) => (
               // T-73: la fila era un <button> con el interruptor (otro <button>)
               // adentro: HTML inválido que rompía la hidratación y confundía a los
@@ -253,7 +277,7 @@ export function CatalogoEditor({
               >
                 <button
                   type="button"
-                  onClick={() => setSelectedId(s.id)}
+                  onClick={() => elegir(s.id)}
                   aria-pressed={s.id === selectedId}
                   className="flex min-w-0 flex-1 items-center gap-3 text-left"
                 >
@@ -267,7 +291,7 @@ export function CatalogoEditor({
                     {s.name || "(sin nombre)"}
                   </span>
                   <span className="block text-[13px] text-ink-soft">
-                    {[s.categoria, precio.format(s.price)].filter(Boolean).join(" · ")}
+                    {[s.referencia, s.categoria, precio.format(s.price)].filter(Boolean).join(" · ")}
                   </span>
                 </span>
                 </button>
@@ -283,6 +307,7 @@ export function CatalogoEditor({
 
         {/* Editar producto */}
         {selected && (
+          <div ref={editorRef} className="scroll-mt-4">
           <Card
             title={`Editar ${itemLabel.toLowerCase()}`}
             action={
@@ -558,6 +583,7 @@ export function CatalogoEditor({
               </p>
             </div>
           </Card>
+          </div>
         )}
 
         {/* Guardar */}
