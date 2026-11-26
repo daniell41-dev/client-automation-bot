@@ -15,6 +15,7 @@ import { redirect } from "next/navigation";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseBusinessConfig } from "@/core/config-schema";
+import { planDe } from "@/core/planes";
 import { plantilla } from "@/businesses/_template/config";
 import { invalidateBusinessCache } from "@/businesses/business-cache";
 import { actualizarNegocioSchema, crearNegocioSchema } from "@/app/backoffice/negocio-schema";
@@ -55,6 +56,16 @@ async function asegurarAsignacion(
 
 // ── Negocios ─────────────────────────────────────────────────────────────────
 
+/**
+ * T-127: si la base todavía no tiene la columna `plan` (migración 0032 sin
+ * aplicar), Postgres/PostgREST responden con un error de columna inexistente
+ * que no le dice nada al admin. Se traduce a qué hacer.
+ */
+function errorDePlan(error: { code?: string; message: string }): string | null {
+  const sinColumna = error.code === "42703" || error.code === "PGRST204" || /column .*plan/i.test(error.message);
+  return sinColumna ? "Falta aplicar la migración 0032 (planes) en Supabase." : null;
+}
+
 export async function crearNegocio(
   _prev: ActionState,
   formData: FormData,
@@ -68,7 +79,7 @@ export async function crearNegocio(
     owner_id: String(formData.get("owner_id") ?? ""),
     rubro_id: String(formData.get("rubro_id") ?? ""),
     whatsapp_phone_number_id: String(formData.get("whatsapp_phone_number_id") ?? "").trim(),
-    plan: String(formData.get("plan") ?? "free") === "pro" ? "pro" : "free",
+    plan: planDe(formData.get("plan")),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
@@ -95,7 +106,7 @@ export async function crearNegocio(
   }
 
   // Nace Pausado: el admin lo activa cuando el negocio esté listo para atender.
-  const config: BusinessConfig = { ...template, slug, name: nombre, botActivo: false, plan };
+  const config: BusinessConfig = { ...template, slug, name: nombre, botActivo: false };
 
   const { data: negocio, error } = await supabase
     .from("negocios")
@@ -105,6 +116,8 @@ export async function crearNegocio(
       slug,
       config,
       whatsapp_phone_number_id: whatsapp || null,
+      // T-127: el plan es una columna propia (migración 0032), no va en el config.
+      plan,
     })
     .select("id")
     .single();
@@ -113,7 +126,7 @@ export async function crearNegocio(
       error:
         error.code === "23505"
           ? "Ya existe un negocio con ese slug o ese WhatsApp; elija otro."
-          : `No se pudo crear el negocio: ${error.message}`,
+          : errorDePlan(error) ?? `No se pudo crear el negocio: ${error.message}`,
     };
   }
 
@@ -148,7 +161,7 @@ export async function actualizarNegocio(
     nombre: String(formData.get("nombre") ?? "").trim(),
     owner_id: String(formData.get("owner_id") ?? ""),
     whatsapp_phone_number_id: String(formData.get("whatsapp_phone_number_id") ?? "").trim(),
-    plan: String(formData.get("plan") ?? "free") === "pro" ? "pro" : "free",
+    plan: planDe(formData.get("plan")),
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
@@ -164,7 +177,7 @@ export async function actualizarNegocio(
   const config = parseBusinessConfig(actual?.config);
   if (!actual || !config) return { error: "Negocio no encontrado o config inválida." };
 
-  const nuevaConfig: BusinessConfig = { ...config, name: nombre, plan };
+  const nuevaConfig: BusinessConfig = { ...config, name: nombre };
 
   const { error } = await supabase
     .from("negocios")
@@ -172,6 +185,7 @@ export async function actualizarNegocio(
       owner_id: ownerId,
       config: nuevaConfig,
       whatsapp_phone_number_id: whatsapp || null,
+      plan,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
@@ -180,7 +194,7 @@ export async function actualizarNegocio(
       error:
         error.code === "23505"
           ? "Ese WhatsApp ya está en uso por otro negocio."
-          : `No se pudo guardar: ${error.message}`,
+          : errorDePlan(error) ?? `No se pudo guardar: ${error.message}`,
     };
   }
 
