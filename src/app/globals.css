@@ -616,3 +616,26 @@ select.input-nexo:disabled {
     cursor: not-allowed;
   }
 }
+
+/*
+ * T-150: scroll de listas largas (catálogo con cientos de productos). Barra
+ * delgada en el morado de la marca en vez de la gris del sistema; en Firefox,
+ * `scrollbar-color`, y en Chrome/Safari/Edge, los pseudo-elementos webkit.
+ */
+.scroll-aurela {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-primary) 45%, transparent) transparent;
+}
+.scroll-aurela::-webkit-scrollbar {
+  width: 8px;
+}
+.scroll-aurela::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll-aurela::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-primary) 40%, transparent);
+  border-radius: 999px;
+}
+.scroll-aurela::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-primary) 70%, transparent);
+}
