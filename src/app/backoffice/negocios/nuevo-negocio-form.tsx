@@ -17,6 +17,10 @@ import { crearNegocioSchema } from "@/app/backoffice/negocio-schema";
 import { NOMBRE_PLAN, PLAN_POR_DEFECTO, PLANES, type PlanId } from "@/core/planes";
 import { ActionForm } from "@/components/action-form";
 import { Segmented } from "@/components/ui";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (backoffice.nuevoNegocio). */
+const tt = textos.backoffice.nuevoNegocio;
 
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
 const inputCls =
@@ -67,26 +71,26 @@ export function NuevoNegocioForm({
   };
 
   return (
-    <ActionForm action={crearNegocio} submitLabel="Crear negocio" onSubmit={handleSubmit}>
+    <ActionForm action={crearNegocio} submitLabel={tt.crearNegocio} onSubmit={handleSubmit}>
       <input type="hidden" name="plan" value={plan} />
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className={labelCls}>Nombre del negocio</label>
+          <label className={labelCls}>{tt.nombreDelNegocio}</label>
           <input
             name="nombre"
             className={`${inputCls} ${fieldErrors.nombre ? "border-warn-ink" : ""}`}
-            placeholder="Estética Bella"
+            placeholder={tt.esteticaBella}
           />
           {fieldErrors.nombre && (
             <p className="mt-1 text-xs text-warn-ink">{fieldErrors.nombre}</p>
           )}
         </div>
         <div>
-          <label className={labelCls}>Slug (identificador, kebab-case)</label>
+          <label className={labelCls}>{tt.slugIdentificadorKebabCase}</label>
           <input
             name="slug"
             className={`${inputCls} ${fieldErrors.slug ? "border-warn-ink" : ""}`}
-            placeholder="estetica-bella"
+            placeholder={tt.esteticaBella2}
           />
           {fieldErrors.slug && (
             <p className="mt-1 text-xs text-warn-ink">{fieldErrors.slug}</p>
@@ -94,20 +98,16 @@ export function NuevoNegocioForm({
         </div>
 
         <div>
-          <label className={labelCls}>Cliente dueño</label>
+          <label className={labelCls}>{tt.clienteDueno}</label>
           {clientes.length === 0 ? (
-            <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-xs text-warn-ink">
-              No hay ningún cliente todavía — invite uno en Usuarios.
-            </p>
+            <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-xs text-warn-ink">{tt.noHayNingunCliente}</p>
           ) : (
             <select
               name="owner_id"
               className={`${inputCls} ${fieldErrors.owner_id ? "border-warn-ink" : ""}`}
               defaultValue=""
             >
-              <option value="" disabled>
-                Elija un cliente…
-              </option>
+              <option value="" disabled>{tt.elijaUnCliente}</option>
               {clientes.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.email}
@@ -120,11 +120,9 @@ export function NuevoNegocioForm({
           )}
         </div>
         <div>
-          <label className={labelCls}>Rubro (plantilla base)</label>
+          <label className={labelCls}>{tt.rubroPlantillaBase}</label>
           {rubros.length === 0 ? (
-            <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-xs text-warn-ink">
-              No hay ningún rubro todavía — cree uno en Rubros.
-            </p>
+            <p className="rounded-[10px] bg-warn-bg px-3 py-2 text-xs text-warn-ink">{tt.noHayNingunRubro}</p>
           ) : (
             <select
               name="rubro_id"
@@ -145,15 +143,15 @@ export function NuevoNegocioForm({
         </div>
 
         <div>
-          <label className={labelCls}>WhatsApp (opcional)</label>
+          <label className={labelCls}>{tt.whatsappOpcional}</label>
           <input
             name="whatsapp_phone_number_id"
             className={inputCls}
-            placeholder="phone_number_id de Meta"
+            placeholder={tt.phoneNumberIdDe}
           />
         </div>
         <div>
-          <label className={labelCls}>Plan</label>
+          <label className={labelCls}>{tt.plan}</label>
           <Segmented
             options={PLANES.map((p) => ({ value: p, label: NOMBRE_PLAN[p] }))}
             value={plan}
@@ -164,9 +162,7 @@ export function NuevoNegocioForm({
 
       {rubroSeleccionado && (
         <div className="rounded-[10px] bg-primary-tint p-3">
-          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-primary">
-            Campos que hereda este negocio
-          </p>
+          <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.08em] text-primary">{tt.camposQueHeredaEste}</p>
           <div className="flex flex-wrap gap-1.5">
             {rubroSeleccionado.campos.map((campo) => (
               <span
@@ -180,9 +176,7 @@ export function NuevoNegocioForm({
         </div>
       )}
 
-      <p className="text-xs text-ink-soft">
-        El negocio nace en pausa; lo activa desde su detalle cuando esté listo.
-      </p>
+      <p className="text-xs text-ink-soft">{tt.elNegocioNaceEn}</p>
     </ActionForm>
   );
 }

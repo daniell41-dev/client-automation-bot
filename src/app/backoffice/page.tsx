@@ -3,10 +3,11 @@
  */
 
 import { redirect } from "next/navigation";
+import { textos } from "@/textos";
 
 export default function BackofficeHome() {
   redirect("/backoffice/negocios");
 }
 
 // T-71: el nombre de la pestaña ("Back office · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Back office" };
+export const metadata = { title: textos.backoffice.titulosPestana.backOffice };

@@ -8,6 +8,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ### Nuevo
 - Textos de Citas y Pedidos en `src/textos/es.json` (T-133): el editor de Citas (servicios, modalidad de entrega, horarios, reservas, vista previa) y el panel de Pedidos. Lo que se ve no cambia.
+- Textos del back office en `src/textos/es.json` (T-134): menú, negocios, usuarios, rubros, asignaciones, leads, el formulario de configuración y los títulos de pestaña. Lo que se ve no cambia.
 - Textos del Catálogo en `src/textos/es.json` (T-132): el editor del Catálogo, Importar productos y las etiquetas que cambian según el rubro (Menú/Servicios/Catálogo). Lo que se ve no cambia.
 - Textos del portal en `src/textos/es.json` (T-131): Inicio, Mis negocios, Conversaciones, Respuestas, "Le toca a usted" y los títulos de las pestañas. Lo que se ve no cambia.
 

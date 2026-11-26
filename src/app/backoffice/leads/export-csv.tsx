@@ -6,6 +6,10 @@
  */
 
 import { Download } from "lucide-react";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (backoffice.leads). */
+const tt = textos.backoffice.leads;
 
 export interface LeadCsvRow {
   negocio: string;
@@ -40,8 +44,6 @@ export function ExportCsvButton({ rows }: { rows: LeadCsvRow[] }) {
       disabled={rows.length === 0}
       className="inline-flex items-center gap-1.5 rounded-[10px] bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
     >
-      <Download className="h-4 w-4" />
-      Exportar CSV
-    </button>
+      <Download className="h-4 w-4" />{tt.exportarCsv}</button>
   );
 }
