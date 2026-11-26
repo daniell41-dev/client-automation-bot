@@ -334,7 +334,9 @@
       "misNegocios": "Mis negocios",
       "conversaciones": "Conversaciones",
       "respuestas": "Respuestas",
-      "configuracion": "Configuración"
+      "configuracion": "Configuración",
+      "catalogo": "Catálogo",
+      "importar": "Importar productos"
     },
     "pendientes": {
       "noCuadra": {
@@ -361,6 +363,156 @@
         "tarde": "Buenas tardes",
         "noche": "Buenas noches"
       }
-    }
+    },
+    "catalogo": {
+      "buscarEnElCatalogo": "Buscar en el catálogo…",
+      "agregar": "Agregar",
+      "importar": "Importar",
+      "sinResultados": "Sin resultados.",
+      "suCatalogoEstaVacio": "Su catálogo está vacío.",
+      "sinNombre": "(sin nombre)",
+      "disponible": "Disponible",
+      "nombre": "Nombre",
+      "precio": "Precio",
+      "categoria": "Categoría",
+      "duracionMinutos": "Duración (minutos)",
+      "stock": "Stock",
+      "unidadesDisponibles": "Unidades disponibles",
+      "referenciaOpcional": "Referencia (opcional)",
+      "ej102": "Ej. 102",
+      "elCodigoConEl": "El código con el que sus clientes piden el producto.",
+      "detallesDelProductoOpcional": "Detalles del producto (opcional)",
+      "siElProductoViene": "Si el producto viene en varias tallas, colores o estilos, agréguelos aquí. El asistente le pregunta al cliente cuál quiere antes de cerrar el pedido.",
+      "detalle": "Detalle",
+      "opciones": "Opciones",
+      "blancoAzulNegro": "Blanco, Azul, Negro",
+      "clasicoSkinny": "Clásico, Skinny",
+      "agregarDetalle": "Agregar detalle",
+      "editando": "Editando ",
+      "cambieLasOpcionesY": ": cambie las opciones y toque ✓.",
+      "cancelar": "Cancelar",
+      "opcionesSeparadasPorComa": "Opciones separadas por coma. Si agrega un detalle que ya está, se reemplazan sus opciones.",
+      "elAsistentePreguntara": "El asistente preguntará: «",
+      "descripcion": "Descripción",
+      "quitarDelCatalogo": "Quitar del catálogo",
+      "losCambiosSeReflejan": "Los cambios se reflejan al instante en el chat del asistente →",
+      "guardando": "Guardando…",
+      "guardarCambios": "Guardar cambios",
+      "conteo": {
+        "uno": "{n} producto",
+        "varios": "{n} productos",
+        "filtrado": "{visibles} de {conteo}"
+      },
+      "agregueSuPrimer": "Agregue su primer {item}.",
+      "disponibilidadDe": "Disponibilidad de {producto}",
+      "tallasEjemplo": "28, 30, 32, 34",
+      "guardarCambiosDe": "Guardar cambios de {detalle}",
+      "vistaPrevia": {
+        "verMasOpciones": "Ver más opciones",
+        "hablarConAlguien": "Hablar con alguien"
+      }
+    },
+    "importar": {
+      "volverAlMenu": " Volver al menú",
+      "importarProductos": "Importar productos",
+      "cargueTodosSusProductos": "Cargue todos sus productos de una vez desde un archivo. Si vende en Tienda Nube, suba la exportación de productos tal cual. Si un producto ya existe (misma referencia), se actualiza; los que no vengan en el archivo no se tocan.",
+      "elegirOtroArchivo": "Elegir otro archivo",
+      "elegirArchivoCsv": "Elegir archivo (CSV)",
+      "descargarPlantilla": " Descargar plantilla",
+      "filas": " filas",
+      "columnasQueSeLeen": "Columnas que se leen: referencia, nombre, precio, categoría, descripción, tallas, colores, unidades disponibles y disponible. Las demás (costos, proveedores, medidas) se ignoran y nunca se guardan.",
+      "queColumnaEsCada": "¿Qué columna es cada cosa?",
+      "noReconocimosElFormato": "No reconocimos el formato del archivo. Revise lo que adivinamos y corrija si hace falta.",
+      "noUsar": "— No usar —",
+      "elijaLasColumnasDe": "Elija las columnas de referencia, nombre y precio para continuar.",
+      "vistaPrevia": "Vista previa",
+      "todaviaNoSeHa": "Todavía no se ha guardado nada.",
+      "usarElPrecioPromocional": "Usar el precio promocional",
+      "elArchivoTraePrecio": "El archivo trae precio normal y promocional. Apagado, se usa el normal.",
+      "estasFilasNoSe": "Estas filas no se van a cargar:",
+      "y": "…y ",
+      "mas": " más.",
+      "avisoS": " aviso(s)",
+      "fila": "Fila ",
+      "ref": "Ref.",
+      "nombre": "Nombre",
+      "categoria": "Categoría",
+      "precio": "Precio",
+      "opciones": "Opciones",
+      "productosMas": " productos más.",
+      "podraDeshacerEstaImportacion": "Podrá deshacer esta importación desde esta misma pantalla.",
+      "deshacerLaUltimaImportacion": "Deshacer la última importación",
+      "deshacerImportacion": "Deshacer importación",
+      "formatos": {
+        "tiendanube": "Exportación de Tienda Nube",
+        "aurela": "Plantilla de Aurela",
+        "otro": "Archivo propio"
+      },
+      "campos": {
+        "referencia": "Referencia o código",
+        "nombre": "Nombre",
+        "precio": "Precio",
+        "categoria": "Categoría",
+        "descripcion": "Descripción",
+        "stock": "Unidades disponibles",
+        "disponible": "Disponible (Sí/No)"
+      },
+      "avisos": {
+        "excel": "Este archivo es de Excel. Ábralo en Excel y use Archivo → Guardar como → «CSV UTF-8» (o «CSV delimitado por comas»), y suba ese.",
+        "muyPesado": "El archivo pesa más de 5 MB. Revise que sea la lista de productos.",
+        "vacio": "El archivo está vacío o no tiene filas de productos."
+      },
+      "resumen": {
+        "nuevos": "Nuevos",
+        "actualizan": "Se actualizan",
+        "sinCambios": "Sin cambios",
+        "conError": "Filas con error"
+      },
+      "deshacerDetalle": "Vuelve el menú a como estaba antes de importar ({n} productos, {fecha})."
+    },
+    "rubro": {
+      "etiquetas": {
+        "menu": "Menú",
+        "servicios": "Servicios",
+        "catalogo": "Catálogo"
+      },
+      "item": {
+        "plato": "Plato",
+        "servicio": "Servicio",
+        "producto": "Producto"
+      },
+      "copy": {
+        "categoria": "Categoría",
+        "saludoOfrecen": "¡Hola! ¿Qué {plural} ofrecen?",
+        "nuestro": "nuestro {singular}",
+        "reservarCita": "Reservar cita",
+        "saludoDisponible": "¡Hola! ¿Qué tienen disponible?",
+        "agregarAlPedido": "Agregar al pedido",
+        "entradas": "Entradas",
+        "saludoHoy": "¡Hola! ¿Qué tienen hoy?",
+        "nuestroPlato": "nuestro plato",
+        "faciales": "Faciales",
+        "saludoServicios": "¡Hola! ¿Qué servicios ofrecen?",
+        "nuestroServicio": "nuestro servicio",
+        "nuestroProducto": "nuestro producto"
+      },
+      "campos": {
+        "precio": "Precio",
+        "duracion": "Duración",
+        "categoria": "Categoría",
+        "stock": "Stock",
+        "referencia": "Referencia",
+        "detalles": "Tallas y colores",
+        "disponible": "Disponible",
+        "ia": "IA + reglas"
+      },
+      "citas": {
+        "reservaMesa": "Reserva de mesa",
+        "turnos": "Turnos",
+        "pedidos": "Pedidos por WhatsApp",
+        "sinCitas": "Sin citas"
+      }
+    },
+    "asistentePorDefecto": "Asistente"
   }
 }
