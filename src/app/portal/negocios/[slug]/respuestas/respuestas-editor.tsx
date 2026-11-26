@@ -12,6 +12,10 @@ import type { BotAIConfig, MessageTemplates, QuickRule } from "@/core/types";
 import { guardarConfigParcial, type ActionState } from "@/app/portal/actions";
 import { Card, Toggle } from "@/components/ui";
 import { PhonePreview, type PreviewMessage } from "@/components/phone-preview";
+import { formato, textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.respuestas). */
+const tt = textos.portal.respuestas;
 
 const inputCls =
   "input-nexo w-full px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft";
@@ -52,14 +56,14 @@ export function RespuestasEditor({
 
   // Preview en vivo: IA → regla → botones de menú.
   const previewMessages: PreviewMessage[] = [
-    { role: "in", text: "¿Aceptan tarjeta? ¿Hacen envíos?" },
+    { role: "in", text: tt.vistaPrevia.preguntaEjemplo },
     {
       role: "out",
-      note: ai.enabled ? "Respondido con IA" : "IA apagada · plantilla",
+      note: ai.enabled ? tt.vistaPrevia.respondidoConIa : tt.vistaPrevia.iaApagada,
       text: ai.enabled
         ? ai.knowledge?.trim()
           ? resumen(ai.knowledge)
-          : "Cuénteme qué necesita y le ayudo 😊 (agregue información del negocio para respuestas más precisas)"
+          : tt.vistaPrevia.sinInformacion
         : fallback,
     },
   ];
@@ -68,7 +72,7 @@ export function RespuestasEditor({
       { role: "in", text: primeraRegla.keywords[0] },
       {
         role: "out",
-        note: `Regla · "${primeraRegla.keywords[0]}"`,
+        note: formato(tt.vistaPrevia.regla, { palabra: primeraRegla.keywords[0] }),
         text: primeraRegla.respuesta,
       },
     );
@@ -80,8 +84,8 @@ export function RespuestasEditor({
       <div className="min-w-0 flex-[1_1_460px] space-y-4 sm:min-w-[420px]">
         {/* Cerebro con IA */}
         <Card
-          title="Cerebro con IA"
-          subtitle="Entiende lenguaje natural con esta info."
+          title={tt.cerebroConIa}
+          subtitle={tt.entiendeLenguajeNaturalCon}
           action={
             <span className="flex items-center gap-3">
               <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-primary-tint text-primary">
@@ -90,27 +94,25 @@ export function RespuestasEditor({
               <Toggle
                 checked={ai.enabled}
                 onChange={(next) => setAi((prev) => ({ ...prev, enabled: next }))}
-                label="IA activada"
+                label={tt.iaActivada}
               />
             </span>
           }
         >
-          <label className="mb-1.5 block text-sm font-semibold text-ink">
-            Información del negocio
-          </label>
+          <label className="mb-1.5 block text-sm font-semibold text-ink">{tt.informacionDelNegocio}</label>
           <textarea
             className={inputCls}
             rows={4}
             value={ai.knowledge ?? ""}
             onChange={(e) => setAi((prev) => ({ ...prev, knowledge: e.target.value }))}
-            placeholder="Parrilla en el centro. Especialidad en carnes, empanadas y postres caseros. Aceptamos tarjetas y transferencias. Hacemos envíos en toda la ciudad."
+            placeholder={tt.parrillaEnElCentro}
           />
         </Card>
 
         {/* Reglas rápidas */}
         <Card
-          title="Reglas rápidas"
-          subtitle="Respuestas exactas por palabra clave. Tienen prioridad sobre la IA."
+          title={tt.reglasRapidas}
+          subtitle={tt.respuestasExactasPorPalabra}
           action={
             <button
               type="button"
@@ -122,9 +124,7 @@ export function RespuestasEditor({
               }
               className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline"
             >
-              <Plus className="h-4 w-4" />
-              Agregar regla
-            </button>
+              <Plus className="h-4 w-4" />{tt.agregarRegla}</button>
           }
         >
           <div className="space-y-3">
@@ -143,7 +143,7 @@ export function RespuestasEditor({
                     ))}
                   <input
                     className="input-nexo flex-1 min-w-[140px] bg-surface px-2.5 py-1 text-xs"
-                    placeholder="palabras clave separadas por coma"
+                    placeholder={tt.palabrasClaveSeparadasPor}
                     value={rule.keywords.join(", ")}
                     onChange={(e) =>
                       patchRule(i, {
@@ -153,7 +153,7 @@ export function RespuestasEditor({
                   />
                   <button
                     type="button"
-                    aria-label="Quitar regla"
+                    aria-label={tt.quitarRegla}
                     onClick={() =>
                       setAi((prev) => ({
                         ...prev,
@@ -167,25 +167,22 @@ export function RespuestasEditor({
                 </div>
                 <input
                   className={inputCls}
-                  placeholder="Respuesta exacta del asistente"
+                  placeholder={tt.respuestaExactaDelAsistente}
                   value={rule.respuesta}
                   onChange={(e) => patchRule(i, { respuesta: e.target.value })}
                 />
               </div>
             ))}
             {(ai.reglas ?? []).length === 0 && (
-              <p className="py-2 text-center text-sm text-ink-soft">
-                Sin reglas. Agregue una para responder exacto a &quot;horario&quot;,
-                &quot;envío&quot;, etc.
-              </p>
+              <p className="py-2 text-center text-sm text-ink-soft">{tt.sinReglasAgregueUna}</p>
             )}
           </div>
         </Card>
 
         {/* Botones de menú */}
         <Card
-          title="Botones de menú"
-          subtitle="Accesos rápidos que ve el cliente en el chat."
+          title={tt.botonesDeMenu}
+          subtitle={tt.accesosRapidosQueVe}
           action={
             <button
               type="button"
@@ -197,9 +194,7 @@ export function RespuestasEditor({
               }
               className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline"
             >
-              <Plus className="h-4 w-4" />
-              Agregar
-            </button>
+              <Plus className="h-4 w-4" />{tt.agregar}</button>
           }
         >
           <div className="space-y-2">
@@ -208,7 +203,7 @@ export function RespuestasEditor({
                 <input
                   className={inputCls}
                   value={btn}
-                  placeholder="Ver menú"
+                  placeholder={tt.verMenu}
                   onChange={(e) =>
                     setAi((prev) => ({
                       ...prev,
@@ -220,7 +215,7 @@ export function RespuestasEditor({
                 />
                 <button
                   type="button"
-                  aria-label="Quitar botón"
+                  aria-label={tt.quitarBoton}
                   onClick={() =>
                     setAi((prev) => ({
                       ...prev,
@@ -234,20 +229,16 @@ export function RespuestasEditor({
               </div>
             ))}
             {(ai.botonesMenu ?? []).length === 0 && (
-              <p className="py-2 text-center text-sm text-ink-soft">
-                Sin botones configurados.
-              </p>
+              <p className="py-2 text-center text-sm text-ink-soft">{tt.sinBotonesConfigurados}</p>
             )}
           </div>
         </Card>
 
         {/* Fallback */}
         <Card
-          title="Si el asistente no entiende"
+          title={tt.siElAsistenteNo}
           action={
-            <span className="flex items-center gap-2 text-sm text-ink-mid">
-              Derivar a una persona
-              <Toggle
+            <span className="flex items-center gap-2 text-sm text-ink-mid">{tt.derivarAUnaPersona}<Toggle
                 checked={Boolean(ai.derivarHumano)}
                 onChange={(next) =>
                   setAi((prev) => ({ ...prev, derivarHumano: next }))
@@ -301,7 +292,7 @@ export function RespuestasEditor({
               disabled={pending}
               className="w-full rounded-[10px] bg-primary py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-50 sm:w-auto sm:px-8"
             >
-              {pending ? "Guardando…" : "Guardar cambios"}
+              {pending ? tt.guardando : tt.guardarCambios}
             </button>
           </div>
         </form>

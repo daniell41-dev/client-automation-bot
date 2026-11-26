@@ -10,6 +10,7 @@ import { parseBusinessConfig } from "@/core/config-schema";
 import { candidatosSeguimiento, describirPedido } from "@/core/engine/seguimientos";
 import { createLeadRepository } from "@/core/storage/factory";
 import { ConfiguracionEditor } from "./configuracion-editor";
+import { textos } from "@/textos";
 
 export const dynamic = "force-dynamic";
 
@@ -72,4 +73,4 @@ export default async function ConfiguracionPage({
 }
 
 // T-71: el nombre de la pestaña ("Configuración · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Configuración" };
+export const metadata = { title: textos.portal.titulosPestana.configuracion };

@@ -9,6 +9,10 @@
 import { useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { EmptyState, Pill, SearchInput } from "@/components/ui";
+import { formato, textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.conversaciones). */
+const tt = textos.portal.conversaciones;
 
 export interface Chat {
   contact: string;
@@ -58,8 +62,8 @@ export function ConversacionesInbox({
     return (
       <div className="mx-auto max-w-[720px] fade-up">
         <EmptyState
-          title="Aún no hay conversaciones."
-          subtitle="Cuando sus clientes escriban al asistente por WhatsApp, los chats van a aparecer aquí."
+          title={tt.aunNoHayConversaciones}
+          subtitle={tt.cuandoSusClientesEscriban}
         />
       </div>
     );
@@ -74,7 +78,7 @@ export function ConversacionesInbox({
         }`}
       >
         <div className="border-b border-line p-3">
-          <SearchInput value={search} onChange={setSearch} placeholder="Buscar chats…" />
+          <SearchInput value={search} onChange={setSearch} placeholder={tt.buscarChats} />
         </div>
         <div className="flex-1 overflow-y-auto">
           {visibles.map((c) => {
@@ -102,7 +106,7 @@ export function ConversacionesInbox({
                       {c.contact}
                     </span>
                     <Pill tone={last?.role === "assistant" ? "success" : "info"}>
-                      {last?.role === "assistant" ? "Asistente" : "Cliente"}
+                      {last?.role === "assistant" ? tt.asistente : tt.cliente}
                     </Pill>
                   </span>
                   <span className="block truncate text-[13px] text-ink-soft">
@@ -116,7 +120,7 @@ export function ConversacionesInbox({
             );
           })}
           {visibles.length === 0 && (
-            <p className="p-6 text-center text-sm text-ink-soft">Sin resultados.</p>
+            <p className="p-6 text-center text-sm text-ink-soft">{tt.sinResultados}</p>
           )}
         </div>
       </div>
@@ -135,7 +139,7 @@ export function ConversacionesInbox({
                 type="button"
                 onClick={() => setMobileThread(false)}
                 className="text-ink-mid md:hidden"
-                aria-label="Volver a la lista"
+                aria-label={tt.volverALaLista}
               >
                 <ArrowLeft className="h-5 w-5" />
               </button>
@@ -146,26 +150,22 @@ export function ConversacionesInbox({
                 <span className="block truncate text-sm font-bold text-ink">
                   {chat.contact}
                 </span>
-                <span className="block text-xs text-success-ink">en línea</span>
+                <span className="block text-xs text-success-ink">{tt.enLinea}</span>
               </span>
               <Pill tone={botActivo ? "success" : "warn"} dot>
-                {botActivo ? "Asistente respondiendo" : "Asistente en pausa"}
+                {botActivo ? tt.asistenteRespondiendo : tt.asistenteEnPausa}
               </Pill>
               <button
                 type="button"
                 disabled
-                title="Próximamente"
+                title={tt.proximamente}
                 className="hidden rounded-[10px] border border-line-input px-3 py-1.5 text-sm font-semibold text-ink-mid opacity-60 sm:block"
-              >
-                Tomar chat
-              </button>
+              >{tt.tomarChat}</button>
             </div>
 
             {/* Cuerpo estilo WhatsApp */}
             <div className="flex-1 space-y-2 overflow-y-auto bg-wa-bg px-4 py-4">
-              <div className="mx-auto w-fit rounded-md bg-wa-today px-2 py-0.5 text-[10px] font-semibold text-ink-mid shadow-card">
-                HOY
-              </div>
+              <div className="mx-auto w-fit rounded-md bg-wa-today px-2 py-0.5 text-[10px] font-semibold text-ink-mid shadow-card">{tt.hoy}</div>
               {chat.history.map((t, i) => (
                 <div
                   key={i}
@@ -193,22 +193,18 @@ export function ConversacionesInbox({
             <div className="flex items-center gap-2 border-t border-line bg-surface-2 px-3 py-2.5">
               <input
                 disabled
-                placeholder={`${botName} está respondiendo este chat…`}
+                placeholder={formato(tt.estaRespondiendo, { asistente: botName })}
                 className="input-nexo flex-1 bg-white px-3.5 py-2 text-sm opacity-70"
               />
               <button
                 type="button"
                 disabled
                 className="rounded-[10px] bg-primary px-4 py-2 text-sm font-bold text-white opacity-50"
-              >
-                Enviar
-              </button>
+              >{tt.enviar}</button>
             </div>
           </>
         ) : (
-          <div className="flex flex-1 items-center justify-center text-sm text-ink-soft">
-            Elija un chat para ver la conversación.
-          </div>
+          <div className="flex flex-1 items-center justify-center text-sm text-ink-soft">{tt.elijaUnChatPara}</div>
         )}
       </div>
     </div>
