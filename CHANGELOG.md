@@ -8,6 +8,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ### Nuevo
 - Últimos textos sueltos en `src/textos/es.json` (T-138): los botones y mensajes de WhatsApp de la landing, los encabezados de la tabla de la demo, el error del chat de la demo, los nombres por defecto ("Sin nombre", "Negocio") y los títulos de pestaña de Admin y Portal. Lo que se ve no cambia.
+- Textos de las páginas legales en `src/textos/es.json` (T-137): privacidad, términos, eliminar mis datos y el bloque del responsable. Los datos de contacto siguen en `src/lib/legal.ts`. Lo que se ve no cambia.
 - Textos de la landing en `src/textos/es.json` (T-136): todas sus secciones, las conversaciones de ejemplo, la imagen para compartir y el título y la descripción del sitio. Lo que se ve no cambia.
 - Textos de login, recuperar y definir contraseña, la demo, las pantallas de error y los componentes comunes (guardar, eliminar, tabla vacía) en `src/textos/es.json` (T-135). Lo que se ve no cambia.
 - Textos de Citas y Pedidos en `src/textos/es.json` (T-133): el editor de Citas (servicios, modalidad de entrega, horarios, reservas, vista previa) y el panel de Pedidos. Lo que se ve no cambia.
