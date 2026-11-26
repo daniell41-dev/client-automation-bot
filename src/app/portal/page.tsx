@@ -148,7 +148,7 @@ export default async function PortalHome() {
   const cards: NegocioCard[] = (negocios ?? []).map((n) => {
     const config = parseBusinessConfig(n.config);
     const rubro =
-      (n.rubros as unknown as { nombre: string } | null)?.nombre ?? "Negocio";
+      (n.rubros as unknown as { nombre: string } | null)?.nombre ?? textos.comun.negocio;
     const categorias = [
       ...new Set(config?.services.map((s) => s.categoria).filter(Boolean)),
     ] as string[];
