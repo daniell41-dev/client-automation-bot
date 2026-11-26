@@ -9,6 +9,11 @@
  * probarlas sin Supabase.
  */
 
+import { formato, textos } from "@/textos";
+
+/** T-131: textos de "Le toca a usted" y el saludo, en `src/textos/es.json`. */
+const tp = textos.portal.pendientes;
+
 export interface SeñalPedido {
   nivel: string;
   detalle: string;
@@ -70,14 +75,16 @@ function motivoNoCuadra(p: PedidoInicio): string | null {
   const total = Number(p.total);
   const pagado = Number(p.monto_pagado ?? 0);
   if (pagado > 0 && pagado < total) {
-    return `pagó ${formatoMonto(pagado, p.moneda)} y el total es ${formatoMonto(total, p.moneda)}`;
+    return formato(tp.noCuadra.pagoMenos, { pagado: formatoMonto(pagado, p.moneda), total: formatoMonto(total, p.moneda) });
   }
   const alta = (p.comprobantes?.señales ?? []).find((s) => s.nivel === "alta");
   return alta ? alta.detalle : null;
 }
 
 function quien(p: PedidoInicio): string {
-  return p.cliente?.trim() ? `Pedido #${p.numero} de ${p.cliente.trim()}` : `Pedido #${p.numero}`;
+  return p.cliente?.trim()
+    ? formato(tp.pedidoDe, { numero: p.numero, cliente: p.cliente.trim() })
+    : formato(tp.pedido, { numero: p.numero });
 }
 
 /**
@@ -107,10 +114,10 @@ export function armarPendientes(
       if (motivo) {
         noCuadra.push({
           tipo: "no_cuadra",
-          titulo: "Un comprobante no cuadra",
+          titulo: tp.noCuadra.titulo,
           detalle: `${quien(p)} · ${motivo}${sufijo(negocio)}`,
           href: hrefPedidos(negocio),
-          accion: "Revisar pago",
+          accion: tp.noCuadra.accion,
         });
       } else {
         aprobar.set(negocio.id, (aprobar.get(negocio.id) ?? 0) + 1);
@@ -138,16 +145,16 @@ export function armarPendientes(
     ...agrupados(
       aprobar,
       "por_aprobar",
-      (n) => (n === 1 ? "1 pedido espera su aprobación" : `${n} pedidos esperan su aprobación`),
-      "Aurela revisó el comprobante y todo cuadra",
-      "Ver pedidos",
+      (n) => (n === 1 ? tp.porAprobar.uno : formato(tp.porAprobar.varios, { n })),
+      tp.porAprobar.detalle,
+      tp.porAprobar.accion,
     ),
     ...agrupados(
       devoluciones,
       "devolucion",
-      (n) => (n === 1 ? "1 devolución pendiente" : `${n} devoluciones pendientes`),
-      "Hay plata por devolverle a un cliente",
-      "Ver devoluciones",
+      (n) => (n === 1 ? tp.devoluciones.uno : formato(tp.devoluciones.varios, { n })),
+      tp.devoluciones.detalle,
+      tp.devoluciones.accion,
     ),
   ];
 }
@@ -180,9 +187,9 @@ export function saludo(ahora: Date, zona = ZONA): string {
   const hora = Number(
     new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: zona }).format(ahora),
   );
-  if (hora >= 5 && hora < 12) return "Buenos días";
-  if (hora >= 12 && hora < 19) return "Buenas tardes";
-  return "Buenas noches";
+  if (hora >= 5 && hora < 12) return tp.saludo.manana;
+  if (hora >= 12 && hora < 19) return tp.saludo.tarde;
+  return tp.saludo.noche;
 }
 
 /** "Domingo 22 de noviembre". */

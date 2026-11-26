@@ -8,6 +8,10 @@
 import Link from "next/link";
 import { AlertTriangle, ShoppingBag, Undo2, type LucideIcon } from "lucide-react";
 import type { Pendiente, TipoPendiente } from "@/lib/inicio-portal";
+import { formato, textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.leTocaAUsted). */
+const tt = textos.portal.leTocaAUsted;
 
 const ESTILO: Record<TipoPendiente, { icono: LucideIcon; tile: string; boton: string }> = {
   // Plata que puede faltar: el único con rojo y con botón lleno.
@@ -36,11 +40,9 @@ export function LeTocaAUsted({ pendientes }: { pendientes: Pendiente[] }) {
       className="overflow-hidden rounded-2xl border border-line bg-surface shadow-card"
     >
       <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
-        <h2 id="le-toca" className="text-[17px] font-extrabold text-ink">
-          Le toca a usted
-        </h2>
+        <h2 id="le-toca" className="text-[17px] font-extrabold text-ink">{tt.leTocaAUsted}</h2>
         <span className="rounded-full bg-gold-bg px-2.5 py-1 text-xs font-bold text-gold-ink">
-          {pendientes.length === 1 ? "1 pendiente" : `${pendientes.length} pendientes`}
+          {pendientes.length === 1 ? tt.t1Pendiente : formato(tt.pendientes, { n: pendientes.length })}
         </span>
       </div>
       <ul>

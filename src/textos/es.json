@@ -42,7 +42,15 @@
       "asistenteEnPausa": "Asistente en pausa"
     },
     "configuracion": {
-      "diasSemana": ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"],
+      "diasSemana": [
+        "Dom",
+        "Lun",
+        "Mar",
+        "Mié",
+        "Jue",
+        "Vie",
+        "Sáb"
+      ],
       "tiempo": {
         "minutos": "{n} minutos",
         "unaHora": "1 hora",
@@ -187,6 +195,171 @@
         "ayudaInformacion": "Con esto el asistente responde preguntas que no están en el catálogo (medios de pago, horarios especiales, etc.).",
         "cambiosProductos": "Aceptar cambios en los productos",
         "ayudaCambiosProductos": "El cliente puede pedir “sin arroz” o “sin salsa”: el asistente lo anota en el pedido y usted lo ve en el aviso y en el panel. No cambia el precio."
+      }
+    },
+    "inicio": {
+      "mensajesHoy": "Mensajes hoy",
+      "vsAyer": "+ vs. ayer",
+      "citasAgendadas": "Citas agendadas",
+      "resueltasPorElAsistente": "Resueltas por el asistente",
+      "sinIntervencion": "sin intervención",
+      "vendidoHoy": "Vendido hoy",
+      "soloPedidosAprobados": "solo pedidos aprobados",
+      "completeSuAsistenteVirtual": "Complete su asistente virtual",
+      "cuantoMasCompletesMejor": "Cuanto más completes, mejor responde a sus clientes.",
+      "elAsistenteQuedaApagado": "El asistente queda apagado hasta que el administrador conecte su número de WhatsApp. Mientras tanto puede dejar todo listo.",
+      "continuarConfiguracion": "Continuar configuración",
+      "clientesPorAnuncio": "Clientes por anuncio",
+      "quienesEscribieronDesdeUn": "Quienes escribieron desde un anuncio o publicación de Facebook o Instagram.",
+      "cliente": "cliente",
+      "clientes": "clientes",
+      "conversacionesRecientes": "Conversaciones recientes",
+      "aunNoHayConversaciones": "Aún no hay conversaciones.",
+      "cuandoSusClientesEscriban": "Cuando sus clientes escriban al asistente, van a aparecer aquí.",
+      "asistente": "Asistente",
+      "cliente2": "Cliente",
+      "checklist": {
+        "catalogo": "Catálogo cargado",
+        "horarios": "Horarios y ubicación",
+        "respuestas": "Respuestas automáticas",
+        "whatsappAvisos": "Su WhatsApp para avisos",
+        "cuentas": "Cuentas para cobrar",
+        "whatsappConectado": "WhatsApp conectado"
+      },
+      "loMasPedido": "Lo más pedido: {producto}",
+      "porAprobar": "{n} por aprobar"
+    },
+    "misNegocios": {
+      "cerrarSesion": "Cerrar sesión",
+      "arranquemosPorArmarSu": "Arranquemos por armar su negocio.",
+      "resumenDeHoy": "Resumen de hoy",
+      "mensajesHoy": "Mensajes hoy",
+      "enTodosSusNegocios": "en todos sus negocios",
+      "vendidoHoy": "Vendido hoy",
+      "porRevisar": "Por revisar",
+      "veaLaListaDe": "vea la lista de arriba",
+      "todoAlDia": "todo al día",
+      "todaviaNoTieneNingun": "Todavía no tiene ningún negocio.",
+      "pidaleAlAdministradorDe": "Pídale al administrador de la plataforma que le asigne un tipo de negocio.",
+      "armeSuNegocio": "Arme su negocio",
+      "elijaQueTipoDe": "Elija qué tipo de negocio es y cómo se llama. Arrancamos con una plantilla que después ajusta a su gusto; el asistente queda apagado hasta que conectemos su número de WhatsApp.",
+      "crearMiNegocio": "Crear mi negocio",
+      "tipoDeNegocio": "Tipo de negocio",
+      "nombreDelNegocio": "Nombre del negocio",
+      "ejUnasLucia": "Ej: Uñas Lucía",
+      "susNegocios": "Sus negocios",
+      "entreAUnoPara": "Entre a uno para editar su catálogo, citas o respuestas",
+      "asistenteActivo": "Asistente activo",
+      "asistenteEnPausa": "Asistente en pausa",
+      "mensajesHoy2": "mensajes hoy",
+      "pedidosHoy": "pedidos hoy",
+      "porRevisar2": "por revisar",
+      "sinMensajesDeClientes": "Sin mensajes de clientes hoy",
+      "abrirPanel": "Abrir panel",
+      "hoyAtendio": "Hoy Aurela atendió {mensajes} en sus {n} negocios. {pendientes}",
+      "mensaje": {
+        "uno": "1 mensaje",
+        "varios": "{n} mensajes"
+      },
+      "conPendientes": "Esto es lo que necesita de usted:",
+      "sinPendientes": "No hay nada pendiente por ahora.",
+      "pedidosAprobados": {
+        "uno": "1 pedido aprobado",
+        "varios": "{n} pedidos aprobados"
+      },
+      "masPorAprobar": " · {n} por aprobar"
+    },
+    "conversaciones": {
+      "aunNoHayConversaciones": "Aún no hay conversaciones.",
+      "cuandoSusClientesEscriban": "Cuando sus clientes escriban al asistente por WhatsApp, los chats van a aparecer aquí.",
+      "buscarChats": "Buscar chats…",
+      "asistente": "Asistente",
+      "cliente": "Cliente",
+      "sinResultados": "Sin resultados.",
+      "volverALaLista": "Volver a la lista",
+      "enLinea": "en línea",
+      "asistenteRespondiendo": "Asistente respondiendo",
+      "asistenteEnPausa": "Asistente en pausa",
+      "proximamente": "Próximamente",
+      "tomarChat": "Tomar chat",
+      "hoy": "HOY",
+      "enviar": "Enviar",
+      "elijaUnChatPara": "Elija un chat para ver la conversación.",
+      "estaRespondiendo": "{asistente} está respondiendo este chat…"
+    },
+    "respuestas": {
+      "cerebroConIa": "Cerebro con IA",
+      "entiendeLenguajeNaturalCon": "Entiende lenguaje natural con esta info.",
+      "iaActivada": "IA activada",
+      "informacionDelNegocio": "Información del negocio",
+      "parrillaEnElCentro": "Parrilla en el centro. Especialidad en carnes, empanadas y postres caseros. Aceptamos tarjetas y transferencias. Hacemos envíos en toda la ciudad.",
+      "reglasRapidas": "Reglas rápidas",
+      "respuestasExactasPorPalabra": "Respuestas exactas por palabra clave. Tienen prioridad sobre la IA.",
+      "agregarRegla": "Agregar regla",
+      "palabrasClaveSeparadasPor": "palabras clave separadas por coma",
+      "quitarRegla": "Quitar regla",
+      "respuestaExactaDelAsistente": "Respuesta exacta del asistente",
+      "sinReglasAgregueUna": "Sin reglas. Agregue una para responder exacto a \"horario\", \"envío\", etc.",
+      "botonesDeMenu": "Botones de menú",
+      "accesosRapidosQueVe": "Accesos rápidos que ve el cliente en el chat.",
+      "agregar": "Agregar",
+      "verMenu": "Ver menú",
+      "quitarBoton": "Quitar botón",
+      "sinBotonesConfigurados": "Sin botones configurados.",
+      "siElAsistenteNo": "Si el asistente no entiende",
+      "derivarAUnaPersona": "Derivar a una persona",
+      "guardando": "Guardando…",
+      "guardarCambios": "Guardar cambios",
+      "vistaPrevia": {
+        "preguntaEjemplo": "¿Aceptan tarjeta? ¿Hacen envíos?",
+        "respondidoConIa": "Respondido con IA",
+        "iaApagada": "IA apagada · plantilla",
+        "sinInformacion": "Cuénteme qué necesita y le ayudo 😊 (agregue información del negocio para respuestas más precisas)",
+        "regla": "Regla · \"{palabra}\""
+      }
+    },
+    "leTocaAUsted": {
+      "leTocaAUsted": "Le toca a usted",
+      "t1Pendiente": "1 pendiente",
+      "pendientes": "{n} pendientes"
+    },
+    "vistaPrevia": {
+      "enLinea": "en línea",
+      "asistenteEnPausa": "asistente en pausa",
+      "hoy": "HOY",
+      "escribaUnMensaje": "Escriba un mensaje…"
+    },
+    "titulosPestana": {
+      "inicio": "Inicio",
+      "misNegocios": "Mis negocios",
+      "conversaciones": "Conversaciones",
+      "respuestas": "Respuestas",
+      "configuracion": "Configuración"
+    },
+    "pendientes": {
+      "noCuadra": {
+        "titulo": "Un comprobante no cuadra",
+        "accion": "Revisar pago",
+        "pagoMenos": "pagó {pagado} y el total es {total}"
+      },
+      "pedidoDe": "Pedido #{numero} de {cliente}",
+      "pedido": "Pedido #{numero}",
+      "porAprobar": {
+        "uno": "1 pedido espera su aprobación",
+        "varios": "{n} pedidos esperan su aprobación",
+        "detalle": "Aurela revisó el comprobante y todo cuadra",
+        "accion": "Ver pedidos"
+      },
+      "devoluciones": {
+        "uno": "1 devolución pendiente",
+        "varios": "{n} devoluciones pendientes",
+        "detalle": "Hay plata por devolverle a un cliente",
+        "accion": "Ver devoluciones"
+      },
+      "saludo": {
+        "manana": "Buenos días",
+        "tarde": "Buenas tardes",
+        "noche": "Buenas noches"
       }
     }
   }

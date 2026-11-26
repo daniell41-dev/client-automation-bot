@@ -14,6 +14,10 @@ import { inicioDelDia, ventasDelDia, type PedidoVenta } from "@/core/engine/vent
 import { CheckCircle2, Circle } from "lucide-react";
 import { LeTocaAUsted } from "@/components/le-toca-a-usted";
 import { armarPendientes, formatoMonto, type PedidoInicio } from "@/lib/inicio-portal";
+import { formato, textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.inicio). */
+const tt = textos.portal.inicio;
 
 export const dynamic = "force-dynamic";
 
@@ -90,17 +94,17 @@ export default async function ResumenPage({
 
   // Checklist "Completá tu bot"
   const checklist = [
-    { label: "Catálogo cargado", done: (config?.services.length ?? 0) > 0 },
-    { label: "Horarios y ubicación", done: (config?.horarios?.length ?? 0) > 0 },
-    { label: "Respuestas automáticas", done: Boolean(config?.ai?.knowledge?.trim()) },
+    { label: tt.checklist.catalogo, done: (config?.services.length ?? 0) > 0 },
+    { label: tt.checklist.horarios, done: (config?.horarios?.length ?? 0) > 0 },
+    { label: tt.checklist.respuestas, done: Boolean(config?.ai?.knowledge?.trim()) },
     // T-42: sin su número, la dueña nunca se entera de un pedido; y si cobra
     // con comprobante, sin datos de pago el bot le pide plata al cliente sin
     // decirle a dónde mandarla.
-    { label: "Su WhatsApp para avisos", done: Boolean(config?.notifyPhoneNumber) },
+    { label: tt.checklist.whatsappAvisos, done: Boolean(config?.notifyPhoneNumber) },
     ...(config?.pagos?.requiereComprobante
-      ? [{ label: "Cuentas para cobrar", done: cuentasDeConfig(config.pagos).length > 0 }]
+      ? [{ label: tt.checklist.cuentas, done: cuentasDeConfig(config.pagos).length > 0 }]
       : []),
-    { label: "WhatsApp conectado", done: Boolean(negocio.whatsapp_phone_number_id) },
+    { label: tt.checklist.whatsappConectado, done: Boolean(negocio.whatsapp_phone_number_id) },
   ];
   const done = checklist.filter((c) => c.done).length;
 
@@ -112,26 +116,26 @@ export default async function ResumenPage({
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Mensajes hoy" value={String(mensajesHoy)} delta="+ vs. ayer" />
+        <StatCard label={tt.mensajesHoy} value={String(mensajesHoy)} delta={tt.vsAyer} />
         <StatCard
-          label="Citas agendadas"
+          label={tt.citasAgendadas}
           value={String(citas)}
           delta={citas > 0 ? `${citas} en total` : undefined}
         />
         <StatCard
-          label="Resueltas por el asistente"
+          label={tt.resueltasPorElAsistente}
           value={`${pctResueltas}%`}
-          delta="sin intervención"
+          delta={tt.sinIntervencion}
         />
         <StatCard
-          label="Vendido hoy"
+          label={tt.vendidoHoy}
           value={ventas.total === null ? "—" : formatoMonto(ventas.total, ventas.moneda ?? config?.currency ?? "COP")}
           delta={
             ventas.masPedido
-              ? `Lo más pedido: ${ventas.masPedido.nombre}`
+              ? formato(tt.loMasPedido, { producto: ventas.masPedido.nombre })
               : ventas.porAprobar > 0
-                ? `${ventas.porAprobar} por aprobar`
-                : "solo pedidos aprobados"
+                ? formato(tt.porAprobar, { n: ventas.porAprobar })
+                : tt.soloPedidosAprobados
           }
           deltaTone="neutral"
         />
@@ -139,8 +143,8 @@ export default async function ResumenPage({
 
       {/* Completá tu bot */}
       <Card
-        title="Complete su asistente virtual"
-        subtitle="Cuanto más completes, mejor responde a sus clientes."
+        title={tt.completeSuAsistenteVirtual}
+        subtitle={tt.cuantoMasCompletesMejor}
         action={
           <span className="font-display text-sm font-bold text-primary">
             {done}/{checklist.length}
@@ -168,10 +172,7 @@ export default async function ResumenPage({
           ))}
         </ul>
         {!negocio.whatsapp_phone_number_id && (
-          <p className="mt-3 text-[13px] text-ink-soft">
-            El asistente queda apagado hasta que el administrador conecte su número de
-            WhatsApp. Mientras tanto puede dejar todo listo.
-          </p>
+          <p className="mt-3 text-[13px] text-ink-soft">{tt.elAsistenteQuedaApagado}</p>
         )}
         {/* T-16: "Respuestas y flujos" está oculta — el conocimiento del bot
             se muda a Configuración en T-17, así que apunta ahí de una vez
@@ -179,21 +180,19 @@ export default async function ResumenPage({
         <Link
           href={`/portal/negocios/${slug}/${done < 2 ? "catalogo" : "configuracion"}`}
           className="mt-4 block rounded-[10px] bg-primary-tint py-2.5 text-center text-sm font-bold text-primary transition-colors hover:bg-primary hover:text-white"
-        >
-          Continuar configuración
-        </Link>
+        >{tt.continuarConfiguracion}</Link>
       </Card>
 
       {/* T-120: cuántos clientes trajo cada anuncio. Solo aparece cuando
           hay al menos uno: a quien no pauta no le dice nada. */}
       {porAnuncio.length > 0 && (
-        <Card title="Clientes por anuncio" subtitle="Quienes escribieron desde un anuncio o publicación de Facebook o Instagram.">
+        <Card title={tt.clientesPorAnuncio} subtitle={tt.quienesEscribieronDesdeUn}>
           <ul className="divide-y divide-line">
             {porAnuncio.map((fila) => (
               <li key={fila.clave} className="flex items-center justify-between gap-3 py-2.5 text-sm">
                 <span className="min-w-0 truncate text-ink">{fila.etiqueta}</span>
                 <span className="shrink-0 font-bold tabular-nums text-ink">
-                  {fila.clientes} {fila.clientes === 1 ? "cliente" : "clientes"}
+                  {fila.clientes} {fila.clientes === 1 ? tt.cliente : tt.clientes}
                 </span>
               </li>
             ))}
@@ -203,11 +202,11 @@ export default async function ResumenPage({
 
       {/* Conversaciones recientes: preview informativo, sin link — la
           sección "Conversaciones" está oculta (T-16). */}
-      <Card title="Conversaciones recientes">
+      <Card title={tt.conversacionesRecientes}>
         {recientes.length === 0 ? (
           <EmptyState
-            title="Aún no hay conversaciones."
-            subtitle="Cuando sus clientes escriban al asistente, van a aparecer aquí."
+            title={tt.aunNoHayConversaciones}
+            subtitle={tt.cuandoSusClientesEscriban}
           />
         ) : (
           <ul className="divide-y divide-line">
@@ -224,7 +223,7 @@ export default async function ResumenPage({
                         {s.contact}
                       </span>
                       <Pill tone={last?.role === "assistant" ? "success" : "info"}>
-                        {last?.role === "assistant" ? "Asistente" : "Cliente"}
+                        {last?.role === "assistant" ? tt.asistente : tt.cliente2}
                       </Pill>
                     </span>
                     <span className="block truncate text-[13px] text-ink-soft">
@@ -248,4 +247,4 @@ export default async function ResumenPage({
 }
 
 // T-71: el nombre de la pestaña ("Inicio · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Inicio" };
+export const metadata = { title: textos.portal.titulosPestana.inicio };

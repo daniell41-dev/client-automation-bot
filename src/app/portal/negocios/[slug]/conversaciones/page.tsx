@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { createUserClient } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { ConversacionesInbox, type Chat } from "./inbox";
+import { textos } from "@/textos";
 
 export const dynamic = "force-dynamic";
 
@@ -56,4 +57,4 @@ export default async function ConversacionesPage({
 }
 
 // T-71: el nombre de la pestaña ("Conversaciones · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Conversaciones" };
+export const metadata = { title: textos.portal.titulosPestana.conversaciones };
