@@ -6,8 +6,9 @@
 
 import { redirect } from "next/navigation";
 import { getUserRole } from "@/lib/supabase/server";
+import { textos } from "@/textos";
 
-export const metadata = { title: "Portal" };
+export const metadata = { title: textos.titulosPestana.portal };
 
 export default async function PortalLayout({
   children,

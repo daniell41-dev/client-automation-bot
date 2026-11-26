@@ -85,7 +85,7 @@ export function DemoChat({ businessSlug }: { businessSlug: string }) {
     } catch {
       setMessages((prev) => [
         ...prev,
-        { role: "out", text: "⚠️ No pude responder; intente de nuevo." },
+        { role: "out", text: tt.noPudeResponder },
       ]);
     } finally {
       setSending(false);

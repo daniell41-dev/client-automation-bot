@@ -11,6 +11,7 @@ import { modoDelItem } from "@/core/engine/modo-item";
 import { PortalShell, type ShellNegocio } from "@/components/portal-shell";
 import { toggleBotActivo } from "@/app/portal/actions";
 import { signOut } from "@/app/login/actions";
+import { textos } from "@/textos";
 
 export default async function NegocioLayout({
   children,
@@ -34,7 +35,7 @@ export default async function NegocioLayout({
       slug: n.slug,
       nombre: config?.name ?? n.slug,
       rubro:
-        (n.rubros as unknown as { nombre: string } | null)?.nombre ?? "Negocio",
+        (n.rubros as unknown as { nombre: string } | null)?.nombre ?? textos.comun.negocio,
       catalogo: config?.catalogo,
       botActivo: config?.botActivo !== false,
       vendePedidos: config?.services.some((s) => modoDelItem(s, config.catalogo) === "pedido") ?? false,

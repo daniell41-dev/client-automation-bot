@@ -39,7 +39,7 @@ export default async function ConfiguracionPage({
     .then((leads) =>
       candidatosSeguimiento(leads, config, ahora).map((l) => ({
         id: l.id,
-        etiqueta: `${l.name?.trim() || "Sin nombre"} · …${l.contact.slice(-4)} · ${describirPedido(l, config)}`,
+        etiqueta: `${l.name?.trim() || textos.comun.sinNombre} · …${l.contact.slice(-4)} · ${describirPedido(l, config)}`,
       })),
     )
     .catch(() => []);
@@ -48,7 +48,7 @@ export default async function ConfiguracionPage({
     <ConfiguracionEditor
       slug={slug}
       nombre={config.name}
-      rubro={(negocio.rubros as unknown as { nombre: string } | null)?.nombre ?? "Negocio"}
+      rubro={(negocio.rubros as unknown as { nombre: string } | null)?.nombre ?? textos.comun.negocio}
       whatsappId={negocio.whatsapp_phone_number_id ?? ""}
       direccion={config.direccion ?? ""}
       notifyPhoneNumber={config.notifyPhoneNumber ?? ""}
