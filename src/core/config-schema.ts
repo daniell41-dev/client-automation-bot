@@ -221,7 +221,7 @@ const followUpSchema = z.object({
 
 /** Exportado (T-12): el editor de Configuración valida el nombre del bot con este mismo schema. */
 export const personaSchema = z.object({
-  name: z.string().min(1, "El nombre del bot es obligatorio."),
+  name: z.string().min(1, "El nombre del asistente es obligatorio."),
   tone: z.string(),
   language: z.string(),
 });

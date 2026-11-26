@@ -131,7 +131,7 @@ export function CitasEditor({
         {/* Servicios reservables */}
         <Card
           title="Servicios reservables"
-          subtitle="El bot solo ofrece citas para lo que esté activo."
+          subtitle="El asistente solo ofrece citas para lo que esté activo."
         >
           <div className="space-y-2">
             {services.map((s) => (
@@ -184,7 +184,7 @@ export function CitasEditor({
           {pedidos.enabled && (
             <div className="space-y-3">
               <div>
-                <label className={labelCls}>Pregunta del bot</label>
+                <label className={labelCls}>Pregunta del asistente</label>
                 <input
                   className={inputCls}
                   value={pedidos.pregunta}
@@ -273,7 +273,7 @@ export function CitasEditor({
         {/* Horarios de atención */}
         <Card
           title="Horarios de atención"
-          subtitle="El bot no acepta citas fuera de estos horarios."
+          subtitle="El asistente no acepta citas fuera de estos horarios."
         >
           <div className="divide-y divide-line">
             {horarios.map((dia, i) => {
@@ -347,7 +347,7 @@ export function CitasEditor({
           {proximas.length === 0 ? (
             <EmptyState
               title="Sin reservas por ahora."
-              subtitle="Las citas que confirme el bot van a aparecer aquí."
+              subtitle="Las citas que confirme el asistente van a aparecer aquí."
             />
           ) : (
             <ul className="divide-y divide-line">
@@ -376,7 +376,7 @@ export function CitasEditor({
         {pasadas.length > 0 && (
           <Card
             title="Citas pasadas sin cerrar"
-            subtitle="El bot las cierra solo cuando el cliente vuelve a escribir. Si no, ciérrelas aquí."
+            subtitle="El asistente las cierra solo cuando el cliente vuelve a escribir. Si no, ciérrelas aquí."
           >
             <ul className="divide-y divide-line">
               {pasadas.map((r) => (

@@ -71,7 +71,7 @@ export default async function EditarRubroPage({
 
       <section>
         <h2 className="mb-3 text-[15px] font-bold text-ink">
-          Plantilla del bot (lo que hereda cada negocio creado desde este rubro)
+          Plantilla del asistente (lo que hereda cada negocio creado desde este rubro)
         </h2>
         <ConfigForm
           initial={template}

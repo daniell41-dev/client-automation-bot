@@ -167,7 +167,7 @@ export function RespuestasEditor({
                 </div>
                 <input
                   className={inputCls}
-                  placeholder="Respuesta exacta del bot"
+                  placeholder="Respuesta exacta del asistente"
                   value={rule.respuesta}
                   onChange={(e) => patchRule(i, { respuesta: e.target.value })}
                 />
@@ -243,7 +243,7 @@ export function RespuestasEditor({
 
         {/* Fallback */}
         <Card
-          title="Si el bot no entiende"
+          title="Si el asistente no entiende"
           action={
             <span className="flex items-center gap-2 text-sm text-ink-mid">
               Derivar a una persona

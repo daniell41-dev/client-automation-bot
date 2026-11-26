@@ -330,7 +330,7 @@ export function ConfiguracionEditor({
       {/* T-110: referencia y detalles en el menú */}
       <Card
         title="Referencias, tallas y colores"
-        subtitle="Actívelo si sus clientes piden por código («la 102») o eligen talla, color o sabor. Aparece en cada producto de su menú y el bot pregunta lo que falte antes de cerrar el pedido."
+        subtitle="Actívelo si sus clientes piden por código («la 102») o eligen talla, color o sabor. Aparece en cada producto de su menú y el asistente pregunta lo que falte antes de cerrar el pedido."
       >
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
@@ -350,7 +350,7 @@ export function ConfiguracionEditor({
       {/* T-106: seguimiento automático de pedidos a medias */}
       <Card
         title="Seguimiento automático"
-        subtitle="Si un cliente deja un pedido a medias, el bot le escribe para retomarlo, en los tiempos que usted elija. Nunca más de dos veces, solo en su horario de atención, y nunca a quien pidió que no le escriban."
+        subtitle="Si un cliente deja un pedido a medias, el asistente le escribe para retomarlo, en los tiempos que usted elija. Nunca más de dos veces, solo en su horario de atención, y nunca a quien pidió que no le escriban."
       >
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm font-semibold text-ink">Retomar pedidos a medias</span>
@@ -486,7 +486,7 @@ export function ConfiguracionEditor({
       {/* Notificaciones */}
       <Card
         title="Notificaciones"
-        subtitle="Su WhatsApp personal: le avisamos ahí cuando el bot confirme una cita o un pedido."
+        subtitle="Su WhatsApp personal: le avisamos ahí cuando el asistente confirme una cita o un pedido."
       >
         <div className="max-w-sm">
           <label className={labelCls}>Su número de WhatsApp</label>
@@ -661,7 +661,7 @@ export function ConfiguracionEditor({
             )}
           </div>
           <p className="text-xs text-ink-soft">
-            El bot le manda todas estas cuentas al cliente al confirmar el pedido, con el número,
+            El asistente le manda todas estas cuentas al cliente al confirmar el pedido, con el número,
             el tipo y a nombre de quién está. Si el comprobante dice que se pagó a otra cuenta,
             le avisa. Se guarda con el botón &quot;Guardar cambios&quot; de más abajo.
           </p>
@@ -670,7 +670,7 @@ export function ConfiguracionEditor({
           <div className="border-t border-line pt-4">
             <p className="text-sm font-semibold text-ink">Código QR de pago (opcional)</p>
             <p className="mt-0.5 text-xs text-ink-soft">
-              La captura del QR de su Nequi, Bancolombia o Bre-B. El bot la envía como imagen
+              La captura del QR de su Nequi, Bancolombia o Bre-B. El asistente la envía como imagen
               después de las cuentas. PNG, JPG o WEBP, hasta 2 MB.
             </p>
             {initialPagos?.qrUrl && (
@@ -692,7 +692,7 @@ export function ConfiguracionEditor({
 
       {/* T-121: catálogo en PDF. Se guarda con su propio botón (sube un
           archivo), como el QR; el "Guardar cambios" de abajo no lo toca. */}
-      <Card title="Catálogo en PDF" subtitle="Opcional. El bot se lo manda al cliente por WhatsApp.">
+      <Card title="Catálogo en PDF" subtitle="Opcional. El asistente se lo manda al cliente por WhatsApp.">
         <div className="space-y-3">
           {catalogoPdf && (
             <div className="flex flex-wrap items-center gap-3">
@@ -750,7 +750,7 @@ export function ConfiguracionEditor({
               Enviar el catálogo al saludar
             </label>
             <p className="text-xs text-ink-soft">
-              Apagado, el bot igual lo manda cuando el cliente pide &quot;el catálogo&quot;.
+              Apagado, el asistente igual lo manda cuando el cliente pide &quot;el catálogo&quot;.
             </p>
           </ActionForm>
         </div>
@@ -837,10 +837,10 @@ export function ConfiguracionEditor({
       </Card>
 
       {/* El bot */}
-      <Card title="El bot">
+      <Card title="El asistente virtual">
         <div className="space-y-4">
           <div className="max-w-sm">
-            <label className={labelCls}>Nombre del bot</label>
+            <label className={labelCls}>Nombre del asistente</label>
             <input
               className={`${inputCls} ${botNameError ? "border-warn-ink" : ""}`}
               value={botName}
@@ -890,10 +890,10 @@ export function ConfiguracionEditor({
               rows={4}
               value={ai.knowledge ?? ""}
               onChange={(e) => setAi((prev) => ({ ...prev, knowledge: e.target.value }))}
-              placeholder="Horarios especiales, medios de pago, dirección, políticas de cambio… lo que el bot necesita saber para responder lo que no está en el catálogo."
+              placeholder="Horarios especiales, medios de pago, dirección, políticas de cambio… lo que el asistente necesita saber para responder lo que no está en el catálogo."
             />
             <p className="mt-1.5 text-xs text-ink-soft">
-              Con esto el bot responde preguntas que no están en el catálogo (medios
+              Con esto el asistente responde preguntas que no están en el catálogo (medios
               de pago, horarios especiales, etc.).
             </p>
             {/* T-105: "sin arroz, sin salsa". Encendido por defecto (undefined = sí). */}
@@ -901,7 +901,7 @@ export function ConfiguracionEditor({
               <span>
                 <span className="block text-sm font-semibold text-ink">Aceptar cambios en los productos</span>
                 <span className="block text-xs text-ink-soft">
-                  El cliente puede pedir “sin arroz” o “sin salsa”: el bot lo anota en el pedido y usted lo
+                  El cliente puede pedir “sin arroz” o “sin salsa”: el asistente lo anota en el pedido y usted lo
                   ve en el aviso y en el panel. No cambia el precio.
                 </span>
               </span>

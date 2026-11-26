@@ -428,7 +428,7 @@ export function CatalogoEditor({
               <div className="sm:col-span-2 rounded-xl border border-line p-3">
                 <p className="text-sm font-semibold text-ink">Detalles del producto (opcional)</p>
                 <p className="mb-3 text-xs text-ink-mid">
-                  Si el producto viene en varias tallas, colores o estilos, agréguelos aquí. El bot le pregunta al
+                  Si el producto viene en varias tallas, colores o estilos, agréguelos aquí. El asistente le pregunta al
                   cliente cuál quiere antes de cerrar el pedido.
                 </p>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -546,7 +546,7 @@ export function CatalogoEditor({
                 )}
                 {detallesDe(selected).length > 0 && (
                   <p className="mt-3 rounded-lg bg-primary-tint px-3 py-2 text-xs text-ink">
-                    El bot preguntará: «{preguntaDetalles(selected, selected.name || "producto")}»
+                    El asistente preguntará: «{preguntaDetalles(selected, selected.name || "producto")}»
                   </p>
                 )}
                 {(fieldErrors.detalles || fieldErrors.variantes) && (
@@ -579,7 +579,7 @@ export function CatalogoEditor({
                 Quitar del catálogo
               </button>
               <p className="hidden text-xs text-ink-soft min-[1080px]:block">
-                Los cambios se reflejan al instante en el chat del bot →
+                Los cambios se reflejan al instante en el chat del asistente →
               </p>
             </div>
           </Card>

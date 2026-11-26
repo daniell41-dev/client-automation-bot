@@ -44,7 +44,7 @@ const SUBTITLES: Record<string, { title: string; subtitle: string }> = {
   },
   "/backoffice/leads": {
     title: "Leads",
-    subtitle: "Contactos capturados por los bots",
+    subtitle: "Contactos capturados por los asistentes",
   },
 };
 

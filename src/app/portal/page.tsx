@@ -247,7 +247,7 @@ export default async function PortalHome() {
                 <h2 className="text-[17.5px] font-bold text-ink">Arme su negocio</h2>
                 <p className="mt-1 text-sm text-ink-mid">
                   Elija qué tipo de negocio es y cómo se llama. Arrancamos con una
-                  plantilla que después ajusta a su gusto; el bot queda apagado
+                  plantilla que después ajusta a su gusto; el asistente queda apagado
                   hasta que conectemos su número de WhatsApp.
                 </p>
                 <ActionForm action={crearMiNegocio} submitLabel="Crear mi negocio" className="mt-5 space-y-4">
@@ -306,7 +306,7 @@ export default async function PortalHome() {
                       </p>
                     </div>
                     <Pill tone={card.botActivo ? "success" : "warn"} dot>
-                      {card.botActivo ? "Bot activo" : "Bot en pausa"}
+                      {card.botActivo ? "Asistente activo" : "Asistente en pausa"}
                     </Pill>
                   </div>
                   <div className="grid grid-cols-3 gap-2 rounded-xl bg-surface-3 p-3">

@@ -138,12 +138,12 @@ export function PortalShell({
   const current = nav.find((item) => isActive(item.href));
 
   const subtitles: Record<string, string> = {
-    Resumen: `Panorama del bot en ${negocio.nombre}`,
-    [catalogLabel(negocio.rubro, negocio.catalogo)]: "Lo que el bot puede ofrecer y vender por WhatsApp",
-    "Citas y reservas": "Turnos y reservas que el bot agenda automáticamente",
-    "Respuestas y flujos": "Cómo responde el bot: IA entrenada + reglas de respaldo",
+    Resumen: `Panorama del asistente virtual en ${negocio.nombre}`,
+    [catalogLabel(negocio.rubro, negocio.catalogo)]: "Lo que el asistente puede ofrecer y vender por WhatsApp",
+    "Citas y reservas": "Turnos y reservas que el asistente agenda automáticamente",
+    "Respuestas y flujos": "Cómo responde el asistente: IA entrenada + reglas de respaldo",
     Conversaciones: "Chats de sus clientes en tiempo real",
-    Configuración: "Datos del negocio, horarios y bot",
+    Configuración: "Datos del negocio, horarios y asistente",
   };
 
   // Tab bar móvil (T-16): antes tenía 4 accesos fijos del handoff (2 a
@@ -283,9 +283,9 @@ export function PortalShell({
                 name="next"
                 value={(!negocio.botActivo).toString()}
               />
-              <button type="submit" title="Pausar / activar el bot">
+              <button type="submit" title="Pausar / activar el asistente">
                 <Pill tone={negocio.botActivo ? "success" : "warn"} dot>
-                  {negocio.botActivo ? "Bot activo" : "Bot en pausa"}
+                  {negocio.botActivo ? "Asistente activo" : "Asistente en pausa"}
                 </Pill>
               </button>
             </form>
