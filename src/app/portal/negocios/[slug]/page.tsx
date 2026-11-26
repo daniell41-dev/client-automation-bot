@@ -10,9 +10,10 @@ import { notFound } from "next/navigation";
 import { createUserClient } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { Card, EmptyState, Pill, StatCard } from "@/components/ui";
+import { inicioDelDia, ventasDelDia, type PedidoVenta } from "@/core/engine/ventas-del-dia";
 import { CheckCircle2, Circle } from "lucide-react";
 import { LeTocaAUsted } from "@/components/le-toca-a-usted";
-import { armarPendientes, type PedidoInicio } from "@/lib/inicio-portal";
+import { armarPendientes, formatoMonto, type PedidoInicio } from "@/lib/inicio-portal";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,11 @@ export default async function ResumenPage({
   if (!negocio) notFound();
   const config = parseBusinessConfig(negocio.config);
 
-  const [{ data: leads }, { data: sesiones }, { data: conOrigen }, { data: pedidosPendientes }] = await Promise.all([
+  // Medianoche de Colombia (el servidor corre en UTC; con setHours(0) el
+  // "hoy" empezaba a las 7 p. m. del día anterior).
+  const hoy = inicioDelDia(new Date(), config?.timezone ?? "America/Bogota");
+
+  const [{ data: leads }, { data: sesiones }, { data: conOrigen }, { data: pedidosPendientes }, { data: pedidosHoy }] = await Promise.all([
     supabase.from("leads").select("state, stage").eq("business_slug", slug),
     supabase
       .from("sesiones")
@@ -57,15 +62,21 @@ export default async function ResumenPage({
       .eq("negocio_id", negocio.id)
       .or("estado.eq.por_verificar,devolucion_estado.in.(pendiente,pidiendo_cuenta)")
       .limit(200),
+    // Lo vendido hoy (ver core/engine/ventas-del-dia.ts).
+    supabase
+      .from("pedidos")
+      .select("estado, total, moneda, created_at, items")
+      .eq("negocio_id", negocio.id)
+      .gte("created_at", hoy.toISOString())
+      .limit(1000),
   ]);
+  const ventas = ventasDelDia((pedidosHoy ?? []) as unknown as PedidoVenta[], hoy);
   const pendientes = armarPendientes((pedidosPendientes ?? []) as unknown as PedidoInicio[], [
     { id: negocio.id, slug, nombre: config?.name ?? slug },
   ]);
   const porAnuncio = contarPorOrigen(((conOrigen ?? []) as { origen: unknown }[]).map((l) => l.origen));
 
   // KPIs
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
   const mensajesHoy = ((sesiones ?? []) as SesionRow[]).reduce((acc, s) => {
     const turns = Array.isArray(s.history)
       ? s.history.filter((t) => t.timestamp && new Date(t.timestamp) >= hoy).length
@@ -112,7 +123,18 @@ export default async function ResumenPage({
           value={`${pctResueltas}%`}
           delta="sin intervención"
         />
-        <StatCard label="Tiempo de respuesta" value="~5 s" delta="instantáneo" deltaTone="neutral" />
+        <StatCard
+          label="Vendido hoy"
+          value={ventas.total === null ? "—" : formatoMonto(ventas.total, ventas.moneda ?? config?.currency ?? "COP")}
+          delta={
+            ventas.masPedido
+              ? `Lo más pedido: ${ventas.masPedido.nombre}`
+              : ventas.porAprobar > 0
+                ? `${ventas.porAprobar} por aprobar`
+                : "solo pedidos aprobados"
+          }
+          deltaTone="neutral"
+        />
       </div>
 
       {/* Completá tu bot */}

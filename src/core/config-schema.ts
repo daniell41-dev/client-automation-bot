@@ -261,6 +261,7 @@ export const businessConfigSchema = z.object({
   horarios: z.array(diaAtencionSchema).optional().catch(undefined),
   ai: aiSchema.optional(),
   pedidos: pedidosSchema.optional(),
+  resumenDiario: z.object({ activo: z.boolean() }).optional(),
   seguimientos: z
     .object({
       activo: z.boolean(),

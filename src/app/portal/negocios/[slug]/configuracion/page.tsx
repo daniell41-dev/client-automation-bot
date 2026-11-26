@@ -65,6 +65,7 @@ export default async function ConfiguracionPage({
       catalogoPdf={config.catalogoPdf}
       initialSeguimientos={config.seguimientos}
       initialCatalogo={config.catalogo}
+      initialResumenDiario={config.resumenDiario}
       candidatosSeguimiento={candidatos}
     />
   );

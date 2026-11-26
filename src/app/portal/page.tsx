@@ -24,10 +24,11 @@ import {
   armarPendientes,
   fechaLarga,
   pedidosDeHoy,
+  formatoMonto,
   saludo,
-  totalVendido,
   type PedidoInicio,
 } from "@/lib/inicio-portal";
+import { inicioDelDia, ventasDelDia } from "@/core/engine/ventas-del-dia";
 
 export const dynamic = "force-dynamic";
 
@@ -78,8 +79,9 @@ export default async function PortalHome() {
     : await supabase.from("rubros").select("id, nombre").order("nombre");
 
   // Mensajes de hoy por negocio (turnos de las sesiones actualizadas hoy).
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
+  // Medianoche de Colombia, no la del servidor (UTC): con setHours(0) el
+  // "hoy" empezaba a las 7 p. m. del día anterior.
+  const hoy = inicioDelDia(new Date(), "America/Bogota");
   const [{ data: sesiones }, { data: pedidosData }] = slugs.length
     ? await Promise.all([
         supabase
@@ -134,7 +136,8 @@ export default async function PortalHome() {
   }));
   const pendientes = armarPendientes(pedidos, negociosInicio);
   const vendidosHoy = pedidosDeHoy(pedidos, hoy);
-  const totalHoy = totalVendido(vendidosHoy);
+  // "Vendido" = solo lo que la dueña ya aprobó (ver core/engine/ventas-del-dia.ts).
+  const ventas = ventasDelDia(pedidos, hoy);
   const mensajesHoy = [...mensajesPorNegocio.values()].reduce((a, b) => a + b, 0);
   const ahora = new Date();
 
@@ -215,9 +218,12 @@ export default async function PortalHome() {
           <section aria-label="Resumen de hoy" className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <StatCard label="Mensajes hoy" value={String(mensajesHoy)} delta="en todos sus negocios" deltaTone="neutral" />
             <StatCard
-              label="Pedidos hoy"
-              value={String(vendidosHoy.length)}
-              delta={totalHoy ? `${totalHoy} en total` : undefined}
+              label="Vendido hoy"
+              value={ventas.total === null ? "—" : formatoMonto(ventas.total, ventas.moneda ?? "COP")}
+              delta={
+                `${ventas.vendidos === 1 ? "1 pedido aprobado" : `${ventas.vendidos} pedidos aprobados`}` +
+                (ventas.porAprobar > 0 ? ` · ${ventas.porAprobar} por aprobar` : "")
+              }
               deltaTone="neutral"
             />
             <StatCard

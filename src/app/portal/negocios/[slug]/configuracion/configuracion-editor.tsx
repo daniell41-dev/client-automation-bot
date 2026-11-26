@@ -143,6 +143,7 @@ export function ConfiguracionEditor({
   catalogoPdf,
   initialSeguimientos,
   initialCatalogo,
+  initialResumenDiario,
   candidatosSeguimiento,
 }: {
   slug: string;
@@ -160,11 +161,13 @@ export function ConfiguracionEditor({
   catalogoPdf: BusinessConfig["catalogoPdf"];
   initialSeguimientos: BusinessConfig["seguimientos"];
   initialCatalogo: BusinessConfig["catalogo"];
+  initialResumenDiario: BusinessConfig["resumenDiario"];
   /** T-114: clientes con un pedido a medias a los que se les puede escribir ya. */
   candidatosSeguimiento: { id: string; etiqueta: string }[];
 }) {
   // T-110: el rubro decide si se ven la referencia y los detalles en el
   // menú; la dueña los puede cambiar aquí (una heladería con sabores).
+  const [resumenDiario, setResumenDiario] = useState(initialResumenDiario?.activo === true);
   const [campoReferencia, setCampoReferencia] = useState(initialCatalogo?.campos?.referencia === true);
   const [campoDetalles, setCampoDetalles] = useState(initialCatalogo?.campos?.detalles === true);
   // T-106: apagado por defecto. Los textos vacíos usan los del sistema.
@@ -226,6 +229,7 @@ export function ConfiguracionEditor({
       ...initialCatalogo,
       campos: { ...initialCatalogo?.campos, referencia: campoReferencia, detalles: campoDetalles },
     },
+    resumenDiario: { activo: resumenDiario },
     seguimientos: {
       activo: seguimientos.activo,
       primero: seguimientos.primero.trim() || undefined,
@@ -496,6 +500,17 @@ export function ConfiguracionEditor({
             Formato internacional sin espacios ni + (ej. 573001234567). Déjelo
             vacío para no recibir avisos.
           </p>
+        </div>
+        {/* Resumen del día al cierre (core/engine/ventas-del-dia.ts). */}
+        <div className="mt-5 flex items-center justify-between gap-3 rounded-xl border border-line p-3">
+          <span className="text-sm text-ink">
+            <span className="font-semibold">Resumen del día por WhatsApp</span>
+            <span className="block text-xs text-ink-mid">
+              Al cierre de su horario le llega cuánto vendió hoy, lo más pedido y lo que espera su respuesta. Los
+              días sin pedidos no le llega nada.
+            </span>
+          </span>
+          <Toggle checked={resumenDiario} onChange={setResumenDiario} label="Resumen del día por WhatsApp" />
         </div>
         <fieldset className="mt-5 space-y-2">
           <legend className={labelCls}>Avisos de pedidos</legend>
