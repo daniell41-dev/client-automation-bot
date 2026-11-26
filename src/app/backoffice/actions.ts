@@ -22,6 +22,10 @@ import { actualizarNegocioSchema, crearNegocioSchema } from "@/app/backoffice/ne
 import { crearRubroSchema } from "@/app/backoffice/rubro-schema";
 import { createInventoryRepository } from "@/core/storage/factory";
 import type { BusinessConfig } from "@/core/types";
+import { formato, textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (acciones.backoffice). */
+const tt = textos.acciones.backoffice;
 
 export interface ActionState {
   error?: string;
@@ -30,7 +34,7 @@ export interface ActionState {
 
 async function requireAdmin(): Promise<string | null> {
   const me = await getUserRole();
-  if (!me || me.role !== "admin") return "No autorizado.";
+  if (!me || me.role !== "admin") return tt.noAutorizado;
   return null;
 }
 
@@ -49,7 +53,7 @@ async function asegurarAsignacion(
     .from("asignaciones")
     .insert({ user_id: userId, rubro_id: rubroId });
   if (error && error.code !== "23505") {
-    return `No se pudo asignar el rubro al cliente: ${error.message}`;
+    return formato(tt.noSePudoAsignar, { message: error.message });
   }
   return null;
 }
@@ -63,7 +67,7 @@ async function asegurarAsignacion(
  */
 function errorDePlan(error: { code?: string; message: string }): string | null {
   const sinColumna = error.code === "42703" || error.code === "PGRST204" || /column .*plan/i.test(error.message);
-  return sinColumna ? "Falta aplicar la migración 0032 (planes) en Supabase." : null;
+  return sinColumna ? tt.faltaAplicarLaMigracion : null;
 }
 
 export async function crearNegocio(
@@ -82,7 +86,7 @@ export async function crearNegocio(
     plan: planDe(formData.get("plan")),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return { error: parsed.error.issues[0]?.message ?? tt.datosInvalidos };
   }
   const {
     nombre,
@@ -102,7 +106,7 @@ export async function crearNegocio(
     .maybeSingle();
   const template = parseBusinessConfig(rubro?.template);
   if (!template) {
-    return { error: "La plantilla de ese rubro es inválida; revísela en Rubros." };
+    return { error: tt.laPlantillaDeEse };
   }
 
   // Nace Pausado: el admin lo activa cuando el negocio esté listo para atender.
@@ -125,8 +129,8 @@ export async function crearNegocio(
     return {
       error:
         error.code === "23505"
-          ? "Ya existe un negocio con ese slug o ese WhatsApp; elija otro."
-          : errorDePlan(error) ?? `No se pudo crear el negocio: ${error.message}`,
+          ? tt.yaExisteUnNegocio
+          : errorDePlan(error) ?? formato(tt.noSePudoCrear, { message: error.message }),
     };
   }
 
@@ -164,7 +168,7 @@ export async function actualizarNegocio(
     plan: planDe(formData.get("plan")),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return { error: parsed.error.issues[0]?.message ?? tt.datosInvalidos };
   }
   const { id, nombre, owner_id: ownerId, whatsapp_phone_number_id: whatsapp, plan } = parsed.data;
 
@@ -175,7 +179,7 @@ export async function actualizarNegocio(
     .eq("id", id)
     .maybeSingle();
   const config = parseBusinessConfig(actual?.config);
-  if (!actual || !config) return { error: "Negocio no encontrado o config inválida." };
+  if (!actual || !config) return { error: tt.negocioNoEncontradoO };
 
   const nuevaConfig: BusinessConfig = { ...config, name: nombre };
 
@@ -193,8 +197,8 @@ export async function actualizarNegocio(
     return {
       error:
         error.code === "23505"
-          ? "Ese WhatsApp ya está en uso por otro negocio."
-          : errorDePlan(error) ?? `No se pudo guardar: ${error.message}`,
+          ? tt.eseWhatsappYaEsta
+          : errorDePlan(error) ?? formato(tt.noSePudoGuardar, { message: error.message }),
     };
   }
 
@@ -206,7 +210,7 @@ export async function actualizarNegocio(
   invalidateBusinessCache();
   revalidatePath("/backoffice/negocios");
   revalidatePath(`/backoffice/negocios/${id}`);
-  return { ok: "Negocio actualizado." };
+  return { ok: tt.negocioActualizado };
 }
 
 /** Pausar/Activar bot desde el detalle del negocio (equivalente admin del toggle del portal). */
@@ -246,11 +250,11 @@ export async function eliminarNegocio(
   if (denied) return { error: denied };
 
   const id = String(formData.get("id") ?? "");
-  if (!id) return { error: "Falta el negocio." };
+  if (!id) return { error: tt.faltaElNegocio };
 
   const supabase = await createUserClient();
   const { error } = await supabase.from("negocios").delete().eq("id", id);
-  if (error) return { error: `No se pudo eliminar: ${error.message}` };
+  if (error) return { error: formato(tt.noSePudoEliminar, { message: error.message }) };
 
   invalidateBusinessCache();
   revalidatePath("/backoffice/negocios");
@@ -271,21 +275,21 @@ export async function crearUsuario(
   const role = String(formData.get("role") ?? "cliente");
 
   if (!email || password.length < 8) {
-    return { error: "Correo requerido y contraseña de mínimo 8 caracteres." };
+    return { error: tt.correoRequeridoYContrasena };
   }
   if (!["admin", "cliente", "invitado"].includes(role)) {
-    return { error: "Rol inválido." };
+    return { error: tt.rolInvalido };
   }
 
   const admin = createAdminClient();
-  if (!admin) return { error: "Supabase no está configurado." };
+  if (!admin) return { error: tt.supabaseNoEstaConfigurado };
 
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
   });
-  if (error) return { error: `No se pudo crear el usuario: ${error.message}` };
+  if (error) return { error: formato(tt.noSePudoCrear2, { message: error.message }) };
 
   // El trigger creó el profile con rol 'cliente'; se ajusta si difiere.
   if (role !== "cliente" && data.user) {
@@ -293,11 +297,11 @@ export async function crearUsuario(
       .from("profiles")
       .update({ role })
       .eq("id", data.user.id);
-    if (roleError) return { error: `Usuario creado pero sin rol: ${roleError.message}` };
+    if (roleError) return { error: formato(tt.usuarioCreadoPeroSin, { message: roleError.message }) };
   }
 
   revalidatePath("/backoffice/usuarios");
-  return { ok: `Usuario ${email} creado.` };
+  return { ok: formato(tt.usuarioEmailCreado, { email }) };
 }
 
 /**
@@ -316,17 +320,17 @@ export async function invitarDuena(
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const rubroIds = formData.getAll("rubroIds").map(String).filter(Boolean);
-  if (!email.includes("@")) return { error: "Escriba un correo válido." };
-  if (rubroIds.length === 0) return { error: "Marque al menos un tipo de negocio." };
+  if (!email.includes("@")) return { error: tt.escribaUnCorreoValido };
+  if (rubroIds.length === 0) return { error: tt.marqueAlMenosUn };
 
   const admin = createAdminClient();
-  if (!admin) return { error: "Supabase no está configurado." };
+  if (!admin) return { error: tt.supabaseNoEstaConfigurado };
 
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     redirectTo: await linkDefinirContrasena(),
   });
   if (error || !data.user) {
-    return { error: `No se pudo invitar: ${error?.message ?? "sin usuario"}. ¿Está configurado el correo (SMTP) en Supabase?` };
+    return { error: formato(tt.noSePudoInvitar, { motivo: error?.message ?? tt.sinUsuario }) };
   }
 
   const { error: asignError } = await admin
@@ -335,10 +339,10 @@ export async function invitarDuena(
       rubroIds.map((rubroId) => ({ user_id: data.user!.id, rubro_id: rubroId })),
       { onConflict: "user_id,rubro_id", ignoreDuplicates: true },
     );
-  if (asignError) return { error: `Invitación enviada, pero sin tipos de negocio: ${asignError.message}` };
+  if (asignError) return { error: formato(tt.invitacionEnviadaPeroSin, { message: asignError.message }) };
 
   revalidatePath("/backoffice/usuarios");
-  return { ok: `Invitación enviada a ${email}. Le llega un correo para definir su contraseña.` };
+  return { ok: formato(tt.invitacionEnviadaAEmail, { email }) };
 }
 
 // ── Rubros ───────────────────────────────────────────────────────────────────
@@ -356,7 +360,7 @@ export async function crearRubro(
     descripcion: String(formData.get("descripcion") ?? "").trim(),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Datos inválidos." };
+    return { error: parsed.error.issues[0]?.message ?? tt.datosInvalidos };
   }
   const { slug, nombre, descripcion } = parsed.data;
   const templateJson = String(formData.get("template") ?? "");
@@ -372,23 +376,23 @@ export async function crearRubro(
     try {
       template = JSON.parse(templateJson);
     } catch {
-      return { error: "La plantilla no es JSON válido." };
+      return { error: tt.laPlantillaNoEs };
     }
   } else {
     template = { ...plantilla, slug, name: nombre };
   }
   if (!parseBusinessConfig(template)) {
-    return { error: "La plantilla no cumple la forma de BusinessConfig." };
+    return { error: tt.laPlantillaNoCumple };
   }
 
   const supabase = await createUserClient();
   const { error } = await supabase
     .from("rubros")
     .insert({ slug, nombre, descripcion: descripcion || null, template });
-  if (error) return { error: `No se pudo crear el rubro: ${error.message}` };
+  if (error) return { error: formato(tt.noSePudoCrear3, { message: error.message }) };
 
   revalidatePath("/backoffice/rubros");
-  return { ok: `Rubro "${nombre}" creado.` };
+  return { ok: formato(tt.rubroNombreCreado, { nombre }) };
 }
 
 export async function actualizarRubroMeta(
@@ -401,7 +405,7 @@ export async function actualizarRubroMeta(
   const id = String(formData.get("id") ?? "");
   const nombre = String(formData.get("nombre") ?? "").trim();
   const descripcion = String(formData.get("descripcion") ?? "").trim();
-  if (!id || !nombre) return { error: "Faltan datos del rubro." };
+  if (!id || !nombre) return { error: tt.faltanDatosDelRubro };
 
   const supabase = await createUserClient();
   const { error } = await supabase
@@ -412,11 +416,11 @@ export async function actualizarRubroMeta(
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
-  if (error) return { error: `No se pudo actualizar: ${error.message}` };
+  if (error) return { error: formato(tt.noSePudoActualizar, { message: error.message }) };
 
   revalidatePath("/backoffice/rubros");
   revalidatePath(`/backoffice/rubros/${id}`);
-  return { ok: "Datos del rubro actualizados." };
+  return { ok: tt.datosDelRubroActualizados };
 }
 
 export async function actualizarRubroTemplate(
@@ -428,16 +432,16 @@ export async function actualizarRubroTemplate(
 
   const id = String(formData.get("id") ?? "");
   const templateJson = String(formData.get("template") ?? "");
-  if (!id) return { error: "Falta el id del rubro." };
+  if (!id) return { error: tt.faltaElIdDel };
 
   let template: unknown;
   try {
     template = JSON.parse(templateJson);
   } catch {
-    return { error: "La plantilla no es JSON válido." };
+    return { error: tt.laPlantillaNoEs };
   }
   if (!parseBusinessConfig(template)) {
-    return { error: "La plantilla no cumple la forma de BusinessConfig." };
+    return { error: tt.laPlantillaNoCumple };
   }
 
   const supabase = await createUserClient();
@@ -445,10 +449,10 @@ export async function actualizarRubroTemplate(
     .from("rubros")
     .update({ template, updated_at: new Date().toISOString() })
     .eq("id", id);
-  if (error) return { error: `No se pudo actualizar: ${error.message}` };
+  if (error) return { error: formato(tt.noSePudoActualizar, { message: error.message }) };
 
   revalidatePath(`/backoffice/rubros/${id}`);
-  return { ok: "Plantilla actualizada." };
+  return { ok: tt.plantillaActualizada };
 }
 
 export async function eliminarRubro(
@@ -459,7 +463,7 @@ export async function eliminarRubro(
   if (denied) return { error: denied };
 
   const id = String(formData.get("id") ?? "");
-  if (!id) return { error: "Falta el rubro." };
+  if (!id) return { error: tt.faltaElRubro };
 
   const supabase = await createUserClient();
   const { error } = await supabase.from("rubros").delete().eq("id", id);
@@ -471,13 +475,13 @@ export async function eliminarRubro(
       // del cliente.
       error:
         error.code === "23503"
-          ? "No se puede eliminar: todavía tiene negocios asociados."
-          : `No se pudo eliminar: ${error.message}`,
+          ? tt.noSePuedeEliminar
+          : formato(tt.noSePudoEliminar, { message: error.message }),
     };
   }
 
   revalidatePath("/backoffice/rubros");
-  return { ok: "Plantilla eliminada." };
+  return { ok: tt.plantillaEliminada };
 }
 
 // ── Asignaciones ─────────────────────────────────────────────────────────────
@@ -491,7 +495,7 @@ export async function asignarRubro(
 
   const userId = String(formData.get("user_id") ?? "");
   const rubroId = String(formData.get("rubro_id") ?? "");
-  if (!userId || !rubroId) return { error: "Elija usuario y rubro." };
+  if (!userId || !rubroId) return { error: tt.elijaUsuarioYRubro };
 
   const supabase = await createUserClient();
   const { error } = await supabase
@@ -500,13 +504,13 @@ export async function asignarRubro(
   if (error) {
     return {
       error: error.code === "23505"
-        ? "Ese rubro ya está asignado a ese usuario."
-        : `No se pudo asignar: ${error.message}`,
+        ? tt.eseRubroYaEsta
+        : formato(tt.noSePudoAsignar2, { message: error.message }),
     };
   }
 
   revalidatePath("/backoffice/asignaciones");
-  return { ok: "Rubro asignado." };
+  return { ok: tt.rubroAsignado };
 }
 
 export async function quitarAsignacion(
@@ -517,12 +521,12 @@ export async function quitarAsignacion(
   if (denied) return { error: denied };
 
   const id = String(formData.get("id") ?? "");
-  if (!id) return { error: "Falta la asignación." };
+  if (!id) return { error: tt.faltaLaAsignacion };
 
   const supabase = await createUserClient();
   const { error } = await supabase.from("asignaciones").delete().eq("id", id);
-  if (error) return { error: `No se pudo quitar: ${error.message}` };
+  if (error) return { error: formato(tt.noSePudoQuitar, { message: error.message }) };
 
   revalidatePath("/backoffice/asignaciones");
-  return { ok: "Asignación quitada." };
+  return { ok: tt.asignacionQuitada };
 }

@@ -11,12 +11,16 @@
 import { z } from "zod";
 import { SLUG_RE } from "@/core/config-schema";
 import { PLANES } from "@/core/planes";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (acciones.negocioSchema). */
+const tt = textos.acciones.negocioSchema;
 
 export const crearNegocioSchema = z.object({
-  nombre: z.string().min(1, "El nombre es obligatorio."),
-  slug: z.string().regex(SLUG_RE, "El slug debe ir en kebab-case (ej. mi-negocio)."),
-  owner_id: z.string().min(1, "Elija un cliente dueño."),
-  rubro_id: z.string().min(1, "Elija un rubro."),
+  nombre: z.string().min(1, tt.elNombreEsObligatorio),
+  slug: z.string().regex(SLUG_RE, tt.elSlugDebeIr),
+  owner_id: z.string().min(1, tt.elijaUnClienteDueno),
+  rubro_id: z.string().min(1, tt.elijaUnRubro),
   whatsapp_phone_number_id: z.string().optional(),
   // T-127: los tres planes de `core/planes.ts` (columna `negocios.plan`).
   plan: z.enum(PLANES),
@@ -24,8 +28,8 @@ export const crearNegocioSchema = z.object({
 
 export const actualizarNegocioSchema = z.object({
   id: z.string().min(1),
-  nombre: z.string().min(1, "El nombre es obligatorio."),
-  owner_id: z.string().min(1, "Elija un cliente dueño."),
+  nombre: z.string().min(1, tt.elNombreEsObligatorio),
+  owner_id: z.string().min(1, tt.elijaUnClienteDueno),
   whatsapp_phone_number_id: z.string().optional(),
   plan: z.enum(PLANES),
 });

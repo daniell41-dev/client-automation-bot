@@ -4,6 +4,10 @@ import { redirect } from "next/navigation";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import type { ActionState } from "@/components/action-form";
 import { validarNuevaContrasena } from "./validar";
+import { formato, textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (acciones.contrasena). */
+const tt = textos.acciones.contrasena;
 
 /**
  * Define la contraseña de la sesión actual. La sesión viene del link del
@@ -12,7 +16,7 @@ import { validarNuevaContrasena } from "./validar";
  */
 export async function definirContrasena(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "El link venció o ya se usó. Pida uno nuevo desde el login." };
+  if (!me) return { error: tt.elLinkVencioO };
 
   const contrasena = String(formData.get("contrasena") ?? "");
   const error = validarNuevaContrasena(contrasena, String(formData.get("repetida") ?? ""));
@@ -20,7 +24,7 @@ export async function definirContrasena(_prev: ActionState, formData: FormData):
 
   const supabase = await createUserClient();
   const { error: updateError } = await supabase.auth.updateUser({ password: contrasena });
-  if (updateError) return { error: `No se pudo guardar la contraseña: ${updateError.message}` };
+  if (updateError) return { error: formato(tt.noSePudoGuardar, { message: updateError.message }) };
 
   redirect(me.role === "admin" ? "/backoffice" : "/portal");
 }

@@ -8,6 +8,10 @@
 import { redirect } from "next/navigation";
 import { createUserClient, getUserRole } from "@/lib/supabase/server";
 import { destinoSeguro } from "@/app/login/destino";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (acciones.login). */
+const tt = textos.acciones.login;
 
 export interface LoginState {
   error?: string;
@@ -22,13 +26,13 @@ export async function signIn(
   const next = String(formData.get("next") ?? "");
 
   if (!email || !password) {
-    return { error: "Ingrese su correo y contraseña." };
+    return { error: tt.ingreseSuCorreoY };
   }
 
   const supabase = await createUserClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
-    return { error: "Credenciales incorrectas. Verifique e intente de nuevo." };
+    return { error: tt.credencialesIncorrectasVerifiqueE };
   }
 
   // Redirige según destino solicitado o rol.
