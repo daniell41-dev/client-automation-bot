@@ -18,6 +18,13 @@ import { guardarConfigParcial, type ActionState } from "@/app/portal/actions";
 import { Card, EmptyState, SearchInput, Toggle } from "@/components/ui";
 import { PhonePreview } from "@/components/phone-preview";
 import { catalogCopy, catalogItemLabel, rubroVisual } from "@/components/rubro-visual";
+import { formato, textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.catalogo). */
+const tt = textos.portal.catalogo;
+
+/** "1 producto" / "12 productos". */
+const conteoProductos = (n: number) => formato(n === 1 ? tt.conteo.uno : tt.conteo.varios, { n });
 
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
 const inputCls =
@@ -222,7 +229,7 @@ export function CatalogoEditor({
           <SearchInput
             value={search}
             onChange={setSearch}
-            placeholder="Buscar en el catálogo…"
+            placeholder={tt.buscarEnElCatalogo}
             className="flex-1"
           />
           <button
@@ -230,33 +237,29 @@ export function CatalogoEditor({
             onClick={agregar}
             className="inline-flex items-center gap-1.5 rounded-[10px] bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-hover"
           >
-            <Plus className="h-4 w-4" />
-            Agregar
-          </button>
+            <Plus className="h-4 w-4" />{tt.agregar}</button>
           {/* T-117: carga masiva desde un archivo, en su propia pantalla. */}
           <Link
             href={`/portal/negocios/${slug}/catalogo/importar`}
             className="inline-flex items-center gap-1.5 rounded-[10px] border border-line px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-surface-3"
           >
-            <FileUp className="h-4 w-4" />
-            Importar
-          </Link>
+            <FileUp className="h-4 w-4" />{tt.importar}</Link>
         </div>
 
         {/* T-150: cuántos hay (y cuántos coinciden con la búsqueda). */}
         {services.length > 0 && (
           <p className="text-xs font-semibold text-ink-mid" aria-live="polite">
             {search.trim()
-              ? `${visibles.length} de ${services.length} ${services.length === 1 ? "producto" : "productos"}`
-              : `${services.length} ${services.length === 1 ? "producto" : "productos"}`}
+              ? formato(tt.conteo.filtrado, { visibles: visibles.length, conteo: conteoProductos(services.length) })
+              : conteoProductos(services.length)}
           </p>
         )}
 
         {/* Lista de ítems */}
         {visibles.length === 0 ? (
           <EmptyState
-            title={search ? "Sin resultados." : "Su catálogo está vacío."}
-            subtitle={search ? undefined : `Agregue su primer ${itemLabel.toLowerCase()}.`}
+            title={search ? tt.sinResultados : tt.suCatalogoEstaVacio}
+            subtitle={search ? undefined : formato(tt.agregueSuPrimer, { item: itemLabel.toLowerCase() })}
           />
         ) : (
           // T-150: la lista tiene su propio scroll (alto máximo de una pantalla)
@@ -288,7 +291,7 @@ export function CatalogoEditor({
                 </span>
                 <span className="min-w-0 flex-1 leading-tight">
                   <span className="block truncate text-sm font-bold text-ink">
-                    {s.name || "(sin nombre)"}
+                    {s.name || tt.sinNombre}
                   </span>
                   <span className="block text-[13px] text-ink-soft">
                     {[s.referencia, s.categoria, precio.format(s.price)].filter(Boolean).join(" · ")}
@@ -298,7 +301,7 @@ export function CatalogoEditor({
                 <Toggle
                   checked={s.disponible !== false}
                   onChange={(next) => patchService(s.id, { disponible: next })}
-                  label={`Disponibilidad de ${s.name}`}
+                  label={formato(tt.disponibilidadDe, { producto: s.name })}
                 />
               </div>
             ))}
@@ -311,9 +314,7 @@ export function CatalogoEditor({
           <Card
             title={`Editar ${itemLabel.toLowerCase()}`}
             action={
-              <span className="flex items-center gap-2 text-sm text-ink-mid">
-                Disponible
-                <Toggle
+              <span className="flex items-center gap-2 text-sm text-ink-mid">{tt.disponible}<Toggle
                   checked={selected.disponible !== false}
                   onChange={(next) => patchService(selected.id, { disponible: next })}
                 />
@@ -322,7 +323,7 @@ export function CatalogoEditor({
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <label className={labelCls}>Nombre</label>
+                <label className={labelCls}>{tt.nombre}</label>
                 <input
                   className={`${inputCls} ${fieldErrors.name ? "border-warn-ink" : ""}`}
                   value={selected.name}
@@ -336,7 +337,7 @@ export function CatalogoEditor({
                 )}
               </div>
               <div>
-                <label className={labelCls}>Precio</label>
+                <label className={labelCls}>{tt.precio}</label>
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-ink-soft">
                     $
@@ -357,7 +358,7 @@ export function CatalogoEditor({
                 )}
               </div>
               <div>
-                <label className={labelCls}>Categoría</label>
+                <label className={labelCls}>{tt.categoria}</label>
                 <input
                   className={inputCls}
                   value={selected.categoria ?? ""}
@@ -369,7 +370,7 @@ export function CatalogoEditor({
               </div>
               {mostrarDuracion && (
                 <div>
-                  <label className={labelCls}>Duración (minutos)</label>
+                  <label className={labelCls}>{tt.duracionMinutos}</label>
                   <input
                     className={inputCls}
                     type="number"
@@ -386,7 +387,7 @@ export function CatalogoEditor({
               )}
               {mostrarStock && (
                 <div>
-                  <label className={labelCls}>Stock</label>
+                  <label className={labelCls}>{tt.stock}</label>
                   <input
                     className={inputCls}
                     type="number"
@@ -397,7 +398,7 @@ export function CatalogoEditor({
                         stock: e.target.value === "" ? undefined : Number(e.target.value),
                       })
                     }
-                    placeholder="Unidades disponibles"
+                    placeholder={tt.unidadesDisponibles}
                   />
                 </div>
               )}
@@ -405,16 +406,16 @@ export function CatalogoEditor({
                   T-110: solo en los rubros que los usan (o si la dueña los encendió). */}
               {mostrarReferencia(catalogo, selected) && (
               <div>
-                <label className={labelCls}>Referencia (opcional)</label>
+                <label className={labelCls}>{tt.referenciaOpcional}</label>
                 <input
                   className={inputCls}
                   value={selected.referencia ?? ""}
                   onChange={(e) =>
                     patchService(selected.id, { referencia: e.target.value.trim() === "" ? undefined : e.target.value })
                   }
-                  placeholder="Ej. 102"
+                  placeholder={tt.ej102}
                 />
-                <p className="mt-1 text-xs text-ink-mid">El código con el que sus clientes piden el producto.</p>
+                <p className="mt-1 text-xs text-ink-mid">{tt.elCodigoConEl}</p>
                 {fieldErrors.referencia && (
                   <p className="mt-1 text-xs text-warn-ink">{fieldErrors.referencia}</p>
                 )}
@@ -426,14 +427,11 @@ export function CatalogoEditor({
                   viene en talla Y en color. */}
               {mostrarDetalles(catalogo, selected) && (
               <div className="sm:col-span-2 rounded-xl border border-line p-3">
-                <p className="text-sm font-semibold text-ink">Detalles del producto (opcional)</p>
-                <p className="mb-3 text-xs text-ink-mid">
-                  Si el producto viene en varias tallas, colores o estilos, agréguelos aquí. El asistente le pregunta al
-                  cliente cuál quiere antes de cerrar el pedido.
-                </p>
+                <p className="text-sm font-semibold text-ink">{tt.detallesDelProductoOpcional}</p>
+                <p className="mb-3 text-xs text-ink-mid">{tt.siElProductoViene}</p>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                   <div className="sm:w-40">
-                    <label className={labelCls} htmlFor="detalle-tipo">Detalle</label>
+                    <label className={labelCls} htmlFor="detalle-tipo">{tt.detalle}</label>
                     {/* Editando no se cambia de detalle: guardaría las opciones en otro. */}
                     <select
                       id="detalle-tipo"
@@ -451,7 +449,7 @@ export function CatalogoEditor({
                     </select>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <label className={labelCls} htmlFor="detalle-opciones">Opciones</label>
+                    <label className={labelCls} htmlFor="detalle-opciones">{tt.opciones}</label>
                     <input
                       id="detalle-opciones"
                       ref={opcionesRef}
@@ -465,7 +463,7 @@ export function CatalogoEditor({
                           agregarDetalle(selected);
                         }
                       }}
-                      placeholder={borrador.tipo === "Talla" ? "28, 30, 32, 34" : borrador.tipo === "Color" ? "Blanco, Azul, Negro" : "Clásico, Skinny"}
+                      placeholder={borrador.tipo === "Talla" ? tt.tallasEjemplo : borrador.tipo === "Color" ? tt.blancoAzulNegro : tt.clasicoSkinny}
                     />
                   </div>
                   <button
@@ -477,28 +475,23 @@ export function CatalogoEditor({
                         detallesDe(selected).length >= 3 &&
                         !detallesDe(selected).some((d) => d.nombre === borrador.tipo))
                     }
-                    aria-label={enEdicion ? `Guardar cambios de ${enEdicion}` : "Agregar detalle"}
-                    title={enEdicion ? `Guardar cambios de ${enEdicion}` : "Agregar detalle"}
+                    aria-label={enEdicion ? formato(tt.guardarCambiosDe, { detalle: enEdicion }) : tt.agregarDetalle}
+                    title={enEdicion ? formato(tt.guardarCambiosDe, { detalle: enEdicion }) : tt.agregarDetalle}
                     className="flex h-[42px] w-full shrink-0 items-center justify-center rounded-[10px] bg-primary text-white transition-colors hover:bg-primary-hover disabled:opacity-40 sm:w-[42px]"
                   >
                     {enEdicion ? <Check className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
                   </button>
                 </div>
                 {enEdicion ? (
-                  <p className="mt-1 text-xs text-ink-mid">
-                    Editando <span className="font-semibold text-ink">{enEdicion}</span>: cambie las opciones y toque ✓.{" "}
+                  <p className="mt-1 text-xs text-ink-mid">{tt.editando}<span className="font-semibold text-ink">{enEdicion}</span>{tt.cambieLasOpcionesY}{" "}
                     <button
                       type="button"
                       onClick={() => cancelarEdicion(selected)}
                       className="font-semibold text-primary underline-offset-2 hover:underline"
-                    >
-                      Cancelar
-                    </button>
+                    >{tt.cancelar}</button>
                   </p>
                 ) : (
-                  <p className="mt-1 text-xs text-ink-mid">
-                    Opciones separadas por coma. Si agrega un detalle que ya está, se reemplazan sus opciones.
-                  </p>
+                  <p className="mt-1 text-xs text-ink-mid">{tt.opcionesSeparadasPorComa}</p>
                 )}
 
                 {detallesDe(selected).length > 0 && (
@@ -545,8 +538,7 @@ export function CatalogoEditor({
                   </ul>
                 )}
                 {detallesDe(selected).length > 0 && (
-                  <p className="mt-3 rounded-lg bg-primary-tint px-3 py-2 text-xs text-ink">
-                    El asistente preguntará: «{preguntaDetalles(selected, selected.name || "producto")}»
+                  <p className="mt-3 rounded-lg bg-primary-tint px-3 py-2 text-xs text-ink">{tt.elAsistentePreguntara}{preguntaDetalles(selected, selected.name || "producto")}»
                   </p>
                 )}
                 {(fieldErrors.detalles || fieldErrors.variantes) && (
@@ -555,7 +547,7 @@ export function CatalogoEditor({
               </div>
               )}
               <div className="sm:col-span-2">
-                <label className={labelCls}>Descripción</label>
+                <label className={labelCls}>{tt.descripcion}</label>
                 <textarea
                   className={inputCls}
                   rows={3}
@@ -575,12 +567,8 @@ export function CatalogoEditor({
                   setSelectedId(services.find((s) => s.id !== selected.id)?.id ?? null);
                 }}
                 className="text-sm font-semibold text-warn-ink hover:underline"
-              >
-                Quitar del catálogo
-              </button>
-              <p className="hidden text-xs text-ink-soft min-[1080px]:block">
-                Los cambios se reflejan al instante en el chat del asistente →
-              </p>
+              >{tt.quitarDelCatalogo}</button>
+              <p className="hidden text-xs text-ink-soft min-[1080px]:block">{tt.losCambiosSeReflejan}</p>
             </div>
           </Card>
           </div>
@@ -607,7 +595,7 @@ export function CatalogoEditor({
               disabled={pending}
               className="w-full rounded-[10px] bg-primary py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-50 sm:w-auto sm:px-8"
             >
-              {pending ? "Guardando…" : "Guardar cambios"}
+              {pending ? tt.guardando : tt.guardarCambios}
             </button>
           </div>
         </form>
@@ -630,14 +618,14 @@ export function CatalogoEditor({
           selected
             ? {
                 categoria: selected.categoria,
-                nombre: selected.name || "(sin nombre)",
+                nombre: selected.name || tt.sinNombre,
                 precio: precio.format(selected.price),
                 descripcion: selected.description,
                 cta: previewCta,
               }
             : undefined
         }
-        quickReplies={["Ver más opciones", "Hablar con alguien"]}
+        quickReplies={[tt.vistaPrevia.verMasOpciones, tt.vistaPrevia.hablarConAlguien]}
       />
     </div>
   );

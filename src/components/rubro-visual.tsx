@@ -14,6 +14,10 @@ import {
 } from "lucide-react";
 import { parseBusinessConfig } from "@/core/config-schema";
 import type { CatalogoConfig } from "@/core/types";
+import { formato, textos } from "@/textos";
+
+/** T-132: etiquetas del catálogo según el rubro, en `src/textos/es.json`. */
+const tr = textos.portal.rubro;
 
 export interface RubroVisual {
   bg: string;
@@ -71,9 +75,9 @@ export function catalogLabel(
 ): string {
   if (catalogo?.etiqueta?.plural) return catalogo.etiqueta.plural;
   const name = sinTildes(rubroNombre);
-  if (/gastro|restaur|comida|parrilla|caf|pizz/i.test(name)) return "Menú";
-  if (/servicio|peluquer|estetic|belleza|barber|salud|spa|masaje/i.test(name)) return "Servicios";
-  return "Catálogo";
+  if (/gastro|restaur|comida|parrilla|caf|pizz/i.test(name)) return tr.etiquetas.menu;
+  if (/servicio|peluquer|estetic|belleza|barber|salud|spa|masaje/i.test(name)) return tr.etiquetas.servicios;
+  return tr.etiquetas.catalogo;
 }
 
 /**
@@ -86,7 +90,7 @@ export function catalogItemLabel(
 ): string {
   if (catalogo?.etiqueta?.singular) return catalogo.etiqueta.singular;
   const label = catalogLabel(rubroNombre, catalogo);
-  return label === "Menú" ? "Plato" : label === "Servicios" ? "Servicio" : "Producto";
+  return label === tr.etiquetas.menu ? tr.item.plato : label === tr.etiquetas.servicios ? tr.item.servicio : tr.item.producto;
 }
 
 /** Textos del editor de Catálogo (T-18) que dependen del rubro — placeholder de categoría y copy del preview de WhatsApp. */
@@ -109,35 +113,35 @@ export function catalogCopy(
     const plural = catalogo.etiqueta.plural.toLowerCase();
     if (catalogo.modoPorDefecto === "cita") {
       return {
-        categoriaPlaceholder: "Categoría",
-        previewSaludo: `¡Hola! ¿Qué ${plural} ofrecen?`,
-        previewSustantivo: `nuestro ${singular}`,
-        previewCta: "Reservar cita",
+        categoriaPlaceholder: tr.copy.categoria,
+        previewSaludo: formato(tr.copy.saludoOfrecen, { plural }),
+        previewSustantivo: formato(tr.copy.nuestro, { singular }),
+        previewCta: tr.copy.reservarCita,
       };
     }
     return {
-      categoriaPlaceholder: "Categoría",
-      previewSaludo: "¡Hola! ¿Qué tienen disponible?",
-      previewSustantivo: `nuestro ${singular}`,
-      previewCta: "Agregar al pedido",
+      categoriaPlaceholder: tr.copy.categoria,
+      previewSaludo: tr.copy.saludoDisponible,
+      previewSustantivo: formato(tr.copy.nuestro, { singular }),
+      previewCta: tr.copy.agregarAlPedido,
     };
   }
 
   const label = catalogLabel(rubroNombre);
-  if (label === "Menú") {
+  if (label === tr.etiquetas.menu) {
     return {
-      categoriaPlaceholder: "Entradas",
-      previewSaludo: "¡Hola! ¿Qué tienen hoy?",
-      previewSustantivo: "nuestro plato",
-      previewCta: "Agregar al pedido",
+      categoriaPlaceholder: tr.copy.entradas,
+      previewSaludo: tr.copy.saludoHoy,
+      previewSustantivo: tr.copy.nuestroPlato,
+      previewCta: tr.copy.agregarAlPedido,
     };
   }
-  if (label === "Servicios") {
+  if (label === tr.etiquetas.servicios) {
     return {
-      categoriaPlaceholder: "Faciales",
-      previewSaludo: "¡Hola! ¿Qué servicios ofrecen?",
-      previewSustantivo: "nuestro servicio",
-      previewCta: "Reservar cita",
+      categoriaPlaceholder: tr.copy.faciales,
+      previewSaludo: tr.copy.saludoServicios,
+      previewSustantivo: tr.copy.nuestroServicio,
+      previewCta: tr.copy.reservarCita,
     };
   }
   // Catálogo (comercio/retail genérico): antes de T-18 caía en la misma
@@ -145,10 +149,10 @@ export function catalogCopy(
   // que un negocio de comercio veía "¿Qué servicios ofrecen?" y el CTA
   // "Reservar turno" — no tiene sentido reservar un turno para comprar un producto.
   return {
-    categoriaPlaceholder: "Categoría",
-    previewSaludo: "¡Hola! ¿Qué tienen disponible?",
-    previewSustantivo: "nuestro producto",
-    previewCta: "Agregar al pedido",
+    categoriaPlaceholder: tr.copy.categoria,
+    previewSaludo: tr.copy.saludoDisponible,
+    previewSustantivo: tr.copy.nuestroProducto,
+    previewCta: tr.copy.agregarAlPedido,
   };
 }
 
@@ -166,17 +170,17 @@ export function camposDelNegocio(
   const catalogo = config?.catalogo;
   const itemLabel = catalogItemLabel(rubroNombre, catalogo);
   const camposConf = catalogo?.campos;
-  const campos = [itemLabel, "Precio"];
+  const campos = [itemLabel, tr.campos.precio];
   // Default `true` cuando el rubro no declaró `catalogo.campos`: preserva
   // exactamente los chips de antes de T-21 para todo lo que ya está cargado.
-  if (camposConf?.duracion !== false) campos.push("Duración");
-  if (camposConf?.categoria !== false) campos.push("Categoría");
-  if (camposConf?.stock) campos.push("Stock");
+  if (camposConf?.duracion !== false) campos.push(tr.campos.duracion);
+  if (camposConf?.categoria !== false) campos.push(tr.campos.categoria);
+  if (camposConf?.stock) campos.push(tr.campos.stock);
   // T-110: apagados si el rubro no los declara (ver `core/catalogo-campos.ts`).
-  if (camposConf?.referencia) campos.push("Referencia");
-  if (camposConf?.detalles) campos.push("Tallas y colores");
-  campos.push("Disponible");
-  if (config?.ai) campos.push("IA + reglas");
+  if (camposConf?.referencia) campos.push(tr.campos.referencia);
+  if (camposConf?.detalles) campos.push(tr.campos.detalles);
+  campos.push(tr.campos.disponible);
+  if (config?.ai) campos.push(tr.campos.ia);
   return campos;
 }
 
@@ -193,13 +197,13 @@ export function tipoCitas(rubroNombre: string | null | undefined, template: unkn
   const config = parseBusinessConfig(template);
   if (!config) return "—";
   if (config.services.some((s) => s.reservable === true || s.modo === "cita")) {
-    return catalogLabel(rubroNombre, config.catalogo) === "Menú" ? "Reserva de mesa" : "Turnos";
+    return catalogLabel(rubroNombre, config.catalogo) === tr.etiquetas.menu ? tr.citas.reservaMesa : tr.citas.turnos;
   }
   // Un rubro que vende (sin ningún ítem de cita explícito) no está "sin
   // citas" por descuido — es la forma correcta de atender, y decirlo así en
   // vez de "Sin citas" evita que se lea como una plantilla a medio terminar.
-  if (config.catalogo?.modoPorDefecto === "pedido") return "Pedidos por WhatsApp";
-  return "Sin citas";
+  if (config.catalogo?.modoPorDefecto === "pedido") return tr.citas.pedidos;
+  return tr.citas.sinCitas;
 }
 
 /** Tile cuadrado con el icono del rubro. */

@@ -7,6 +7,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Nuevo
+- Textos del Catálogo en `src/textos/es.json` (T-132): el editor del Catálogo, Importar productos y las etiquetas que cambian según el rubro (Menú/Servicios/Catálogo). Lo que se ve no cambia.
 - Textos del portal en `src/textos/es.json` (T-131): Inicio, Mis negocios, Conversaciones, Respuestas, "Le toca a usted" y los títulos de las pestañas. Lo que se ve no cambia.
 
 ## [1.10.0] — 2026-11-26

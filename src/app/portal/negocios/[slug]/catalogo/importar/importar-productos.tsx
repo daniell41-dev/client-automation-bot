@@ -27,25 +27,29 @@ import type { Service } from "@/core/types";
 import { ActionForm } from "@/components/action-form";
 import { Card, Toggle } from "@/components/ui";
 import { deshacerImportacion, importarProductos } from "@/app/portal/actions";
+import { formato as conDatos, textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.importar). */
+const tt = textos.portal.importar;
 
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
 const inputCls = "input-nexo w-full px-3.5 py-2.5 text-sm text-ink";
 
 const NOMBRE_FORMATO: Record<FormatoArchivo, string> = {
-  tiendanube: "Exportación de Tienda Nube",
-  aurela: "Plantilla de Aurela",
-  otro: "Archivo propio",
+  tiendanube: tt.formatos.tiendanube,
+  aurela: tt.formatos.aurela,
+  otro: tt.formatos.otro,
 };
 
 /** Campos que la dueña puede emparejar en un archivo propio. */
 const CAMPOS: { campo: keyof MapeoColumnas; etiqueta: string; obligatorio?: boolean }[] = [
-  { campo: "referencia", etiqueta: "Referencia o código", obligatorio: true },
-  { campo: "nombre", etiqueta: "Nombre", obligatorio: true },
-  { campo: "precio", etiqueta: "Precio", obligatorio: true },
-  { campo: "categoria", etiqueta: "Categoría" },
-  { campo: "descripcion", etiqueta: "Descripción" },
-  { campo: "stock", etiqueta: "Unidades disponibles" },
-  { campo: "disponible", etiqueta: "Disponible (Sí/No)" },
+  { campo: "referencia", etiqueta: tt.campos.referencia, obligatorio: true },
+  { campo: "nombre", etiqueta: tt.campos.nombre, obligatorio: true },
+  { campo: "precio", etiqueta: tt.campos.precio, obligatorio: true },
+  { campo: "categoria", etiqueta: tt.campos.categoria },
+  { campo: "descripcion", etiqueta: tt.campos.descripcion },
+  { campo: "stock", etiqueta: tt.campos.stock },
+  { campo: "disponible", etiqueta: tt.campos.disponible },
 ];
 
 /**
@@ -107,16 +111,16 @@ export function ImportarProductos({
     setTabla(null);
     if (!file) return;
     if (/\.(xlsx?|ods)$/i.test(file.name)) {
-      setAviso("Este archivo es de Excel. Ábralo en Excel y use Archivo → Guardar como → «CSV UTF-8» (o «CSV delimitado por comas»), y suba ese.");
+      setAviso(tt.avisos.excel);
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      setAviso("El archivo pesa más de 5 MB. Revise que sea la lista de productos.");
+      setAviso(tt.avisos.muyPesado);
       return;
     }
     const t = parsearCsv(decodificar(await file.arrayBuffer()));
     if (t.encabezados.length === 0 || t.filas.length === 0) {
-      setAviso("El archivo está vacío o no tiene filas de productos.");
+      setAviso(tt.avisos.vacio);
       return;
     }
     const f = detectarFormato(t.encabezados);
@@ -141,17 +145,16 @@ export function ImportarProductos({
   return (
     <div className="mx-auto max-w-4xl space-y-4 fade-up">
       <Link href={`/portal/negocios/${slug}/catalogo`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-mid hover:text-ink">
-        <ArrowLeft className="h-4 w-4" /> Volver al menú
-      </Link>
+        <ArrowLeft className="h-4 w-4" />{tt.volverAlMenu}</Link>
 
       <Card
-        title="Importar productos"
-        subtitle="Cargue todos sus productos de una vez desde un archivo. Si vende en Tienda Nube, suba la exportación de productos tal cual. Si un producto ya existe (misma referencia), se actualiza; los que no vengan en el archivo no se tocan."
+        title={tt.importarProductos}
+        subtitle={tt.cargueTodosSusProductos}
       >
         <div className="flex flex-wrap items-center gap-3">
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-[10px] bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary-hover">
             <FileUp className="h-4 w-4" />
-            {archivo ? "Elegir otro archivo" : "Elegir archivo (CSV)"}
+            {archivo ? tt.elegirOtroArchivo : tt.elegirArchivoCsv}
             <input type="file" accept=".csv,text/csv,.xlsx,.xls" className="sr-only" onChange={(e) => elegirArchivo(e.target.files?.[0])} />
           </label>
           <button
@@ -159,24 +162,19 @@ export function ImportarProductos({
             onClick={descargarPlantilla}
             className="inline-flex items-center gap-2 rounded-[10px] border border-line px-4 py-2 text-sm font-semibold text-ink hover:bg-surface-3"
           >
-            <Download className="h-4 w-4" /> Descargar plantilla
-          </button>
+            <Download className="h-4 w-4" />{tt.descargarPlantilla}</button>
           {archivo && (
             <span className="text-sm text-ink-mid">
-              {archivo} · {NOMBRE_FORMATO[formato]} · {tabla?.filas.length} filas
-            </span>
+              {archivo} · {NOMBRE_FORMATO[formato]} · {tabla?.filas.length}{tt.filas}</span>
           )}
         </div>
         {aviso && <p className="mt-3 rounded-lg bg-warn-bg px-3 py-2 text-sm text-warn-ink">{aviso}</p>}
-        <p className="mt-3 text-xs text-ink-soft">
-          Columnas que se leen: referencia, nombre, precio, categoría, descripción, tallas, colores, unidades disponibles y
-          disponible. Las demás (costos, proveedores, medidas) se ignoran y nunca se guardan.
-        </p>
+        <p className="mt-3 text-xs text-ink-soft">{tt.columnasQueSeLeen}</p>
       </Card>
 
       {/* Paso 2: emparejar columnas, solo si el archivo no es de un formato conocido. */}
       {tabla && formato === "otro" && (
-        <Card title="¿Qué columna es cada cosa?" subtitle="No reconocimos el formato del archivo. Revise lo que adivinamos y corrija si hace falta.">
+        <Card title={tt.queColumnaEsCada} subtitle={tt.noReconocimosElFormato}>
           <div className="grid gap-3 sm:grid-cols-2">
             {CAMPOS.map(({ campo, etiqueta, obligatorio }) => (
               <div key={campo}>
@@ -190,7 +188,7 @@ export function ImportarProductos({
                   value={(mapeo[campo] as string | undefined) ?? ""}
                   onChange={(e) => setMapeo((m) => ({ ...m, [campo]: e.target.value || undefined }))}
                 >
-                  <option value="">— No usar —</option>
+                  <option value="">{tt.noUsar}</option>
                   {tabla.encabezados.map((h) => (
                     <option key={h} value={h}>
                       {h}
@@ -200,29 +198,29 @@ export function ImportarProductos({
               </div>
             ))}
           </div>
-          {!completo && <p className="mt-3 text-sm text-warn-ink">Elija las columnas de referencia, nombre y precio para continuar.</p>}
+          {!completo && <p className="mt-3 text-sm text-warn-ink">{tt.elijaLasColumnasDe}</p>}
         </Card>
       )}
 
       {/* Paso 3: vista previa */}
       {lectura && (
-        <Card title="Vista previa" subtitle="Todavía no se ha guardado nada.">
+        <Card title={tt.vistaPrevia} subtitle={tt.todaviaNoSeHa}>
           {tienePromo && (
             <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-line p-3">
               <span className="text-sm text-ink">
-                <span className="font-semibold">Usar el precio promocional</span>
-                <span className="block text-xs text-ink-mid">El archivo trae precio normal y promocional. Apagado, se usa el normal.</span>
+                <span className="font-semibold">{tt.usarElPrecioPromocional}</span>
+                <span className="block text-xs text-ink-mid">{tt.elArchivoTraePrecio}</span>
               </span>
-              <Toggle checked={usarPromo} onChange={setUsarPromo} label="Usar el precio promocional" />
+              <Toggle checked={usarPromo} onChange={setUsarPromo} label={tt.usarElPrecioPromocional} />
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              ["Nuevos", combinacion?.resumen.nuevos ?? 0],
-              ["Se actualizan", combinacion?.resumen.actualizados ?? 0],
-              ["Sin cambios", combinacion?.resumen.sinCambios ?? 0],
-              ["Filas con error", lectura.errores.length],
+              [tt.resumen.nuevos, combinacion?.resumen.nuevos ?? 0],
+              [tt.resumen.actualizan, combinacion?.resumen.actualizados ?? 0],
+              [tt.resumen.sinCambios, combinacion?.resumen.sinCambios ?? 0],
+              [tt.resumen.conError, lectura.errores.length],
             ].map(([t, n]) => (
               <div key={t} className="rounded-xl border border-line p-3">
                 <p className="text-xs text-ink-mid">{t}</p>
@@ -233,21 +231,21 @@ export function ImportarProductos({
 
           {lectura.errores.length > 0 && (
             <div className="mt-4 rounded-xl bg-warn-bg p-3 text-sm text-warn-ink">
-              <p className="font-semibold">Estas filas no se van a cargar:</p>
+              <p className="font-semibold">{tt.estasFilasNoSe}</p>
               <ul className="mt-1 list-disc pl-5">
                 {lectura.errores.slice(0, 15).map((e, i) => (
                   <li key={i}>{e.fila > 0 ? `Fila ${e.fila}: ` : ""}{e.mensaje}</li>
                 ))}
               </ul>
-              {lectura.errores.length > 15 && <p className="mt-1">…y {lectura.errores.length - 15} más.</p>}
+              {lectura.errores.length > 15 && <p className="mt-1">{tt.y}{lectura.errores.length - 15}{tt.mas}</p>}
             </div>
           )}
           {lectura.avisos.length > 0 && (
             <details className="mt-3 text-sm text-ink-mid">
-              <summary className="cursor-pointer">{lectura.avisos.length} aviso(s)</summary>
+              <summary className="cursor-pointer">{lectura.avisos.length}{tt.avisoS}</summary>
               <ul className="mt-1 list-disc pl-5">
                 {lectura.avisos.slice(0, 15).map((a, i) => (
-                  <li key={i}>Fila {a.fila}: {a.mensaje}</li>
+                  <li key={i}>{tt.fila}{a.fila}: {a.mensaje}</li>
                 ))}
               </ul>
             </details>
@@ -258,11 +256,11 @@ export function ImportarProductos({
               <table className="w-full text-left text-sm">
                 <thead className="text-xs text-ink-mid">
                   <tr>
-                    <th className="py-1 pr-3">Ref.</th>
-                    <th className="py-1 pr-3">Nombre</th>
-                    <th className="py-1 pr-3">Categoría</th>
-                    <th className="py-1 pr-3">Precio</th>
-                    <th className="py-1">Opciones</th>
+                    <th className="py-1 pr-3">{tt.ref}</th>
+                    <th className="py-1 pr-3">{tt.nombre}</th>
+                    <th className="py-1 pr-3">{tt.categoria}</th>
+                    <th className="py-1 pr-3">{tt.precio}</th>
+                    <th className="py-1">{tt.opciones}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -278,7 +276,7 @@ export function ImportarProductos({
                 </tbody>
               </table>
               {lectura.productos.length > 8 && (
-                <p className="mt-2 text-xs text-ink-mid">…y {lectura.productos.length - 8} productos más.</p>
+                <p className="mt-2 text-xs text-ink-mid">{tt.y}{lectura.productos.length - 8}{tt.productosMas}</p>
               )}
             </div>
           )}
@@ -288,7 +286,7 @@ export function ImportarProductos({
             <ActionForm action={importarProductos} submitLabel={`Importar ${lectura.productos.length} productos`} className="mt-5 space-y-3">
               <input type="hidden" name="slug" value={slug} />
               <input type="hidden" name="productos" value={JSON.stringify(lectura.productos)} />
-              <p className="text-xs text-ink-soft">Podrá deshacer esta importación desde esta misma pantalla.</p>
+              <p className="text-xs text-ink-soft">{tt.podraDeshacerEstaImportacion}</p>
             </ActionForm>
           )}
         </Card>
@@ -296,10 +294,10 @@ export function ImportarProductos({
 
       {respaldo && (
         <Card
-          title="Deshacer la última importación"
-          subtitle={`Vuelve el menú a como estaba antes de importar (${respaldo.cantidad} productos, ${new Date(respaldo.fecha).toLocaleString(locale)}).`}
+          title={tt.deshacerLaUltimaImportacion}
+          subtitle={conDatos(tt.deshacerDetalle, { n: respaldo.cantidad, fecha: new Date(respaldo.fecha).toLocaleString(locale) })}
         >
-          <ActionForm action={deshacerImportacion} submitLabel="Deshacer importación">
+          <ActionForm action={deshacerImportacion} submitLabel={tt.deshacerImportacion}>
             <input type="hidden" name="slug" value={slug} />
           </ActionForm>
         </Card>
