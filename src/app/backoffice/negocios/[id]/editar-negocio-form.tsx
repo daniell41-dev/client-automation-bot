@@ -10,6 +10,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { actualizarNegocio } from "@/app/backoffice/actions";
 import { actualizarNegocioSchema } from "@/app/backoffice/negocio-schema";
+import { NOMBRE_PLAN, PLANES, type PlanId } from "@/core/planes";
 import { ActionForm } from "@/components/action-form";
 
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
@@ -33,7 +34,7 @@ export function EditarNegocioForm({
   nombre: string;
   ownerId: string;
   whatsappId: string;
-  plan: "free" | "pro";
+  plan: PlanId;
   clientes: ClienteOption[];
 }) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -97,8 +98,11 @@ export function EditarNegocioForm({
         <div>
           <label className={labelCls}>Plan</label>
           <select name="plan" defaultValue={plan} className={inputCls}>
-            <option value="free">Free</option>
-            <option value="pro">Pro</option>
+            {PLANES.map((p) => (
+              <option key={p} value={p}>
+                {NOMBRE_PLAN[p]}
+              </option>
+            ))}
           </select>
         </div>
       </div>

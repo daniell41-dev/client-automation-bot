@@ -448,8 +448,6 @@ export interface BusinessConfig {
   direccion?: string;
   /** Si es `false`, el bot está en pausa y no responde mensajes. Default `true`. */
   botActivo?: boolean;
-  /** Plan comercial (pill del back office). Default "free". */
-  plan?: "free" | "pro";
   /** Horarios de atención (los usa el bot y la sección Citas del portal). */
   horarios?: DiaAtencion[];
   /** Cerebro del bot: IA (knowledge) + reglas rápidas + fallback/derivación. */

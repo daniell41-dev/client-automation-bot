@@ -14,6 +14,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { crearNegocio } from "@/app/backoffice/actions";
 import { crearNegocioSchema } from "@/app/backoffice/negocio-schema";
+import { NOMBRE_PLAN, PLAN_POR_DEFECTO, PLANES, type PlanId } from "@/core/planes";
 import { ActionForm } from "@/components/action-form";
 import { Segmented } from "@/components/ui";
 
@@ -41,7 +42,7 @@ export function NuevoNegocioForm({
   clientes: ClienteOption[];
 }) {
   const [rubroId, setRubroId] = useState(rubros[0]?.id ?? "");
-  const [plan, setPlan] = useState<"free" | "pro">("free");
+  const [plan, setPlan] = useState<PlanId>(PLAN_POR_DEFECTO);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const rubroSeleccionado = rubros.find((r) => r.id === rubroId);
@@ -154,10 +155,7 @@ export function NuevoNegocioForm({
         <div>
           <label className={labelCls}>Plan</label>
           <Segmented
-            options={[
-              { value: "free", label: "Free" },
-              { value: "pro", label: "Pro" },
-            ]}
+            options={PLANES.map((p) => ({ value: p, label: NOMBRE_PLAN[p] }))}
             value={plan}
             onChange={setPlan}
           />

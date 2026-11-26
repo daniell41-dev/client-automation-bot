@@ -109,7 +109,6 @@ export const esteticaBella: BusinessConfig = {
   timezone: "America/Bogota",
   direccion: "Calle 45 #12-30, Bogotá",
   botActivo: true,
-  plan: "pro",
 
   // T-20: `dow` 0=domingo … 6=sábado (igual que Date.getDay()).
   horarios: [

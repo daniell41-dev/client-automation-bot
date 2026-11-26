@@ -25,6 +25,13 @@ language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
 $$;
 
+-- T-127: el rol del JWT ('authenticated', 'anon', 'service_role'). Vacío en
+-- una conexión directa a la base, igual que en Supabase (SQL Editor).
+create or replace function auth.role() returns text
+language sql stable as $$
+  select nullif(current_setting('request.jwt.claim.role', true), '')::text
+$$;
+
 do $$ begin
   if not exists (select 1 from pg_roles where rolname = 'authenticated') then
     create role authenticated nologin;
