@@ -15,15 +15,19 @@ import { Check } from "lucide-react";
 import { BotonWhatsApp } from "@/components/landing/boton-whatsapp";
 import { TelefonoAnimado } from "@/components/landing/telefono-animado";
 import { existeEnPublic } from "@/lib/archivo-publico";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.hero). */
+const tt = textos.landing.hero;
 
 /** T-89: también es el título de la imagen para redes (opengraph-image.tsx). */
-export const TITULO_HERO = "Su WhatsApp toma pedidos aunque usted esté en la cocina.";
+export const TITULO_HERO = tt.suWhatsappTomaPedidos;
 
 export const SUBTITULO_HERO =
-  "Aurela responde a sus clientes a cualquier hora, arma el pedido con el total, revisa el comprobante de pago y usted aprueba con un botón. Se lo instalamos aquí en Cúcuta.";
+  tt.aurelaRespondeASus;
 
 /** Las mismas condiciones que la sección de precio y los Términos: no prometer otra cosa aquí. */
-const CONDICIONES = ["Instalación gratis", "14 días de prueba", "Sin permanencia"];
+const CONDICIONES = [tt.instalacionGratis, tt.t14DiasDePrueba, tt.sinPermanencia];
 
 const VIDEO = "/landing/demo.mp4";
 const POSTER = "/landing/demo.jpg";
@@ -45,9 +49,7 @@ export function Hero() {
             <Link
               href="/demo"
               className="inline-flex min-h-12 items-center justify-center rounded-[10px] border border-white/25 px-6 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-white/10"
-            >
-              Pruebe la demo
-            </Link>
+            >{tt.pruebeLaDemo}</Link>
           </div>
           <ul className="mt-6 flex flex-wrap gap-2">
             {CONDICIONES.map((c) => (
@@ -73,7 +75,7 @@ export function Hero() {
               loop
               playsInline
               preload="metadata"
-              aria-label="Video de un pedido por WhatsApp atendido por Aurela"
+              aria-label={tt.videoDeUnPedido}
             />
           ) : (
             <TelefonoAnimado />

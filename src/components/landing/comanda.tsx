@@ -18,14 +18,18 @@
  */
 
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.comanda). */
+const tt = textos.landing.comanda;
 
 /** Los cuatro momentos del pedido #128, en orden. Mismos montos que el teléfono del hero. */
 export const MOMENTOS_COMANDA = {
-  nota: { hora: "10:47 p. m.", texto: "Llega una nota de voz" },
-  total: { hora: "10:48 p. m.", texto: "Total confirmado: $45.000" },
+  nota: { hora: "10:47 p. m.", texto: tt.llegaUnaNotaDe },
+  total: { hora: "10:48 p. m.", texto: tt.totalConfirmado45000 },
   // Final feliz, igual que el teléfono del hero: el pago cuadra.
-  comprobante: { hora: "10:49 p. m.", texto: "Pago verificado: $45.000" },
-  aprobado: { hora: "10:52 p. m.", texto: "Pedido aprobado por usted" },
+  comprobante: { hora: "10:49 p. m.", texto: tt.pagoVerificado45000 },
+  aprobado: { hora: "10:52 p. m.", texto: tt.pedidoAprobadoPorUsted },
 } as const;
 
 export function TalonComanda({ momento }: { momento: keyof typeof MOMENTOS_COMANDA }) {

@@ -10,27 +10,31 @@
  */
 
 import { Seccion } from "@/components/landing/seccion";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.perdidas). */
+const tt = textos.landing.perdidas;
 
 /** Mensajes del cliente que nadie contestó. Horas visiblemente de ejemplo. */
 const SIN_RESPUESTA = [
-  { texto: "¿Todavía tienen domicilio?", hora: "9:52 p. m." },
-  { texto: "¿Hola?", hora: "10:15 p. m." },
-  { texto: "Ya pedí en otro lado.", hora: "10:31 p. m." },
+  { texto: tt.todaviaTienenDomicilio, hora: "9:52 p. m." },
+  { texto: tt.hola, hora: "10:15 p. m." },
+  { texto: tt.yaPediEnOtro, hora: "10:31 p. m." },
 ];
 
 const PERDIDAS = [
-  "El cliente que escribió de noche y le compró a otro.",
-  "El total mal sumado en plena hora pico.",
-  "El comprobante que ya le habían mandado antes.",
+  tt.elClienteQueEscribio,
+  tt.elTotalMalSumado,
+  tt.elComprobanteQueYa,
 ];
 
 export function Perdidas() {
   return (
-    <Seccion id="perdidas" titulo="Lo que se pierde cuando nadie responde">
+    <Seccion id="perdidas" titulo={tt.loQueSePierde}>
       <div className="mt-10 grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
         {/* Izquierda: el chat que nadie respondió. */}
         <div>
-          <ol aria-label="Mensajes de un cliente sin responder" className="flex flex-col items-start gap-2.5">
+          <ol aria-label={tt.mensajesDeUnCliente} className="flex flex-col items-start gap-2.5">
             {SIN_RESPUESTA.map((m) => (
               <li
                 key={m.hora}
@@ -41,7 +45,7 @@ export function Perdidas() {
               </li>
             ))}
           </ol>
-          <p className="mt-5 text-[14px] text-ink-mid">Visto por última vez: nadie.</p>
+          <p className="mt-5 text-[14px] text-ink-mid">{tt.vistoPorUltimaVez}</p>
         </div>
 
         {/* Derecha: lo que cuesta. Sin tarjeta ni icono: la frase sola. */}

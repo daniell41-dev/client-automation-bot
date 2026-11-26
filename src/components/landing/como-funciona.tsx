@@ -19,43 +19,45 @@ import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 import { AvisoOk, Burbuja, ComprobanteMini, FondoChat, NotaVoz } from "@/components/landing/chat";
 import { Seccion } from "@/components/landing/seccion";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.comoFunciona). */
+const tt = textos.landing.comoFunciona;
 
 const PASOS: { frase: string; escena: ReactNode }[] = [
   {
-    frase: "Su cliente escribe o manda una nota de voz.",
+    frase: tt.suClienteEscribeO,
     escena: <NotaVoz />,
   },
   {
-    frase: "Aurela arma el pedido con sus precios y el cliente confirma el total.",
+    frase: tt.aurelaArmaElPedido,
     escena: (
       <>
         <Burbuja de="negocio">
-          {"Su pedido:\n2x Hamburguesa sencilla $36.000\n1x Gaseosa $4.000\nDomicilio $5.000\nTotal: $45.000\n¿Confirma su pedido?"}
+          {tt.suPedido2xHamburguesa}
         </Burbuja>
-        <Burbuja de="cliente">Confirmo</Burbuja>
+        <Burbuja de="cliente">{tt.confirmo}</Burbuja>
       </>
     ),
   },
   {
-    frase: "Aurela revisa el comprobante: monto, cuenta, referencia y fecha. Si algo no cuadra, le avisa.",
+    frase: tt.aurelaRevisaElComprobante,
     escena: (
       <>
         {/* Mismo pedido que el hero, con su final feliz: el pago cuadra. */}
         <ComprobanteMini monto="$45.000" />
-        <AvisoOk>Pago verificado: $45.000, igual al pedido.</AvisoOk>
+        <AvisoOk>{tt.pagoVerificado45000}</AvisoOk>
       </>
     ),
   },
   {
-    frase: "Usted aprueba con un botón y el cliente recibe su número de pedido.",
+    frase: tt.ustedApruebaConUn,
     escena: (
       <>
-        <span className="self-start rounded-lg bg-primary px-4 py-1.5 text-[12.5px] font-bold text-white shadow-card">Aprobar</span>
+        <span className="self-start rounded-lg bg-primary px-4 py-1.5 text-[12.5px] font-bold text-white shadow-card">{tt.aprobar}</span>
         <p className="inline-flex items-center gap-1.5 self-end rounded-full bg-success-bg px-3 py-1 text-[12px] font-bold text-success-ink shadow-card">
           <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />
-          <span>
-            Pedido <span className="font-display">#128</span> aprobado
-          </span>
+          <span>{tt.pedido}<span className="font-display">#128</span>{tt.aprobado}</span>
         </p>
       </>
     ),
@@ -64,7 +66,7 @@ const PASOS: { frase: string; escena: ReactNode }[] = [
 
 export function ComoFunciona() {
   return (
-    <Seccion id="como-funciona" titulo="Así funciona" oscura>
+    <Seccion id="como-funciona" titulo={tt.asiFunciona} oscura>
       <ol className="pasos relative mt-10">
         {/* La línea: a la izquierda en celular, al centro en escritorio. */}
         <span aria-hidden className="absolute bottom-6 left-[23px] top-6 w-px bg-white/15 lg:left-1/2" />

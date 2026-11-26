@@ -26,12 +26,16 @@ import { Precio } from "@/components/landing/precio";
 import { Preguntas } from "@/components/landing/preguntas";
 import { Responsable } from "@/components/landing/responsable";
 import { Testimonios } from "@/components/landing/testimonios";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.pagina). */
+const tt = textos.landing.pagina;
 
 // La marca va primero: la pestaña del navegador muestra solo los primeros
 // caracteres, y con "WhatsApp con pedidos…" adelante se leía "Whats…". Lo
 // demás conserva las palabras que busca la gente (pedidos, citas, pagos,
 // WhatsApp, Cúcuta) y cabe en los ~60 caracteres que muestra Google.
-const TITULO = "Aurela · Pedidos, citas y pagos por WhatsApp en Cúcuta";
+const TITULO = tt.aurelaPedidosCitasY;
 
 export const metadata: Metadata = {
   // `absolute`: la plantilla del layout ("%s · Aurela") repetiría la marca.

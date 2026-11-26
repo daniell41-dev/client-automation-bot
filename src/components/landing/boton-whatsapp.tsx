@@ -11,6 +11,10 @@ import Link from "next/link";
 import { MessageCircle } from "lucide-react";
 import { WHATSAPP_VENTAS } from "@/app/landing-config";
 import { enlaceWhatsApp, ETIQUETAS_WHATSAPP, type OrigenWhatsApp } from "@/lib/enlace-whatsapp";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.botonWhatsapp). */
+const tt = textos.landing.botonWhatsapp;
 
 /**
  * El texto sale de `ETIQUETAS_WHATSAPP` según el origen; `texto` lo cambia
@@ -34,7 +38,7 @@ export function BotonWhatsApp({
     <>
       <MessageCircle className="h-5 w-5 shrink-0" aria-hidden />
       {etiqueta}
-      {abreWhatsApp && !etiqueta.includes("WhatsApp") && <span className="sr-only"> por WhatsApp</span>}
+      {abreWhatsApp && !etiqueta.includes("WhatsApp") && <span className="sr-only">{tt.porWhatsapp}</span>}
     </>
   );
 
