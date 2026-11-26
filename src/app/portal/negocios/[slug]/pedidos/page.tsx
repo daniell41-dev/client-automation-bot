@@ -15,6 +15,7 @@ import { armarPanel } from "@/core/engine/panel-pedidos";
 import { describirOrigen, leerOrigen } from "@/core/engine/origen";
 import { PedidosPanel, type SeñalesPorPedido } from "./pedidos-panel";
 import { PanelEnVivo } from "./en-vivo";
+import { textos } from "@/textos";
 
 export const dynamic = "force-dynamic";
 
@@ -125,4 +126,4 @@ export default async function PedidosPage({ params }: { params: Promise<{ slug: 
 }
 
 // T-71: el nombre de la pestaña ("Pedidos · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Pedidos" };
+export const metadata = { title: textos.portal.titulosPestana.pedidos };

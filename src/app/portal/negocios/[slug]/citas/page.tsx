@@ -9,6 +9,7 @@ import { parseBusinessConfig } from "@/core/config-schema";
 import { CitasEditor } from "./citas-editor";
 import { buildSieteFilas } from "./horarios-form";
 import { splitReservas, type Reserva } from "./reservas";
+import { textos } from "@/textos";
 
 export const dynamic = "force-dynamic";
 
@@ -44,9 +45,9 @@ export default async function CitasPage({
 
   const reservas: Reserva[] = (leads ?? []).map((l) => ({
     id: l.id,
-    nombre: l.name ?? "Cliente",
+    nombre: l.name ?? textos.portal.citas.clientePorDefecto,
     servicio:
-      config.services.find((s) => s.id === l.service_id)?.name ?? "Servicio",
+      config.services.find((s) => s.id === l.service_id)?.name ?? textos.portal.citas.servicioPorDefecto,
     fecha: l.appointment_at ?? l.tentative_date ?? "—",
     appointmentAt: l.appointment_at,
   }));
@@ -66,11 +67,11 @@ export default async function CitasPage({
       }
       proximas={proximas}
       pasadas={pasadas}
-      botName={config.personas?.whatsapp?.name ?? "Asistente"}
+      botName={config.personas?.whatsapp?.name ?? textos.portal.asistentePorDefecto}
       botActivo={config.botActivo !== false}
     />
   );
 }
 
 // T-71: el nombre de la pestaña ("Citas · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Citas" };
+export const metadata = { title: textos.portal.titulosPestana.citas };
