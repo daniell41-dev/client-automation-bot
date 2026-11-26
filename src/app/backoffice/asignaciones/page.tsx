@@ -9,6 +9,10 @@ import { ActionForm } from "@/components/action-form";
 import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { DataTable } from "@/components/data-table";
 import { Avatar, Card } from "@/components/ui";
+import { formato, textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (backoffice.asignaciones). */
+const tt = textos.backoffice.asignaciones;
 
 export const dynamic = "force-dynamic";
 
@@ -40,17 +44,15 @@ export default async function AsignacionesPage() {
   return (
     <div className="mx-auto max-w-[980px] space-y-5 fade-up">
       <Card
-        title="Asignar rubro"
-        subtitle="Un cliente solo puede crear negocios desde sus rubros asignados."
+        title={tt.asignarRubro}
+        subtitle={tt.unClienteSoloPuede}
       >
-        <ActionForm action={asignarRubro} submitLabel="Asignar">
+        <ActionForm action={asignarRubro} submitLabel={tt.asignar}>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className={labelCls}>Usuario</label>
+              <label className={labelCls}>{tt.usuario}</label>
               <select name="user_id" required className={inputCls} defaultValue="">
-                <option value="" disabled>
-                  Elija un usuario…
-                </option>
+                <option value="" disabled>{tt.elijaUnUsuario}</option>
                 {clientes.map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.email}
@@ -59,11 +61,9 @@ export default async function AsignacionesPage() {
               </select>
             </div>
             <div>
-              <label className={labelCls}>Rubro</label>
+              <label className={labelCls}>{tt.rubro}</label>
               <select name="rubro_id" required className={inputCls} defaultValue="">
-                <option value="" disabled>
-                  Elija un rubro…
-                </option>
+                <option value="" disabled>{tt.elijaUnRubro}</option>
                 {(rubros ?? []).map((r) => (
                   <option key={r.id} value={r.id}>
                     {r.nombre}
@@ -76,8 +76,8 @@ export default async function AsignacionesPage() {
       </Card>
 
       <DataTable
-        headers={["Usuario", "Rubro", "Desde", "Acciones"]}
-        emptyText="Sin asignaciones todavía."
+        headers={tt.encabezados}
+        emptyText={tt.sinAsignaciones}
         rows={((asignaciones ?? []) as unknown as AsignacionRow[]).map((a) => ({
           key: a.id,
           cells: [
@@ -97,10 +97,13 @@ export default async function AsignacionesPage() {
               key="q"
               action={quitarAsignacion}
               hiddenFields={{ id: a.id }}
-              title="¿Quitar esta asignación?"
-              description={`${a.profiles?.email ?? "Este cliente"} no va a poder crear más negocios en "${a.rubros?.nombre ?? "este rubro"}" (los que ya tiene no se ven afectados).`}
-              confirmLabel="Sí, quitar"
-              triggerLabel="Quitar"
+              title={tt.quitarEstaAsignacion}
+              description={formato(tt.avisoQuitar, {
+                cliente: a.profiles?.email ?? tt.esteCliente,
+                rubro: a.rubros?.nombre ?? tt.esteRubro,
+              })}
+              confirmLabel={tt.siQuitar}
+              triggerLabel={tt.quitar}
             />,
           ],
         }))}
@@ -110,4 +113,4 @@ export default async function AsignacionesPage() {
 }
 
 // T-71: el nombre de la pestaña ("Asignaciones · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Asignaciones" };
+export const metadata = { title: textos.backoffice.titulosPestana.asignaciones };

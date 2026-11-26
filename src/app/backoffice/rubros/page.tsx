@@ -11,6 +11,10 @@ import { ConfirmDeleteButton } from "@/components/confirm-delete-button";
 import { Card, Pill } from "@/components/ui";
 import { RubroTile, camposDelNegocio, tipoCitas } from "@/components/rubro-visual";
 import { Info } from "lucide-react";
+import { formato, textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (backoffice.rubros). */
+const tt = textos.backoffice.rubros;
 
 export const dynamic = "force-dynamic";
 
@@ -39,27 +43,23 @@ export default async function RubrosPage() {
       {/* Banner informativo */}
       <div className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary-tint p-4 text-sm text-ink">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-        <p>
-          Cada <strong>plantilla</strong> define los campos que un negocio de ese
-          rubro podrá cargar (su CRUD) y el tipo de citas. Al asignar un rubro a
-          un cliente, su negocio hereda esta estructura.
-        </p>
+        <p>{tt.cada}<strong>{tt.plantilla}</strong>{tt.defineLosCamposQue}</p>
       </div>
 
       {/* Crear plantilla */}
-      <Card title="Nueva plantilla" subtitle="Nace con la plantilla base; después la personaliza.">
-        <ActionForm action={crearRubro} submitLabel="Crear plantilla">
+      <Card title={tt.nuevaPlantilla} subtitle={tt.naceConLaPlantilla}>
+        <ActionForm action={crearRubro} submitLabel={tt.crearPlantilla}>
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <label className={labelCls}>Slug (kebab-case)</label>
-              <input name="slug" required className={inputCls} placeholder="barberia" />
+              <label className={labelCls}>{tt.slugKebabCase}</label>
+              <input name="slug" required className={inputCls} placeholder={tt.barberia} />
             </div>
             <div>
-              <label className={labelCls}>Nombre</label>
-              <input name="nombre" required className={inputCls} placeholder="Barbería" />
+              <label className={labelCls}>{tt.nombre}</label>
+              <input name="nombre" required className={inputCls} placeholder={tt.barberia2} />
             </div>
             <div>
-              <label className={labelCls}>Descripción (opcional)</label>
+              <label className={labelCls}>{tt.descripcionOpcional}</label>
               <input name="descripcion" className={inputCls} />
             </div>
           </div>
@@ -84,18 +84,16 @@ export default async function RubrosPage() {
                       {r.nombre}
                     </span>
                     <span className="block text-[13px] text-ink-soft">
-                      {negociosCount} {negociosCount === 1 ? "negocio" : "negocios"}
+                      {negociosCount} {negociosCount === 1 ? tt.negocio : tt.negocios}
                     </span>
                   </span>
                 </span>
                 <Pill tone={r.es_demo ? "success" : "neutral"}>
-                  {r.es_demo ? "Publicado" : "Borrador"}
+                  {r.es_demo ? tt.publicado : tt.borrador}
                 </Pill>
               </div>
 
-              <p className="mt-4 text-[10.5px] font-bold uppercase tracking-[0.1em] text-ink-soft">
-                Campos del negocio
-              </p>
+              <p className="mt-4 text-[10.5px] font-bold uppercase tracking-[0.1em] text-ink-soft">{tt.camposDelNegocio}</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {campos.map((campo) => (
                   <span
@@ -108,29 +106,29 @@ export default async function RubrosPage() {
               </div>
 
               <div className="mt-4 flex items-center justify-between border-t border-line pt-3.5 text-sm">
-                <span className="text-ink-mid">
-                  Citas:{" "}
+                <span className="text-ink-mid">{tt.citas}{" "}
                   <strong className="text-ink">{tipoCitas(r.nombre, r.template)}</strong>
                 </span>
                 <span className="flex items-center gap-3">
                   <Link
                     href={`/backoffice/rubros/${r.id}`}
                     className="font-bold text-primary hover:underline"
-                  >
-                    Editar plantilla
-                  </Link>
+                  >{tt.editarPlantilla}</Link>
                   <ConfirmDeleteButton
                     action={eliminarRubro}
                     hiddenFields={{ id: r.id }}
-                    title={`¿Eliminar "${r.nombre}"?`}
-                    description="No se puede deshacer."
+                    title={formato(tt.eliminarRubro, { nombre: r.nombre })}
+                    description={tt.noSePuedeDeshacer}
                     blockedReason={
                       negociosCount > 0
-                        ? `Este rubro tiene ${negociosCount} ${negociosCount === 1 ? "negocio" : "negocios"} asociados. No se puede eliminar mientras los tenga.`
+                        ? formato(tt.noSePuedeEliminar, {
+                            cantidad: negociosCount,
+                            negocios: negociosCount === 1 ? tt.negocio : tt.negocios,
+                          })
                         : undefined
                     }
-                    confirmLabel="Sí, eliminar"
-                    triggerLabel="Eliminar"
+                    confirmLabel={tt.siEliminar}
+                    triggerLabel={tt.eliminar}
                     triggerClassName="text-xs font-semibold text-warn-ink hover:underline"
                   />
                 </span>
@@ -144,4 +142,4 @@ export default async function RubrosPage() {
 }
 
 // T-71: el nombre de la pestaña ("Rubros · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Rubros" };
+export const metadata = { title: textos.backoffice.titulosPestana.rubros };

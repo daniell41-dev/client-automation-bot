@@ -9,6 +9,10 @@ import type { BusinessConfig, LeadState } from "@/core/types";
 import { DataTable } from "@/components/data-table";
 import { Pill } from "@/components/ui";
 import { ExportCsvButton, type LeadCsvRow } from "./export-csv";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (backoffice.leads). */
+const tt = textos.backoffice.leads;
 
 export const dynamic = "force-dynamic";
 
@@ -54,14 +58,13 @@ export default async function LeadsPage() {
     <div className="mx-auto max-w-[980px] space-y-5 fade-up">
       <div className="flex items-center justify-between">
         <p className="text-sm text-ink-mid">
-          {leads.length} {leads.length === 1 ? "lead" : "leads"} en total
-        </p>
+          {leads.length} {leads.length === 1 ? tt.lead : tt.leads}{tt.enTotal}</p>
         <ExportCsvButton rows={csvRows} />
       </div>
 
       <DataTable
-        headers={["Negocio", "Contacto", "Canal", "Fecha", "Estado"]}
-        emptyText="Aún no hay leads capturados."
+        headers={tt.encabezados}
+        emptyText={tt.sinLeads}
         rows={leads.map((l) => ({
           key: l.id,
           cells: [
@@ -77,7 +80,7 @@ export default async function LeadsPage() {
                   l.channel === "whatsapp" ? "bg-success" : "bg-ink-soft"
                 }`}
               />
-              {l.channel === "whatsapp" ? "WhatsApp" : l.channel}
+              {l.channel === "whatsapp" ? tt.whatsapp : l.channel}
             </span>,
             <span key="f" className="text-ink-mid">
               {fecha(l.updatedAt)}
@@ -93,4 +96,4 @@ export default async function LeadsPage() {
 }
 
 // T-71: el nombre de la pestaña ("Leads · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Leads" };
+export const metadata = { title: textos.backoffice.titulosPestana.leads };

@@ -9,6 +9,10 @@ import { crearUsuario, invitarDuena } from "@/app/backoffice/actions";
 import { ActionForm } from "@/components/action-form";
 import { DataTable } from "@/components/data-table";
 import { Avatar, Card, Pill } from "@/components/ui";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (backoffice.usuarios). */
+const tt = textos.backoffice.usuarios;
 
 export const dynamic = "force-dynamic";
 
@@ -45,16 +49,16 @@ export default async function UsuariosPage() {
     <div className="mx-auto max-w-[980px] space-y-5 fade-up">
       {/* T-41: el camino normal para una dueña nueva. */}
       <Card
-        title="Invitar dueña"
-        subtitle="Le llega un correo para definir su contraseña. Los tipos de negocio marcados son entre los que va a poder elegir al entrar."
+        title={tt.invitarDuena}
+        subtitle={tt.leLlegaUnCorreo}
       >
-        <ActionForm action={invitarDuena} submitLabel="Enviar invitación">
+        <ActionForm action={invitarDuena} submitLabel={tt.enviarInvitacion}>
           <div>
-            <label htmlFor="invitar-email" className={labelCls}>Correo de la dueña</label>
-            <input id="invitar-email" name="email" type="email" required placeholder="duena@negocio.co" className={inputCls} />
+            <label htmlFor="invitar-email" className={labelCls}>{tt.correoDeLaDuena}</label>
+            <input id="invitar-email" name="email" type="email" required placeholder={tt.duenaNegocioCo} className={inputCls} />
           </div>
           <fieldset>
-            <legend className={labelCls}>Tipos de negocio que puede elegir</legend>
+            <legend className={labelCls}>{tt.tiposDeNegocioQue}</legend>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               {(rubros ?? []).map((r) => (
                 <label key={r.id} className="flex items-center gap-2 text-sm text-ink">
@@ -68,25 +72,23 @@ export default async function UsuariosPage() {
       </Card>
 
       <Card
-        title="Crear usuario con contraseña"
-        subtitle="Alternativa sin correo: el usuario recibe acceso inmediato con la contraseña que definas."
+        title={tt.crearUsuarioConContrasena}
+        subtitle={tt.alternativaSinCorreoEl}
         action={
           <Link
             href="/backoffice/asignaciones"
             className="text-sm font-bold text-primary hover:underline"
-          >
-            Asignar rubros →
-          </Link>
+          >{tt.asignarRubros}</Link>
         }
       >
-        <ActionForm action={crearUsuario} submitLabel="Invitar usuario">
+        <ActionForm action={crearUsuario} submitLabel={tt.invitarUsuario}>
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <label className={labelCls}>Correo</label>
+              <label className={labelCls}>{tt.correo}</label>
               <input name="email" type="email" required className={inputCls} />
             </div>
             <div>
-              <label className={labelCls}>Contraseña (mín. 8)</label>
+              <label className={labelCls}>{tt.contrasenaMin8}</label>
               <input
                 name="password"
                 type="password"
@@ -96,11 +98,11 @@ export default async function UsuariosPage() {
               />
             </div>
             <div>
-              <label className={labelCls}>Rol</label>
+              <label className={labelCls}>{tt.rol}</label>
               <select name="role" className={inputCls} defaultValue="cliente">
-                <option value="cliente">Cliente</option>
-                <option value="admin">Administrador</option>
-                <option value="invitado">Invitado</option>
+                <option value="cliente">{tt.cliente}</option>
+                <option value="admin">{tt.administrador}</option>
+                <option value="invitado">{tt.invitado}</option>
               </select>
             </div>
           </div>
@@ -108,8 +110,8 @@ export default async function UsuariosPage() {
       </Card>
 
       <DataTable
-        headers={["Usuario", "Email", "Rol", "Negocios", "Rubros asignados"]}
-        emptyText="Sin usuarios todavía."
+        headers={tt.encabezados}
+        emptyText={tt.sinUsuarios}
         rows={(profiles ?? []).map((p) => ({
           key: p.id,
           cells: [
@@ -124,10 +126,10 @@ export default async function UsuariosPage() {
             </span>,
             <Pill key="r" tone={p.role === "admin" ? "info" : "neutral"}>
               {p.role === "admin"
-                ? "Administrador"
+                ? tt.administrador
                 : p.role === "cliente"
-                  ? "Cliente"
-                  : "Invitado"}
+                  ? tt.cliente
+                  : tt.invitado}
             </Pill>,
             <span key="n" className="font-display font-bold text-ink">
               {negociosPorUser.get(p.id) ?? 0}
@@ -143,4 +145,4 @@ export default async function UsuariosPage() {
 }
 
 // T-71: el nombre de la pestaña ("Usuarios · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Usuarios" };
+export const metadata = { title: textos.backoffice.titulosPestana.usuarios };
