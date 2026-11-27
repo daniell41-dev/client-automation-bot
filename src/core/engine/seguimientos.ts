@@ -33,6 +33,7 @@ import { needsFollowUp } from "@/core/engine/lead-state";
 import { nombreItem } from "@/core/engine/flows/pedido";
 import { etiquetaVariante } from "@/core/engine/detalles";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
+import { enAtencionHumana } from "@/core/engine/atencion-humana";
 
 /**
  * Los dos seguimientos, en orden, con sus tiempos por defecto. `umbral` es
@@ -101,6 +102,8 @@ export interface SeguimientoDecidido {
  */
 function puedeRecibirSeguimiento(lead: Lead, now: Date): boolean {
   if (lead.noContactar) return false;
+  // T-155: la dueña lo está atendiendo; un mensaje automático en medio sobra.
+  if (enAtencionHumana(lead, now)) return false;
   if (!needsFollowUp(lead.state) || !ETAPAS_PENDIENTES.has(lead.stage)) return false;
   if (!lead.items?.length && !lead.serviceId) return false;
   const minutos = minutosDesdeElCliente(lead, now);

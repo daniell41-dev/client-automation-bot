@@ -26,6 +26,40 @@ function pedido(extra: Partial<PedidoInicio>): PedidoInicio {
   };
 }
 
+describe("armarPendientes — T-155: clientes que pidieron una persona", () => {
+  const ahora = new Date("2026-11-27T20:00:00.000Z");
+
+  it("van primero (hay alguien esperando respuesta) y llevan a Conversaciones", () => {
+    const pendientes = armarPendientes(
+      [pedido({ monto_pagado: 38000 })],
+      [parrilla],
+      [{ business_slug: "la-parrilla", contact: "573001112233", name: "Carla", atencion_humana_desde: "2026-11-27T19:30:00.000Z" }],
+      ahora,
+    );
+    expect(pendientes[0]).toMatchObject({
+      tipo: "persona",
+      href: "/portal/negocios/la-parrilla/conversaciones",
+    });
+    expect(pendientes[0].detalle).toContain("Carla");
+    expect(pendientes[1].tipo).toBe("no_cuadra");
+  });
+
+  it("varios del mismo negocio van juntos; los de hace más de 12 horas ya no", () => {
+    const pendientes = armarPendientes(
+      [],
+      [parrilla],
+      [
+        { business_slug: "la-parrilla", contact: "1", atencion_humana_desde: "2026-11-27T19:30:00.000Z" },
+        { business_slug: "la-parrilla", contact: "2", atencion_humana_desde: "2026-11-27T18:00:00.000Z" },
+        { business_slug: "la-parrilla", contact: "3", atencion_humana_desde: "2026-11-26T18:00:00.000Z" },
+      ],
+      ahora,
+    );
+    expect(pendientes).toHaveLength(1);
+    expect(pendientes[0].titulo).toBe("2 clientes quieren hablar con una persona");
+  });
+});
+
 describe("armarPendientes", () => {
   it("marca como 'no cuadra' un pago menor al total, con el monto en pesos", () => {
     const [p] = armarPendientes([pedido({ monto_pagado: 38000 })], [parrilla]);

@@ -7,6 +7,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ## [Sin publicar]
 
 ### Nuevo
+- **El cliente puede pedir hablar con una persona (T-155).** Si escribe "quiero hablar con una persona", "con un asesor", "con la dueña" o "no quiero hablar con un bot", el asistente le responde que en breve le escribe alguien, le avisa a la dueña por WhatsApp con el link para escribirle, y deja de responder **solo en esa conversación** por 12 horas o hasta que la dueña lo reactive. En Conversaciones del portal ya funciona el botón **Tomar chat** (y **Reactivar asistente**), y el pedido aparece primero en "Le toca a usted". Mientras la dueña atiende, no salen seguimientos automáticos. Requiere la migración `0033_atencion_humana.sql`.
 - Mensajes de las acciones en `src/textos/es.json` (T-139): los avisos de éxito y error que muestran el portal, el back office, el login y la contraseña al guardar, y los de las validaciones de formularios. Lo que se ve no cambia.
 - Últimos textos sueltos en `src/textos/es.json` (T-138): los botones y mensajes de WhatsApp de la landing, los encabezados de la tabla de la demo, el error del chat de la demo, los nombres por defecto ("Sin nombre", "Negocio") y los títulos de pestaña de Admin y Portal. Lo que se ve no cambia.
 - Textos de las páginas legales en `src/textos/es.json` (T-137): privacidad, términos, eliminar mis datos y el bloque del responsable. Los datos de contacto siguen en `src/lib/legal.ts`. Lo que se ve no cambia.
@@ -20,6 +21,7 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 ### Mejorado
 - **Lista corta de productos en WhatsApp (T-152).** Cuando el asistente ofrece varias opciones, el sistema arma una lista numerada, una línea por producto ("1. B1167 · Skinny 2 pinzas moldeador azul claro · $ 129.900"), en vez del párrafo largo que escribía la IA. El precio sale del catálogo y el nombre se acorta quitando lo que se repite en casi todos los productos ("dama jean stretch tiro alto… tono"), sin perder lo que distingue a cada uno ("tiro medio", "jean rígido"). Hasta 8 opciones.
 - **Lo que no está en el catálogo (T-152).** Si el cliente pide algo que no hay (en la prueba, "chaquetas"), el asistente ya no le ofrece un producto que no pidió: le muestra las categorías que maneja el negocio.
+
 
 ## [1.10.0] — 2026-11-26
 

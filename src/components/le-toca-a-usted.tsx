@@ -6,7 +6,7 @@
  */
 
 import Link from "next/link";
-import { AlertTriangle, ShoppingBag, Undo2, type LucideIcon } from "lucide-react";
+import { AlertTriangle, Hand, ShoppingBag, Undo2, type LucideIcon } from "lucide-react";
 import type { Pendiente, TipoPendiente } from "@/lib/inicio-portal";
 import { formato, textos } from "@/textos";
 
@@ -14,6 +14,12 @@ import { formato, textos } from "@/textos";
 const tt = textos.portal.leTocaAUsted;
 
 const ESTILO: Record<TipoPendiente, { icono: LucideIcon; tile: string; boton: string }> = {
+  // T-155: alguien esperando que le escriba una persona: botón lleno, como lo urgente.
+  persona: {
+    icono: Hand,
+    tile: "bg-primary-tint text-primary",
+    boton: "bg-primary text-white hover:bg-primary-hover",
+  },
   // Plata que puede faltar: el único con rojo y con botón lleno.
   no_cuadra: {
     icono: AlertTriangle,

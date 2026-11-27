@@ -27,8 +27,10 @@ import {
   formatoMonto,
   saludo,
   type PedidoInicio,
+  type AtencionInicio,
 } from "@/lib/inicio-portal";
 import { inicioDelDia, ventasDelDia } from "@/core/engine/ventas-del-dia";
+import { inicioPausasVigentes } from "@/core/engine/atencion-humana";
 import { formato, textos } from "@/textos";
 
 /** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.misNegocios). */
@@ -86,7 +88,7 @@ export default async function PortalHome() {
   // Medianoche de Colombia, no la del servidor (UTC): con setHours(0) el
   // "hoy" empezaba a las 7 p. m. del día anterior.
   const hoy = inicioDelDia(new Date(), "America/Bogota");
-  const [{ data: sesiones }, { data: pedidosData }] = slugs.length
+  const [{ data: sesiones }, { data: pedidosData }, { data: atenciones }] = slugs.length
     ? await Promise.all([
         supabase
           .from("sesiones")
@@ -100,8 +102,14 @@ export default async function PortalHome() {
           .in("negocio_id", ids)
           .or(FILTRO_PEDIDOS(hoy.toISOString()))
           .limit(500),
+        // T-155: clientes que pidieron una persona (los vencidos los descarta armarPendientes).
+        supabase
+          .from("leads")
+          .select("business_slug, contact, name, atencion_humana_desde")
+          .in("business_slug", slugs)
+          .gte("atencion_humana_desde", inicioPausasVigentes(new Date())),
       ])
-    : [{ data: [] as { business_slug: string; history: unknown; updated_at: string }[] }, { data: [] }];
+    : [{ data: [] as { business_slug: string; history: unknown; updated_at: string }[] }, { data: [] }, { data: [] }];
 
   const mensajesPorNegocio = new Map<string, number>();
   const ultimoPorNegocio = new Map<string, { texto: string; hora: string }>();
@@ -138,7 +146,7 @@ export default async function PortalHome() {
     slug: n.slug,
     nombre: parseBusinessConfig(n.config)?.name ?? n.slug,
   }));
-  const pendientes = armarPendientes(pedidos, negociosInicio);
+  const pendientes = armarPendientes(pedidos, negociosInicio, (atenciones ?? []) as AtencionInicio[]);
   const vendidosHoy = pedidosDeHoy(pedidos, hoy);
   // "Vendido" = solo lo que la dueña ya aprobó (ver core/engine/ventas-del-dia.ts).
   const ventas = ventasDelDia(pedidos, hoy);
