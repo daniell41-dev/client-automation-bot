@@ -1595,6 +1595,50 @@ describe("handleIncoming — confirmación de pago con comprobante (T-24.4)", ()
     expect(comprobantes.comprobantes[0].referencia).toBe("M12345678");
   });
 
+  it("T-153: con varias cuentas, le dice a la dueña a cuál llegó el pago", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-pagos-1", "harina", 10);
+    const notifier = fakeNotifier();
+    await driveHastaEsperandoComprobante(repo, inventory, notifier);
+    const conCuentas: BusinessConfig = {
+      ...tiendaConPagos,
+      pagos: {
+        requiereComprobante: true,
+        cuentas: [
+          { entidad: "Provincial", tipo: "ahorros", numero: "0108 0000 44 5555666677", titular: "Luis Rojas" },
+          { entidad: "Banesco", tipo: "corriente", numero: "0134 0000 88888 9991234", titular: "Luis Rojas" },
+        ],
+      },
+    };
+    const llm = fakePaymentLLM({ banco: "Mercantil", referencia: "998877", cuentaDestino: "****1234", legible: "completo" });
+    await handleIncoming(paymentMsg(), conCuentas, repo, new Date(), llm, undefined, undefined, notifier, inventory, "tienda-pagos-1", fakeMediaDownloader(), new InMemoryComprobantes());
+
+    expect(notifier.sent[0].text).toContain("🏦 Llegó a: Banesco · Luis Rojas (…1234)");
+  });
+
+  it("T-153: si no se ve a cuál de sus cuentas llegó, se lo dice para que revise", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-pagos-1", "harina", 10);
+    const notifier = fakeNotifier();
+    await driveHastaEsperandoComprobante(repo, inventory, notifier);
+    const conCuentas: BusinessConfig = {
+      ...tiendaConPagos,
+      pagos: {
+        requiereComprobante: true,
+        cuentas: [
+          { entidad: "Provincial", tipo: "ahorros", numero: "01080000445555666677" },
+          { entidad: "Banesco", tipo: "corriente", numero: "01340000888889991234" },
+        ],
+      },
+    };
+    const llm = fakePaymentLLM({ referencia: "998877", legible: "parcial" });
+    await handleIncoming(paymentMsg(), conCuentas, repo, new Date(), llm, undefined, undefined, notifier, inventory, "tienda-pagos-1", fakeMediaDownloader(), new InMemoryComprobantes());
+
+    expect(notifier.sent[0].text).toContain("🏦 No se ve a cuál de sus cuentas llegó");
+  });
+
   it("una referencia repetida dispara la señal de riesgo en el aviso a la dueña", async () => {
     const repo = new InMemoryRepo();
     const inventory = new InMemoryInventory();

@@ -86,6 +86,7 @@ const TIPOS_CUENTA: { value: TipoCuentaPago; label: string }[] = [
   { value: "ahorros", label: tc.tiposCuenta.ahorros },
   { value: "corriente", label: tc.tiposCuenta.corriente },
   { value: "llave", label: tc.tiposCuenta.llave },
+  { value: "pago_movil", label: tc.tiposCuenta.pago_movil },
 ];
 
 const CUENTA_VACIA: CuentaPago = { entidad: "", tipo: "billetera", numero: "", titular: "" };
@@ -587,14 +588,14 @@ export function ConfiguracionEditor({
                   </div>
                   <div>
                     <label className={labelCls} htmlFor={`cuenta-numero-${i}`}>
-                      {cuenta.tipo === "llave" ? tc.cobro.llave : cuenta.tipo === "billetera" ? tc.cobro.numeroCelular : tc.cobro.numeroCuenta}
+                      {cuenta.tipo === "llave" ? tc.cobro.llave : cuenta.tipo === "billetera" || cuenta.tipo === "pago_movil" ? tc.cobro.numeroCelular : tc.cobro.numeroCuenta}
                     </label>
                     <input
                       id={`cuenta-numero-${i}`}
                       className={inputCls}
                       value={cuenta.numero}
                       onChange={(e) => cambiarCuenta(i, "numero", e.target.value)}
-                      placeholder={cuenta.tipo === "llave" ? tc.cobro.llaveEjemplo : cuenta.tipo === "billetera" ? tc.cobro.celularEjemplo : tc.cobro.cuentaEjemplo}
+                      placeholder={cuenta.tipo === "llave" ? tc.cobro.llaveEjemplo : cuenta.tipo === "billetera" || cuenta.tipo === "pago_movil" ? tc.cobro.celularEjemplo : tc.cobro.cuentaEjemplo}
                     />
                   </div>
                   <div>

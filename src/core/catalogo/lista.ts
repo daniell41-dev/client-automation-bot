@@ -12,6 +12,7 @@
 
 import { foldAccents } from "@/core/engine/text-normalize";
 import type { BusinessConfig, Service } from "@/core/types";
+import { formatoPrecio } from "@/core/moneda";
 
 /** Con menos productos, "lo que se repite" no dice nada: se deja el nombre entero. */
 const MIN_PRODUCTOS = 10;
@@ -55,15 +56,7 @@ export function nombreCorto(service: Service, catalogo: Service[]): string {
 }
 
 function formatPrice(config: BusinessConfig, price: number): string {
-  try {
-    return new Intl.NumberFormat(config.locale ?? "es-CO", {
-      style: "currency",
-      currency: config.currency,
-      maximumFractionDigits: 0,
-    }).format(price);
-  } catch {
-    return `${price} ${config.currency}`;
-  }
+  return formatoPrecio(price, config.currency, config.locale);
 }
 
 /** "1. B1167 · Skinny 2 pinzas moldeador azul claro · $ 129.900", una línea por producto. */

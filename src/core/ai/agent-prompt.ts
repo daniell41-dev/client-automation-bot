@@ -9,18 +9,11 @@ import type { AgentTurnInput } from "@/core/ai/provider";
 import { agentResponseSchema, type AgentResponse } from "@/core/ai/agent-schema";
 import { TRATO_AL_CLIENTE } from "@/core/ai/trato";
 import { detallesParaPrompt } from "@/core/engine/detalles";
+import { formatoPrecio } from "@/core/moneda";
 
 /** Formatea un precio según la moneda/locale del negocio (igual criterio que el motor). */
 function formatPrice(input: AgentTurnInput, price: number): string {
-  try {
-    return new Intl.NumberFormat(input.locale ?? "es-CO", {
-      style: "currency",
-      currency: input.currency,
-      maximumFractionDigits: 0,
-    }).format(price);
-  } catch {
-    return `${price} ${input.currency}`;
-  }
+  return formatoPrecio(price, input.currency, input.locale);
 }
 
 function buildCatalogBlock(input: AgentTurnInput): string {

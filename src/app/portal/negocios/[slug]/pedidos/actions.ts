@@ -33,6 +33,7 @@ import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
 import type { OutgoingMessage } from "@/core/types";
 import type { ActionState } from "@/components/action-form";
 import { formato, textos } from "@/textos";
+import { formatoPrecio } from "@/core/moneda";
 
 /** T-131+: textos de esta pantalla en `src/textos/es.json` (acciones.pedidos). */
 const tt = textos.acciones.pedidos;
@@ -165,11 +166,7 @@ export async function marcarDevuelto(_prev: ActionState, formData: FormData): Pr
   if (!resolved || resolved.negocioId !== pedido.negocio) return { error: tt.pedidoNoEncontradoO };
 
   await createPedidoRepository().marcarDevuelto(pedido.id, new Date().toISOString());
-  const monto = new Intl.NumberFormat(resolved.config.locale ?? "es-CO", {
-    style: "currency",
-    currency: resolved.config.currency,
-    maximumFractionDigits: 0,
-  }).format(pedido.montoPagado ?? 0);
+  const monto = formatoPrecio(pedido.montoPagado ?? 0, resolved.config.currency, resolved.config.locale);
   avisarCliente(resolved, { to: pedido.contacto, text: mensajeDevuelto(pedido.numero, monto) });
 
   revalidatePath(`/portal/negocios/${slug}/pedidos`);

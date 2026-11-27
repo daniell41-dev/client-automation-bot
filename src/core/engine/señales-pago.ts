@@ -13,6 +13,8 @@
 
 import type { PaymentReceiptDescription } from "@/core/ai/payment-receipt-schema";
 import { normalizarReferencia, normalizarTelefono } from "@/core/engine/datos-pago";
+import { cuentaDelPago } from "@/core/engine/cuenta-del-pago";
+import type { CuentaPago } from "@/core/types";
 
 export type NivelSeñal = "alta" | "media" | "baja";
 
@@ -49,6 +51,8 @@ export interface DatosPagoNegocio {
    * fraude.
    */
   destinos?: string[];
+  /** T-153: las cuentas completas, para comparar el número de cuenta de destino (que puede venir enmascarado). */
+  cuentas?: CuentaPago[];
   comprobantesPrevios?: ComprobantePrevio[];
 }
 
@@ -118,6 +122,19 @@ export function calcularSeñalesPago(
       tipo: "destino_no_coincide",
       nivel: "alta",
       detalle: `El comprobante dice que se pagó a ${comprobante.telefonoDestino}, no al número registrado del negocio.`,
+    });
+  }
+
+  // T-153: el número de cuenta de destino (no solo el celular). Si ya saltó
+  // por el celular, no se repite la misma alarma.
+  if (
+    !señales.some((s) => s.tipo === "destino_no_coincide") &&
+    cuentaDelPago(comprobante, negocio.cuentas ?? []).tipo === "no_coincide"
+  ) {
+    señales.push({
+      tipo: "destino_no_coincide",
+      nivel: "alta",
+      detalle: `El comprobante dice que se pagó a la cuenta ${comprobante.cuentaDestino}, que no es ninguna de las registradas del negocio.`,
     });
   }
 

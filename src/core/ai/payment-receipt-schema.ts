@@ -26,6 +26,14 @@ export const paymentReceiptSchema = z.object({
   telefonoDestino: z.string().optional(),
   nombreDestino: z.string().optional(),
   /**
+   * T-153: a qué cuenta del negocio llegó la plata. `banco` suele ser el
+   * banco DEL CLIENTE (la app desde donde pagó); estos son los datos del
+   * destino, tal cual aparecen (el número puede venir enmascarado).
+   */
+  bancoDestino: z.string().optional(),
+  cuentaDestino: z.string().optional(),
+  documentoDestino: z.string().optional(),
+  /**
    * `"ilegible"` significa que no hay nada aprovechable — el motor le pide
    * al cliente que reenvíe una foto más clara, nunca adivina los campos que
    * faltan.

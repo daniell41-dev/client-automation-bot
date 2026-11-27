@@ -235,7 +235,7 @@ export interface PedidosConfig {
 }
 
 /** T-45: tipo de cuenta, para que el cliente sepa cómo transferir. */
-export type TipoCuentaPago = "ahorros" | "corriente" | "billetera" | "llave";
+export type TipoCuentaPago = "ahorros" | "corriente" | "billetera" | "llave" | "pago_movil";
 
 /** T-45: una cuenta donde el negocio recibe pagos. */
 export interface CuentaPago {
