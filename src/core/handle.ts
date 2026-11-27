@@ -33,7 +33,6 @@ import type { ILLMProvider } from "@/core/ai/provider";
 import type { PaymentReceiptDescription } from "@/core/ai/payment-receipt-schema";
 import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
 import { createLead, interpretableOptions, respond } from "@/core/engine/responder";
-import { buscarProducto } from "@/core/engine/buscar-producto";
 import { calcularSeñalesPago, type Señal } from "@/core/engine/señales-pago";
 import { enAtencionHumana, mensajeAlCliente, pideHablarConPersona, textoAvisoDuena } from "@/core/engine/atencion-humana";
 import { cuentasDeConfig, destinosDePago, normalizarReferencia, textoCuentasPago } from "@/core/engine/datos-pago";
@@ -65,6 +64,9 @@ import { DEFAULT_PEDIDO_CONFIRMADO, DEFAULT_PEDIDO_RECHAZADO } from "@/core/engi
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { render } from "@/core/engine/templating";
 import { formatoPrecio } from "@/core/moneda";
+import { productosDeImagen, type ResultadoImagen } from "@/core/catalogo/por-imagen";
+import { listaDeProductos } from "@/core/catalogo/lista";
+import { detallesDe } from "@/core/engine/detalles";
 
 /**
  * Lo mínimo que necesita `handleIncoming` para avisarle a la dueña por
@@ -120,6 +122,34 @@ const RECHAZO_RECIPE_MEDICO =
 /** Precio formateado en la moneda del negocio (T-153: todos pasan por `formatoPrecio`). */
 function formatPrice(config: BusinessConfig, price: number): string {
   return formatoPrecio(price, config.currency, config.locale);
+}
+
+/**
+ * T-156: la respuesta a una foto. Con la referencia leída se afirma el
+ * producto (y se pregunta lo que falta para pedirlo); con parecidos se
+ * ofrecen como lista y se pide confirmar, nunca se da uno por hecho. Los
+ * catálogos sin referencias responden como antes (`responderBusquedaImagen`).
+ */
+function responderImagen(resultado: ResultadoImagen, config: BusinessConfig): string {
+  if (resultado.tipo === "referencia") {
+    const { productos } = resultado;
+    if (productos.length === 1) {
+      const [s] = productos;
+      const detalles = detallesDe(s).map((d) => d.nombre.toLowerCase());
+      const pregunta = detalles.length ? `¿Cuántas unidades quiere y en qué ${detalles.join(" y ")}?` : "¿Cuántas unidades quiere?";
+      return `Sí, lo tenemos 🙌\n\n${listaDeProductos([s], config).replace(/^1\. /, "")}\n\n${pregunta}`;
+    }
+    return `En la imagen veo estos:\n\n${listaDeProductos(productos, config)}\n\n¿Cuál le interesa?`;
+  }
+  if (resultado.tipo === "parecidos") {
+    const { productos } = resultado;
+    const uno = productos.length === 1;
+    return (
+      `No alcanzo a ver la referencia en la imagen, pero se parece a ${uno ? "este" : "estos"}:\n\n` +
+      `${listaDeProductos(productos, config)}\n\n¿Es ${uno ? "este" : "alguno de estos"}? Si me dice la referencia, lo ubico de una.`
+    );
+  }
+  return responderBusquedaImagen(resultado.tipo === "legado" ? resultado.productos : [], config);
 }
 
 /**
@@ -198,9 +228,16 @@ async function handleImageMessage(
     return imageReply(message, RECHAZO_RECIPE_MEDICO, resumenImagen, sessionRepo, now);
   }
 
-  const candidatos = buscarProducto(descripcion, config.services);
-  const texto = responderBusquedaImagen(candidatos, config);
-  return imageReply(message, texto, resumenImagen, sessionRepo, now);
+  // T-156: referencia leída en la captura → exacto; si no, parecidos (que
+  // el cliente confirma) o lo de antes. En el historial queda qué productos
+  // eran, para que el siguiente "6 de la talla 10" sepa de cuál habla.
+  const resultado = productosDeImagen(descripcion, config.services);
+  const texto = responderImagen(resultado, config);
+  const vistos =
+    resultado.tipo === "referencia" || resultado.tipo === "parecidos"
+      ? resultado.productos.map((s) => s.referencia ?? s.name).join(", ")
+      : "";
+  return imageReply(message, texto, vistos ? `${resumenImagen} → ${vistos}` : resumenImagen, sessionRepo, now);
 }
 
 /** Default si el negocio no configuró `messages.pedirComprobante` (T-24.4). */
