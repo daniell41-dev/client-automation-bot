@@ -186,10 +186,35 @@ const ropa: BusinessConfig = {
   ai: { enabled: true, knowledge: "Venta de ropa al por mayor. Pagos por Nequi o Bre-B con comprobante." },
 };
 
+/**
+ * T-141: negocios de servicios que no son belleza ni spa (técnicos,
+ * asesorías, reparaciones a domicilio, clases). Agendan como la peluquería:
+ * el cliente elige el servicio y se le da una cita. Sin rubro propio, el
+ * admin tenía que partir de "Belleza" y borrarle todo.
+ */
+const servicios: BusinessConfig = {
+  ...BASE,
+  slug: "servicios",
+  name: "Servicios",
+  rubro: "Servicios",
+  catalogo: { etiqueta: { singular: "Servicio", plural: "Servicios" }, modoPorDefecto: "cita" },
+  services: [
+    { id: "visita-tecnica", name: "Visita técnica", description: "Revisión y diagnóstico en el lugar.", price: 50000, durationMinutes: 60, keywords: ["visita", "tecnico", "revision", "diagnostico"], reservable: true },
+    { id: "asesoria", name: "Asesoría", description: "Sesión de asesoría personalizada.", price: 60000, durationMinutes: 60, keywords: ["asesoria", "consulta", "sesion"], reservable: true },
+  ],
+  messages: mensajesCita("🛠️"),
+  horarios: [
+    { dow: 0, abierto: false, tramos: [] },
+    ...[1, 2, 3, 4, 5, 6].map((dow) => ({ dow, abierto: true, tramos: [{ desde: "08:00", hasta: "18:00" }] })),
+  ],
+  ai: { enabled: true, knowledge: "Negocio de servicios. Atendemos con cita previa." },
+};
+
 export const RUBROS_BASE: RubroBase[] = [
   { slug: "estetica", nombre: "Belleza / Estética", descripcion: "Salones de belleza: faciales, uñas, pestañas y depilación.", template: belleza },
   { slug: "peluqueria", nombre: "Peluquería / Barbería", descripcion: "Cortes, tintes y barba, con cita previa.", template: peluqueria },
   { slug: "masajes", nombre: "Masajes / Spa", descripcion: "Masajes y tratamientos de spa, con cita previa.", template: masajes },
   { slug: "restaurante", nombre: "Restaurante", descripcion: "Pedidos para domicilio o para recoger, con pago verificado y código de retiro.", template: restaurante },
   { slug: "ropa", nombre: "Ropa / Mayorista", descripcion: "Ventas por referencia, con tallas y colores, para envío o para recoger.", template: ropa },
+  { slug: "servicios", nombre: "Servicios", descripcion: "Técnicos, asesorías, reparaciones o clases, con cita previa.", template: servicios },
 ];

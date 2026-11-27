@@ -6,6 +6,9 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Nuevo
+- Rubro base "Servicios" (T-141): para técnicos, asesorías, reparaciones o clases que agendan con cita. Aparece en la lista de tipos de negocio después de correr `pnpm rubros:nuevos --aplicar` contra Supabase.
+
 ## [1.11.0] — 2026-11-27
 
 ### Nuevo
