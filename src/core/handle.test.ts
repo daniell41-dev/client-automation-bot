@@ -1276,6 +1276,68 @@ describe("handleIncoming — visión por imagen (T-23.5)", () => {
     expect(messages[0].text).not.toContain("Filtro de aceite Toyota"); // no matchea esa categoría/ref
   });
 
+  describe("T-156: captura del catálogo de un mayorista", () => {
+    const jeans: BusinessConfig = {
+      ...repuestos,
+      slug: "jeans",
+      name: "Jeans al por mayor",
+      currency: "COP",
+      services: [
+        {
+          id: "ref-b1167",
+          name: "Skinny dama jean stretch tiro alto 2 pinzas moldeador tono azul claro",
+          description: "",
+          price: 129900,
+          modo: "pedido",
+          referencia: "B1167",
+          categoria: "Skinny",
+          detalles: [
+            { nombre: "Talla", opciones: ["6", "8", "10"] },
+            { nombre: "Color", opciones: ["Azul claro"] },
+          ],
+        },
+        { id: "ref-b1168", name: "Skinny dama jean stretch tiro alto 3 pinzas clasico tono azul claro", description: "", price: 129900, modo: "pedido", referencia: "B1168", categoria: "Skinny" },
+        { id: "ref-b900", name: "Short dama jean stretch urbano tono negro", description: "", price: 89900, modo: "pedido", referencia: "B900", categoria: "Short" },
+        { id: "ref-b203", name: "Bota dama jean stretch clasico tono azul hielo", description: "", price: 119900, modo: "pedido", referencia: "B203", categoria: "Bota" },
+        { id: "ref-b536", name: "Overol dama jean stretch clasico tono gris", description: "", price: 143000, modo: "pedido", referencia: "B536", categoria: "Overol" },
+        { id: "ref-b704", name: "Mom dama jean rigido cargo tono blanco", description: "", price: 109900, modo: "pedido", referencia: "B704", categoria: "Mom" },
+      ],
+    };
+    const enviar = (descripcion: Parameters<typeof fakeVisionLLM>[0], sessionRepo?: SessionMemoryRepository) =>
+      handleIncoming(imageMsg("jeans", "tienes este?"), jeans, new InMemoryRepo(), new Date(), fakeVisionLLM(descripcion), sessionRepo, undefined, undefined, undefined, undefined, fakeMediaDownloader());
+
+    it("con la referencia en la captura, afirma el producto con referencia y precio, y pide talla y color", async () => {
+      const sessionRepo = new SessionMemoryRepository();
+      const { messages } = await enviar(
+        { tipoProducto: "jean", textoVisible: ["REF 1167", "$129.900"], esRecipeMedico: false, confianza: "alta" },
+        sessionRepo,
+      );
+      const texto = messages[0].text.replace(/\u00a0/g, " ");
+      expect(texto).toContain("B1167 · Skinny");
+      expect(texto).toContain("$ 129.900");
+      expect(texto).toContain("en qué talla y color");
+      expect(texto).not.toContain("B900");
+      // El historial guarda cuál era, para el siguiente mensaje del cliente.
+      const m = imageMsg("jeans");
+      const sesion = await sessionRepo.getOrCreate(m.businessSlug, m.from, m.channel);
+      expect(sesion.history[0].text).toContain("B1167");
+    });
+
+    it("sin referencia visible, ofrece parecidos y pide confirmar", async () => {
+      const { messages } = await enviar({
+        tipoProducto: "jean",
+        textoVisible: [],
+        atributos: ["skinny", "azul claro"],
+        esRecipeMedico: false,
+        confianza: "media",
+      });
+      expect(messages[0].text).toContain("No alcanzo a ver la referencia");
+      expect(messages[0].text).toContain("B1167");
+      expect(messages[0].text).toContain("B1168");
+      expect(messages[0].text).toContain("¿Es alguno de estos?");
+    });
+  });
+
   it("0 candidatos: pide el nombre o la referencia por texto, nunca inventa un producto", async () => {
     const repo = new InMemoryRepo();
     const llm = fakeVisionLLM({

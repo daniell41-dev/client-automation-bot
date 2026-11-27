@@ -18,6 +18,12 @@ export const imageDescriptionSchema = z.object({
   textoVisible: z.array(z.string()).default([]),
   categoria: z.string().optional(),
   /**
+   * T-156: cómo se ve, en pocas palabras ("skinny", "azul claro", "rotos en
+   * la rodilla"). Sirve para ofrecer parecidos cuando la captura no muestra
+   * la referencia. Opcional: los proveedores y fotos de antes no lo traen.
+   */
+  atributos: z.array(z.string()).optional(),
+  /**
    * `true` si la imagen muestra una receta/fórmula médica — dispara el
    * bloqueo duro de farmacia en `handle.ts` (T-23.5, decisión §1.4 del plan:
    * no se procesa, se pide hablar con la dueña). Ante la duda, `true`.

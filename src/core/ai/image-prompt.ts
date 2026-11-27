@@ -21,7 +21,19 @@ export function buildImageDescriptionPrompt(): string {
     "",
     "Devuelve ÚNICAMENTE un JSON con esta forma exacta, sin texto alrededor ni",
     "bloques de markdown:",
-    '{"tipoProducto": string, "marca": string opcional, "textoVisible": string[], "categoria": string opcional, "esRecipeMedico": boolean, "confianza": "alta"|"media"|"baja"}',
+    '{"tipoProducto": string, "marca": string opcional, "textoVisible": string[], "categoria": string opcional, "atributos": string[] opcional, "esRecipeMedico": boolean, "confianza": "alta"|"media"|"baja"}',
+    "",
+    // T-156: el caso típico de un mayorista es una CAPTURA de su propio
+    // catálogo; la referencia escrita junto al producto es lo que permite
+    // ubicarlo con certeza, así que no se puede omitir.
+    '"textoVisible": copia TODO el texto que se lea, cada línea o etiqueta como',
+    "un string: códigos o referencias (\"REF 1167\", \"B203\"), nombres de",
+    "producto, tallas y precios. Si es una captura de un catálogo con varios",
+    "productos, el texto de todos. No corrijas ni completes lo que no se lee.",
+    '"atributos": cómo se ve el producto en pocas palabras sueltas. En ropa o',
+    "calzado: el corte o modelo (skinny, bota, recto, short, overol…), el color",
+    "y tono (azul claro, negro…) y los detalles visibles (rotos, pinzas, tiro",
+    "alto, cargo…). Si no aplica, omítelo.",
     "",
     '"esRecipeMedico" tiene que ser true si la imagen muestra una receta,',
     "fórmula o indicación de un profesional de salud — ante la duda, true.",

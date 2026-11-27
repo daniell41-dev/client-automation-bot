@@ -6,6 +6,14 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+## [1.12.0] — 2026-11-27
+
+### Nuevo
+- Rubro base "Servicios" (T-141): para técnicos, asesorías, reparaciones o clases que agendan con cita. Aparece en la lista de tipos de negocio después de correr `pnpm rubros:nuevos --aplicar` contra Supabase.
+
+### Mejorado
+- **Reconoce capturas del catálogo (T-156).** Si el cliente le toma captura al catálogo y pregunta "¿tienes este?", el asistente lee la referencia de la imagen ("REF 1167", "B203") y responde con ese producto, su precio y lo que falta para pedirlo ("¿cuántas unidades y en qué talla y color?"). Si la captura muestra varios productos, los lista y pregunta cuál. Si no se ve la referencia, ofrece hasta 5 parecidos (por corte, color y detalles) y pide confirmar: nunca da uno por hecho. Los precios, la fecha y la hora de la captura no se confunden con referencias. La IA solo lee la imagen y el catálogo lo cruza el código, así que el costo por foto no cambia con el tamaño del catálogo. Los negocios sin referencias (repuestos, farmacia) responden igual que antes.
+
 ## [1.11.0] — 2026-11-27
 
 ### Nuevo
