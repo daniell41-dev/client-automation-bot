@@ -51,7 +51,7 @@ function singular(p: string): string {
   return p;
 }
 
-const refNormal = (r: string) => normalizar(r).replace(/[^a-z0-9]/g, "");
+export const refNormal = (r: string) => normalizar(r).replace(/[^a-z0-9]/g, "");
 
 export interface ConsultaCatalogo {
   /** El mensaje que el cliente acaba de mandar. */
@@ -62,6 +62,12 @@ export interface ConsultaCatalogo {
   anterioresAsistente?: string[];
   /** Ids de los productos que ya están en el carrito. */
   enCarrito?: string[];
+  /**
+   * T-156: deja solo lo que se acerca al mejor resultado (0.6 = al menos el
+   * 60 % de su puntaje). Para los "parecidos" de una foto: un jean de bota
+   * azul no se parece a un skinny azul claro solo por ser azul.
+   */
+  minRelativo?: number;
 }
 
 export interface ResultadoBusqueda {
@@ -87,7 +93,7 @@ function camposDe(s: Service) {
 }
 
 /** ¿Este término nombra una referencia? "b203" exacto, o "203" con 3 cifras o más para "B203". */
-function esReferencia(termino: string, ref: string): boolean {
+export function esReferencia(termino: string, ref: string): boolean {
   if (!ref) return false;
   if (termino === ref) return true;
   return /^\d{3,}$/.test(termino) && ref.replace(/\D/g, "") === termino;
@@ -127,7 +133,9 @@ export function buscarProductos(catalogo: Service[], consulta: ConsultaCatalogo)
 
   // Si hubo una referencia exacta, el cliente sabe lo que quiere: no se le mezclan parecidos.
   const conReferencia = puntuados.filter((x) => x.p >= 100);
-  const coincidencias = (conReferencia.length ? conReferencia : puntuados).slice(0, MAX_RESULTADOS).map((x) => x.s);
+  const mejor = puntuados[0]?.p ?? 0;
+  const cercanos = consulta.minRelativo ? puntuados.filter((x) => x.p >= mejor * consulta.minRelativo!) : puntuados;
+  const coincidencias = (conReferencia.length ? conReferencia : cercanos).slice(0, MAX_RESULTADOS).map((x) => x.s);
 
   // Lo recién mostrado por el asistente (por referencia o nombre exacto) y el carrito, siempre a la vista.
   const textoAsistente = normalizar((consulta.anterioresAsistente ?? []).slice(-2).join("\n"));
