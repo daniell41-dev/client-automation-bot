@@ -10,6 +10,11 @@ import { Logo } from "@/components/logo";
 import { EmptyState, Pill } from "@/components/ui";
 import { RubroTile } from "@/components/rubro-visual";
 import { ArrowRight } from "lucide-react";
+import { textos } from "@/textos";
+import { formatoPrecio } from "@/core/moneda";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (demo.inicio). */
+const tt = textos.demo.inicio;
 
 export const dynamic = "force-dynamic";
 
@@ -34,33 +39,24 @@ export default async function DemoPage() {
           <Link
             href="/login"
             className="rounded-[10px] bg-primary px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-primary-hover"
-          >
-            Iniciar sesión
-          </Link>
+          >{tt.iniciarSesion}</Link>
         </div>
       </header>
 
       <main className="mx-auto max-w-[860px] space-y-8 px-6 py-10 fade-up">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">
-            Demo
-          </p>
-          <h1 className="mt-1 text-[32px] font-extrabold leading-tight text-ink">
-            Así se ve un negocio en Aurela
-          </h1>
-          <p className="mt-2 max-w-xl text-[15px] text-ink-mid">
-            Este es un negocio de ejemplo configurado en la plataforma. Puede
-            probar el asistente como si fuera un cliente escribiéndole por WhatsApp.
-          </p>
+          <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">{tt.demo}</p>
+          <h1 className="mt-1 text-[32px] font-extrabold leading-tight text-ink">{tt.asiSeVeUn}</h1>
+          <p className="mt-2 max-w-xl text-[15px] text-ink-mid">{tt.esteEsUnNegocio}</p>
         </div>
 
         {!supabase || !config ? (
           <EmptyState
-            title="Aún no hay negocio de demostración."
+            title={tt.aunNoHayNegocio}
             subtitle={
               supabase
-                ? "Ejecute el seed: pnpm seed:supabase"
-                : "Supabase no está configurado en este entorno."
+                ? tt.ejecuteElSeedPnpm
+                : tt.supabaseNoEstaConfigurado
             }
           />
         ) : (
@@ -74,12 +70,10 @@ export default async function DemoPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <h2 className="text-[17px] font-bold text-ink">{config.name}</h2>
-                    <Pill tone="success" dot>
-                      Asistente activo
-                    </Pill>
+                    <Pill tone="success" dot>{tt.asistenteActivo}</Pill>
                   </div>
                   <p className="mt-0.5 text-sm text-ink-mid">
-                    {r.nombre} · {r.descripcion ?? "Negocio de ejemplo"}
+                    {r.nombre} · {r.descripcion ?? tt.negocioDeEjemplo}
                   </p>
                 </div>
               </div>
@@ -90,7 +84,7 @@ export default async function DemoPage() {
               <table className="w-full border-collapse text-left text-sm">
                 <thead>
                   <tr className="bg-surface-3">
-                    {["Servicio", "Duración", "Precio"].map((h) => (
+                    {tt.encabezados.map((h) => (
                       <th
                         key={h}
                         className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.08em] text-ink-soft"
@@ -108,11 +102,7 @@ export default async function DemoPage() {
                         {s.durationMinutes ? `${s.durationMinutes} min` : "—"}
                       </td>
                       <td className="px-4 py-3 text-ink-mid">
-                        {new Intl.NumberFormat(config.locale ?? "es-CO", {
-                          style: "currency",
-                          currency: config.currency,
-                          maximumFractionDigits: 0,
-                        }).format(s.price)}
+                        {formatoPrecio(s.price, config.currency, config.locale)}
                       </td>
                     </tr>
                   ))}
@@ -124,9 +114,7 @@ export default async function DemoPage() {
               <Link
                 href="/demo/chat"
                 className="inline-flex items-center gap-2 rounded-[10px] bg-primary px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-primary-hover"
-              >
-                Probar el asistente
-                <ArrowRight className="h-4 w-4" />
+              >{tt.probarElAsistente}<ArrowRight className="h-4 w-4" />
               </Link>
             </div>
           </>
@@ -137,4 +125,4 @@ export default async function DemoPage() {
 }
 
 // T-71: el nombre de la pestaña ("Demo · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Demo" };
+export const metadata = { title: textos.titulosPestana.demo };

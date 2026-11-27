@@ -7,6 +7,7 @@ import { notFound } from "next/navigation";
 import { createUserClient } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { RespuestasEditor } from "./respuestas-editor";
+import { textos } from "@/textos";
 
 export const dynamic = "force-dynamic";
 
@@ -41,4 +42,4 @@ export default async function RespuestasPage({
 }
 
 // T-71: el nombre de la pestaña ("Respuestas · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Respuestas" };
+export const metadata = { title: textos.portal.titulosPestana.respuestas };

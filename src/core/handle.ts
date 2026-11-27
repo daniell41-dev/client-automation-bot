@@ -32,10 +32,12 @@ import type { PaymentGateway } from "@/core/payments/gateway";
 import type { ILLMProvider } from "@/core/ai/provider";
 import type { PaymentReceiptDescription } from "@/core/ai/payment-receipt-schema";
 import type { CalendarApi } from "@/core/storage/adapters/google/calendar";
-import { interpretableOptions, respond } from "@/core/engine/responder";
+import { createLead, interpretableOptions, respond } from "@/core/engine/responder";
 import { buscarProducto } from "@/core/engine/buscar-producto";
 import { calcularSeñalesPago, type Señal } from "@/core/engine/señales-pago";
-import { destinosDePago, normalizarReferencia, textoCuentasPago } from "@/core/engine/datos-pago";
+import { enAtencionHumana, mensajeAlCliente, pideHablarConPersona, textoAvisoDuena } from "@/core/engine/atencion-humana";
+import { cuentasDeConfig, destinosDePago, normalizarReferencia, textoCuentasPago } from "@/core/engine/datos-pago";
+import { cuentaDelPago, describirCuenta } from "@/core/engine/cuenta-del-pago";
 import { decidirAccionWompi, type EstadoWompi } from "@/core/engine/pago-wompi";
 import { runAgentTurn } from "@/core/ai/agent";
 import { pideNoContactar } from "@/core/engine/seguimientos";
@@ -62,6 +64,7 @@ import {
 import { DEFAULT_PEDIDO_CONFIRMADO, DEFAULT_PEDIDO_RECHAZADO } from "@/core/engine/responder";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
 import { render } from "@/core/engine/templating";
+import { formatoPrecio } from "@/core/moneda";
 
 /**
  * Lo mínimo que necesita `handleIncoming` para avisarle a la dueña por
@@ -114,17 +117,9 @@ function esRubroFarmaceutico(rubro?: string): boolean {
 const RECHAZO_RECIPE_MEDICO =
   "Por políticas de salud, las recetas o fórmulas médicas no se procesan por aquí — ese trámite se hace en persona con la farmacia 🙏";
 
-/** Precio formateado — duplicado a propósito (mismo criterio que responder.ts, agent-prompt.ts y flows/pedido.ts). */
+/** Precio formateado en la moneda del negocio (T-153: todos pasan por `formatoPrecio`). */
 function formatPrice(config: BusinessConfig, price: number): string {
-  try {
-    return new Intl.NumberFormat(config.locale ?? "es-CO", {
-      style: "currency",
-      currency: config.currency,
-      maximumFractionDigits: 0,
-    }).format(price);
-  } catch {
-    return `${price} ${config.currency}`;
-  }
+  return formatoPrecio(price, config.currency, config.locale);
 }
 
 /**
@@ -410,6 +405,7 @@ async function handlePaymentReceiptMessage(
         { total, pagadoAntes },
         {
           destinos: destinosDePago(config.pagos),
+          cuentas: cuentasDeConfig(config.pagos),
           comprobantesPrevios: previos.map((p) => ({
             referencia: p.referencia,
             contacto: p.leadId ?? "",
@@ -525,6 +521,42 @@ export async function handleIncoming(
   // T-121: se toma acá porque `existing` se reasigna más abajo (cierres,
   // vencimientos); lo que importa es si el contacto ya había escrito antes.
   const clienteNuevo = existing === null;
+
+  // T-155: la dueña está atendiendo a este cliente. El asistente no
+  // responde, ni a fotos; el mensaje queda en el historial para que ella lo
+  // vea en Conversaciones. El lead NO se guarda: si la dueña lo reactiva
+  // mientras tanto, este guardado no debe pisarlo.
+  if (enAtencionHumana(existing, now)) {
+    if (sessionRepo) {
+      const session = await getOrCreateSession(sessionRepo, message, false);
+      session.history.push({ role: "user", text: message.text || (message.image ? "[foto]" : ""), timestamp: message.timestamp });
+      await sessionRepo.save(session);
+    }
+    return { messages: [], modo: "guiado" };
+  }
+
+  // T-155: pide hablar con una persona. Solo si hay a quién avisarle: sin
+  // número de Notificaciones, callarse dejaría al cliente sin nadie.
+  if (!message.image && notifier && config.notifyPhoneNumber && pideHablarConPersona(message.text)) {
+    const lead = existing ?? createLead(message, now);
+    lead.atencionHumanaDesde = now.toISOString();
+    lead.lastInboundAt = message.timestamp;
+    lead.updatedAt = now.toISOString();
+    await repo.save(lead);
+    try {
+      await notifier.send({ to: config.notifyPhoneNumber, text: textoAvisoDuena(config, lead, message.text) });
+    } catch (err) {
+      console.error("[Atención] no se pudo avisar a la dueña que un cliente pidió una persona:", err);
+    }
+    const respuesta = mensajeAlCliente(config);
+    if (sessionRepo) {
+      const session = await getOrCreateSession(sessionRepo, message, false);
+      session.history.push({ role: "user", text: message.text, timestamp: message.timestamp });
+      session.history.push({ role: "assistant", text: respuesta, timestamp: now.toISOString() });
+      await sessionRepo.save(session);
+    }
+    return { messages: [{ to: message.from, text: respuesta }], modo: "guiado" };
+  }
 
   // T-23.5/T-24.4: un mensaje con imagen es un camino aparte, completamente
   // distinto del funnel de cita/pedido de texto. Dos sub-caminos según el
@@ -1008,6 +1040,20 @@ function lineaComprobante(config: BusinessConfig, descripcion: PaymentReceiptDes
   return partes.join(" ");
 }
 
+/**
+ * T-153: a cuál de las cuentas del negocio llegó la plata. Con una sola
+ * cuenta no hace falta decirlo. Si el comprobante muestra una cuenta ajena,
+ * ya lo avisa la señal "destino no coincide": aquí no se repite.
+ */
+function lineaCuentaDestino(config: BusinessConfig, descripcion: PaymentReceiptDescription): string | null {
+  const cuentas = cuentasDeConfig(config.pagos);
+  if (cuentas.length < 2) return null;
+  const r = cuentaDelPago(descripcion, cuentas);
+  if (r.tipo === "cuenta") return `🏦 Llegó a: ${describirCuenta(r.cuenta)}`;
+  if (r.tipo === "sin_datos") return "🏦 No se ve a cuál de sus cuentas llegó: revise sus bancos.";
+  return null;
+}
+
 async function notifyOwner(
   lead: Lead,
   config: BusinessConfig,
@@ -1052,6 +1098,7 @@ async function notifyOwner(
     lead.direccion ? `Dirección: ${lead.direccion}` : null,
     !esPedido && lead.tentativeDate ? `Fecha/hora: ${lead.tentativeDate}` : null,
     opciones.comprobante ? lineaComprobante(config, opciones.comprobante.descripcion) : null,
+    opciones.comprobante ? lineaCuentaDestino(config, opciones.comprobante.descripcion) : null,
     ...(opciones.comprobante?.señales.map((s) => `⚠️ ${s.detalle}`) ?? []),
     // T-31: un comprobante es una imagen, y una imagen se falsifica. Lo único
     // que verifica el pago es la app del banco de la dueña (§1.6 del plan).

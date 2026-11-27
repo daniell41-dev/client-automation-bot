@@ -6,6 +6,10 @@
  */
 
 import { Send } from "lucide-react";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.vistaPrevia). */
+const tt = textos.portal.vistaPrevia;
 
 /** Un turno del preview. */
 export interface PreviewMessage {
@@ -55,16 +59,14 @@ export function PhonePreview({
         <span className="leading-tight">
           <span className="block text-[13.5px] font-semibold">{botName}</span>
           <span className="block text-[11px] text-white/80">
-            {online ? "en línea" : "asistente en pausa"}
+            {online ? tt.enLinea : tt.asistenteEnPausa}
           </span>
         </span>
       </div>
 
       {/* Cuerpo */}
       <div className="flex min-h-[300px] flex-1 flex-col gap-2 overflow-y-auto px-2.5 py-3">
-        <div className="self-center rounded-md bg-wa-today px-2 py-0.5 text-[10px] font-semibold text-ink-mid shadow-card">
-          HOY
-        </div>
+        <div className="self-center rounded-md bg-wa-today px-2 py-0.5 text-[10px] font-semibold text-ink-mid shadow-card">{tt.hoy}</div>
 
         {messages.map((m, i) => (
           <div
@@ -144,9 +146,7 @@ export function PhonePreview({
       {/* Barra de input */}
       {footer ?? (
         <div className="flex items-center gap-2 bg-surface-2 px-2.5 py-2">
-          <span className="flex-1 rounded-full bg-white px-3 py-1.5 text-[12px] text-ink-soft">
-            Escriba un mensaje…
-          </span>
+          <span className="flex-1 rounded-full bg-white px-3 py-1.5 text-[12px] text-ink-soft">{tt.escribaUnMensaje}</span>
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-wa-header text-white">
             <Send className="h-3.5 w-3.5" />
           </span>

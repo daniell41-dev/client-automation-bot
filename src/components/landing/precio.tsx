@@ -25,24 +25,28 @@ import { Check, ShieldCheck } from "lucide-react";
 import { NOTA_PRECIO, PRECIO_DESDE } from "@/app/landing-config";
 import { BotonWhatsApp } from "@/components/landing/boton-whatsapp";
 import { Seccion } from "@/components/landing/seccion";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.precio). */
+const tt = textos.landing.precio;
 
 /** Cada condición del ticket con su valor. Mismas tres condiciones del hero y de los Términos. */
 const CONDICIONES = [
-  { texto: "Instalación gratis en su negocio", valor: "$0" },
-  { texto: "14 días de prueba", valor: "$0" },
-  { texto: "Sin permanencia", valor: "0 meses" },
+  { texto: tt.instalacionGratisEnSu, valor: "$0" },
+  { texto: tt.t14DiasDePrueba, valor: "$0" },
+  { texto: tt.sinPermanencia, valor: tt.t0Meses },
 ];
 
 const INCLUYE = [
-  "Pedidos con total confirmado",
-  "Revisión de comprobantes",
-  "Pedidos por nota de voz",
-  "Citas",
-  "Panel de pedidos en el celular",
-  "Soporte por WhatsApp",
+  tt.pedidosConTotalConfirmado,
+  tt.revisionDeComprobantes,
+  tt.pedidosPorNotaDe,
+  tt.citas,
+  tt.panelDePedidosEn,
+  tt.soportePorWhatsapp,
 ];
 
-export const GARANTIA = "Si en los 14 días no le sirve, lo desinstalamos y no paga nada.";
+export const GARANTIA = tt.siEnLos14;
 
 export function Precio({
   precio = PRECIO_DESDE,
@@ -55,11 +59,9 @@ export function Precio({
     return (
       <Seccion id="precio" oscura>
         <div className="mx-auto max-w-2xl text-center">
-          <p className="text-[22px] font-extrabold leading-snug text-white sm:text-[28px]">
-            Instalamos pocos negocios al mes porque lo hacemos en persona. Pregúntenos por los cupos.
-          </p>
+          <p className="text-[22px] font-extrabold leading-snug text-white sm:text-[28px]">{tt.instalamosPocosNegociosAl}</p>
           {/* Sin precio no hay "instalación gratis" que ofrecer en el botón: pregunta por cupos, como el texto. */}
-          <BotonWhatsApp origen="precios" texto="Preguntar por los cupos" className="mt-8 w-full sm:w-auto" />
+          <BotonWhatsApp origen="precios" texto={tt.preguntarPorLosCupos} className="mt-8 w-full sm:w-auto" />
         </div>
       </Seccion>
     );
@@ -73,7 +75,7 @@ export function Precio({
         <div className="-mx-2 rounded-2xl bg-surface px-4 py-6 text-ink shadow-lift min-[360px]:mx-0 min-[360px]:px-6 sm:p-8">
           {/* El ticket: borde de papel cortado arriba y abajo (.ticket, una máscara). */}
           <div className="ticket rounded-md bg-surface-3 px-4 pb-6 pt-5 sm:px-5">
-            <p className="text-center font-display text-[12px] font-bold uppercase tracking-[0.18em] text-ink-mid">Su cuenta</p>
+            <p className="text-center font-display text-[12px] font-bold uppercase tracking-[0.18em] text-ink-mid">{tt.suCuenta}</p>
 
             <ul className="mt-4 space-y-2.5">
               {CONDICIONES.map((c, i) => (
@@ -89,16 +91,16 @@ export function Precio({
             <span aria-hidden className="ticket-corte mt-5 block border-t-2 border-dashed border-line-2" />
 
             <p className="ticket-total mt-5 text-center">
-              <span className="block text-[15px] font-semibold text-ink-mid">Desde</span>
+              <span className="block text-[15px] font-semibold text-ink-mid">{tt.desde}</span>
               <span className="block font-display text-[56px] font-bold leading-none tracking-tight text-ink sm:text-[72px]">
                 {precio}
               </span>
-              <span className="mt-1 block text-[15px] font-semibold text-ink-mid">al mes</span>
+              <span className="mt-1 block text-[15px] font-semibold text-ink-mid">{tt.alMes}</span>
             </p>
           </div>
 
           <div className="mt-7 border-t border-line pt-6">
-            <h3 className="text-[13px] font-bold uppercase tracking-wide text-ink-mid">Incluye</h3>
+            <h3 className="text-[13px] font-bold uppercase tracking-wide text-ink-mid">{tt.incluye}</h3>
             <ul className="mt-3 space-y-2.5">
               {INCLUYE.map((item) => (
                 <li key={item} className="flex items-start gap-2.5 text-[15px] leading-snug text-ink">

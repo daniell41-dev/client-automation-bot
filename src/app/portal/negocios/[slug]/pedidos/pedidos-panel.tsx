@@ -13,11 +13,16 @@ import type { Pedido } from "@/core/storage/pedido-repository";
 import type { ActionState } from "@/components/action-form";
 import { Pill } from "@/components/ui";
 import { decidirPedido, entregarPedido, marcarDevuelto, marcarListo } from "./actions";
+import { textos } from "@/textos";
+import { formatoPrecio } from "@/core/moneda";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.pedidos). */
+const tt = textos.portal.pedidos;
 
 export type SeñalesPorPedido = Record<string, { detalle: string; nivel: string }[]>;
 
 function formatPrecio(valor: number, moneda: string, locale: string): string {
-  return new Intl.NumberFormat(locale, { style: "currency", currency: moneda, maximumFractionDigits: 0 }).format(valor);
+  return formatoPrecio(valor, moneda, locale);
 }
 
 function Resultado({ state }: { state: ActionState }) {
@@ -37,14 +42,11 @@ function AccionesVerificar({ slug, pedido }: { slug: string; pedido: Pedido }) {
     <form action={action} className="mt-3">
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="pedidoId" value={pedido.id} />
-      <p className="mb-2 text-xs text-ink-soft">👀 Antes de aprobar, revise en la app de su banco que la plata llegó.</p>
+      <p className="mb-2 text-xs text-ink-soft">{tt.antesDeAprobarRevise}</p>
       <div className="flex gap-2">
-        <button type="submit" name="decision" value="aprobar" disabled={pending} className={botonPrimario}>
-          Aprobar #{pedido.numero}
+        <button type="submit" name="decision" value="aprobar" disabled={pending} className={botonPrimario}>{tt.aprobar}{pedido.numero}
         </button>
-        <button type="submit" name="decision" value="rechazar" disabled={pending} className={botonSecundario}>
-          Rechazar
-        </button>
+        <button type="submit" name="decision" value="rechazar" disabled={pending} className={botonSecundario}>{tt.rechazar}</button>
       </div>
       <Resultado state={state} />
     </form>
@@ -57,9 +59,7 @@ function AccionListo({ slug, pedido }: { slug: string; pedido: Pedido }) {
     <form action={action} className="mt-3">
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="pedidoId" value={pedido.id} />
-      <button type="submit" disabled={pending} className={botonSecundario}>
-        Marcar listo
-      </button>
+      <button type="submit" disabled={pending} className={botonSecundario}>{tt.marcarListo}</button>
       <Resultado state={state} />
     </form>
   );
@@ -71,9 +71,7 @@ function AccionEntregar({ slug, pedido }: { slug: string; pedido: Pedido }) {
     <form action={action} className="mt-3">
       <input type="hidden" name="slug" value={slug} />
       <input type="hidden" name="pedidoId" value={pedido.id} />
-      <label htmlFor={`codigo-${pedido.id}`} className="mb-1 block text-xs font-semibold text-ink-mid">
-        Código que muestra el cliente
-      </label>
+      <label htmlFor={`codigo-${pedido.id}`} className="mb-1 block text-xs font-semibold text-ink-mid">{tt.codigoQueMuestraEl}</label>
       <div className="flex gap-2">
         <input
           id={`codigo-${pedido.id}`}
@@ -84,9 +82,7 @@ function AccionEntregar({ slug, pedido }: { slug: string; pedido: Pedido }) {
           placeholder="4821"
           className="input-nexo w-24 px-3 py-2 text-sm tabular-nums"
         />
-        <button type="submit" disabled={pending} className={botonPrimario}>
-          Entregar
-        </button>
+        <button type="submit" disabled={pending} className={botonPrimario}>{tt.entregar}</button>
       </div>
       <Resultado state={state} />
     </form>
@@ -106,8 +102,7 @@ function TarjetaDevolucion({ slug, pedido, moneda, locale }: { slug: string; ped
           <p className="text-lg font-extrabold text-ink">#{pedido.numero}</p>
           <p className="truncate text-sm text-ink-mid">{pedido.cliente ?? pedido.contacto}</p>
         </div>
-        <p className="text-base font-bold tabular-nums text-ink">
-          Devolver {formatPrecio(pedido.montoPagado ?? 0, moneda, locale)}
+        <p className="text-base font-bold tabular-nums text-ink">{tt.devolver}{formatPrecio(pedido.montoPagado ?? 0, moneda, locale)}
         </p>
       </header>
       {pedido.devolucion?.cuenta ? (
@@ -115,15 +110,13 @@ function TarjetaDevolucion({ slug, pedido, moneda, locale }: { slug: string; ped
           {pedido.devolucion.cuenta}
         </p>
       ) : (
-        <p className="mt-2 text-xs text-ink-soft">Esperando que el cliente mande su cuenta por WhatsApp.</p>
+        <p className="mt-2 text-xs text-ink-soft">{tt.esperandoQueElCliente}</p>
       )}
-      <p className="mt-2 text-xs text-ink-soft">👀 Devuelva el dinero solo si la plata le llegó: revíselo en la app de su banco.</p>
+      <p className="mt-2 text-xs text-ink-soft">{tt.devuelvaElDineroSolo}</p>
       <form action={action} className="mt-3">
         <input type="hidden" name="slug" value={slug} />
         <input type="hidden" name="pedidoId" value={pedido.id} />
-        <button type="submit" disabled={pending} className={botonPrimario}>
-          Ya devolví
-        </button>
+        <button type="submit" disabled={pending} className={botonPrimario}>{tt.yaDevolvi}</button>
         <Resultado state={state} />
       </form>
     </article>
@@ -163,14 +156,14 @@ function TarjetaPedido({
       <ul className="mt-2 space-y-0.5 text-sm text-ink">
         {pedido.items.map((item) => (
           <li key={`${item.serviceId}-${item.variante ?? ""}`}>
-            {item.cantidad}x {item.nombre}
+            {item.cantidad}{tt.x}{item.nombre}
             {/* T-105: lo que el cliente pidió cambiar, resaltado para quien prepara. */}
             {item.nota && <span className="ml-1 font-semibold text-warn-ink">({item.nota})</span>}
           </li>
         ))}
       </ul>
 
-      {origen && <p className="mt-2 text-xs text-ink-mid">📣 Llegó por: {origen}</p>}
+      {origen && <p className="mt-2 text-xs text-ink-mid">{tt.llegoPor}{origen}</p>}
 
       {(pedido.modalidad || pedido.direccion) && (
         <p className="mt-2 text-xs text-ink-mid">
@@ -180,7 +173,7 @@ function TarjetaPedido({
       )}
 
       <div className="mt-2 flex flex-wrap gap-1.5">
-        {pedido.estado === "esperando_pago" && <Pill tone="neutral">Sin comprobante</Pill>}
+        {pedido.estado === "esperando_pago" && <Pill tone="neutral">{tt.sinComprobante}</Pill>}
         {señales.map((s) => (
           <Pill key={s.detalle} tone={s.nivel === "alta" ? "warn" : "neutral"}>
             ⚠️ {s.detalle}
@@ -194,9 +187,7 @@ function TarjetaPedido({
           target="_blank"
           rel="noreferrer"
           className="mt-2 inline-block text-sm font-semibold text-primary underline-offset-2 hover:underline"
-        >
-          🧾 Ver foto del comprobante
-        </a>
+        >{tt.verFotoDelComprobante}</a>
       )}
 
       {columna === "por_verificar" && <AccionesVerificar slug={slug} pedido={pedido} />}
@@ -236,16 +227,12 @@ export function PedidosPanel({
   return (
     <div className="fade-up">
       <div className="mb-4">
-        <h1 className="text-2xl font-extrabold text-ink">Pedidos</h1>
-        <p className="text-sm text-ink-mid">
-          Apruebe, prepare y entregue. La comida se entrega solo contra el código de retiro del cliente.
-        </p>
+        <h1 className="text-2xl font-extrabold text-ink">{tt.pedidos}</h1>
+        <p className="text-sm text-ink-mid">{tt.apruebePrepareYEntregue}</p>
       </div>
       {devoluciones.length > 0 && (
         <section className="mb-6">
-          <h2 className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-ink-mid">
-            💸 Devoluciones
-            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs tabular-nums">{devoluciones.length}</span>
+          <h2 className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-ink-mid">{tt.devoluciones}<span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs tabular-nums">{devoluciones.length}</span>
           </h2>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {devoluciones.map((pedido) => (
@@ -263,9 +250,7 @@ export function PedidosPanel({
             </h2>
             <div className="space-y-3">
               {panel[columna.id].length === 0 ? (
-                <p className="rounded-2xl border border-dashed border-line p-4 text-center text-xs text-ink-soft">
-                  Nada por aquí.
-                </p>
+                <p className="rounded-2xl border border-dashed border-line p-4 text-center text-xs text-ink-soft">{tt.nadaPorAqui}</p>
               ) : (
                 panel[columna.id].map((pedido) => (
                   <TarjetaPedido

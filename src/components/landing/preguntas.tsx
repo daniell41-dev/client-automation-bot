@@ -12,46 +12,47 @@
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 import { Seccion } from "@/components/landing/seccion";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.preguntas). */
+const tt = textos.landing.preguntas;
 
 const PREGUNTAS: { pregunta: string; respuesta: React.ReactNode }[] = [
   {
-    pregunta: "¿Necesito cambiar de número?",
+    pregunta: tt.necesitoCambiarDeNumero,
     // Meta no deja usar el mismo número en la app de WhatsApp y en la conexión
     // para empresas a la vez: por eso se dice que el número queda dedicado.
     respuesta:
-      "No tiene que comprar nada. Puede usar una línea nueva o la del negocio; lo único es que ese número queda dedicado a atender a sus clientes desde Aurela y ya no se usa en la app de WhatsApp del celular. En la visita le explicamos las dos opciones y elegimos juntos la que mejor le quede.",
+      tt.noTieneQueComprar,
   },
   {
-    pregunta: "¿Qué pasa con los datos de mis clientes?",
+    pregunta: tt.quePasaConLos,
     respuesta: (
-      <>
-        Los tratamos según la Ley 1581 de 2012. Puede leer nuestra{" "}
-        <Link href="/privacidad" className="font-semibold text-primary underline underline-offset-2">
-          política de privacidad
-        </Link>
+      <>{tt.losTratamosSegunLa}{" "}
+        <Link href="/privacidad" className="font-semibold text-primary underline underline-offset-2">{tt.politicaDePrivacidad}</Link>
         .
       </>
     ),
   },
   {
-    pregunta: "¿Puedo responder yo cuando quiera?",
+    pregunta: tt.puedoResponderYoCuando,
     respuesta:
-      "Claro. Usted ve todas las conversaciones desde el celular y, cuando quiera atender personalmente, pausa las respuestas automáticas y escribe usted.",
+      tt.claroUstedVeTodas,
   },
   {
-    pregunta: "¿Funciona con Nequi y transferencias?",
-    respuesta: "Sí. Aurela le envía al cliente sus datos de pago y revisa el comprobante que le mandan.",
+    pregunta: tt.funcionaConNequiY,
+    respuesta: tt.siAurelaLeEnvia,
   },
   {
-    pregunta: "¿Cuánto tarda la instalación?",
+    pregunta: tt.cuantoTardaLaInstalacion,
     respuesta:
-      "Si ya tiene listo su menú con precios y el número que va a usar, en unos 30 minutos lo dejamos funcionando. Si le falta algo, lo preparamos con usted sin afán.",
+      tt.siYaTieneListo,
   },
 ];
 
 export function Preguntas() {
   return (
-    <Seccion id="preguntas" titulo="Preguntas frecuentes">
+    <Seccion id="preguntas" titulo={tt.preguntasFrecuentes}>
       <div className="mt-8 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
         {PREGUNTAS.map(({ pregunta, respuesta }) => (
           <details key={pregunta} className="group">

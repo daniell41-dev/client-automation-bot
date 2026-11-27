@@ -9,6 +9,13 @@
  * probarlas sin Supabase.
  */
 
+import { formato, textos } from "@/textos";
+import { enAtencionHumana } from "@/core/engine/atencion-humana";
+import { formatoPrecio } from "@/core/moneda";
+
+/** T-131: textos de "Le toca a usted" y el saludo, en `src/textos/es.json`. */
+const tp = textos.portal.pendientes;
+
 export interface SeñalPedido {
   nivel: string;
   detalle: string;
@@ -33,7 +40,15 @@ export interface NegocioInicio {
   nombre: string;
 }
 
-export type TipoPendiente = "no_cuadra" | "por_aprobar" | "devolucion";
+export type TipoPendiente = "persona" | "no_cuadra" | "por_aprobar" | "devolucion";
+
+/** T-155: un cliente que pidió hablar con una persona (fila de `leads`). */
+export interface AtencionInicio {
+  business_slug: string;
+  contact: string;
+  name?: string | null;
+  atencion_humana_desde: string | null;
+}
 
 export interface Pendiente {
   tipo: TipoPendiente;
@@ -49,11 +64,7 @@ const DEVOLUCION_PENDIENTE = new Set(["pendiente", "pidiendo_cuenta"]);
 
 export function formatoMonto(valor: number, moneda: string): string {
   try {
-    return new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: moneda,
-      maximumFractionDigits: 0,
-    }).format(valor);
+    return formatoPrecio(valor, moneda);
   } catch {
     // Una moneda que Intl no conoce no debe tumbar la página de inicio.
     return `${moneda} ${Math.round(valor).toLocaleString("es-CO")}`;
@@ -70,14 +81,16 @@ function motivoNoCuadra(p: PedidoInicio): string | null {
   const total = Number(p.total);
   const pagado = Number(p.monto_pagado ?? 0);
   if (pagado > 0 && pagado < total) {
-    return `pagó ${formatoMonto(pagado, p.moneda)} y el total es ${formatoMonto(total, p.moneda)}`;
+    return formato(tp.noCuadra.pagoMenos, { pagado: formatoMonto(pagado, p.moneda), total: formatoMonto(total, p.moneda) });
   }
   const alta = (p.comprobantes?.señales ?? []).find((s) => s.nivel === "alta");
   return alta ? alta.detalle : null;
 }
 
 function quien(p: PedidoInicio): string {
-  return p.cliente?.trim() ? `Pedido #${p.numero} de ${p.cliente.trim()}` : `Pedido #${p.numero}`;
+  return p.cliente?.trim()
+    ? formato(tp.pedidoDe, { numero: p.numero, cliente: p.cliente.trim() })
+    : formato(tp.pedido, { numero: p.numero });
 }
 
 /**
@@ -89,6 +102,9 @@ function quien(p: PedidoInicio): string {
 export function armarPendientes(
   pedidos: PedidoInicio[],
   negocios: NegocioInicio[],
+  /** T-155: leads con `atencion_humana_desde`; los vencidos se descartan acá. */
+  atenciones: AtencionInicio[] = [],
+  ahora: Date = new Date(),
 ): Pendiente[] {
   const porId = new Map(negocios.map((n) => [n.id, n]));
   const varios = negocios.length > 1;
@@ -107,10 +123,10 @@ export function armarPendientes(
       if (motivo) {
         noCuadra.push({
           tipo: "no_cuadra",
-          titulo: "Un comprobante no cuadra",
+          titulo: tp.noCuadra.titulo,
           detalle: `${quien(p)} · ${motivo}${sufijo(negocio)}`,
           href: hrefPedidos(negocio),
-          accion: "Revisar pago",
+          accion: tp.noCuadra.accion,
         });
       } else {
         aprobar.set(negocio.id, (aprobar.get(negocio.id) ?? 0) + 1);
@@ -133,21 +149,41 @@ export function armarPendientes(
       return [{ tipo, titulo: titulo(cantidad), detalle: `${detalle}${sufijo(negocio)}`, href: hrefPedidos(negocio), accion }];
     });
 
+  // T-155: primero de todo. Un cliente que pidió una persona está
+  // esperando ahora mismo, y el asistente no le va a contestar.
+  const personas: Pendiente[] = negocios.flatMap((n) => {
+    const activos = atenciones.filter(
+      (a) => a.business_slug === n.slug && enAtencionHumana({ atencionHumanaDesde: a.atencion_humana_desde ?? undefined }, ahora),
+    );
+    if (activos.length === 0) return [];
+    const nombres = activos.map((a) => a.name?.trim() || a.contact).join(", ");
+    return [
+      {
+        tipo: "persona" as const,
+        titulo: activos.length === 1 ? tp.persona.uno : formato(tp.persona.varios, { n: activos.length }),
+        detalle: `${formato(tp.persona.detalle, { clientes: nombres })}${sufijo(n)}`,
+        href: `/portal/negocios/${n.slug}/conversaciones`,
+        accion: tp.persona.accion,
+      },
+    ];
+  });
+
   return [
+    ...personas,
     ...noCuadra,
     ...agrupados(
       aprobar,
       "por_aprobar",
-      (n) => (n === 1 ? "1 pedido espera su aprobación" : `${n} pedidos esperan su aprobación`),
-      "Aurela revisó el comprobante y todo cuadra",
-      "Ver pedidos",
+      (n) => (n === 1 ? tp.porAprobar.uno : formato(tp.porAprobar.varios, { n })),
+      tp.porAprobar.detalle,
+      tp.porAprobar.accion,
     ),
     ...agrupados(
       devoluciones,
       "devolucion",
-      (n) => (n === 1 ? "1 devolución pendiente" : `${n} devoluciones pendientes`),
-      "Hay plata por devolverle a un cliente",
-      "Ver devoluciones",
+      (n) => (n === 1 ? tp.devoluciones.uno : formato(tp.devoluciones.varios, { n })),
+      tp.devoluciones.detalle,
+      tp.devoluciones.accion,
     ),
   ];
 }
@@ -180,9 +216,9 @@ export function saludo(ahora: Date, zona = ZONA): string {
   const hora = Number(
     new Intl.DateTimeFormat("en-US", { hour: "numeric", hourCycle: "h23", timeZone: zona }).format(ahora),
   );
-  if (hora >= 5 && hora < 12) return "Buenos días";
-  if (hora >= 12 && hora < 19) return "Buenas tardes";
-  return "Buenas noches";
+  if (hora >= 5 && hora < 12) return tp.saludo.manana;
+  if (hora >= 12 && hora < 19) return tp.saludo.tarde;
+  return tp.saludo.noche;
 }
 
 /** "Domingo 22 de noviembre". */

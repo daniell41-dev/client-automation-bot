@@ -1,16 +1,14 @@
 import { Pasos } from "@/components/landing/pasos";
 import { Seccion } from "@/components/landing/seccion";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.instalacion). */
+const tt = textos.landing.instalacion;
 
 export function Instalacion() {
   return (
-    <Seccion id="instalacion" titulo="Cómo es la instalación">
-      <Pasos
-        pasos={[
-          "Usted nos pasa su menú o servicios, precios y horarios.",
-          "Nosotros cargamos todo y conectamos el WhatsApp del negocio.",
-          "Hacemos un pedido de prueba juntos y le enseñamos a aprobar.",
-        ]}
-      />
+    <Seccion id="instalacion" titulo={tt.comoEsLaInstalacion}>
+      <Pasos pasos={tt.pasos} />
     </Seccion>
   );
 }

@@ -10,6 +10,7 @@ import { parseBusinessConfig } from "@/core/config-schema";
 import { candidatosSeguimiento, describirPedido } from "@/core/engine/seguimientos";
 import { createLeadRepository } from "@/core/storage/factory";
 import { ConfiguracionEditor } from "./configuracion-editor";
+import { textos } from "@/textos";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,7 @@ export default async function ConfiguracionPage({
     .then((leads) =>
       candidatosSeguimiento(leads, config, ahora).map((l) => ({
         id: l.id,
-        etiqueta: `${l.name?.trim() || "Sin nombre"} · …${l.contact.slice(-4)} · ${describirPedido(l, config)}`,
+        etiqueta: `${l.name?.trim() || textos.comun.sinNombre} · …${l.contact.slice(-4)} · ${describirPedido(l, config)}`,
       })),
     )
     .catch(() => []);
@@ -47,7 +48,7 @@ export default async function ConfiguracionPage({
     <ConfiguracionEditor
       slug={slug}
       nombre={config.name}
-      rubro={(negocio.rubros as unknown as { nombre: string } | null)?.nombre ?? "Negocio"}
+      rubro={(negocio.rubros as unknown as { nombre: string } | null)?.nombre ?? textos.comun.negocio}
       whatsappId={negocio.whatsapp_phone_number_id ?? ""}
       direccion={config.direccion ?? ""}
       notifyPhoneNumber={config.notifyPhoneNumber ?? ""}
@@ -72,4 +73,4 @@ export default async function ConfiguracionPage({
 }
 
 // T-71: el nombre de la pestaña ("Configuración · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Configuración" };
+export const metadata = { title: textos.portal.titulosPestana.configuracion };

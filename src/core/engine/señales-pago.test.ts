@@ -144,6 +144,28 @@ describe("calcularSeñalesPago — destino no coincide", () => {
     expect(señales.some((s) => s.tipo === "destino_no_coincide")).toBe(true);
   });
 
+  it("T-153: un número de cuenta de destino que no es de ninguna cuenta del negocio, también", () => {
+    const señales = calcularSeñalesPago(
+      comprobante({ telefonoDestino: undefined, cuentaDestino: "0105 0000 1111 2222 3333" }),
+      pedido,
+      { cuentas: [{ entidad: "Banesco", tipo: "corriente", numero: "0134 0000 88888 9991234" }] },
+      "57300000000",
+      ahora,
+    );
+    expect(señales).toEqual([expect.objectContaining({ tipo: "destino_no_coincide", nivel: "alta" })]);
+  });
+
+  it("T-153: si el número de cuenta sí es del negocio, no hay señal", () => {
+    const señales = calcularSeñalesPago(
+      comprobante({ telefonoDestino: undefined, cuentaDestino: "****1234" }),
+      pedido,
+      { cuentas: [{ entidad: "Banesco", tipo: "corriente", numero: "0134 0000 88888 9991234" }] },
+      "57300000000",
+      ahora,
+    );
+    expect(señales).toEqual([]);
+  });
+
   it("sin telefonoDestino registrado por el negocio, no se puede comparar", () => {
     const señales = calcularSeñalesPago(
       comprobante({ telefonoDestino: "3009998877" }),

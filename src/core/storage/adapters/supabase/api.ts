@@ -40,6 +40,8 @@ export interface LeadRow {
   origen?: unknown;
   /** T-106 (migración 0027): el cliente pidió que no le escriban más. */
   no_contactar?: boolean | null;
+  /** T-155 (migración 0033). */
+  atencion_humana_desde?: string | null;
   /**
    * FK de conveniencia a `negocios.id` (T-08): `business_slug` sigue siendo
    * lo que usan el motor y las políticas de RLS. `null`/ausente cuando el

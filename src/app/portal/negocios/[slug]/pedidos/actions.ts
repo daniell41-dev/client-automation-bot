@@ -32,6 +32,11 @@ import {
 import { WhatsAppChannel } from "@/core/channels/whatsapp/send";
 import type { OutgoingMessage } from "@/core/types";
 import type { ActionState } from "@/components/action-form";
+import { formato, textos } from "@/textos";
+import { formatoPrecio } from "@/core/moneda";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (acciones.pedidos). */
+const tt = textos.acciones.pedidos;
 
 async function pedidoDeLaDueña(pedidoId: string): Promise<Pedido | null> {
   if (!pedidoId) return null;
@@ -76,14 +81,14 @@ async function enviarAlCliente(resolved: ResolvedBusiness | null, message: Outgo
  */
 export async function decidirPedido(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
   const slug = String(formData.get("slug") ?? "");
   const decision = String(formData.get("decision") ?? "");
   const pedido = await pedidoDeLaDueña(String(formData.get("pedidoId") ?? ""));
-  if (!pedido) return { error: "Pedido no encontrado o sin permisos." };
+  if (!pedido) return { error: tt.pedidoNoEncontradoO };
 
   const resolved = await resolveBusinessBySlug(slug);
-  if (!resolved || resolved.negocioId !== pedido.negocio) return { error: "Pedido no encontrado o sin permisos." };
+  if (!resolved || resolved.negocioId !== pedido.negocio) return { error: tt.pedidoNoEncontradoO };
   const config = resolved.config;
 
   const { ownerReply, customerReply } = await handleOwnerApproval(
@@ -112,37 +117,37 @@ export async function decidirPedido(_prev: ActionState, formData: FormData): Pro
 /** Marca el pedido como listo y le avisa al cliente (listo para recoger, o en camino). */
 export async function marcarListo(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
   const slug = String(formData.get("slug") ?? "");
   const pedido = await pedidoDeLaDueña(String(formData.get("pedidoId") ?? ""));
-  if (!pedido) return { error: "Pedido no encontrado o sin permisos." };
+  if (!pedido) return { error: tt.pedidoNoEncontradoO };
 
   try {
     await createPedidoRepository().actualizarEstado(pedido.id, transicionarPedido(pedido.estado, "listo"));
   } catch {
-    return { error: `El pedido #${pedido.numero} no está en preparación.` };
+    return { error: formato(tt.elPedidoNumeroNo, { numero: pedido.numero }) };
   }
   const resolved = await resolveBusinessBySlug(slug);
   avisarCliente(resolved, { to: pedido.contacto, text: mensajePedidoListo(pedido) });
 
   revalidatePath(`/portal/negocios/${slug}/pedidos`);
-  return { ok: `Pedido #${pedido.numero} listo.` };
+  return { ok: formato(tt.pedidoNumeroListo, { numero: pedido.numero }) };
 }
 
 /** Entrega el pedido SOLO contra el código de retiro que recibió el cliente. */
 export async function entregarPedido(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
   const slug = String(formData.get("slug") ?? "");
   const pedido = await pedidoDeLaDueña(String(formData.get("pedidoId") ?? ""));
-  if (!pedido) return { error: "Pedido no encontrado o sin permisos." };
+  if (!pedido) return { error: tt.pedidoNoEncontradoO };
 
   const resultado = validarEntrega(pedido, String(formData.get("codigo") ?? ""));
   if (!resultado.ok) return { error: resultado.error };
 
   await createPedidoRepository().actualizarEstado(pedido.id, transicionarPedido(pedido.estado, "entregado"));
   revalidatePath(`/portal/negocios/${slug}/pedidos`);
-  return { ok: `Pedido #${pedido.numero} entregado ✅` };
+  return { ok: formato(tt.pedidoNumeroEntregado, { numero: pedido.numero }) };
 }
 
 /**
@@ -151,23 +156,19 @@ export async function entregarPedido(_prev: ActionState, formData: FormData): Pr
  */
 export async function marcarDevuelto(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
   const slug = String(formData.get("slug") ?? "");
   const pedido = await pedidoDeLaDueña(String(formData.get("pedidoId") ?? ""));
-  if (!pedido) return { error: "Pedido no encontrado o sin permisos." };
-  if (!devolucionPendiente(pedido)) return { error: `El pedido #${pedido.numero} no tiene una devolución pendiente.` };
+  if (!pedido) return { error: tt.pedidoNoEncontradoO };
+  if (!devolucionPendiente(pedido)) return { error: formato(tt.elPedidoNumeroNo2, { numero: pedido.numero }) };
 
   const resolved = await resolveBusinessBySlug(slug);
-  if (!resolved || resolved.negocioId !== pedido.negocio) return { error: "Pedido no encontrado o sin permisos." };
+  if (!resolved || resolved.negocioId !== pedido.negocio) return { error: tt.pedidoNoEncontradoO };
 
   await createPedidoRepository().marcarDevuelto(pedido.id, new Date().toISOString());
-  const monto = new Intl.NumberFormat(resolved.config.locale ?? "es-CO", {
-    style: "currency",
-    currency: resolved.config.currency,
-    maximumFractionDigits: 0,
-  }).format(pedido.montoPagado ?? 0);
+  const monto = formatoPrecio(pedido.montoPagado ?? 0, resolved.config.currency, resolved.config.locale);
   avisarCliente(resolved, { to: pedido.contacto, text: mensajeDevuelto(pedido.numero, monto) });
 
   revalidatePath(`/portal/negocios/${slug}/pedidos`);
-  return { ok: `Devolución del pedido #${pedido.numero} marcada ✅` };
+  return { ok: formato(tt.devolucionDelPedidoNumero, { numero: pedido.numero }) };
 }

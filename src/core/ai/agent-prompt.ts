@@ -9,18 +9,11 @@ import type { AgentTurnInput } from "@/core/ai/provider";
 import { agentResponseSchema, type AgentResponse } from "@/core/ai/agent-schema";
 import { TRATO_AL_CLIENTE } from "@/core/ai/trato";
 import { detallesParaPrompt } from "@/core/engine/detalles";
+import { formatoPrecio } from "@/core/moneda";
 
 /** Formatea un precio según la moneda/locale del negocio (igual criterio que el motor). */
 function formatPrice(input: AgentTurnInput, price: number): string {
-  try {
-    return new Intl.NumberFormat(input.locale ?? "es-CO", {
-      style: "currency",
-      currency: input.currency,
-      maximumFractionDigits: 0,
-    }).format(price);
-  } catch {
-    return `${price} ${input.currency}`;
-  }
+  return formatoPrecio(price, input.currency, input.locale);
 }
 
 function buildCatalogBlock(input: AgentTurnInput): string {
@@ -67,7 +60,7 @@ function buildCatalogHeader(input: AgentTurnInput): string {
     ? ` Categorías: ${parcial.categorias.map((c) => `${c.nombre} (${c.cantidad})`).join(", ")}.`
     : "";
   const sinResultados = parcial.sinResultados
-    ? " Para el último mensaje del cliente NO se encontró ningún producto que coincida: no digas que no existe; pregúntale la referencia, la categoría o el color, o muéstrale las categorías."
+    ? " Para el último mensaje del cliente NO se encontró ningún producto que coincida: no digas que no existe ni le ofrezcas un producto que no pidió; dile en una frase que no lo encuentras y pregúntale qué le interesa: el sistema le muestra las categorías debajo de tu respuesta."
     : "";
   const vacio = input.services.length === 0
     ? " Todavía no hay productos a la vista: orienta al cliente con las categorías y pregúntale qué busca (referencia, categoría o color)."
@@ -267,6 +260,7 @@ Acciones disponibles (declara las que correspondan a este turno, pueden ser vari
 - {"tipo": "anotar_cambio", "servicioId": "<id>", "nota": "<cambio>"} (opcional "variante"): el cliente quiere un producto del carrito con un cambio ("sin arroz", "sin salsa", "la carne bien asada"). "nota" es la indicación COMPLETA para ese producto: si ya tenía una, júntalas ("sin arroz, sin ensalada"). Escribe solo lo que pidió el cliente, corto y sin precios. Si pide AGREGAR algo ("doble queso", "extra papas"), anótalo igual y no le digas un precio: el negocio confirma si tiene costo. Si el producto todavía no está en el carrito, declara también su "guardar_cantidad".
 - {"tipo": "quitar_producto", "servicioId": "<id>"} (opcional "variante": "<opción>" para quitar solo esa talla/opción): el cliente ya no quiere un producto que está en el carrito ("quite la bandeja", "solo quiero la limonada"). Mira el "carrito" en los datos que ya tienes: si el cliente dice que pidió SOLO algo, quita todo lo demás.
 - {"tipo": "confirmar"}: para un ítem [SE AGENDA], SOLO cuando ya tengas nombre + servicio + fecha (+ modalidad, si este negocio la usa) — tu respuesta puede decir que quedó confirmado/agendado. Para un ítem [SE VENDE], SOLO cuando tengas nombre + al menos un producto cargado (ver "carrito" en los datos que ya tienes) + la modalidad si este negocio la usa + la dirección si es a domicilio, y el cliente haya respondido "sí" al resumen con el total que le mostró el sistema. El resumen (productos, total, entrega y dirección) lo agrega el sistema solo cuando están todos los datos: tú no lo escribas ni inventes totales. NUNCA digas que el pedido ya se le pasó a la dueña, que quedó registrado ni que está confirmado: eso lo informa el sistema cuando de verdad pasa. Si falta algo, pídelo en tu respuesta y NO declares esta acción.
+- {"tipo": "mostrar_productos", "servicioIds": ["<id>", "<id>"]}: vas a ofrecerle al cliente 2 o más productos del catálogo (hasta 8). NO los escribas en tu respuesta: escribe solo una frase corta de introducción ("Estas son las opciones en skinny azul claro:") y el sistema agrega debajo la lista numerada con referencia y precio. Usa los ids EXACTOS del catálogo de arriba. Para un solo producto no la uses: nómbralo tú.
 - {"tipo": "fuera_de_contexto"}: el mensaje no tiene NADA que ver con este negocio (política, deportes, chistes, otro tema totalmente ajeno). Responde breve y amablemente, y redirige hacia el negocio.
 - {"tipo": "reiniciar"}: el cliente dice que los datos que tenemos están MAL o quiere empezar de cero ("yo no pedí nada", "ese no es mi nombre", "cambié de idea", "empecemos de nuevo", "cancele todo"). Borra todo lo capturado. Es tu ÚNICA forma de corregir un dato viejo o equivocado: las demás acciones solo agregan, no borran. Si sospechas que un dato guardado no corresponde a esta conversación, usa esta acción en vez de seguir adelante con él.
 

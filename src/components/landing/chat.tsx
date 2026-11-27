@@ -10,6 +10,10 @@
 
 import type { ReactNode } from "react";
 import { CheckCheck } from "lucide-react";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.chat). */
+const tt = textos.landing.chat;
 
 function unir(...clases: (string | false | undefined)[]): string {
   return clases.filter(Boolean).join(" ");
@@ -128,7 +132,7 @@ export function ComprobanteMini({ monto, className }: { monto: string; className
   return (
     <div className={unir("w-[58%] min-w-[150px] self-start rounded-lg rounded-bl-[3px] bg-white p-1.5 shadow-card", className)}>
       <div className="rounded-md border border-line bg-surface-3 px-2.5 py-2">
-        <p className="text-[9.5px] font-bold uppercase tracking-wide text-ink-mid">Comprobante</p>
+        <p className="text-[9.5px] font-bold uppercase tracking-wide text-ink-mid">{tt.comprobante}</p>
         <p className="font-display text-[17px] font-bold text-ink">{monto}</p>
         <span className="mt-1 block h-1.5 w-4/5 rounded-full bg-line-2" />
         <span className="mt-1 block h-1.5 w-3/5 rounded-full bg-line-2" />

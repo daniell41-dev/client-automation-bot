@@ -27,8 +27,14 @@ import {
   formatoMonto,
   saludo,
   type PedidoInicio,
+  type AtencionInicio,
 } from "@/lib/inicio-portal";
 import { inicioDelDia, ventasDelDia } from "@/core/engine/ventas-del-dia";
+import { inicioPausasVigentes } from "@/core/engine/atencion-humana";
+import { formato, textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.misNegocios). */
+const tt = textos.portal.misNegocios;
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +88,7 @@ export default async function PortalHome() {
   // Medianoche de Colombia, no la del servidor (UTC): con setHours(0) el
   // "hoy" empezaba a las 7 p. m. del día anterior.
   const hoy = inicioDelDia(new Date(), "America/Bogota");
-  const [{ data: sesiones }, { data: pedidosData }] = slugs.length
+  const [{ data: sesiones }, { data: pedidosData }, { data: atenciones }] = slugs.length
     ? await Promise.all([
         supabase
           .from("sesiones")
@@ -96,8 +102,14 @@ export default async function PortalHome() {
           .in("negocio_id", ids)
           .or(FILTRO_PEDIDOS(hoy.toISOString()))
           .limit(500),
+        // T-155: clientes que pidieron una persona (los vencidos los descarta armarPendientes).
+        supabase
+          .from("leads")
+          .select("business_slug, contact, name, atencion_humana_desde")
+          .in("business_slug", slugs)
+          .gte("atencion_humana_desde", inicioPausasVigentes(new Date())),
       ])
-    : [{ data: [] as { business_slug: string; history: unknown; updated_at: string }[] }, { data: [] }];
+    : [{ data: [] as { business_slug: string; history: unknown; updated_at: string }[] }, { data: [] }, { data: [] }];
 
   const mensajesPorNegocio = new Map<string, number>();
   const ultimoPorNegocio = new Map<string, { texto: string; hora: string }>();
@@ -134,7 +146,7 @@ export default async function PortalHome() {
     slug: n.slug,
     nombre: parseBusinessConfig(n.config)?.name ?? n.slug,
   }));
-  const pendientes = armarPendientes(pedidos, negociosInicio);
+  const pendientes = armarPendientes(pedidos, negociosInicio, (atenciones ?? []) as AtencionInicio[]);
   const vendidosHoy = pedidosDeHoy(pedidos, hoy);
   // "Vendido" = solo lo que la dueña ya aprobó (ver core/engine/ventas-del-dia.ts).
   const ventas = ventasDelDia(pedidos, hoy);
@@ -144,7 +156,7 @@ export default async function PortalHome() {
   const cards: NegocioCard[] = (negocios ?? []).map((n) => {
     const config = parseBusinessConfig(n.config);
     const rubro =
-      (n.rubros as unknown as { nombre: string } | null)?.nombre ?? "Negocio";
+      (n.rubros as unknown as { nombre: string } | null)?.nombre ?? textos.comun.negocio;
     const categorias = [
       ...new Set(config?.services.map((s) => s.categoria).filter(Boolean)),
     ] as string[];
@@ -187,9 +199,7 @@ export default async function PortalHome() {
               <button
                 type="submit"
                 className="rounded-[10px] px-3 py-1.5 text-sm font-semibold text-ink-mid transition-colors hover:bg-surface-3 hover:text-ink"
-              >
-                Cerrar sesión
-              </button>
+              >{tt.cerrarSesion}</button>
             </form>
           </span>
         </div>
@@ -205,31 +215,33 @@ export default async function PortalHome() {
           </h1>
           <p className="mt-1 text-[15px] text-ink-mid">
             {cards.length === 0
-              ? "Arranquemos por armar su negocio."
-              : `Hoy Aurela atendió ${mensajesHoy === 1 ? "1 mensaje" : `${mensajesHoy} mensajes`} en sus ${cards.length} negocios. ${
-                  pendientes.length > 0 ? "Esto es lo que necesita de usted:" : "No hay nada pendiente por ahora."
-                }`}
+              ? tt.arranquemosPorArmarSu
+              : formato(tt.hoyAtendio, {
+                  mensajes: mensajesHoy === 1 ? tt.mensaje.uno : formato(tt.mensaje.varios, { n: mensajesHoy }),
+                  n: cards.length,
+                  pendientes: pendientes.length > 0 ? tt.conPendientes : tt.sinPendientes,
+                })}
           </p>
         </div>
 
         {cards.length > 0 && <LeTocaAUsted pendientes={pendientes} />}
 
         {cards.length > 0 && (
-          <section aria-label="Resumen de hoy" className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-            <StatCard label="Mensajes hoy" value={String(mensajesHoy)} delta="en todos sus negocios" deltaTone="neutral" />
+          <section aria-label={tt.resumenDeHoy} className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            <StatCard label={tt.mensajesHoy} value={String(mensajesHoy)} delta={tt.enTodosSusNegocios} deltaTone="neutral" />
             <StatCard
-              label="Vendido hoy"
+              label={tt.vendidoHoy}
               value={ventas.total === null ? "—" : formatoMonto(ventas.total, ventas.moneda ?? "COP")}
               delta={
-                `${ventas.vendidos === 1 ? "1 pedido aprobado" : `${ventas.vendidos} pedidos aprobados`}` +
-                (ventas.porAprobar > 0 ? ` · ${ventas.porAprobar} por aprobar` : "")
+                (ventas.vendidos === 1 ? tt.pedidosAprobados.uno : formato(tt.pedidosAprobados.varios, { n: ventas.vendidos })) +
+                (ventas.porAprobar > 0 ? formato(tt.masPorAprobar, { n: ventas.porAprobar }) : "")
               }
               deltaTone="neutral"
             />
             <StatCard
-              label="Por revisar"
+              label={tt.porRevisar}
               value={String(pendientes.length)}
-              delta={pendientes.length > 0 ? "vea la lista de arriba" : "todo al día"}
+              delta={pendientes.length > 0 ? tt.veaLaListaDe : tt.todoAlDia}
               deltaTone={pendientes.length > 0 ? "neutral" : "success"}
             />
           </section>
@@ -239,20 +251,16 @@ export default async function PortalHome() {
           <div className="mt-8">
             {(rubros ?? []).length === 0 ? (
               <EmptyState
-                title="Todavía no tiene ningún negocio."
-                subtitle="Pídale al administrador de la plataforma que le asigne un tipo de negocio."
+                title={tt.todaviaNoTieneNingun}
+                subtitle={tt.pidaleAlAdministradorDe}
               />
             ) : (
               <section className="rounded-2xl border border-line bg-surface p-6 shadow-card">
-                <h2 className="text-[17.5px] font-bold text-ink">Arme su negocio</h2>
-                <p className="mt-1 text-sm text-ink-mid">
-                  Elija qué tipo de negocio es y cómo se llama. Arrancamos con una
-                  plantilla que después ajusta a su gusto; el asistente queda apagado
-                  hasta que conectemos su número de WhatsApp.
-                </p>
-                <ActionForm action={crearMiNegocio} submitLabel="Crear mi negocio" className="mt-5 space-y-4">
+                <h2 className="text-[17.5px] font-bold text-ink">{tt.armeSuNegocio}</h2>
+                <p className="mt-1 text-sm text-ink-mid">{tt.elijaQueTipoDe}</p>
+                <ActionForm action={crearMiNegocio} submitLabel={tt.crearMiNegocio} className="mt-5 space-y-4">
                   <fieldset className="grid gap-3 sm:grid-cols-2">
-                    <legend className="mb-2 text-sm font-semibold text-ink">Tipo de negocio</legend>
+                    <legend className="mb-2 text-sm font-semibold text-ink">{tt.tipoDeNegocio}</legend>
                     {(rubros ?? []).map((r, i) => (
                       <label
                         key={r.id}
@@ -265,13 +273,13 @@ export default async function PortalHome() {
                     ))}
                   </fieldset>
                   <label className="block">
-                    <span className="text-sm font-semibold text-ink">Nombre del negocio</span>
+                    <span className="text-sm font-semibold text-ink">{tt.nombreDelNegocio}</span>
                     <input
                       name="nombre"
                       required
                       minLength={2}
                       maxLength={80}
-                      placeholder="Ej: Uñas Lucía"
+                      placeholder={tt.ejUnasLucia}
                       className="mt-1 w-full rounded-lg border border-line px-3 py-2 text-sm"
                     />
                   </label>
@@ -282,12 +290,8 @@ export default async function PortalHome() {
         ) : (
           <section aria-labelledby="sus-negocios" className="space-y-3.5">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id="sus-negocios" className="text-[17px] font-extrabold text-ink">
-                Sus negocios
-              </h2>
-              <p className="text-[13px] text-ink-mid">
-                Entre a uno para editar su catálogo, citas o respuestas
-              </p>
+              <h2 id="sus-negocios" className="text-[17px] font-extrabold text-ink">{tt.susNegocios}</h2>
+              <p className="text-[13px] text-ink-mid">{tt.entreAUnoPara}</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               {cards.map((card) => (
@@ -306,34 +310,32 @@ export default async function PortalHome() {
                       </p>
                     </div>
                     <Pill tone={card.botActivo ? "success" : "warn"} dot>
-                      {card.botActivo ? "Asistente activo" : "Asistente en pausa"}
+                      {card.botActivo ? tt.asistenteActivo : tt.asistenteEnPausa}
                     </Pill>
                   </div>
                   <div className="grid grid-cols-3 gap-2 rounded-xl bg-surface-3 p-3">
                     <div>
                       <p className="font-display text-xl font-bold text-ink">{card.mensajesHoy}</p>
-                      <p className="text-xs text-ink-mid">mensajes hoy</p>
+                      <p className="text-xs text-ink-mid">{tt.mensajesHoy2}</p>
                     </div>
                     <div>
                       <p className="font-display text-xl font-bold text-ink">{card.pedidosHoy}</p>
-                      <p className="text-xs text-ink-mid">pedidos hoy</p>
+                      <p className="text-xs text-ink-mid">{tt.pedidosHoy}</p>
                     </div>
                     <div>
                       <p className={`font-display text-xl font-bold ${card.pendientes > 0 ? "text-gold-ink" : "text-ink"}`}>
                         {card.pendientes}
                       </p>
-                      <p className="text-xs text-ink-mid">por revisar</p>
+                      <p className="text-xs text-ink-mid">{tt.porRevisar2}</p>
                     </div>
                   </div>
                   <p className="truncate text-[13px] text-ink-mid">
                     {card.ultimoMensaje
                       ? `${card.ultimoMensaje.hora} · "${card.ultimoMensaje.texto}"`
-                      : "Sin mensajes de clientes hoy"}
+                      : tt.sinMensajesDeClientes}
                   </p>
                   <div className="flex items-center justify-end border-t border-line pt-3.5">
-                    <span className="inline-flex items-center gap-1 text-sm font-bold text-primary">
-                      Abrir panel
-                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                    <span className="inline-flex items-center gap-1 text-sm font-bold text-primary">{tt.abrirPanel}<ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                     </span>
                   </div>
                 </Link>
@@ -347,4 +349,4 @@ export default async function PortalHome() {
 }
 
 // T-71: el nombre de la pestaña ("Mis negocios · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Mis negocios" };
+export const metadata = { title: textos.portal.titulosPestana.misNegocios };

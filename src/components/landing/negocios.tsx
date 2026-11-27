@@ -18,6 +18,10 @@ import { Scissors, ShoppingBag, UtensilsCrossed, type LucideIcon } from "lucide-
 import { Burbuja, FondoChat, RespuestasRapidas } from "@/components/landing/chat";
 import { NegociosPestanas, type Pestana } from "@/components/landing/negocios-pestanas";
 import { Seccion } from "@/components/landing/seccion";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (landing.negocios). */
+const tt = textos.landing.negocios;
 
 interface Rubro {
   id: string;
@@ -34,69 +38,69 @@ interface Rubro {
 const RUBROS: Rubro[] = [
   {
     id: "restaurantes",
-    etiqueta: "Restaurantes",
-    titulo: "Restaurantes y comidas",
-    texto: "Pedidos a domicilio o para recoger, con código de retiro.",
+    etiqueta: tt.restaurantes,
+    titulo: tt.restaurantesYComidas,
+    texto: tt.pedidosADomicilioO,
     Icono: UtensilsCrossed,
     tile: "bg-rubro-gastro-bg text-rubro-gastro-ink",
     acento: "border-rubro-gastro-ink",
     conversacion: (
       <>
-        <Burbuja de="cliente">Buenas, 2 hamburguesas</Burbuja>
+        <Burbuja de="cliente">{tt.buenas2Hamburguesas}</Burbuja>
         <Burbuja de="negocio">
-          {"Hamburguesa sencilla: Carne, queso y papas. — $ 18.000.\n\n¡Con gusto! ¿A nombre de quién va el pedido?"}
+          {tt.hamburguesaSencillaCarneQueso}
         </Burbuja>
-        <Burbuja de="cliente">Laura</Burbuja>
-        <Burbuja de="negocio">¿Cuántas unidades de Hamburguesa sencilla quiere, Laura?</Burbuja>
+        <Burbuja de="cliente">{tt.laura}</Burbuja>
+        <Burbuja de="negocio">{tt.cuantasUnidadesDeHamburguesa}</Burbuja>
         <Burbuja de="cliente">2</Burbuja>
         <Burbuja de="negocio">
-          {"2x Hamburguesa sencilla — $ 36.000\nTotal: $ 36.000\n\n¿Quiere agregar algo más a su pedido?"}
+          {tt.t2xHamburguesaSencilla36}
         </Burbuja>
-        <RespuestasRapidas opciones={["No, eso es todo"]} />
+        <RespuestasRapidas opciones={tt.respuestasRapidas.restaurante} />
       </>
     ),
   },
   {
     id: "barberias",
-    etiqueta: "Barberías y estética",
-    titulo: "Barberías, salones y estética",
-    texto: "Citas agendadas mientras usted atiende.",
+    etiqueta: tt.barberiasYEstetica,
+    titulo: tt.barberiasSalonesYEstetica,
+    texto: tt.citasAgendadasMientrasUsted,
     Icono: Scissors,
     tile: "bg-rubro-servicios-bg text-rubro-servicios-ink",
     acento: "border-rubro-servicios-ink",
     conversacion: (
       <>
-        <Burbuja de="cliente">¿Tiene turno hoy a las 5?</Burbuja>
-        <Burbuja de="negocio">¡Hola! Gracias por escribirnos ✂️ ¿Qué servicio le interesa?</Burbuja>
-        <RespuestasRapidas opciones={["Corte dama", "Corte caballero", "Tinte"]} />
-        <Burbuja de="cliente">Corte caballero</Burbuja>
+        <Burbuja de="cliente">{tt.tieneTurnoHoyA}</Burbuja>
+        <Burbuja de="negocio">{tt.holaGraciasPorEscribirnos}</Burbuja>
+        <RespuestasRapidas opciones={tt.respuestasRapidas.barberiaServicios} />
+        <Burbuja de="cliente">{tt.corteCaballero}</Burbuja>
         <Burbuja de="negocio">
-          {"Corte caballero: Corte con máquina y tijera.\nDuración: 30 minutos.\nPrecio: $ 20.000.\n\n¡Perfecto! ¿Cuál es su nombre? 😊"}
+          {tt.corteCaballeroCorteCon}
         </Burbuja>
-        <Burbuja de="cliente">Andrés</Burbuja>
-        <Burbuja de="negocio">¿Le confirmo su cita de Corte caballero para hoy a las 5, Andrés?</Burbuja>
-        <RespuestasRapidas opciones={["Sí, confirmar", "Cambiar fecha"]} />
-        <Burbuja de="cliente">Sí, confirmar</Burbuja>
-        <Burbuja de="negocio">¡Listo Andrés! ✨ Su cita de Corte caballero para hoy a las 5 quedó agendada. Lo esperamos.</Burbuja>
+        <Burbuja de="cliente">{tt.andres}</Burbuja>
+        <Burbuja de="negocio">{tt.leConfirmoSuCita}</Burbuja>
+        <RespuestasRapidas opciones={tt.respuestasRapidas.barberiaConfirmar} />
+        <Burbuja de="cliente">{tt.siConfirmar}</Burbuja>
+        <Burbuja de="negocio">{tt.listoAndresSuCita}</Burbuja>
       </>
     ),
   },
   {
     id: "tiendas",
-    etiqueta: "Tiendas",
-    titulo: "Tiendas",
-    texto: "Pedidos con inventario: no vende lo que ya no tiene.",
+    etiqueta: tt.tiendas,
+    titulo: tt.tiendas,
+    texto: tt.pedidosConInventarioNo,
     Icono: ShoppingBag,
     tile: "bg-rubro-comercio-bg text-rubro-comercio-ink",
     acento: "border-rubro-comercio-ink",
     conversacion: (
       <>
-        <Burbuja de="cliente">¿Tienen cargador tipo C?</Burbuja>
+        <Burbuja de="cliente">{tt.tienenCargadorTipoC}</Burbuja>
         <Burbuja de="negocio">
-          {"Cargador tipo C: Cargador rápido USB tipo C. — $ 25.000.\n\n¡Con gusto! ¿A nombre de quién va el pedido?"}
+          {tt.cargadorTipoCCargador}
         </Burbuja>
-        <Burbuja de="cliente">Laura</Burbuja>
-        <Burbuja de="negocio">¿Cuántas unidades de Cargador tipo C quiere, Laura?</Burbuja>
+        <Burbuja de="cliente">{tt.laura}</Burbuja>
+        <Burbuja de="negocio">{tt.cuantasUnidadesDeCargador}</Burbuja>
       </>
     ),
   },
@@ -124,7 +128,7 @@ export function Negocios() {
   }));
 
   return (
-    <Seccion id="negocios" titulo="Para qué negocios">
+    <Seccion id="negocios" titulo={tt.paraQueNegocios}>
       <NegociosPestanas pestanas={pestanas} />
     </Seccion>
   );

@@ -14,9 +14,13 @@
 
 import { z } from "zod";
 import { SLUG_RE } from "@/core/config-schema";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (acciones.rubroSchema). */
+const tt = textos.acciones.rubroSchema;
 
 export const crearRubroSchema = z.object({
-  slug: z.string().regex(SLUG_RE, "El slug debe ir en kebab-case (ej. barberia)."),
-  nombre: z.string().min(1, "El nombre es obligatorio."),
+  slug: z.string().regex(SLUG_RE, tt.elSlugDebeIr),
+  nombre: z.string().min(1, tt.elNombreEsObligatorio),
   descripcion: z.string().optional(),
 });

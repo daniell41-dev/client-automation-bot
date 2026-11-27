@@ -21,6 +21,10 @@ import {
   createWhatsAppUsageRepository,
 } from "@/core/storage/factory";
 import type { ActionState } from "@/components/action-form";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (acciones.configuracion). */
+const tt = textos.acciones.configuracion;
 
 /** Un envío cada 30 s por cliente: un doble clic no debe mandarle dos mensajes. */
 const ESPERA_MS = 30_000;
@@ -28,36 +32,36 @@ const ultimoEnvio = new Map<string, number>();
 
 export async function enviarSeguimientoAhora(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
   const slug = String(formData.get("slug") ?? "");
   const leadId = String(formData.get("leadId") ?? "");
-  if (!slug) return { error: "Falta el negocio." };
-  if (!leadId) return { error: "Elija a qué cliente mandárselo." };
+  if (!slug) return { error: tt.faltaElNegocio };
+  if (!leadId) return { error: tt.elijaAQueCliente };
 
   // El permiso: si la dueña no puede leer el negocio con SU sesión (RLS), no es suyo.
   const supabase = await createUserClient();
   const { data: propio } = await supabase.from("negocios").select("id").eq("slug", slug).maybeSingle();
-  if (!propio) return { error: "Negocio no encontrado o sin permisos." };
+  if (!propio) return { error: tt.negocioNoEncontradoO };
 
   const resolved = await resolveBusinessBySlug(slug);
   const config = resolved?.config;
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
   if (!config || !accessToken || !resolved.whatsappPhoneNumberId) {
-    return { error: "Este negocio todavía no tiene WhatsApp conectado." };
+    return { error: tt.esteNegocioTodaviaNo };
   }
 
   const repo = createLeadRepository(config, resolved.negocioId);
   const lead = await repo.getById(leadId);
   // El id viene del formulario: se confirma que el cliente es de ESTE negocio.
-  if (!lead || lead.businessSlug !== config.slug) return { error: "Cliente no encontrado." };
+  if (!lead || lead.businessSlug !== config.slug) return { error: tt.clienteNoEncontrado };
 
   const ahora = new Date();
   const decision = seguimientoAhora(lead, config, String(formData.get("primero") ?? ""), ahora);
   if (!decision) {
-    return { error: "A este cliente ya no se le puede escribir (pasaron 24 h, ya compró o pidió que no le escriban)." };
+    return { error: tt.aEsteClienteYa };
   }
   if (ahora.getTime() - (ultimoEnvio.get(leadId) ?? 0) < ESPERA_MS) {
-    return { error: "Ya se le mandó hace un momento. Espere unos segundos." };
+    return { error: tt.yaSeLeMando };
   }
   ultimoEnvio.set(leadId, ahora.getTime());
 
@@ -69,7 +73,7 @@ export async function enviarSeguimientoAhora(_prev: ActionState, formData: FormD
     }).send({ to: lead.contact, text: decision.texto });
   } catch (err) {
     console.error("[Seguimientos] el envío a mano no salió:", err);
-    return { error: "WhatsApp no aceptó el mensaje. Intente de nuevo en un momento." };
+    return { error: tt.whatsappNoAceptoEl };
   }
 
   // Ya salió: lo que sigue no debe convertirse en "falló" (se reenviaría).
@@ -82,5 +86,5 @@ export async function enviarSeguimientoAhora(_prev: ActionState, formData: FormD
   } catch (err) {
     console.error("[Seguimientos] se envió a mano pero no se pudo anotar:", err);
   }
-  return { ok: "Enviado al cliente. Ya debería verlo en su WhatsApp." };
+  return { ok: tt.enviadoAlClienteYa };
 }

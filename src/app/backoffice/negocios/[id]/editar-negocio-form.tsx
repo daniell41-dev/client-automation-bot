@@ -12,6 +12,10 @@ import { actualizarNegocio } from "@/app/backoffice/actions";
 import { actualizarNegocioSchema } from "@/app/backoffice/negocio-schema";
 import { NOMBRE_PLAN, PLANES, type PlanId } from "@/core/planes";
 import { ActionForm } from "@/components/action-form";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (backoffice.negocio). */
+const tt = textos.backoffice.negocio;
 
 const labelCls = "mb-1.5 block text-sm font-semibold text-ink";
 const inputCls =
@@ -55,11 +59,11 @@ export function EditarNegocioForm({
   };
 
   return (
-    <ActionForm action={actualizarNegocio} submitLabel="Guardar cambios" onSubmit={handleSubmit}>
+    <ActionForm action={actualizarNegocio} submitLabel={tt.guardarCambios} onSubmit={handleSubmit}>
       <input type="hidden" name="id" value={negocioId} />
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className={labelCls}>Nombre del negocio</label>
+          <label className={labelCls}>{tt.nombreDelNegocio}</label>
           <input
             name="nombre"
             defaultValue={nombre}
@@ -70,7 +74,7 @@ export function EditarNegocioForm({
           )}
         </div>
         <div>
-          <label className={labelCls}>Cliente dueño</label>
+          <label className={labelCls}>{tt.clienteDueno}</label>
           <select
             name="owner_id"
             defaultValue={ownerId}
@@ -87,16 +91,16 @@ export function EditarNegocioForm({
           )}
         </div>
         <div>
-          <label className={labelCls}>WhatsApp (phone_number_id)</label>
+          <label className={labelCls}>{tt.whatsappPhoneNumberId}</label>
           <input
             name="whatsapp_phone_number_id"
             defaultValue={whatsappId}
             className={inputCls}
-            placeholder="Sin conectar"
+            placeholder={tt.sinConectar}
           />
         </div>
         <div>
-          <label className={labelCls}>Plan</label>
+          <label className={labelCls}>{tt.plan}</label>
           <select name="plan" defaultValue={plan} className={inputCls}>
             {PLANES.map((p) => (
               <option key={p} value={p}>

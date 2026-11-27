@@ -17,35 +17,27 @@ import {
   Users,
 } from "lucide-react";
 import { Logo } from "@/components/logo";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (backoffice.menu). */
+const tt = textos.backoffice.menu;
 
 const NAV = [
-  { href: "/backoffice/negocios", label: "Negocios", Icon: Store },
-  { href: "/backoffice/usuarios", label: "Usuarios", Icon: Users },
-  { href: "/backoffice/rubros", label: "Rubros (plantillas)", Icon: Layers },
-  { href: "/backoffice/leads", label: "Leads", Icon: Inbox },
+  { href: "/backoffice/negocios", label: tt.secciones.negocios.titulo, Icon: Store },
+  { href: "/backoffice/usuarios", label: tt.secciones.usuarios.titulo, Icon: Users },
+  { href: "/backoffice/rubros", label: tt.secciones.rubros.titulo, Icon: Layers },
+  { href: "/backoffice/leads", label: tt.secciones.leads.titulo, Icon: Inbox },
 ];
 
 const SUBTITLES: Record<string, { title: string; subtitle: string }> = {
-  "/backoffice/negocios": {
-    title: "Negocios",
-    subtitle: "Todos los negocios de la plataforma",
-  },
-  "/backoffice/usuarios": {
-    title: "Usuarios",
-    subtitle: "Clientes y administradores",
-  },
-  "/backoffice/rubros": {
-    title: "Rubros (plantillas)",
-    subtitle: "Plantillas verticales: definen qué gestiona cada negocio",
-  },
+  "/backoffice/negocios": { title: tt.secciones.negocios.titulo, subtitle: tt.secciones.negocios.subtitulo },
+  "/backoffice/usuarios": { title: tt.secciones.usuarios.titulo, subtitle: tt.secciones.usuarios.subtitulo },
+  "/backoffice/rubros": { title: tt.secciones.rubros.titulo, subtitle: tt.secciones.rubros.subtitulo },
   "/backoffice/asignaciones": {
-    title: "Asignaciones",
-    subtitle: "Qué rubros puede usar cada cliente",
+    title: tt.secciones.asignaciones.titulo,
+    subtitle: tt.secciones.asignaciones.subtitulo,
   },
-  "/backoffice/leads": {
-    title: "Leads",
-    subtitle: "Contactos capturados por los asistentes",
-  },
+  "/backoffice/leads": { title: tt.secciones.leads.titulo, subtitle: tt.secciones.leads.subtitulo },
 };
 
 export function BackofficeShell({
@@ -67,13 +59,11 @@ export function BackofficeShell({
       {/* ── Sidebar oscuro ── */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[250px] flex-col bg-bo-sidebar md:flex">
         <div className="px-5 pb-4 pt-5">
-          <Logo variant="dark" caption="Back office" />
+          <Logo variant="dark" caption={tt.backOffice} />
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-2">
-          <p className="px-2.5 pb-1.5 text-[10.5px] font-bold uppercase tracking-[0.1em] text-white/40">
-            Plataforma
-          </p>
+          <p className="px-2.5 pb-1.5 text-[10.5px] font-bold uppercase tracking-[0.1em] text-white/40">{tt.plataforma}</p>
           {NAV.map(({ href, label, Icon }) => (
             <Link
               key={href}
@@ -95,9 +85,7 @@ export function BackofficeShell({
             href="/portal"
             className="flex items-center gap-2.5 rounded-[10px] bg-white/5 px-2.5 py-2 text-sm font-semibold text-white/70 transition-colors hover:bg-white/10 hover:text-white"
           >
-            <ArrowLeftRight className="h-4 w-4" />
-            Ver portal cliente
-          </Link>
+            <ArrowLeftRight className="h-4 w-4" />{tt.verPortalCliente}</Link>
           <div className="flex items-center gap-2.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-white">
               {userEmail.slice(0, 2).toUpperCase()}
@@ -106,12 +94,12 @@ export function BackofficeShell({
               <span className="block truncate text-sm font-semibold text-white">
                 {userEmail}
               </span>
-              <span className="block text-xs text-white/50">Administrador</span>
+              <span className="block text-xs text-white/50">{tt.administrador}</span>
             </span>
             <form action={signOutAction}>
               <button
                 type="submit"
-                aria-label="Cerrar sesión"
+                aria-label={tt.cerrarSesion}
                 className="text-white/50 transition-colors hover:text-white"
               >
                 <LogOut className="h-[18px] w-[18px]" />

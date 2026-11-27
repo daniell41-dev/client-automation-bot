@@ -56,6 +56,10 @@ export function toRow(lead: Lead, negocioId: string | undefined): LeadRow {
     // despliegue), un `false` en cada guardado rompería TODOS los mensajes;
     // así solo falla el caso raro de alguien que pidió que no le escriban.
     ...(lead.noContactar && { no_contactar: true }),
+    // T-155 (migración 0033): mismo criterio, solo cuando hay pausa. Además,
+    // nunca se manda null: si la dueña reactiva el asistente mientras llega
+    // un mensaje, este guardado no debe volver a pausarlo ni despausarlo.
+    ...(lead.atencionHumanaDesde && { atencion_humana_desde: lead.atencionHumanaDesde }),
   };
 }
 
@@ -84,6 +88,7 @@ export function fromRow(row: LeadRow): Lead {
     // impedir cargar el lead.
     origen: leerOrigen(row.origen),
     ...(row.no_contactar && { noContactar: true }),
+    ...(row.atencion_humana_desde && { atencionHumanaDesde: row.atencion_humana_desde }),
   };
 }
 

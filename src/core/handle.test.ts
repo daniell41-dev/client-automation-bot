@@ -1595,6 +1595,50 @@ describe("handleIncoming — confirmación de pago con comprobante (T-24.4)", ()
     expect(comprobantes.comprobantes[0].referencia).toBe("M12345678");
   });
 
+  it("T-153: con varias cuentas, le dice a la dueña a cuál llegó el pago", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-pagos-1", "harina", 10);
+    const notifier = fakeNotifier();
+    await driveHastaEsperandoComprobante(repo, inventory, notifier);
+    const conCuentas: BusinessConfig = {
+      ...tiendaConPagos,
+      pagos: {
+        requiereComprobante: true,
+        cuentas: [
+          { entidad: "Provincial", tipo: "ahorros", numero: "0108 0000 44 5555666677", titular: "Luis Rojas" },
+          { entidad: "Banesco", tipo: "corriente", numero: "0134 0000 88888 9991234", titular: "Luis Rojas" },
+        ],
+      },
+    };
+    const llm = fakePaymentLLM({ banco: "Mercantil", referencia: "998877", cuentaDestino: "****1234", legible: "completo" });
+    await handleIncoming(paymentMsg(), conCuentas, repo, new Date(), llm, undefined, undefined, notifier, inventory, "tienda-pagos-1", fakeMediaDownloader(), new InMemoryComprobantes());
+
+    expect(notifier.sent[0].text).toContain("🏦 Llegó a: Banesco · Luis Rojas (…1234)");
+  });
+
+  it("T-153: si no se ve a cuál de sus cuentas llegó, se lo dice para que revise", async () => {
+    const repo = new InMemoryRepo();
+    const inventory = new InMemoryInventory();
+    await inventory.setStock("tienda-pagos-1", "harina", 10);
+    const notifier = fakeNotifier();
+    await driveHastaEsperandoComprobante(repo, inventory, notifier);
+    const conCuentas: BusinessConfig = {
+      ...tiendaConPagos,
+      pagos: {
+        requiereComprobante: true,
+        cuentas: [
+          { entidad: "Provincial", tipo: "ahorros", numero: "01080000445555666677" },
+          { entidad: "Banesco", tipo: "corriente", numero: "01340000888889991234" },
+        ],
+      },
+    };
+    const llm = fakePaymentLLM({ referencia: "998877", legible: "parcial" });
+    await handleIncoming(paymentMsg(), conCuentas, repo, new Date(), llm, undefined, undefined, notifier, inventory, "tienda-pagos-1", fakeMediaDownloader(), new InMemoryComprobantes());
+
+    expect(notifier.sent[0].text).toContain("🏦 No se ve a cuál de sus cuentas llegó");
+  });
+
   it("una referencia repetida dispara la señal de riesgo en el aviso a la dueña", async () => {
     const repo = new InMemoryRepo();
     const inventory = new InMemoryInventory();
@@ -3136,5 +3180,40 @@ describe("handleIncoming — catálogo en PDF (T-121)", () => {
 
     const pedido = await handleIncoming(msg("me mandas el catálogo?"), conCatalogo(false), repo, new Date(), fakeLLM());
     expect(pedido.messages.at(-1)?.documento?.url).toBe(URL_PDF);
+  });
+});
+
+describe("T-155: el cliente pide hablar con una persona", () => {
+  it("le avisa a la dueña con el link, le responde al cliente y deja de contestar en esa conversación", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+    const sessionRepo = new SessionMemoryRepository();
+    const ahora = new Date("2026-11-27T15:00:00.000Z");
+
+    const r = await handleIncoming(msg("quiero hablar con una persona"), tiendaConNotify, repo, ahora, undefined, sessionRepo, undefined, notifier);
+    expect(r.messages[0].text).toContain("En breve le escribe una persona");
+    expect(notifier.sent).toHaveLength(1);
+    expect(notifier.sent[0].to).toBe(tiendaConNotify.notifyPhoneNumber);
+    expect(notifier.sent[0].text).toContain("wa.me/57300000000");
+    expect(repo.leads[0].atencionHumanaDesde).toBe(ahora.toISOString());
+
+    // Una hora después el cliente escribe: silencio, pero el mensaje queda en el historial.
+    const despues = await handleIncoming(msg("hola? sigo esperando"), tiendaConNotify, repo, new Date("2026-11-27T16:00:00.000Z"), undefined, sessionRepo, undefined, notifier);
+    expect(despues.messages).toEqual([]);
+    const sesion = await sessionRepo.getOrCreate("estetica-bella", "57300000000", "mock");
+    expect(sesion.history.at(-1)?.text).toBe("hola? sigo esperando");
+    expect(notifier.sent).toHaveLength(1); // a la dueña no se le repite el aviso
+
+    // Pasadas las 12 horas, el asistente vuelve a atender.
+    const otroDia = await handleIncoming(msg("harina"), tiendaConNotify, repo, new Date("2026-11-28T04:00:00.000Z"), undefined, sessionRepo, undefined, notifier);
+    expect(otroDia.messages.length).toBeGreaterThan(0);
+  });
+
+  it("sin número de Notificaciones no se calla: no habría nadie que le escriba", async () => {
+    const repo = new InMemoryRepo();
+    const sinAviso: BusinessConfig = { ...tiendaConNotify, notifyPhoneNumber: undefined };
+    const r = await handleIncoming(msg("quiero hablar con una persona"), sinAviso, repo, new Date(), undefined, undefined, undefined, fakeNotifier());
+    expect(r.messages[0].text).not.toContain("En breve le escribe una persona");
+    expect(repo.leads[0]?.atencionHumanaDesde).toBeUndefined();
   });
 });

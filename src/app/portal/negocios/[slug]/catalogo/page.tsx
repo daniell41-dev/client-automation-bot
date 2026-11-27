@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { createUserClient } from "@/lib/supabase/server";
 import { parseBusinessConfig } from "@/core/config-schema";
 import { CatalogoEditor } from "./catalogo-editor";
+import { textos } from "@/textos";
 
 export const dynamic = "force-dynamic";
 
@@ -37,11 +38,11 @@ export default async function CatalogoPage({
       initialServices={config.services}
       currency={config.currency}
       locale={config.locale ?? "es-CO"}
-      botName={config.personas?.whatsapp?.name ?? "Asistente"}
+      botName={config.personas?.whatsapp?.name ?? textos.portal.asistentePorDefecto}
       botActivo={config.botActivo !== false}
     />
   );
 }
 
 // T-71: el nombre de la pestaña ("Catálogo · Aurela"); la plantilla vive en el layout raíz.
-export const metadata = { title: "Catálogo" };
+export const metadata = { title: textos.portal.titulosPestana.catalogo };

@@ -22,6 +22,10 @@ import { fromRow, toRow } from "@/core/storage/adapters/supabase/leads";
 import type { LeadRow } from "@/core/storage/adapters/supabase/api";
 import { createInventoryRepository } from "@/core/storage/factory";
 import type { Service } from "@/core/types";
+import { formato, textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (acciones.portal). */
+const tt = textos.acciones.portal;
 
 export interface ActionState {
   error?: string;
@@ -33,20 +37,20 @@ export async function actualizarConfig(
   formData: FormData,
 ): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
 
   const slug = String(formData.get("slug") ?? "");
   const configJson = String(formData.get("config") ?? "");
-  if (!slug) return { error: "Falta el negocio." };
+  if (!slug) return { error: tt.faltaElNegocio };
 
   let json: unknown;
   try {
     json = JSON.parse(configJson);
   } catch {
-    return { error: "La configuración no es JSON válido." };
+    return { error: tt.laConfiguracionNoEs };
   }
   const config = parseBusinessConfig(json);
-  if (!config) return { error: "La configuración no cumple la forma esperada." };
+  if (!config) return { error: tt.laConfiguracionNoCumple };
 
   // El slug del motor no se cambia desde el editor (identifica leads/sesiones).
   config.slug = slug;
@@ -57,13 +61,13 @@ export async function actualizarConfig(
     .update({ config, updated_at: new Date().toISOString() })
     .eq("slug", slug)
     .select("id");
-  if (error) return { error: `No se pudo guardar: ${error.message}` };
-  if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
+  if (error) return { error: formato(tt.noSePudoGuardar, { message: error.message }) };
+  if (!data?.length) return { error: tt.negocioNoEncontradoO };
 
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`);
   revalidatePath(`/portal/negocios/${slug}/editar`);
-  return { ok: "Configuración guardada. El asistente ya responde con estos cambios." };
+  return { ok: tt.configuracionGuardadaElAsistente };
 }
 
 /** Claves de la config que los editores del portal pueden modificar. */
@@ -97,17 +101,17 @@ export async function guardarConfigParcial(
   formData: FormData,
 ): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
 
   const slug = String(formData.get("slug") ?? "");
   const patchJson = String(formData.get("patch") ?? "");
-  if (!slug) return { error: "Falta el negocio." };
+  if (!slug) return { error: tt.faltaElNegocio };
 
   let patch: Record<string, unknown>;
   try {
     patch = JSON.parse(patchJson) as Record<string, unknown>;
   } catch {
-    return { error: "Los cambios no son JSON válido." };
+    return { error: tt.losCambiosNoSon };
   }
 
   const supabase = await createUserClient();
@@ -117,7 +121,7 @@ export async function guardarConfigParcial(
     .eq("slug", slug)
     .maybeSingle();
   const actual = parseBusinessConfig(negocio?.config);
-  if (!actual) return { error: "Negocio no encontrado o config inválida." };
+  if (!actual) return { error: tt.negocioNoEncontradoO2 };
 
   const merged: Record<string, unknown> = { ...actual };
   for (const key of PATCH_KEYS) {
@@ -125,7 +129,7 @@ export async function guardarConfigParcial(
   }
 
   const config = parseBusinessConfig(merged);
-  if (!config) return { error: `No se pudo guardar: ${motivoConfigInvalida(merged) ?? "los cambios no cumplen la forma esperada."}` };
+  if (!config) return { error: formato(tt.noSePudoGuardarMotivo, { motivo: motivoConfigInvalida(merged) ?? tt.cambiosNoCumplenForma }) };
   config.slug = slug; // el slug del motor nunca cambia desde los editores
 
   const { data, error } = await supabase
@@ -133,8 +137,8 @@ export async function guardarConfigParcial(
     .update({ config, updated_at: new Date().toISOString() })
     .eq("slug", slug)
     .select("id");
-  if (error) return { error: `No se pudo guardar: ${error.message}` };
-  if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
+  if (error) return { error: formato(tt.noSePudoGuardar, { message: error.message }) };
+  if (!data?.length) return { error: tt.negocioNoEncontradoO };
 
   // T-21: si el patch tocó el catálogo, el stock que el dueño haya escrito
   // ahí se sincroniza a `inventario` (la tabla que descuenta atómicamente al
@@ -152,7 +156,7 @@ export async function guardarConfigParcial(
 
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`, "layout");
-  return { ok: "Guardado. El asistente ya responde con estos cambios." };
+  return { ok: tt.guardadoElAsistenteYa };
 }
 
 /**
@@ -165,26 +169,26 @@ export async function guardarConfigParcial(
  */
 export async function importarProductos(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
   const slug = String(formData.get("slug") ?? "");
-  if (!slug) return { error: "Falta el negocio." };
+  if (!slug) return { error: tt.faltaElNegocio };
 
   let crudos: unknown;
   try {
     crudos = JSON.parse(String(formData.get("productos") ?? ""));
   } catch {
-    return { error: "Los productos no llegaron bien. Vuelva a cargar el archivo." };
+    return { error: tt.losProductosNoLlegaron };
   }
   const importados = servicesSchema.safeParse(crudos);
-  if (!importados.success) return { error: "El archivo no trae productos válidos para importar." };
+  if (!importados.success) return { error: tt.elArchivoNoTrae };
   if (importados.data.length > MAX_FILAS_IMPORTACION) {
-    return { error: `Máximo ${MAX_FILAS_IMPORTACION} productos por importación.` };
+    return { error: formato(tt.maximoMaxFilasImportacion, { MAX_FILAS_IMPORTACION }) };
   }
 
   const supabase = await createUserClient();
   const { data: negocio } = await supabase.from("negocios").select("config").eq("slug", slug).maybeSingle();
   const actual = parseBusinessConfig(negocio?.config);
-  if (!actual) return { error: "Negocio no encontrado o config inválida." };
+  if (!actual) return { error: tt.negocioNoEncontradoO2 };
 
   const { catalogo, resumen } = combinarCatalogo(actual.services, importados.data);
   const config = parseBusinessConfig({
@@ -192,7 +196,7 @@ export async function importarProductos(_prev: ActionState, formData: FormData):
     services: catalogo,
     respaldoCatalogo: { fecha: new Date().toISOString(), services: actual.services },
   });
-  if (!config) return { error: "No se pudo importar: el catálogo resultante no es válido." };
+  if (!config) return { error: tt.noSePudoImportar };
   config.slug = slug;
 
   const { data, error } = await supabase
@@ -200,8 +204,8 @@ export async function importarProductos(_prev: ActionState, formData: FormData):
     .update({ config, updated_at: new Date().toISOString() })
     .eq("slug", slug)
     .select("id");
-  if (error) return { error: `No se pudo importar: ${error.message}` };
-  if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
+  if (error) return { error: formato(tt.noSePudoImportar2, { message: error.message }) };
+  if (!data?.length) return { error: tt.negocioNoEncontradoO };
 
   await sincronizarStock(data[0].id, config.services).catch((err) => {
     console.error("[inventario] no se pudo sincronizar el stock tras importar:", err);
@@ -209,23 +213,23 @@ export async function importarProductos(_prev: ActionState, formData: FormData):
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`, "layout");
   return {
-    ok: `Listo: ${resumen.nuevos} nuevos, ${resumen.actualizados} actualizados y ${resumen.sinCambios} sin cambios. El asistente ya los ofrece.`,
+    ok: formato(tt.listoNuevosNuevosActualizados, { nuevos: resumen.nuevos, actualizados: resumen.actualizados, sinCambios: resumen.sinCambios }),
   };
 }
 
 /** T-117: vuelve el catálogo a como estaba antes de la última importación. */
 export async function deshacerImportacion(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
   const slug = String(formData.get("slug") ?? "");
   const supabase = await createUserClient();
   const { data: negocio } = await supabase.from("negocios").select("config").eq("slug", slug).maybeSingle();
   const actual = parseBusinessConfig(negocio?.config);
-  if (!actual) return { error: "Negocio no encontrado o config inválida." };
-  if (!actual.respaldoCatalogo) return { error: "No hay ninguna importación para deshacer." };
+  if (!actual) return { error: tt.negocioNoEncontradoO2 };
+  if (!actual.respaldoCatalogo) return { error: tt.noHayNingunaImportacion };
 
   const config = parseBusinessConfig({ ...actual, services: actual.respaldoCatalogo.services, respaldoCatalogo: undefined });
-  if (!config) return { error: "No se pudo deshacer: el catálogo guardado no es válido." };
+  if (!config) return { error: tt.noSePudoDeshacer };
   config.slug = slug;
   delete config.respaldoCatalogo;
 
@@ -234,15 +238,15 @@ export async function deshacerImportacion(_prev: ActionState, formData: FormData
     .update({ config, updated_at: new Date().toISOString() })
     .eq("slug", slug)
     .select("id");
-  if (error) return { error: `No se pudo deshacer: ${error.message}` };
-  if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
+  if (error) return { error: formato(tt.noSePudoDeshacer2, { message: error.message }) };
+  if (!data?.length) return { error: tt.negocioNoEncontradoO };
 
   await sincronizarStock(data[0].id, config.services).catch((err) => {
     console.error("[inventario] no se pudo sincronizar el stock al deshacer:", err);
   });
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}`, "layout");
-  return { ok: "Listo: el catálogo volvió a como estaba antes de importar." };
+  return { ok: tt.listoElCatalogoVolvio };
 }
 
 /**
@@ -303,10 +307,10 @@ export async function marcarAtendido(
   formData: FormData,
 ): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
 
   const leadId = String(formData.get("leadId") ?? "");
-  if (!leadId) return { error: "Falta la cita." };
+  if (!leadId) return { error: tt.faltaLaCita };
 
   const supabase = await createUserClient();
   const { data: row } = await supabase
@@ -314,18 +318,18 @@ export async function marcarAtendido(
     .select("*")
     .eq("id", leadId)
     .maybeSingle();
-  if (!row) return { error: "Cita no encontrada o sin permisos." };
+  if (!row) return { error: tt.citaNoEncontradaO };
 
   const lead = fromRow(row as LeadRow);
   if (lead.stage !== "datos_completos") {
-    return { error: "Esta cita no está confirmada, no hay nada que cerrar." };
+    return { error: tt.estaCitaNoEsta };
   }
 
   let cerrado;
   try {
     cerrado = cerrarCitaCumplida(lead, new Date());
   } catch (err) {
-    return { error: `No se pudo cerrar la cita: ${err instanceof Error ? err.message : String(err)}` };
+    return { error: formato(tt.noSePudoCerrar, { valor1: err instanceof Error ? err.message : String(err) }) };
   }
 
   const { data, error } = await supabase
@@ -333,11 +337,11 @@ export async function marcarAtendido(
     .update(toRow(cerrado, (row as LeadRow).negocio_id ?? undefined))
     .eq("id", leadId)
     .select("id");
-  if (error) return { error: `No se pudo cerrar la cita: ${error.message}` };
-  if (!data?.length) return { error: "Cita no encontrada o sin permisos." };
+  if (error) return { error: formato(tt.noSePudoCerrar2, { message: error.message }) };
+  if (!data?.length) return { error: tt.citaNoEncontradaO };
 
   revalidatePath(`/portal/negocios/${lead.businessSlug}/citas`);
-  return { ok: "Cita marcada como atendida." };
+  return { ok: tt.citaMarcadaComoAtendida };
 }
 
 export async function actualizarWhatsapp(
@@ -345,11 +349,11 @@ export async function actualizarWhatsapp(
   formData: FormData,
 ): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
 
   const slug = String(formData.get("slug") ?? "");
   const phoneNumberId = String(formData.get("whatsapp_phone_number_id") ?? "").trim();
-  if (!slug) return { error: "Falta el negocio." };
+  if (!slug) return { error: tt.faltaElNegocio };
 
   const supabase = await createUserClient();
   const { data, error } = await supabase
@@ -363,15 +367,15 @@ export async function actualizarWhatsapp(
   if (error) {
     return {
       error: error.code === "23505"
-        ? "Ese phone_number_id ya está en uso por otro negocio."
-        : `No se pudo guardar: ${error.message}`,
+        ? tt.esePhoneNumberId
+        : formato(tt.noSePudoGuardar, { message: error.message }),
     };
   }
-  if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
+  if (!data?.length) return { error: tt.negocioNoEncontradoO };
 
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}/editar`);
-  return { ok: "Conexión de WhatsApp actualizada." };
+  return { ok: tt.conexionDeWhatsappActualizada };
 }
 
 /**
@@ -391,10 +395,10 @@ export async function actualizarWompi(
   formData: FormData,
 ): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
 
   const slug = String(formData.get("slug") ?? "");
-  if (!slug) return { error: "Falta el negocio." };
+  if (!slug) return { error: tt.faltaElNegocio };
 
   const campos: Record<string, string> = {
     wompi_public_key: "public_key",
@@ -410,7 +414,7 @@ export async function actualizarWompi(
     patch[columna] = valor;
   }
   if (Object.keys(patch).length === 0) {
-    return { error: "Complete al menos un campo para guardar." };
+    return { error: tt.completeAlMenosUn };
   }
 
   const supabase = await createUserClient();
@@ -419,11 +423,11 @@ export async function actualizarWompi(
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq("slug", slug)
     .select("id");
-  if (error) return { error: `No se pudo guardar: ${error.message}` };
-  if (!data?.length) return { error: "Negocio no encontrado o sin permisos." };
+  if (error) return { error: formato(tt.noSePudoGuardar, { message: error.message }) };
+  if (!data?.length) return { error: tt.negocioNoEncontradoO };
 
   invalidateBusinessCache();
-  return { ok: "Credenciales de Wompi guardadas." };
+  return { ok: tt.credencialesDeWompiGuardadas };
 }
 
 // ── T-45: QR de cobro ────────────────────────────────────────────────────────
@@ -451,10 +455,10 @@ async function guardarQr(
   const supabase = await createUserClient();
   const { data: negocio } = await supabase.from("negocios").select("id, config").eq("slug", slug).maybeSingle();
   const actual = parseBusinessConfig(negocio?.config);
-  if (!negocio || !actual) return { error: "Negocio no encontrado o sin permisos." };
+  if (!negocio || !actual) return { error: tt.negocioNoEncontradoO };
 
   const admin = createAdminClient();
-  if (!admin) return { error: "Falta configurar Supabase en el servidor." };
+  if (!admin) return { error: tt.faltaConfigurarSupabaseEn };
 
   let qrUrl: string | undefined;
   if (subir) {
@@ -464,12 +468,12 @@ async function guardarQr(
   }
 
   const config = parseBusinessConfig({ ...actual, pagos: { ...actual.pagos, qrUrl } });
-  if (!config) return { error: "No se pudo validar la configuración." };
+  if (!config) return { error: tt.noSePudoValidar };
   const { error } = await supabase
     .from("negocios")
     .update({ config, updated_at: new Date().toISOString() })
     .eq("id", negocio.id);
-  if (error) return { error: `No se pudo guardar: ${error.message}` };
+  if (error) return { error: formato(tt.noSePudoGuardar, { message: error.message }) };
 
   // Best-effort: si falla, queda un archivo huérfano en el bucket, nada más.
   const anterior = rutaQr(actual.pagos?.qrUrl);
@@ -477,19 +481,19 @@ async function guardarQr(
 
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}/configuracion`);
-  return { ok: qrUrl ? "QR guardado. El asistente lo envía junto con sus cuentas." : "QR quitado." };
+  return { ok: qrUrl ? tt.qrGuardadoElAsistente : tt.qrQuitado };
 }
 
 export async function subirQrPago(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
   const slug = String(formData.get("slug") ?? "");
   const archivo = formData.get("qr");
-  if (!slug) return { error: "Falta el negocio." };
-  if (!(archivo instanceof File) || archivo.size === 0) return { error: "Elija la imagen del QR." };
+  if (!slug) return { error: tt.faltaElNegocio };
+  if (!(archivo instanceof File) || archivo.size === 0) return { error: tt.elijaLaImagenDel };
   const ext = TIPOS_QR[archivo.type];
-  if (!ext) return { error: "El QR tiene que ser una imagen PNG, JPG o WEBP." };
-  if (archivo.size > MAX_QR_BYTES) return { error: "La imagen pesa más de 2 MB. Pruebe con una captura más pequeña." };
+  if (!ext) return { error: tt.elQrTieneQue };
+  if (archivo.size > MAX_QR_BYTES) return { error: tt.laImagenPesaMas };
 
   return guardarQr(slug, async (negocioId) => {
     const admin = createAdminClient()!;
@@ -499,16 +503,16 @@ export async function subirQrPago(_prev: ActionState, formData: FormData): Promi
     const { error } = await admin.storage
       .from(BUCKET_QR)
       .upload(ruta, archivo, { contentType: archivo.type, upsert: false });
-    if (error) return { error: `No se pudo subir el QR: ${error.message}` };
+    if (error) return { error: formato(tt.noSePudoSubir, { message: error.message }) };
     return admin.storage.from(BUCKET_QR).getPublicUrl(ruta).data.publicUrl;
   });
 }
 
 export async function quitarQrPago(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
   const slug = String(formData.get("slug") ?? "");
-  if (!slug) return { error: "Falta el negocio." };
+  if (!slug) return { error: tt.faltaElNegocio };
   return guardarQr(slug, null);
 }
 
@@ -542,36 +546,36 @@ async function esPdf(archivo: File): Promise<boolean> {
  */
 export async function guardarCatalogoPdf(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
   const slug = String(formData.get("slug") ?? "");
-  if (!slug) return { error: "Falta el negocio." };
+  if (!slug) return { error: tt.faltaElNegocio };
   const enviarAlSaludar = formData.get("enviarAlSaludar") === "on";
   const archivo = formData.get("catalogo");
   const hayArchivo = archivo instanceof File && archivo.size > 0;
   if (hayArchivo) {
     if (archivo.type !== "application/pdf" || !(await esPdf(archivo))) {
-      return { error: "El catálogo tiene que ser un archivo PDF." };
+      return { error: tt.elCatalogoTieneQue };
     }
     if (archivo.size > MAX_CATALOGO_BYTES) {
-      return { error: "El PDF pesa más de 10 MB. Pruebe exportándolo con menos calidad de imagen." };
+      return { error: tt.elPdfPesaMas };
     }
   }
 
   const supabase = await createUserClient();
   const { data: negocio } = await supabase.from("negocios").select("id, config").eq("slug", slug).maybeSingle();
   const actual = parseBusinessConfig(negocio?.config);
-  if (!negocio || !actual) return { error: "Negocio no encontrado o sin permisos." };
-  if (!hayArchivo && !actual.catalogoPdf) return { error: "Elija el PDF del catálogo." };
+  if (!negocio || !actual) return { error: tt.negocioNoEncontradoO };
+  if (!hayArchivo && !actual.catalogoPdf) return { error: tt.elijaElPdfDel };
 
   // El nombre lo ve el cliente en el chat: si la dueña no escribió uno, se
   // usa el del archivo que subió (o el que ya tenía).
   const nombreArchivo =
     String(formData.get("nombreArchivo") ?? "").trim() ||
     (hayArchivo ? archivo.name : actual.catalogoPdf?.nombreArchivo) ||
-    "Catálogo.pdf";
+    tt.catalogoPdf;
 
   const admin = createAdminClient();
-  if (!admin) return { error: "Falta configurar Supabase en el servidor." };
+  if (!admin) return { error: tt.faltaConfigurarSupabaseEn };
 
   let url = actual.catalogoPdf?.url;
   if (hayArchivo) {
@@ -581,17 +585,17 @@ export async function guardarCatalogoPdf(_prev: ActionState, formData: FormData)
     const { error } = await admin.storage
       .from(BUCKET_CATALOGOS)
       .upload(ruta, archivo, { contentType: "application/pdf", upsert: false });
-    if (error) return { error: `No se pudo subir el catálogo: ${error.message}` };
+    if (error) return { error: formato(tt.noSePudoSubir2, { message: error.message }) };
     url = admin.storage.from(BUCKET_CATALOGOS).getPublicUrl(ruta).data.publicUrl;
   }
 
   const config = parseBusinessConfig({ ...actual, catalogoPdf: { url, nombreArchivo, enviarAlSaludar } });
-  if (!config) return { error: "No se pudo validar la configuración (revise el nombre del archivo)." };
+  if (!config) return { error: tt.noSePudoValidar2 };
   const { error } = await supabase
     .from("negocios")
     .update({ config, updated_at: new Date().toISOString() })
     .eq("id", negocio.id);
-  if (error) return { error: `No se pudo guardar: ${error.message}` };
+  if (error) return { error: formato(tt.noSePudoGuardar, { message: error.message }) };
 
   // Best-effort: si falla, queda un archivo huérfano en el bucket, nada más.
   const anterior = hayArchivo ? rutaCatalogo(actual.catalogoPdf?.url) : null;
@@ -599,27 +603,27 @@ export async function guardarCatalogoPdf(_prev: ActionState, formData: FormData)
 
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}/configuracion`);
-  return { ok: hayArchivo ? "Catálogo guardado." : "Cambios del catálogo guardados." };
+  return { ok: hayArchivo ? tt.catalogoGuardado : tt.cambiosDelCatalogoGuardados };
 }
 
 export async function quitarCatalogoPdf(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const me = await getUserRole();
-  if (!me) return { error: "No autorizado." };
+  if (!me) return { error: tt.noAutorizado };
   const slug = String(formData.get("slug") ?? "");
-  if (!slug) return { error: "Falta el negocio." };
+  if (!slug) return { error: tt.faltaElNegocio };
 
   const supabase = await createUserClient();
   const { data: negocio } = await supabase.from("negocios").select("id, config").eq("slug", slug).maybeSingle();
   const actual = parseBusinessConfig(negocio?.config);
-  if (!negocio || !actual) return { error: "Negocio no encontrado o sin permisos." };
+  if (!negocio || !actual) return { error: tt.negocioNoEncontradoO };
 
   const config = parseBusinessConfig({ ...actual, catalogoPdf: undefined });
-  if (!config) return { error: "No se pudo validar la configuración." };
+  if (!config) return { error: tt.noSePudoValidar };
   const { error } = await supabase
     .from("negocios")
     .update({ config, updated_at: new Date().toISOString() })
     .eq("id", negocio.id);
-  if (error) return { error: `No se pudo guardar: ${error.message}` };
+  if (error) return { error: formato(tt.noSePudoGuardar, { message: error.message }) };
 
   const anterior = rutaCatalogo(actual.catalogoPdf?.url);
   const admin = createAdminClient();
@@ -627,5 +631,5 @@ export async function quitarCatalogoPdf(_prev: ActionState, formData: FormData):
 
   invalidateBusinessCache();
   revalidatePath(`/portal/negocios/${slug}/configuracion`);
-  return { ok: "Catálogo quitado. El asistente ya no lo envía." };
+  return { ok: tt.catalogoQuitadoElAsistente };
 }

@@ -13,24 +13,25 @@
 import { BadgeCheck, Bell, Clock3, Mic, ShieldCheck, Zap } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
+import { textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (login.portada). */
+const tt = textos.login.portada;
 
 type Burbuja = { de: "cliente" | "bot"; texto: string; hora: string };
 
+// En el JSON van solo los mensajes; quién habla y la hora son datos de la maqueta.
 const CHAT: Burbuja[] = [
-  { de: "cliente", texto: "Hola! Me das una bandeja paisa a domicilio?", hora: "12:01" },
-  {
-    de: "bot",
-    texto: "¡Claro! 🍽️\n1x Bandeja paisa — $28.000\nDomicilio — $5.000\nTotal: $33.000\n¿Confirma su pedido?",
-    hora: "12:01",
-  },
-  { de: "cliente", texto: "Sí 🙌 ya le mando el comprobante", hora: "12:02" },
-  { de: "bot", texto: "Pedido #12 confirmado ✅\nCódigo de retiro: 4821", hora: "12:04" },
+  { de: "cliente", texto: tt.chat[0], hora: "12:01" },
+  { de: "bot", texto: tt.chat[1], hora: "12:01" },
+  { de: "cliente", texto: tt.chat[2], hora: "12:02" },
+  { de: "bot", texto: tt.chat[3], hora: "12:04" },
 ];
 
 const BENEFICIOS = [
-  { icono: Clock3, titulo: "24/7", texto: "Atiende mientras usted duerme" },
-  { icono: ShieldCheck, titulo: "Pagos revisados", texto: "Alerta si algo no cuadra" },
-  { icono: Mic, titulo: "Notas de voz", texto: "Entiende audios" },
+  { icono: Clock3, ...tt.beneficios.atiende },
+  { icono: ShieldCheck, ...tt.beneficios.pagos },
+  { icono: Mic, ...tt.beneficios.voz },
 ];
 
 function Telefono() {
@@ -41,8 +42,8 @@ function Telefono() {
         <div className="flex items-center gap-2.5 bg-wa-header px-4 pb-3 pt-4 text-white">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-sm">🍲</span>
           <div className="leading-tight">
-            <p className="text-[13px] font-bold">Sabores del Sur</p>
-            <p className="text-[10px] text-white/75">en línea</p>
+            <p className="text-[13px] font-bold">{tt.saboresDelSur}</p>
+            <p className="text-[10px] text-white/75">{tt.enLinea}</p>
           </div>
         </div>
         <div className="space-y-2 px-3 py-4">
@@ -94,7 +95,7 @@ export function LoginHero() {
 
       <div className="relative">
         {/* El logo lleva al inicio, como en el resto del sitio. */}
-        <Link href="/" aria-label="Ir al inicio de Aurela" className="inline-block">
+        <Link href="/" aria-label={tt.irAlInicioDe} className="inline-block">
           <Logo variant="dark" />
         </Link>
       </div>
@@ -102,19 +103,11 @@ export function LoginHero() {
       <div className="relative grid grid-cols-1 items-center gap-10 xl:grid-cols-[1fr_auto]">
         <div className="max-w-md">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-semibold text-white/80">
-            <Zap className="h-3.5 w-3.5 text-primary-light" />
-            Su asistente de ventas en WhatsApp
-          </span>
-          <h1 className="mt-5 font-display text-[40px] font-extrabold leading-[1.08] text-white">
-            Su negocio vende por WhatsApp{" "}
-            <span className="text-gold">
-              las 24 horas.
-            </span>
+            <Zap className="h-3.5 w-3.5 text-primary-light" />{tt.suAsistenteDeVentas}</span>
+          <h1 className="mt-5 font-display text-[40px] font-extrabold leading-[1.08] text-white">{tt.suNegocioVendePor}{" "}
+            <span className="text-gold">{tt.las24Horas}</span>
           </h1>
-          <p className="mt-4 text-[15px] leading-relaxed text-white/70">
-            Aurela responde, arma el pedido con el total, revisa el comprobante y le avisa para que solo
-            tenga que aprobar.
-          </p>
+          <p className="mt-4 text-[15px] leading-relaxed text-white/70">{tt.aurelaRespondeArmaEl}</p>
         </div>
 
         {/* El teléfono con las tarjetas flotando alrededor. Van sobre la
@@ -126,8 +119,8 @@ export function LoginHero() {
               <Bell className="h-4 w-4" />
             </span>
             <div className="leading-tight">
-              <p className="text-[12px] font-bold text-ink">Pedido #12 nuevo</p>
-              <p className="text-[11px] text-ink-mid">$33.000 · Toque Aprobar</p>
+              <p className="text-[12px] font-bold text-ink">{tt.pedido12Nuevo}</p>
+              <p className="text-[11px] text-ink-mid">{tt.t33000ToqueAprobar}</p>
             </div>
           </div>
           <div
@@ -135,7 +128,7 @@ export function LoginHero() {
             style={{ animationDelay: "1.5s" }}
           >
             <BadgeCheck className="h-5 w-5 text-success" />
-            <p className="text-[12px] font-bold text-ink">Pago verificado</p>
+            <p className="text-[12px] font-bold text-ink">{tt.pagoVerificado}</p>
           </div>
         </div>
       </div>

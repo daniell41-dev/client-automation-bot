@@ -14,6 +14,10 @@ import { Card, EmptyState, Pill, Toggle } from "@/components/ui";
 import { PhonePreview } from "@/components/phone-preview";
 import { MAX_TRAMOS_POR_DIA, NOMBRES_DIA } from "./horarios-form";
 import type { Reserva } from "./reservas";
+import { formato, textos } from "@/textos";
+
+/** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.citas). */
+const tt = textos.portal.citas;
 
 /** Botón "Marcar atendida" de una reserva pasada — su propio `useActionState` (T-20). */
 function MarcarAtendidoButton({ leadId }: { leadId: string }) {
@@ -30,7 +34,7 @@ function MarcarAtendidoButton({ leadId }: { leadId: string }) {
         className="inline-flex items-center gap-1 rounded-[8px] border border-line px-2.5 py-1 text-xs font-bold text-ink-mid transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
       >
         <Check className="h-3.5 w-3.5" />
-        {pending ? "Cerrando…" : "Marcar atendida"}
+        {pending ? tt.cerrando : tt.marcarAtendida}
       </button>
       {state.error && <span className="text-[11px] text-warn-ink">{state.error}</span>}
     </form>
@@ -130,8 +134,8 @@ export function CitasEditor({
       <div className="min-w-0 flex-[1_1_460px] space-y-4 sm:min-w-[420px]">
         {/* Servicios reservables */}
         <Card
-          title="Servicios reservables"
-          subtitle="El asistente solo ofrece citas para lo que esté activo."
+          title={tt.serviciosReservables}
+          subtitle={tt.elAsistenteSoloOfrece}
         >
           <div className="space-y-2">
             {services.map((s) => (
@@ -162,7 +166,7 @@ export function CitasEditor({
                     label={`Reservable: ${s.name}`}
                   />
                 ) : (
-                  <span className="text-right text-xs text-ink-soft">Se pide, no se reserva</span>
+                  <span className="text-right text-xs text-ink-soft">{tt.sePideNoSe}</span>
                 )}
               </div>
             ))}
@@ -171,31 +175,31 @@ export function CitasEditor({
 
         {/* Modalidad de pedido */}
         <Card
-          title="Modalidad de pedido"
-          subtitle="Para negocios donde el cliente puede retirar o consumir en el local (p. ej. restaurantes)."
+          title={tt.modalidadDePedido}
+          subtitle={tt.paraNegociosDondeEl}
           action={
             <Toggle
               checked={pedidos.enabled}
               onChange={(next) => setPedidos((prev) => ({ ...prev, enabled: next }))}
-              label="Preguntar modalidad de entrega"
+              label={tt.preguntarModalidadDeEntrega}
             />
           }
         >
           {pedidos.enabled && (
             <div className="space-y-3">
               <div>
-                <label className={labelCls}>Pregunta del asistente</label>
+                <label className={labelCls}>{tt.preguntaDelAsistente}</label>
                 <input
                   className={inputCls}
                   value={pedidos.pregunta}
                   onChange={(e) =>
                     setPedidos((prev) => ({ ...prev, pregunta: e.target.value }))
                   }
-                  placeholder="¿Va a recoger su pedido o prefiere comer en el local?"
+                  placeholder={tt.vaARecogerSu}
                 />
               </div>
               <div>
-                <label className={labelCls}>Opciones (2 a 4)</label>
+                <label className={labelCls}>{tt.opciones2A4}</label>
                 <div className="space-y-2">
                   {pedidos.opciones.map((opcion, i) => (
                     <div key={i} className="flex items-center gap-2">
@@ -203,12 +207,12 @@ export function CitasEditor({
                         className={inputCls}
                         value={opcion}
                         onChange={(e) => patchOpcion(i, e.target.value)}
-                        placeholder="Retirar en el local"
+                        placeholder={tt.retirarEnElLocal}
                       />
                       {pedidos.opciones.length > 2 && (
                         <button
                           type="button"
-                          aria-label="Quitar opción"
+                          aria-label={tt.quitarOpcion}
                           onClick={() =>
                             setPedidos((prev) => ({
                               ...prev,
@@ -234,18 +238,14 @@ export function CitasEditor({
                     }
                     className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline"
                   >
-                    <Plus className="h-4 w-4" />
-                    Agregar opción
-                  </button>
+                    <Plus className="h-4 w-4" />{tt.agregarOpcion}</button>
                 )}
               </div>
               {/* T-52: solo aplica si alguna opción es a domicilio; el bot
                   lo suma al total del resumen, del pedido y del comprobante. */}
               {pedidos.opciones.some((o) => esDomicilio(o)) && (
                 <div className="max-w-xs">
-                  <label className={labelCls} htmlFor="costo-domicilio">
-                    Costo del domicilio
-                  </label>
+                  <label className={labelCls} htmlFor="costo-domicilio">{tt.costoDelDomicilio}</label>
                   <input
                     id="costo-domicilio"
                     type="number"
@@ -259,11 +259,9 @@ export function CitasEditor({
                         costoDomicilio: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value)),
                       }))
                     }
-                    placeholder="0 = sin costo"
+                    placeholder={tt.t0SinCosto}
                   />
-                  <p className="mt-1.5 text-xs text-ink-soft">
-                    Se suma al total cuando el cliente elige domicilio. Vacío o 0: no se cobra aparte.
-                  </p>
+                  <p className="mt-1.5 text-xs text-ink-soft">{tt.seSumaAlTotal}</p>
                 </div>
               )}
             </div>
@@ -272,8 +270,8 @@ export function CitasEditor({
 
         {/* Horarios de atención */}
         <Card
-          title="Horarios de atención"
-          subtitle="El asistente no acepta citas fuera de estos horarios."
+          title={tt.horariosDeAtencion}
+          subtitle={tt.elAsistenteNoAcepta}
         >
           <div className="divide-y divide-line">
             {horarios.map((dia, i) => {
@@ -288,7 +286,7 @@ export function CitasEditor({
                     >
                       {nombre}
                     </span>
-                    {!dia.abierto && <span className="text-[13px] text-ink-soft">Cerrado</span>}
+                    {!dia.abierto && <span className="text-[13px] text-ink-soft">{tt.cerrado}</span>}
                     <Toggle
                       checked={dia.abierto}
                       onChange={(next) => toggleAbierto(i, next)}
@@ -315,7 +313,7 @@ export function CitasEditor({
                           {dia.tramos.length > 1 && (
                             <button
                               type="button"
-                              aria-label={`Quitar tramo de ${nombre}`}
+                              aria-label={formato(tt.quitarTramoDe, { dia: nombre })}
                               onClick={() => quitarTramo(i, ti)}
                               className="text-ink-soft hover:text-warn-ink"
                             >
@@ -330,9 +328,7 @@ export function CitasEditor({
                           onClick={() => agregarTramo(i)}
                           className="inline-flex items-center gap-1 text-[13px] font-bold text-primary hover:underline"
                         >
-                          <Plus className="h-3.5 w-3.5" />
-                          Agregar tramo (p. ej. corte de mediodía)
-                        </button>
+                          <Plus className="h-3.5 w-3.5" />{tt.agregarTramoPEj}</button>
                       )}
                     </div>
                   )}
@@ -343,11 +339,11 @@ export function CitasEditor({
         </Card>
 
         {/* Próximas reservas */}
-        <Card title="Próximas reservas">
+        <Card title={tt.proximasReservas}>
           {proximas.length === 0 ? (
             <EmptyState
-              title="Sin reservas por ahora."
-              subtitle="Las citas que confirme el asistente van a aparecer aquí."
+              title={tt.sinReservasPorAhora}
+              subtitle={tt.lasCitasQueConfirme}
             />
           ) : (
             <ul className="divide-y divide-line">
@@ -364,7 +360,7 @@ export function CitasEditor({
                       {r.servicio} · {r.fecha}
                     </span>
                   </span>
-                  <Pill tone="success">Confirmada</Pill>
+                  <Pill tone="success">{tt.confirmada}</Pill>
                 </li>
               ))}
             </ul>
@@ -375,8 +371,8 @@ export function CitasEditor({
             cliente no volvió a escribir) — el dueño las cierra a mano acá. */}
         {pasadas.length > 0 && (
           <Card
-            title="Citas pasadas sin cerrar"
-            subtitle="El asistente las cierra solo cuando el cliente vuelve a escribir. Si no, ciérrelas aquí."
+            title={tt.citasPasadasSinCerrar}
+            subtitle={tt.elAsistenteLasCierra}
           >
             <ul className="divide-y divide-line">
               {pasadas.map((r) => (
@@ -432,7 +428,7 @@ export function CitasEditor({
               disabled={pending}
               className="w-full rounded-[10px] bg-primary py-2.5 text-sm font-bold text-white transition-colors hover:bg-primary-hover disabled:opacity-50 sm:w-auto sm:px-8"
             >
-              {pending ? "Guardando…" : "Guardar cambios"}
+              {pending ? tt.guardando : tt.guardarCambios}
             </button>
           </div>
         </form>
@@ -445,23 +441,23 @@ export function CitasEditor({
         messages={
           pedidos.enabled
             ? [
-                { role: "in", text: "Hola, quiero hacer un pedido" },
+                { role: "in", text: tt.vistaPrevia.quieroPedido },
                 {
                   role: "out",
                   text: reservables.length
-                    ? "¡Con gusto! ¿Cuál le gustaría?"
-                    : "Cuénteme qué se le antoja 😊",
+                    ? tt.vistaPrevia.conGusto
+                    : tt.vistaPrevia.queSeLeAntoja,
                 },
-                { role: "in", text: reservables[0]?.name ?? "Bandeja paisa" },
-                { role: "out", text: pedidos.pregunta || "¿Lo recoge o lo enviamos a domicilio?" },
+                { role: "in", text: reservables[0]?.name ?? tt.vistaPrevia.productoEjemplo },
+                { role: "out", text: pedidos.pregunta || tt.vistaPrevia.preguntaEntrega },
               ]
             : [
-                { role: "in", text: "Hola, quiero reservar una cita" },
+                { role: "in", text: tt.vistaPrevia.quieroCita },
                 {
                   role: "out",
                   text: reservables.length
-                    ? "¡Claro! ¿Para cuál de estos servicios?"
-                    : "Por ahora no tenemos citas disponibles 🙏",
+                    ? tt.vistaPrevia.paraCual
+                    : tt.vistaPrevia.sinCitas,
                 },
               ]
         }

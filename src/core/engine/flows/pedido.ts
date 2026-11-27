@@ -7,6 +7,7 @@
 
 import type { BusinessConfig, CartItem, Service } from "@/core/types";
 import { detallesDe, etiquetaVariante, leerDetalles } from "@/core/engine/detalles";
+import { formatoPrecio } from "@/core/moneda";
 
 /**
  * Formatea un precio según la moneda/locale del negocio. Duplicado a
@@ -15,15 +16,7 @@ import { detallesDe, etiquetaVariante, leerDetalles } from "@/core/engine/detall
  * es quien importa este módulo.
  */
 function formatPrice(config: BusinessConfig, price: number): string {
-  try {
-    return new Intl.NumberFormat(config.locale ?? "es-CO", {
-      style: "currency",
-      currency: config.currency,
-      maximumFractionDigits: 0,
-    }).format(price);
-  } catch {
-    return `${price} ${config.currency}`;
-  }
+  return formatoPrecio(price, config.currency, config.locale);
 }
 
 /**
