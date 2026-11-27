@@ -42,6 +42,7 @@ import {
   pareceDireccion,
   resumenCarrito,
 } from "@/core/engine/flows/pedido";
+import { formatoPrecio } from "@/core/moneda";
 
 export interface RespondResult {
   /** Lead creado o actualizado tras procesar el mensaje. */
@@ -127,15 +128,7 @@ export function createLead(message: IncomingMessage, now: Date): Lead {
 
 /** Formatea un precio según la moneda/locale del negocio. */
 function formatPrice(config: BusinessConfig, price: number): string {
-  try {
-    return new Intl.NumberFormat(config.locale ?? "es-CO", {
-      style: "currency",
-      currency: config.currency,
-      maximumFractionDigits: 0,
-    }).format(price);
-  } catch {
-    return `${price} ${config.currency}`;
-  }
+  return formatoPrecio(price, config.currency, config.locale);
 }
 
 /** Variables generales del lead para las plantillas. */

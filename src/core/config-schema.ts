@@ -196,7 +196,7 @@ const pagosSchema = z.object({
     .array(
       z.object({
         entidad: z.string().trim().min(1).max(40),
-        tipo: z.enum(["ahorros", "corriente", "billetera", "llave"]),
+        tipo: z.enum(["ahorros", "corriente", "billetera", "llave", "pago_movil"]),
         numero: z.string().trim().min(1).max(60),
         titular: z.string().max(80).optional(),
         documento: z.string().max(30).optional(),

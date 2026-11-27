@@ -11,6 +11,7 @@ import { EmptyState, Pill } from "@/components/ui";
 import { RubroTile } from "@/components/rubro-visual";
 import { ArrowRight } from "lucide-react";
 import { textos } from "@/textos";
+import { formatoPrecio } from "@/core/moneda";
 
 /** T-131+: textos de esta pantalla en `src/textos/es.json` (demo.inicio). */
 const tt = textos.demo.inicio;
@@ -101,11 +102,7 @@ export default async function DemoPage() {
                         {s.durationMinutes ? `${s.durationMinutes} min` : "—"}
                       </td>
                       <td className="px-4 py-3 text-ink-mid">
-                        {new Intl.NumberFormat(config.locale ?? "es-CO", {
-                          style: "currency",
-                          currency: config.currency,
-                          maximumFractionDigits: 0,
-                        }).format(s.price)}
+                        {formatoPrecio(s.price, config.currency, config.locale)}
                       </td>
                     </tr>
                   ))}

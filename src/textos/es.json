@@ -81,7 +81,8 @@
         "billetera": "Celular (Nequi, Daviplata)",
         "ahorros": "Cuenta de ahorros",
         "corriente": "Cuenta corriente",
-        "llave": "Llave Bre-B"
+        "llave": "Llave Bre-B",
+        "pago_movil": "Pago Móvil (Venezuela)"
       },
       "datosNegocio": {
         "titulo": "Datos del negocio",

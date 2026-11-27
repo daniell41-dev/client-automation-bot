@@ -28,6 +28,7 @@ import { ActionForm } from "@/components/action-form";
 import { Card, Toggle } from "@/components/ui";
 import { deshacerImportacion, importarProductos } from "@/app/portal/actions";
 import { formato as conDatos, textos } from "@/textos";
+import { formatoPrecio } from "@/core/moneda";
 
 /** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.importar). */
 const tt = textos.portal.importar;
@@ -102,7 +103,7 @@ export function ImportarProductos({
   const [aviso, setAviso] = useState<string>("");
 
   const precio = useMemo(
-    () => new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }),
+    () => ({ format: (valor: number) => formatoPrecio(valor, currency, locale) }),
     [locale, currency],
   );
 

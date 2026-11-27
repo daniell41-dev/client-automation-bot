@@ -19,6 +19,7 @@ import { Card, EmptyState, SearchInput, Toggle } from "@/components/ui";
 import { PhonePreview } from "@/components/phone-preview";
 import { catalogCopy, catalogItemLabel, rubroVisual } from "@/components/rubro-visual";
 import { formato, textos } from "@/textos";
+import { formatoPrecio } from "@/core/moneda";
 
 /** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.catalogo). */
 const tt = textos.portal.catalogo;
@@ -142,11 +143,7 @@ export function CatalogoEditor({
 
   const precio = useMemo(
     () =>
-      new Intl.NumberFormat(locale, {
-        style: "currency",
-        currency,
-        maximumFractionDigits: 0,
-      }),
+      ({ format: (valor: number) => formatoPrecio(valor, currency, locale) }),
     [locale, currency],
   );
 
