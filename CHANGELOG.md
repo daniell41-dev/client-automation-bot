@@ -6,10 +6,12 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 
 ## [Sin publicar]
 
+### Nuevo
+- Rubro base "Servicios" (T-141): para técnicos, asesorías, reparaciones o clases que agendan con cita. Aparece en la lista de tipos de negocio después de correr `pnpm rubros:nuevos --aplicar` contra Supabase.
+
 ## [1.11.0] — 2026-11-27
 
 ### Nuevo
-- Rubro base "Servicios" (T-140): para técnicos, asesorías, reparaciones o clases que agendan con cita. Aparece en la lista de tipos de negocio después de correr `pnpm rubros:nuevos --aplicar` contra Supabase.
 - **El cliente puede pedir hablar con una persona (T-155).** Si escribe "quiero hablar con una persona", "con un asesor", "con la dueña" o "no quiero hablar con un bot", el asistente le responde que en breve le escribe alguien, le avisa a la dueña por WhatsApp con el link para escribirle, y deja de responder **solo en esa conversación** por 12 horas o hasta que la dueña lo reactive. En Conversaciones del portal ya funciona el botón **Tomar chat** (y **Reactivar asistente**), y el pedido aparece primero en "Le toca a usted". Mientras la dueña atiende, no salen seguimientos automáticos. Requiere la migración `0033_atencion_humana.sql`.
 - Mensajes de las acciones en `src/textos/es.json` (T-139): los avisos de éxito y error que muestran el portal, el back office, el login y la contraseña al guardar, y los de las validaciones de formularios. Lo que se ve no cambia.
 - Últimos textos sueltos en `src/textos/es.json` (T-138): los botones y mensajes de WhatsApp de la landing, los encabezados de la tabla de la demo, el error del chat de la demo, los nombres por defecto ("Sin nombre", "Negocio") y los títulos de pestaña de Admin y Portal. Lo que se ve no cambia.

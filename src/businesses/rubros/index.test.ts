@@ -4,7 +4,7 @@ import { parseBusinessConfig } from "@/core/config-schema";
 import { modoDelItem } from "@/core/engine/modo-item";
 
 describe("rubros base (T-40)", () => {
-  it("son los del plan (T-110 suma ropa al por mayor, T-140 servicios)", () => {
+  it("son los del plan (T-110 suma ropa al por mayor, T-141 servicios)", () => {
     expect(RUBROS_BASE.map((r) => r.slug)).toEqual(["estetica", "peluqueria", "masajes", "restaurante", "ropa", "servicios"]);
   });
 

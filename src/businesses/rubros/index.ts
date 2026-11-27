@@ -187,7 +187,7 @@ const ropa: BusinessConfig = {
 };
 
 /**
- * T-140: negocios de servicios que no son belleza ni spa (técnicos,
+ * T-141: negocios de servicios que no son belleza ni spa (técnicos,
  * asesorías, reparaciones a domicilio, clases). Agendan como la peluquería:
  * el cliente elige el servicio y se le da una cita. Sin rubro propio, el
  * admin tenía que partir de "Belleza" y borrarle todo.
