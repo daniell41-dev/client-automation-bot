@@ -14,6 +14,7 @@ import type { ActionState } from "@/components/action-form";
 import { Pill } from "@/components/ui";
 import { decidirPedido, entregarPedido, marcarDevuelto, marcarListo } from "./actions";
 import { textos } from "@/textos";
+import { formatoPrecio } from "@/core/moneda";
 
 /** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.pedidos). */
 const tt = textos.portal.pedidos;
@@ -21,7 +22,7 @@ const tt = textos.portal.pedidos;
 export type SeñalesPorPedido = Record<string, { detalle: string; nivel: string }[]>;
 
 function formatPrecio(valor: number, moneda: string, locale: string): string {
-  return new Intl.NumberFormat(locale, { style: "currency", currency: moneda, maximumFractionDigits: 0 }).format(valor);
+  return formatoPrecio(valor, moneda, locale);
 }
 
 function Resultado({ state }: { state: ActionState }) {

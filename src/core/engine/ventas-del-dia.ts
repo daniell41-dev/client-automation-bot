@@ -15,6 +15,7 @@
 
 import type { BusinessConfig } from "@/core/types";
 import { DEFAULT_TIMEZONE } from "@/core/timezone";
+import { formatoPrecio } from "@/core/moneda";
 
 export const ESTADOS_VENDIDOS = new Set(["aprobado", "listo", "entregado"]);
 const ESTADOS_POR_RESPONDER = new Set(["esperando_pago", "por_verificar"]);
@@ -103,11 +104,7 @@ export function ventasDelDia(pedidos: PedidoVenta[], desde: Date): VentasDelDia 
 }
 
 function formatoMoneda(monto: number, moneda: string): string {
-  try {
-    return new Intl.NumberFormat("es-CO", { style: "currency", currency: moneda, maximumFractionDigits: 0 }).format(monto);
-  } catch {
-    return `${monto} ${moneda}`;
-  }
+  return formatoPrecio(monto, moneda);
 }
 
 /** El mensaje de cierre para la dueña. Corto: se lee en la pantalla de bloqueo. */

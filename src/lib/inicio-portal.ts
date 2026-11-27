@@ -10,6 +10,7 @@
  */
 
 import { formato, textos } from "@/textos";
+import { formatoPrecio } from "@/core/moneda";
 
 /** T-131: textos de "Le toca a usted" y el saludo, en `src/textos/es.json`. */
 const tp = textos.portal.pendientes;
@@ -54,11 +55,7 @@ const DEVOLUCION_PENDIENTE = new Set(["pendiente", "pidiendo_cuenta"]);
 
 export function formatoMonto(valor: number, moneda: string): string {
   try {
-    return new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: moneda,
-      maximumFractionDigits: 0,
-    }).format(valor);
+    return formatoPrecio(valor, moneda);
   } catch {
     // Una moneda que Intl no conoce no debe tumbar la página de inicio.
     return `${moneda} ${Math.round(valor).toLocaleString("es-CO")}`;

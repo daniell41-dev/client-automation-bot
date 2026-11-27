@@ -30,6 +30,8 @@ const TIPO_CUENTA: Record<TipoCuentaPago, string> = {
   corriente: "Cuenta corriente",
   billetera: "Celular",
   llave: "Llave Bre-B",
+  // T-153: Pago Móvil (Venezuela): se paga con banco + celular + cédula.
+  pago_movil: "Pago Móvil",
 };
 
 /** Un bloque por cuenta: entidad, tipo + número y titular, en líneas cortas que se leen bien en WhatsApp. */
