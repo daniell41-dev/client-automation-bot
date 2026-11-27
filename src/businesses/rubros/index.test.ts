@@ -4,15 +4,15 @@ import { parseBusinessConfig } from "@/core/config-schema";
 import { modoDelItem } from "@/core/engine/modo-item";
 
 describe("rubros base (T-40)", () => {
-  it("son los del plan (T-110 suma ropa al por mayor)", () => {
-    expect(RUBROS_BASE.map((r) => r.slug)).toEqual(["estetica", "peluqueria", "masajes", "restaurante", "ropa"]);
+  it("son los del plan (T-110 suma ropa al por mayor, T-140 servicios)", () => {
+    expect(RUBROS_BASE.map((r) => r.slug)).toEqual(["estetica", "peluqueria", "masajes", "restaurante", "ropa", "servicios"]);
   });
 
   it.each(RUBROS_BASE)("$nombre pasa el schema (regla 5 de AGENTS.md)", (rubro) => {
     expect(parseBusinessConfig(JSON.parse(JSON.stringify(rubro.template)))).not.toBeNull();
   });
 
-  it("belleza, peluquería y masajes agendan; el restaurante y la ropa venden", () => {
+  it("belleza, peluquería, masajes y servicios agendan; el restaurante y la ropa venden", () => {
     for (const rubro of RUBROS_BASE) {
       const modos = new Set(rubro.template.services.map((s) => modoDelItem(s, rubro.template.catalogo)));
       expect([...modos]).toEqual([["restaurante", "ropa"].includes(rubro.slug) ? "pedido" : "cita"]);
