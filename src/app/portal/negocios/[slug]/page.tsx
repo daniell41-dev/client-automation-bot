@@ -13,7 +13,8 @@ import { Card, EmptyState, Pill, StatCard } from "@/components/ui";
 import { inicioDelDia, ventasDelDia, type PedidoVenta } from "@/core/engine/ventas-del-dia";
 import { CheckCircle2, Circle } from "lucide-react";
 import { LeTocaAUsted } from "@/components/le-toca-a-usted";
-import { armarPendientes, formatoMonto, type PedidoInicio } from "@/lib/inicio-portal";
+import { armarPendientes, formatoMonto, type AtencionInicio, type PedidoInicio } from "@/lib/inicio-portal";
+import { inicioPausasVigentes } from "@/core/engine/atencion-humana";
 import { formato, textos } from "@/textos";
 
 /** T-131+: textos de esta pantalla en `src/textos/es.json` (portal.inicio). */
@@ -47,7 +48,7 @@ export default async function ResumenPage({
   // "hoy" empezaba a las 7 p. m. del día anterior).
   const hoy = inicioDelDia(new Date(), config?.timezone ?? "America/Bogota");
 
-  const [{ data: leads }, { data: sesiones }, { data: conOrigen }, { data: pedidosPendientes }, { data: pedidosHoy }] = await Promise.all([
+  const [{ data: leads }, { data: sesiones }, { data: conOrigen }, { data: pedidosPendientes }, { data: pedidosHoy }, { data: atenciones }] = await Promise.all([
     supabase.from("leads").select("state, stage").eq("business_slug", slug),
     supabase
       .from("sesiones")
@@ -73,11 +74,19 @@ export default async function ResumenPage({
       .eq("negocio_id", negocio.id)
       .gte("created_at", hoy.toISOString())
       .limit(1000),
+    // T-155: consulta aparte, como la de anuncios: sin la migración 0033 falla solo esta.
+    supabase
+      .from("leads")
+      .select("business_slug, contact, name, atencion_humana_desde")
+      .eq("business_slug", slug)
+      .gte("atencion_humana_desde", inicioPausasVigentes(new Date())),
   ]);
   const ventas = ventasDelDia((pedidosHoy ?? []) as unknown as PedidoVenta[], hoy);
-  const pendientes = armarPendientes((pedidosPendientes ?? []) as unknown as PedidoInicio[], [
-    { id: negocio.id, slug, nombre: config?.name ?? slug },
-  ]);
+  const pendientes = armarPendientes(
+    (pedidosPendientes ?? []) as unknown as PedidoInicio[],
+    [{ id: negocio.id, slug, nombre: config?.name ?? slug }],
+    (atenciones ?? []) as AtencionInicio[],
+  );
   const porAnuncio = contarPorOrigen(((conOrigen ?? []) as { origen: unknown }[]).map((l) => l.origen));
 
   // KPIs

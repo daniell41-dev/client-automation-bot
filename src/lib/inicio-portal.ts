@@ -10,6 +10,7 @@
  */
 
 import { formato, textos } from "@/textos";
+import { enAtencionHumana } from "@/core/engine/atencion-humana";
 import { formatoPrecio } from "@/core/moneda";
 
 /** T-131: textos de "Le toca a usted" y el saludo, en `src/textos/es.json`. */
@@ -39,7 +40,15 @@ export interface NegocioInicio {
   nombre: string;
 }
 
-export type TipoPendiente = "no_cuadra" | "por_aprobar" | "devolucion";
+export type TipoPendiente = "persona" | "no_cuadra" | "por_aprobar" | "devolucion";
+
+/** T-155: un cliente que pidió hablar con una persona (fila de `leads`). */
+export interface AtencionInicio {
+  business_slug: string;
+  contact: string;
+  name?: string | null;
+  atencion_humana_desde: string | null;
+}
 
 export interface Pendiente {
   tipo: TipoPendiente;
@@ -93,6 +102,9 @@ function quien(p: PedidoInicio): string {
 export function armarPendientes(
   pedidos: PedidoInicio[],
   negocios: NegocioInicio[],
+  /** T-155: leads con `atencion_humana_desde`; los vencidos se descartan acá. */
+  atenciones: AtencionInicio[] = [],
+  ahora: Date = new Date(),
 ): Pendiente[] {
   const porId = new Map(negocios.map((n) => [n.id, n]));
   const varios = negocios.length > 1;
@@ -137,7 +149,27 @@ export function armarPendientes(
       return [{ tipo, titulo: titulo(cantidad), detalle: `${detalle}${sufijo(negocio)}`, href: hrefPedidos(negocio), accion }];
     });
 
+  // T-155: primero de todo. Un cliente que pidió una persona está
+  // esperando ahora mismo, y el asistente no le va a contestar.
+  const personas: Pendiente[] = negocios.flatMap((n) => {
+    const activos = atenciones.filter(
+      (a) => a.business_slug === n.slug && enAtencionHumana({ atencionHumanaDesde: a.atencion_humana_desde ?? undefined }, ahora),
+    );
+    if (activos.length === 0) return [];
+    const nombres = activos.map((a) => a.name?.trim() || a.contact).join(", ");
+    return [
+      {
+        tipo: "persona" as const,
+        titulo: activos.length === 1 ? tp.persona.uno : formato(tp.persona.varios, { n: activos.length }),
+        detalle: `${formato(tp.persona.detalle, { clientes: nombres })}${sufijo(n)}`,
+        href: `/portal/negocios/${n.slug}/conversaciones`,
+        accion: tp.persona.accion,
+      },
+    ];
+  });
+
   return [
+    ...personas,
     ...noCuadra,
     ...agrupados(
       aprobar,

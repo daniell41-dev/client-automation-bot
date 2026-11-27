@@ -2,12 +2,14 @@
 
 /**
  * Bandeja de conversaciones: lista de chats + hilo activo estilo WhatsApp.
- * Read-only en esta fase: "Tomar chat" queda deshabilitado (próxima fase).
+ * T-155: "Tomar chat" pausa el asistente solo en esa conversación (la dueña
+ * le escribe al cliente desde su WhatsApp); "Reactivar asistente" lo devuelve.
  * En móvil los paneles se apilan: lista → hilo con botón de volver.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { ArrowLeft } from "lucide-react";
+import { cambiarAtencionHumana } from "./actions";
 import { EmptyState, Pill, SearchInput } from "@/components/ui";
 import { formato, textos } from "@/textos";
 
@@ -16,8 +18,11 @@ const tt = textos.portal.conversaciones;
 
 export interface Chat {
   contact: string;
+  channel?: string;
   updatedAt: string;
   history: { role: "user" | "assistant"; text: string; timestamp?: string }[];
+  /** T-155: la dueña atiende este chat (el asistente no responde). */
+  atencionHumana?: boolean;
 }
 
 function hora(iso: string): string {
@@ -29,13 +34,17 @@ function hora(iso: string): string {
 
 export function ConversacionesInbox({
   chats,
+  slug,
   botName,
   botActivo,
 }: {
   chats: Chat[];
+  slug: string;
   botName: string;
   botActivo: boolean;
 }) {
+  const [pendiente, startTransition] = useTransition();
+  const [errorAtencion, setErrorAtencion] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(
     chats[0]?.contact ?? null,
@@ -105,9 +114,13 @@ export function ConversacionesInbox({
                     <span className="truncate text-sm font-bold text-ink">
                       {c.contact}
                     </span>
-                    <Pill tone={last?.role === "assistant" ? "success" : "info"}>
-                      {last?.role === "assistant" ? tt.asistente : tt.cliente}
-                    </Pill>
+                    {c.atencionHumana ? (
+                      <Pill tone="warn">{tt.pidioUnaPersona}</Pill>
+                    ) : (
+                      <Pill tone={last?.role === "assistant" ? "success" : "info"}>
+                        {last?.role === "assistant" ? tt.asistente : tt.cliente}
+                      </Pill>
+                    )}
                   </span>
                   <span className="block truncate text-[13px] text-ink-soft">
                     {last?.text ?? "—"}
@@ -152,15 +165,26 @@ export function ConversacionesInbox({
                 </span>
                 <span className="block text-xs text-success-ink">{tt.enLinea}</span>
               </span>
-              <Pill tone={botActivo ? "success" : "warn"} dot>
-                {botActivo ? tt.asistenteRespondiendo : tt.asistenteEnPausa}
+              <Pill tone={botActivo && !chat.atencionHumana ? "success" : "warn"} dot>
+                {chat.atencionHumana ? tt.ustedAtiende : botActivo ? tt.asistenteRespondiendo : tt.asistenteEnPausa}
               </Pill>
               <button
                 type="button"
-                disabled
-                title={tt.proximamente}
-                className="hidden rounded-[10px] border border-line-input px-3 py-1.5 text-sm font-semibold text-ink-mid opacity-60 sm:block"
-              >{tt.tomarChat}</button>
+                disabled={pendiente}
+                title={chat.atencionHumana ? undefined : tt.tomarChatAyuda}
+                onClick={() => {
+                  setErrorAtencion(null);
+                  startTransition(async () => {
+                    const r = await cambiarAtencionHumana(slug, chat.contact, !chat.atencionHumana);
+                    if ("error" in r) setErrorAtencion(r.error);
+                  });
+                }}
+                className={`rounded-[10px] px-3 py-1.5 text-sm font-semibold disabled:opacity-60 ${
+                  chat.atencionHumana
+                    ? "bg-primary text-white hover:bg-primary-hover"
+                    : "border border-line-input text-ink hover:bg-surface-3"
+                }`}
+              >{chat.atencionHumana ? tt.reactivarAsistente : tt.tomarChat}</button>
             </div>
 
             {/* Cuerpo estilo WhatsApp */}
@@ -189,19 +213,38 @@ export function ConversacionesInbox({
               ))}
             </div>
 
-            {/* Input (deshabilitado: el bot responde) */}
-            <div className="flex items-center gap-2 border-t border-line bg-surface-2 px-3 py-2.5">
-              <input
-                disabled
-                placeholder={formato(tt.estaRespondiendo, { asistente: botName })}
-                className="input-nexo flex-1 bg-white px-3.5 py-2 text-sm opacity-70"
-              />
-              <button
-                type="button"
-                disabled
-                className="rounded-[10px] bg-primary px-4 py-2 text-sm font-bold text-white opacity-50"
-              >{tt.enviar}</button>
-            </div>
+            {errorAtencion && (
+              <p role="alert" className="border-t border-line bg-red-50 px-4 py-2 text-sm text-red-700">{errorAtencion}</p>
+            )}
+
+            {/* T-155: con el chat tomado, la dueña le escribe desde su WhatsApp
+                (el portal todavía no manda mensajes). En Instagram, desde su bandeja. */}
+            {chat.atencionHumana ? (
+              <div className="flex flex-wrap items-center gap-2 border-t border-line bg-surface-2 px-3 py-2.5">
+                <p className="min-w-0 flex-1 text-sm text-ink-mid">{tt.ustedLeEscribe}</p>
+                {chat.channel !== "instagram" && (
+                  <a
+                    href={`https://wa.me/${chat.contact.replace(/\D/g, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-[10px] bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary-hover"
+                  >{tt.escribirleWhatsapp}</a>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 border-t border-line bg-surface-2 px-3 py-2.5">
+                <input
+                  disabled
+                  placeholder={formato(tt.estaRespondiendo, { asistente: botName })}
+                  className="input-nexo flex-1 bg-white px-3.5 py-2 text-sm opacity-70"
+                />
+                <button
+                  type="button"
+                  disabled
+                  className="rounded-[10px] bg-primary px-4 py-2 text-sm font-bold text-white opacity-50"
+                >{tt.enviar}</button>
+              </div>
+            )}
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center text-sm text-ink-soft">{tt.elijaUnChatPara}</div>

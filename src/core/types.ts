@@ -686,6 +686,12 @@ export interface Lead {
    * igual.
    */
   noContactar?: boolean;
+  /**
+   * T-155: cuándo pidió hablar con una persona. Mientras no pasen
+   * `HORAS_ATENCION_HUMANA`, el asistente no le responde (le escribe la
+   * dueña). La dueña lo reactiva antes desde Conversaciones.
+   */
+  atencionHumanaDesde?: string;
   notes?: string;
   /**
    * T-120: el primer anuncio/publicación por el que llegó. No lo borra el

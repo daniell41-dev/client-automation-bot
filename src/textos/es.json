@@ -301,8 +301,16 @@
       "enLinea": "en línea",
       "asistenteRespondiendo": "Asistente respondiendo",
       "asistenteEnPausa": "Asistente en pausa",
-      "proximamente": "Próximamente",
       "tomarChat": "Tomar chat",
+      "tomarChatAyuda": "El asistente deja de responder en este chat por 12 horas, o hasta que lo reactive. Usted le escribe al cliente desde su WhatsApp.",
+      "reactivarAsistente": "Reactivar asistente",
+      "ustedAtiende": "Usted atiende este chat",
+      "pidioUnaPersona": "Persona",
+      "escribirleWhatsapp": "Escribirle por WhatsApp",
+      "ustedLeEscribe": "El asistente está en pausa en este chat: escríbale al cliente desde su WhatsApp.",
+      "noAutorizado": "No autorizado.",
+      "noSePudoCambiar": "No se pudo cambiar. Intente de nuevo.",
+      "chatNoEncontrado": "No encontramos a este cliente.",
       "hoy": "HOY",
       "enviar": "Enviar",
       "elijaUnChatPara": "Elija un chat para ver la conversación.",
@@ -374,6 +382,12 @@
         "varios": "{n} pedidos esperan su aprobación",
         "detalle": "Aurela revisó el comprobante y todo cuadra",
         "accion": "Ver pedidos"
+      },
+      "persona": {
+        "uno": "Un cliente quiere hablar con una persona",
+        "varios": "{n} clientes quieren hablar con una persona",
+        "detalle": "{clientes} · el asistente no responde hasta que usted lo reactive",
+        "accion": "Ver chat"
       },
       "devoluciones": {
         "uno": "1 devolución pendiente",

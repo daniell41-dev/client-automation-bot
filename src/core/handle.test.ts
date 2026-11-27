@@ -3182,3 +3182,38 @@ describe("handleIncoming — catálogo en PDF (T-121)", () => {
     expect(pedido.messages.at(-1)?.documento?.url).toBe(URL_PDF);
   });
 });
+
+describe("T-155: el cliente pide hablar con una persona", () => {
+  it("le avisa a la dueña con el link, le responde al cliente y deja de contestar en esa conversación", async () => {
+    const repo = new InMemoryRepo();
+    const notifier = fakeNotifier();
+    const sessionRepo = new SessionMemoryRepository();
+    const ahora = new Date("2026-11-27T15:00:00.000Z");
+
+    const r = await handleIncoming(msg("quiero hablar con una persona"), tiendaConNotify, repo, ahora, undefined, sessionRepo, undefined, notifier);
+    expect(r.messages[0].text).toContain("En breve le escribe una persona");
+    expect(notifier.sent).toHaveLength(1);
+    expect(notifier.sent[0].to).toBe(tiendaConNotify.notifyPhoneNumber);
+    expect(notifier.sent[0].text).toContain("wa.me/57300000000");
+    expect(repo.leads[0].atencionHumanaDesde).toBe(ahora.toISOString());
+
+    // Una hora después el cliente escribe: silencio, pero el mensaje queda en el historial.
+    const despues = await handleIncoming(msg("hola? sigo esperando"), tiendaConNotify, repo, new Date("2026-11-27T16:00:00.000Z"), undefined, sessionRepo, undefined, notifier);
+    expect(despues.messages).toEqual([]);
+    const sesion = await sessionRepo.getOrCreate("estetica-bella", "57300000000", "mock");
+    expect(sesion.history.at(-1)?.text).toBe("hola? sigo esperando");
+    expect(notifier.sent).toHaveLength(1); // a la dueña no se le repite el aviso
+
+    // Pasadas las 12 horas, el asistente vuelve a atender.
+    const otroDia = await handleIncoming(msg("harina"), tiendaConNotify, repo, new Date("2026-11-28T04:00:00.000Z"), undefined, sessionRepo, undefined, notifier);
+    expect(otroDia.messages.length).toBeGreaterThan(0);
+  });
+
+  it("sin número de Notificaciones no se calla: no habría nadie que le escriba", async () => {
+    const repo = new InMemoryRepo();
+    const sinAviso: BusinessConfig = { ...tiendaConNotify, notifyPhoneNumber: undefined };
+    const r = await handleIncoming(msg("quiero hablar con una persona"), sinAviso, repo, new Date(), undefined, undefined, undefined, fakeNotifier());
+    expect(r.messages[0].text).not.toContain("En breve le escribe una persona");
+    expect(repo.leads[0]?.atencionHumanaDesde).toBeUndefined();
+  });
+});
