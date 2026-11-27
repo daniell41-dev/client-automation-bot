@@ -17,6 +17,10 @@ números: [versionado semántico](https://semver.org/lang/es/) (ver
 - Textos del Catálogo en `src/textos/es.json` (T-132): el editor del Catálogo, Importar productos y las etiquetas que cambian según el rubro (Menú/Servicios/Catálogo). Lo que se ve no cambia.
 - Textos del portal en `src/textos/es.json` (T-131): Inicio, Mis negocios, Conversaciones, Respuestas, "Le toca a usted" y los títulos de las pestañas. Lo que se ve no cambia.
 
+### Mejorado
+- **Lista corta de productos en WhatsApp (T-152).** Cuando el asistente ofrece varias opciones, el sistema arma una lista numerada, una línea por producto ("1. B1167 · Skinny 2 pinzas moldeador azul claro · $ 129.900"), en vez del párrafo largo que escribía la IA. El precio sale del catálogo y el nombre se acorta quitando lo que se repite en casi todos los productos ("dama jean stretch tiro alto… tono"), sin perder lo que distingue a cada uno ("tiro medio", "jean rígido"). Hasta 8 opciones.
+- **Lo que no está en el catálogo (T-152).** Si el cliente pide algo que no hay (en la prueba, "chaquetas"), el asistente ya no le ofrece un producto que no pidió: le muestra las categorías que maneja el negocio.
+
 ## [1.10.0] — 2026-11-26
 
 ### Nuevo

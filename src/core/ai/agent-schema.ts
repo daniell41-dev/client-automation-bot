@@ -60,6 +60,13 @@ const agentActionSchema = z.discriminatedUnion("tipo", [
     nota: z.string().min(1),
     variante: z.string().min(1).optional(),
   }),
+  /**
+   * T-152: la IA ofrece varios productos. No los escribe ella: declara los
+   * ids y el código arma la lista (número, referencia, nombre corto y precio
+   * del catálogo) debajo de su texto. `agent.ts` descarta los ids que no
+   * existen.
+   */
+  z.object({ tipo: z.literal("mostrar_productos"), servicioIds: z.array(z.string().min(1)).min(1) }),
   /** Ya hay nombre + servicio + fecha (+ modalidad si aplica), o nombre + carrito con algo: confirmar la cita/pedido. */
   z.object({ tipo: z.literal("confirmar") }),
   /** El mensaje no tiene nada que ver con el negocio (charla ajena al contexto de venta). */
