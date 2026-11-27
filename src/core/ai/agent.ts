@@ -47,6 +47,7 @@ import { describirOrigen, registrarOrigen } from "@/core/engine/origen";
 import { prometeCierre } from "@/core/ai/promete-cierre";
 import { quitarTratamientoAdivinado } from "@/core/ai/trato";
 import { buscarProductos, recortarDescripcion, UMBRAL_CATALOGO_GRANDE } from "@/core/catalogo/buscar";
+import { categoriasNombradas, lineaCategorias, listaDeProductos, MAX_EN_LISTA } from "@/core/catalogo/lista";
 import {
   detallesDe,
   leerDetalles,
@@ -544,6 +545,8 @@ export async function runAgentTurn(
         break;
       case "anotar_cambio":
         break; // T-105: se aplica después, cuando el carrito ya tiene todo lo de este turno
+      case "mostrar_productos":
+        break; // T-152: solo cambia el texto; se arma al final, con la respuesta ya decidida
       case "reiniciar":
         break; // ya se aplicó arriba, antes del resto de las acciones
       case "confirmar":
@@ -762,6 +765,34 @@ export async function runAgentTurn(
       opciones = PEDIDO_CONFIRM_OPTIONS;
     } else {
       respuestaFinal = preguntaQueFaltaPedido(lead, config);
+    }
+  }
+
+  // T-152: si el texto que sale es el de la IA (ningún reemplazo de arriba),
+  // las opciones que ofreció van como lista armada por el código. Si el
+  // cliente pidió algo que no hay ("chaquetas"), en vez de una lista de
+  // productos que no pidió van las categorías, salvo que la IA ya las haya
+  // nombrado.
+  if (respuestaFinal === aiResult.respuesta) {
+    const parcial = input.catalogoParcial;
+    if (parcial?.sinResultados) {
+      const linea = lineaCategorias(parcial.categorias);
+      if (linea && categoriasNombradas(respuestaFinal, parcial.categorias) < 2) {
+        respuestaFinal = `${respuestaFinal}\n\n${linea}`;
+      }
+    } else {
+      const disponibles = availableServices(config.services);
+      const ids = [
+        ...new Set(acciones.flatMap((a) => (a.tipo === "mostrar_productos" ? a.servicioIds : []))),
+      ];
+      const ofrecidos = ids
+        .map((id) => disponibles.find((s) => s.id === id))
+        .filter((s): s is Service => Boolean(s))
+        .slice(0, MAX_EN_LISTA);
+      // Con uno solo no hace falta lista: la IA ya lo nombró en su texto.
+      if (ofrecidos.length >= 2) {
+        respuestaFinal = `${respuestaFinal}\n\n${listaDeProductos(ofrecidos, config)}`;
+      }
     }
   }
 
